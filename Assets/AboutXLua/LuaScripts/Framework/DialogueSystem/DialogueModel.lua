@@ -1,8 +1,9 @@
--- 模块类，无需桥接
+--- 模块类，无需桥接
 local DialogueModel = {}
 local stringUtil = require("StringUtil")
 
--- 初始化对话数据
+---@function 初始化对话数据
+---@param data table
 function DialogueModel:Init(data)
     self.currentID = "0"       -- 当前对话ID
     self.dialogueData = data   -- 整段对话配置数据
@@ -19,24 +20,24 @@ function DialogueModel:Init(data)
     self.visitedIDs = {}
 end
 
--- 获取当前对话数据
+---@function 获取当前对话数据
 function DialogueModel:GetCurrentDialogue()
     return self.dialogueCache[self.currentID]
 end
 
--- 检查是否为条件判断类型
+---@function 检查是否为条件判断类型
 function DialogueModel:IsConditionType()
     local current = self:GetCurrentDialogue()
     return current and current.Sign == "$"
 end
 
--- 检查是否为普通语句类型
+---@function 检查是否为普通语句类型
 function DialogueModel:IsNormalType()
     local current = self:GetCurrentDialogue()
     return current and current.Sign == "#"
 end
 
--- 获取即时执行函数（>前缀）
+---@function 获取即时执行函数（>前缀）
 function DialogueModel:GetImmediateFunc()
     local current = self:GetCurrentDialogue()
     if not current then return {}, {} end
@@ -71,7 +72,7 @@ function DialogueModel:GetImmediateFunc()
     return funcList, paramList
 end
 
--- 获取交互执行函数（<前缀）
+---@function 获取交互执行函数（<前缀）
 function DialogueModel:GetInteractiveFunc()
     local current = self:GetCurrentDialogue()
     if not current then return {}, {} end
@@ -106,7 +107,8 @@ function DialogueModel:GetInteractiveFunc()
     return funcList, paramList
 end
 
--- 更新当前ID（处理END和选项ID列表）
+---@function 更新当前ID（处理END和选项ID列表）
+---@param nextID string
 function DialogueModel:UpdateCurrentID(nextID)
     self.optionIDs = nil  -- 重置选项ID
     if nextID == "END" then
@@ -130,7 +132,7 @@ function DialogueModel:UpdateCurrentID(nextID)
     end
 end
 
--- 获取选项对应的对话数据列表
+---@function 获取选项对应的对话数据列表
 function DialogueModel:GetOptions()
     if not self.optionIDs then return {} end
     local options = {}
@@ -145,7 +147,7 @@ function DialogueModel:GetOptions()
     return options
 end
 
--- 清理对话数据
+---@function 清理对话数据
 function DialogueModel:Cleanup()
     self.currentID = nil
     self.dialogueData = nil

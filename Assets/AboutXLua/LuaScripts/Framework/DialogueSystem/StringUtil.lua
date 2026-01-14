@@ -1,7 +1,8 @@
--- 辅助工具类
+--- 辅助工具类
 local StringUtil = {}
 
--- 通用分号分隔字符串解析（去除空格）
+---@function ;分隔字符串解析（去除空格）
+---@param str string
 function StringUtil.SplitSemicolon(str)
     if not str or str == "" then return {} end
 
@@ -12,7 +13,8 @@ function StringUtil.SplitSemicolon(str)
     return result
 end
 
--- &分隔字符串解析
+---@function &分隔字符串解析（去除空格）
+---@param str string
 function StringUtil.SplitAmpersand(str)
     if not str or str == "" then return {} end
 

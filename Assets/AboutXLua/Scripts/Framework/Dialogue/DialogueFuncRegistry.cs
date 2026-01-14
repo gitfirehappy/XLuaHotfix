@@ -6,12 +6,13 @@ using System.Reflection;
 using UnityEngine;
 using XLua;
 
+// TODO: 改为C#独有，Lua用其他的方式实现
 public static class DialogueFuncRegistry
 {
-    private static Dictionary<string, MethodInfo> _funcMap = new Dictionary<string, MethodInfo>();
+    private static Dictionary<string, MethodInfo> _funcMap = new();
 
     /// <summary>
-    /// 只扫描实现了IDialogueFuncProvider接口的类
+    /// 扫描实现了IDialogueFuncProvider接口的类
     /// </summary>
     public static void ScanAndRegister()
     {
@@ -61,6 +62,9 @@ public static class DialogueFuncRegistry
         return method;
     }
 
+    /// <summary>
+    /// Lua端调用对话函数
+    /// </summary>
     [LuaCallCSharp]
     public static object InvokeFunction(string funcName, params object[] parameters)
     {
@@ -74,7 +78,6 @@ public static class DialogueFuncRegistry
 
         try
         {
-            // TODO:处理XLua参数转换
             return method.Invoke(null, parameters);
         }
         catch (Exception e)

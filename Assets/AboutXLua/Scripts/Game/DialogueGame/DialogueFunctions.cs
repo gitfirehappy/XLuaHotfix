@@ -38,6 +38,7 @@ public class DialogueFunctions : IDialogueFuncProvider
         Debug.Log($"播放音效: {soundName}");
     }
     
+    // TODO: C# 和 Lua 函数部分分离后此处删除，不会再出现循环调用
     [DialogueFunc("StartDialogue")]
     public static void StartDialogue(string fileName)
     {

@@ -20,7 +20,7 @@ public class DialoguePanel : UIFormBase
     [SerializeField] private List<CharacterImageSources> characterImages;
     [SerializeField] private List<PosCanChoose> characterPos;
     
-    private List<GameObject> currentOptions = new List<GameObject>();
+    private List<GameObject> currentOptions = new();
     
     ///<summary>名字 -> 当前状态 </summary>
     private Dictionary<string, CharacterRuntimeState> activeCharacters = new();
@@ -32,7 +32,7 @@ public class DialoguePanel : UIFormBase
     /// 创建并显示选项
     /// </summary>
     [LuaCallCSharp]
-    public void CreateOptions(List<string> optionTexts, System.Action<int> onOptionSelected)
+    public void CreateOptions(List<string> optionTexts, Action<int> onOptionSelected)
     {
         ClearOptions();
         
@@ -100,6 +100,7 @@ public class DialoguePanel : UIFormBase
     
     /// <summary>
     /// 解析操作字符串，支持'&'分隔的多个操作
+    /// TODO： C#独有
     /// </summary>
     private List<string> ParseOperations(string operationString)
     {
@@ -321,7 +322,7 @@ public class DialoguePanel : UIFormBase
         return image;
     }
     
-    #endregion
+    #endregion 
 
     #region 复合结构
     
@@ -368,5 +369,4 @@ public class DialoguePanel : UIFormBase
         activeCharacters.Clear();
         positionOccupancy.Clear();
     }
-    
 }

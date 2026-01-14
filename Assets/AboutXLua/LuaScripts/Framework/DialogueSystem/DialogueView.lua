@@ -1,8 +1,8 @@
--- 模块类，需要桥接
+--- 模块类，需要桥接
 local DialogueView = {}
 local stringUtil = require("StringUtil")
 
--- UI组件引用
+--- UI组件引用
 local uiRefs = {
     panel = nil,
     optionsParent = nil,
@@ -14,6 +14,7 @@ local function getController()
     return require("DialogueController")
 end
 
+---@function 初始化UI组件引用
 local function InitUI()
     if uiRefs.panel then return end
     uiRefs.panel = CS.UIManager.Instance:GetForm("DialoguePanel")
@@ -26,18 +27,20 @@ local function InitUI()
     DialogueView.HideOptions()
 end
 
+---@function 响应点击
+---@param eventData table
 function DialogueView:OnPointerClick(eventData)
     CS.UnityEngine.Debug.Log("对话面板被点击，触发Next")
     getController().Next()
 end
 
--- 显示对话面板
+---@function 显示对话面板
 function DialogueView.ShowDialogue()
     InitUI()
     CS.UIManager.Instance:ShowUIForm("DialoguePanel")
 end
 
--- 隐藏对话面板
+---@function 隐藏对话面板
 function DialogueView.HideDialogue()
     if uiRefs.panel then
         CS.UIManager.Instance:HideUIForm("DialoguePanel")
@@ -48,7 +51,7 @@ function DialogueView.HideDialogue()
     end
 end
 
--- 更新对话
+---@function 更新对话
 function DialogueView.UpdateDialogue(dialogueData)
     if not uiRefs.panel then return end
     
@@ -72,7 +75,9 @@ function DialogueView.UpdateDialogue(dialogueData)
     CS.UnityEngine.Debug.Log("已更新角色位置和操作")
 end
 
--- 显示选项
+---@function 显示选项
+---@param options table
+---@param callback function
 function DialogueView.ShowOptions(options, callback)
     if not uiRefs.panel then return end
 
@@ -87,7 +92,7 @@ function DialogueView.ShowOptions(options, callback)
    uiRefs.panel:CreateOptions(optionTexts, callback)
 end
 
--- 隐藏选项
+---@function 隐藏选项
 function DialogueView.HideOptions()
     if uiRefs.optionsParent then
         -- 清空并隐藏现有选项

@@ -15,40 +15,8 @@ public class CatalogUpdater
     private bool _transformInstalled = false;
 
     /// <summary>
-    /// InternalId 路径重定向，让 Addressables 自动使用本地下载的 bundle
+    /// 加载 HotfixRoot下的外部 Catalog
     /// </summary>
-    private void InstallInternalIdRedirect()
-    {
-        if (_transformInstalled) return;
-
-        Addressables.ResourceManager.InternalIdTransformFunc = (location) =>
-        {
-            string id = location.InternalId;
-
-            // 如果 internalId 是 HTTP(S)，说明来自 remote catalog
-            if (id.StartsWith("http"))
-            {
-                string fileName = Path.GetFileName(id);
-                string localPath = Path.Combine(PathManager.TempBundleRoot, fileName);
-
-                // 如果本地已有下载的包，则强制使用本地路径
-                if (File.Exists(localPath))
-                {
-                    return localPath;
-                }
-            }
-
-            return id;
-        };
-
-        _transformInstalled = true;
-        Debug.Log("[CatalogUpdater] 已安装 InternalId 路径重定向函数");
-    }
-
-    /// <summary>
-    /// 加载 HotfixRoot 下的外部 Catalog（合并到 Addressables）
-    /// </summary>
-    /// <returns>是否成功</returns>
     public async Task<bool> LoadExternalCatalog(string catalogFullPath)
     {
         if (!File.Exists(catalogFullPath))
@@ -78,7 +46,38 @@ public class CatalogUpdater
 
         // 注意：不能 Addressables.Release(handle)
         // 否则 catalog 会被卸载，热更失效
-
         return true;
+    }
+    
+    /// <summary>
+    /// InternalId 路径重定向，热更后的资源
+    /// </summary>
+    private void InstallInternalIdRedirect()
+    {
+        if (_transformInstalled) return;
+
+        Addressables.ResourceManager.InternalIdTransformFunc = (location) =>
+        {
+            string id = location.InternalId;
+
+            // 如果 internalId 是 HTTP(S)，说明来自 remote catalog
+            if (id.StartsWith("http"))
+            {
+                string fileName = Path.GetFileName(id);
+                // TODO: 此时的临时路径下已经没有文件了，已被PackageCleaner删除，需要调整逻辑
+                string localPath = Path.Combine(PathManager.TempBundleRoot, fileName);
+
+                // 如果本地已有下载的包，则强制使用本地路径
+                if (File.Exists(localPath))
+                {
+                    return localPath;
+                }
+            }
+
+            return id;
+        };
+
+        _transformInstalled = true;
+        Debug.Log("[CatalogUpdater] 已安装 InternalId 路径重定向函数");
     }
 }

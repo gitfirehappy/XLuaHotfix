@@ -1,9 +1,10 @@
--- 模块类，无需桥接
+--- 模块类，无需桥接
 local DialogueDataManager = {}
 local loadedDialogues = {} -- 缓存已加载的对话
 
--- TODO: 目前为基础单个文件加载，可增加批量加载和格式转换
--- 加载对话数据
+--- TODO: 目前为基础单个文件加载，可增加批量加载和格式转换
+---@function 加载对话数据
+---@param fileName string
 function DialogueDataManager.LoadDialogueData(fileName)
     if  loadedDialogues[fileName] then
         return loadedDialogues[fileName]
@@ -21,7 +22,8 @@ function DialogueDataManager.LoadDialogueData(fileName)
     end
 end
 
--- 卸载对话文件
+---@function 卸载对话文件
+---@param fileName string
 function DialogueDataManager.UnloadDialogue(fileName)
     if loadedDialogues[fileName] then
         loadedDialogues[fileName] = nil

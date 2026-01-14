@@ -1,12 +1,14 @@
--- 模块类，无需桥接
+--- 模块类，无需桥接
 local DialogueController = {}
 
 local view = require("DialogueView")
 local model = require("DialogueModel")
 local dataManager = require("DialogueDataManager")
+local dialogueFuncRegistry = require("DialogueFuncRegistry")
 local currentDialogueFile = nil
 
--- 开始对话
+---@function 开始对话
+---@param fileName string 文件名（lua模块名）
 function DialogueController.Start(fileName)
     CS.UnityEngine.Debug.Log("Start dialogue: " .. fileName)
     currentDialogueFile = fileName
@@ -25,7 +27,7 @@ function DialogueController.Start(fileName)
     CS.UnityEngine.Debug.Log("DialogueSystem has Init")
 end
 
--- 刷新对话（核心流程）
+---@function 刷新对话（核心流程）
 function DialogueController.Refresh()
     if model.isEnd then
         DialogueController.End()
@@ -77,7 +79,8 @@ function DialogueController.Refresh()
     end
 end
 
--- 下一条对话（平台对话点击面板回调，选项和条件判断跳转调用）
+---@function 下一条对话（平台对话点击面板回调，选项和条件判断跳转调用）
+---@param nextID string 下一条ID
 function DialogueController.Next(nextID)
     local currentDialogue = model:GetCurrentDialogue()
     if not currentDialogue then return end
@@ -100,7 +103,8 @@ function DialogueController.Next(nextID)
     CS.UnityEngine.Debug.Log("Next dialogue: " .. targetNextID)
 end
 
--- 选项选中回调，在view层绑定至按钮
+---@function 选项选中回调，在view层绑定至按钮
+---@param optionIndex number 选项索引
 function DialogueController.OnOptionSelect(optionIndex)
     local options = model:GetOptions()
     if optionIndex and options[optionIndex] then -- 默认从1开始，可根据需求调整
@@ -110,17 +114,16 @@ function DialogueController.OnOptionSelect(optionIndex)
     end
 end
 
--- 执行注册的函数
+---@function 执行注册的函数
+---@param funcName string 函数名
+---@param params table 参数
 function DialogueController.Execute(funcName, params)
     CS.UnityEngine.Debug.Log("Execute function: " .. funcName)
-    if params and #params > 0 then
-        return CS.DialogueFuncRegistry.InvokeFunction(funcName, table.unpack(params))
-    else
-        return CS.DialogueFuncRegistry.InvokeFunction(funcName)
-    end
+    -- 调用注册的函数
+    return dialogueFuncRegistry.InvokeFunction(funcName, params)
 end
 
--- 结束对话
+---@function 结束对话
 function DialogueController.End()
     CS.UnityEngine.Debug.Log("End dialogue: " .. (currentDialogueFile or ""))
     view.HideOptions()

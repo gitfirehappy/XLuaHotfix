@@ -9,6 +9,9 @@ using UnityEngine.AddressableAssets;
 using UnityEngine.AddressableAssets.ResourceLocators;
 using UnityEngine.ResourceManagement.AsyncOperations;
 
+/// <summary>
+/// 热更管理器，控制总流程
+/// </summary>
 public static class HotfixManager
 {
     private static readonly string _hotfixUrl = Constants.HOTFIX_URL;
@@ -73,7 +76,8 @@ public static class HotfixManager
         
         if (File.Exists(localVersionStatePath))
         {
-            localVersionState = ParseJson(File.ReadAllText(localVersionStatePath));
+            ParseJson<VersionState>(File.ReadAllText(localVersionStatePath),out var localstate);
+            localVersionState = localstate;
             Debug.Log($"[HotfixManager] 本地版本: {localVersionState?.version}, Hash: {localVersionState?.hash}");
         }
         
@@ -88,7 +92,7 @@ public static class HotfixManager
             return;
         }
         
-        VersionState remoteVersionState = ParseJson(remoteVersionJson);
+        ParseJson<VersionState>(remoteVersionJson,out var remoteVersionState);
         Debug.Log($"[HotfixManager] 远端版本: {remoteVersionState?.version}");
         
         // 如果是大版本更新，则强制清理所有热更目录
@@ -149,31 +153,33 @@ public static class HotfixManager
         CatalogUpdater catalogUpdater = new CatalogUpdater();
         bool catalogLoaded = await catalogUpdater.LoadExternalCatalog(localCatalogPath);
 
-        if (catalogLoaded)
-        {
-            Debug.Log("[HotfixManager] 热更流程成功完成！");
-        }
+        if (catalogLoaded) Debug.Log("[HotfixManager] 热更流程成功完成！");
         
         await FinishHotfix();
     }
-    
-    public static async Task FinishHotfix()
+
+    private static async Task FinishHotfix()
     {
         // 加载 AddressableLabelsConfig（依赖更新后的HelperBuildData）
         await AAPackageManager.Instance.Initialize();
     }
     
-    public static VersionState ParseJson(string json)
+    /// <summary>
+    /// 将Json 解析为需要对象
+    /// </summary>
+    private static bool ParseJson<T>(string json, out T result)
     {
-        if (string.IsNullOrEmpty(json)) return null;
+        result = default;
+        if (string.IsNullOrEmpty(json)) return false;
         try
         {
-            return JsonUtility.FromJson<VersionState>(json);
+            result = JsonUtility.FromJson<T>(json);
+            return true;
         }
         catch (Exception e)
         {
             Debug.LogError($"[HotfixManager] JSON 解析失败: {e.Message}");
-            return null;
+            return false;
         }
     }
 }
