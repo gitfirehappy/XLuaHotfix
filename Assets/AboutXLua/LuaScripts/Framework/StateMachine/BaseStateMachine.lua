@@ -1,7 +1,9 @@
 -- 模块类，无需桥接
+--- 状态机基类
 local BaseStateMachine = {}
 BaseStateMachine.__index = BaseStateMachine
 
+---@function 创建状态机
 function BaseStateMachine.Create(initialState)
     local obj = {}
     setmetatable(obj, BaseStateMachine)
@@ -20,7 +22,7 @@ function BaseStateMachine.Create(initialState)
     return obj
 end 
 
--- 添加状态
+---@function 添加状态
 function BaseStateMachine:AddState(stateName, stateInstance)
     if not stateName or not stateInstance then return end
     self.states[stateName] = stateInstance
@@ -32,7 +34,7 @@ function BaseStateMachine:AddState(stateName, stateInstance)
     end
 end 
 
--- 切换状态
+---@function 切换状态
 function BaseStateMachine:ChangeState(newStateName, params)
     local newState = self.states[newStateName]
     
@@ -66,14 +68,14 @@ function BaseStateMachine:ChangeState(newStateName, params)
     end
 end
 
--- 返回之前状态
+---@function 返回之前状态
 function BaseStateMachine:ReturnToPreviousState()
     if self.prevState then
         self:ChangeState(self.prevState.Name)
     end
 end
 
--- 更新当前状态
+---@function 更新当前状态
 function BaseStateMachine:ProcessUpdate()
     if self.currentState then
         -- 先更新当前状态的子状态机
@@ -88,7 +90,7 @@ function BaseStateMachine:ProcessUpdate()
     end
 end
 
--- 固定更新
+---@function 固定更新
 function BaseStateMachine:ProcessFixedUpdate()
     if self.currentState then
         -- 先更新当前状态的子状态机
@@ -103,17 +105,17 @@ function BaseStateMachine:ProcessFixedUpdate()
     end
 end
 
--- 获取当前状态名
+---@function 获取当前状态名
 function BaseStateMachine:GetCurrentStateName()
     return self.currentState and self.currentState.Name or "None"
 end
 
--- 检查是否在某个状态
+---@function 检查是否在某个状态
 function BaseStateMachine:IsInState(stateName)
     return self.currentState and self.currentState.Name == stateName
 end
 
--- 清理
+---@function 清理
 function BaseStateMachine:Cleanup()
     -- 退出当前状态（不带任何新状态）
     self:ChangeState(nil)

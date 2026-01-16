@@ -8,8 +8,8 @@ public class VersionState
 {
     public VersionNumber version;  // 版本号,可用于UI显示 
     public string hash;     // 唯一比对标识
-    public long totalSize;  // 所有bundle的总大小
-    public List<BundleInfo> bundles = new(); // 所有需要的bundle列表
+    public long totalSize;  // 更新bundle的总大小
+    public List<BundleInfo> bundles = new(); // 导出的的bundle列表
     public List<string> deleteList = new(); // 热更比对后需要删除的原始bundle的前缀用于匹配（不包含后续hash）
 }
 

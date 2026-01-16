@@ -145,13 +145,11 @@ public static class HotfixManager
         // 8. 拿version_state中的删除名单比对，删除并更新文件
         PackageCleaner.ApplyUpdate(remoteVersionState.deleteList, PathManager.TempRoot, PathManager.LocalRoot);
         
-        // 9. 加载新的 catalog
-        // TODO: 如果是大版本更新，此时LocalRoot中没有catalog.json，需要调整
+        // 9. 加载新的 catalog，此时LocalRoot中的catalog.json已经是最新
         Debug.Log("[HotfixManager] 加载新的远端 Catalog...");
         string localCatalogPath = Path.Combine(PathManager.LocalRoot, "catalog.json");
         
-        CatalogUpdater catalogUpdater = new CatalogUpdater();
-        bool catalogLoaded = await catalogUpdater.LoadExternalCatalog(localCatalogPath);
+        bool catalogLoaded = await CatalogUpdater.LoadExternalCatalog(localCatalogPath);
 
         if (catalogLoaded) Debug.Log("[HotfixManager] 热更流程成功完成！");
         

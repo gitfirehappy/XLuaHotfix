@@ -22,17 +22,25 @@ public static class PackageCleaner
                 {
 
                     string[] matchFiles = Directory.GetFiles(localBundleRoot, $"{prefix}*.bundle");
-
-                    foreach (string filePath in matchFiles)
+                    if (matchFiles.Length == 0)
                     {
-                        try
+                        // 如果是第一次热更，原始资源位于 StreamingAssets 直接跳过
+                        Debug.Log($"[PackageCleaner] 待删除文件在缓存中未找到 (可能是整包资源): {prefix}");
+                    }
+                    else
+                    {
+                        foreach (string filePath in matchFiles)
                         {
-                            File.Delete(filePath);
-                            Debug.Log($"[PackageCleaner] 删除过期 Bundle: {Path.GetFileName(filePath)} (匹配规则: {prefix})");
-                        }
-                        catch (Exception e)
-                        {
-                            Debug.LogWarning($"删除失败: {filePath}\n{e}");
+                            try
+                            {
+                                File.Delete(filePath);
+                                Debug.Log(
+                                    $"[PackageCleaner] 删除过期 Bundle: {Path.GetFileName(filePath)} (匹配规则: {prefix})");
+                            }
+                            catch (Exception e)
+                            {
+                                Debug.LogWarning($"删除失败: {filePath}\n{e}");
+                            }
                         }
                     }
                 }

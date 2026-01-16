@@ -1,5 +1,6 @@
 -- 模块类，无需桥接
 local PlayerHFSMState = require "PlayerHFSMState"
+--- 空中状态
 local AirborneState = setmetatable({}, {__index = PlayerHFSMState})
 AirborneState.__index = AirborneState
 

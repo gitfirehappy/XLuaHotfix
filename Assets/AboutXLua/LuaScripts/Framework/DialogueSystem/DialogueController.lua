@@ -10,7 +10,6 @@ local currentDialogueFile = nil
 ---@function 开始对话
 ---@param fileName string 文件名（lua模块名）
 function DialogueController.Start(fileName)
-    CS.UnityEngine.Debug.Log("Start dialogue: " .. fileName)
     currentDialogueFile = fileName
 
     local dialogueData = dataManager.LoadDialogueData(fileName)
@@ -23,8 +22,8 @@ function DialogueController.Start(fileName)
 
     view.ShowDialogue()
     DialogueController.Refresh()
-    
-    CS.UnityEngine.Debug.Log("DialogueSystem has Init")
+
+    CS.UnityEngine.Debug.Log("[Lua-DialogueController]Start dialogue: " .. fileName)
 end
 
 ---@function 刷新对话（核心流程）

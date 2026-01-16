@@ -89,30 +89,13 @@ public class DialoguePanel : UIFormBase
         {
             if (i < posAndOps.Count)
             {
-                var operations = ParseOperations(posAndOps[i]);
+                var operations = StringUtil.SplitAmpersand(posAndOps[i]); // 处理&分隔
                 foreach (var operation in operations)
                 {
                     ExecuteOperation(characterNames[i], operation);
                 }
             }
         }
-    }
-    
-    /// <summary>
-    /// 解析操作字符串，支持'&'分隔的多个操作
-    /// TODO： C#独有
-    /// </summary>
-    private List<string> ParseOperations(string operationString)
-    {
-        var operations = new List<string>();
-        if (string.IsNullOrEmpty(operationString)) return operations;
-        
-        var parts = operationString.Split('&');
-        foreach (var part in parts)
-        {
-            operations.Add(part.Trim());
-        }
-        return operations;
     }
     
     /// <summary>

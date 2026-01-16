@@ -80,6 +80,7 @@ public static class DifferentialProcessor
 
     /// <summary>
     /// 恢复修改的配置
+    /// TODO：需要移除逻辑，并修改
     /// </summary>
     public static void RestoreAfterHotfix()
     {
@@ -163,16 +164,15 @@ public static class DifferentialProcessor
 
         // 扫描当前所有资源
         var currentAssets = ScanCurrentProjectAssets(settings);
-
-        BuildSnapshots newBase = new BuildSnapshots();//TODO: 替换为在文件创建替换，调整辅助逻辑
+        
         data.Snapshots.Clear();
-        newBase.Snapshots.Add(new BuildSnapshot(version)
+        data.StageSnapshot = null;
+        data.Snapshots.Add(new BuildSnapshot(version)
         {
             Assets = currentAssets,
             DeleteList = null
         });
         data.HeadIndex = 0;
-        data.StageSnapshot = null;
 
         EditorUtility.SetDirty(data);
         AssetDatabase.SaveAssets();

@@ -1,7 +1,9 @@
 -- 模块类,不需要桥接挂载（可选），统一管理Player输入
+--- Player 输入管理器
 local PlayerInputHandler = {}
 PlayerInputHandler.__index = PlayerInputHandler
 
+---@function 创建一个 PlayerInputHandler 对象
 function PlayerInputHandler.Create(inputBridge)
     local obj = {}
     setmetatable(obj, PlayerInputHandler)
@@ -25,14 +27,14 @@ function PlayerInputHandler.Create(inputBridge)
     return obj
 end
 
--- 绑定所有“事件”类型的输入（如按下、松开）
+---@function 绑定所有“事件”类型的输入（如按下、松开）
 function PlayerInputHandler:BindActions()
     table.insert(self.boundActions, {"Player/Jump", "started"})
     
     self.inputBridge:BindAction("Player/Jump", "started", function() self:OnJump() end)
 end
 
--- 解绑所有输入
+---@function 解绑所有输入
 function PlayerInputHandler:UnbindAll()
     if not self.inputBridge then return end
 
@@ -45,23 +47,23 @@ function PlayerInputHandler:UnbindAll()
     CS.UnityEngine.Debug.Log("[PlayerInputHandler] 所有输入已解绑")
 end
 
--- "Jump" 事件的回调
+---@function "Jump" 事件的回调
 function PlayerInputHandler:OnJump()
     self.wantJump = true
     CS.UnityEngine.Debug.Log("[PlayerInputHandler] Jump Input Received")
 end
 
--- 由 PlayerController 在 Update() 中调用
+---@function 由 PlayerController 在 Update() 中调用
 function PlayerInputHandler:ProcessUpdate()
     self.MoveInput = self.inputBridge:GetVector2("Player/Move")
 end
 
--- 由 PlayerController 在 FixedUpdate() 中调用
+---@function 由 PlayerController 在 FixedUpdate() 中调用
 function PlayerInputHandler:ProcessFixedUpdate()
 
 end
 
--- 由 PlayerController 在 LateUpdate() 中调用
+---@function 由 PlayerController 在 LateUpdate() 中调用
 function PlayerInputHandler:ProcessLateUpdate()
     
 end
@@ -70,18 +72,18 @@ end
 -- 公共 API (供 PlayerController 和 FSM 状态调用)
 --
 
--- 获取移动输入
+---@function 获取移动输入
 function PlayerInputHandler:GetMoveInput()
     return self.MoveInput
 end
 
--- 检查当前 Jump 标志变量
+---@function 检查当前 Jump 标志变量
 function PlayerInputHandler:CheckJumpFlag()
     -- CS.UnityEngine.Debug.Log("[PlayerInputHandler] CheckJumpFlag: " .. tostring(self.wantJump))
     return self.wantJump
 end
 
--- 清空 Jump 标志变量
+---@function 清空 Jump 标志变量
 function PlayerInputHandler:ClearJumpFlag()
     self.wantJump = false
     -- CS.UnityEngine.Debug.Log("[PlayerInputHandler] ClearJumpFlag" .. tostring(self.wantJump))

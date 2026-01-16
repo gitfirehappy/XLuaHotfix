@@ -1,4 +1,5 @@
 -- 挂载脚本类，需要桥接
+--- Player主控制器
 local PlayerController = {}
 local PlayerInputHandler = require "PlayerInputHandler"
 
@@ -51,6 +52,7 @@ function PlayerController:Start()
     self:InitializeStateMachine()
 end
 
+---@function 初始化状态机
 function PlayerController:InitializeStateMachine()
     -- 引入状态机和所有状态
     local PlayerStateMachine = require "PlayerStateMachine"
@@ -101,7 +103,23 @@ function PlayerController:FixedUpdate()
     end
 end
 
--- 运动通用转向
+function PlayerController:OnDestroy()
+    CS.UnityEngine.Debug.Log("[PlayerController] OnDestroy")
+
+    -- 清理输入
+    if self.inputHandler then
+        self.inputHandler:UnbindAll()
+        self.inputHandler = nil
+    end
+
+    -- 清理状态机
+    if self.stateMachine then
+        self.stateMachine:Cleanup()
+        self.stateMachine = nil
+    end
+end
+
+---@function 运动通用转向
 function PlayerController:CheckFlip(moveInputX)
     if moveInputX > 0.1 and not self.facingRight then
         self:Flip()
@@ -112,12 +130,14 @@ end
 
 -- 辅助方法
 
+---@function 翻转
 function PlayerController:Flip()
     self.facingRight = not self.facingRight
     local scale = self.transform.localScale
     self.transform.localScale = CS.UnityEngine.Vector3(-scale.x, scale.y, scale.z)
 end
 
+---@function 地面检测
 function PlayerController:GroundCheck()
     local colliders = self.physics:OverlapCircleAll(
             self.playerData.groundCheckOffset,  -- 检测位置偏移
@@ -140,22 +160,6 @@ function PlayerController:OnDrawGizmos()
 
     -- 绘制地面检测范围的线框球体
     self.gizmos:DrawWireSphere(checkPosition, self.playerData.groundCheckRadius, color)
-end
-
-function PlayerController:OnDestroy()
-    CS.UnityEngine.Debug.Log("[PlayerController] OnDestroy")
-    
-    -- 清理输入
-    if self.inputHandler then
-        self.inputHandler:UnbindAll()
-        self.inputHandler = nil
-    end
-
-    -- 清理状态机
-    if self.stateMachine then
-        self.stateMachine:Cleanup()
-        self.stateMachine = nil
-    end
 end
 
 return PlayerController

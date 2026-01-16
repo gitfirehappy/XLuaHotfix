@@ -2,7 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class DialogueFunctions : IDialogueFuncProvider
+public class DemoDialogueFunctions : IDialogueFuncProvider
 {
     [DialogueFunc("TestImmediateFunc")]
     public static void TestImmediateFunc(string param)
@@ -38,20 +38,10 @@ public class DialogueFunctions : IDialogueFuncProvider
         Debug.Log($"播放音效: {soundName}");
     }
     
-    // TODO: C# 和 Lua 函数部分分离后此处删除，不会再出现循环调用
     [DialogueFunc("StartDialogue")]
     public static void StartDialogue(string fileName)
     {
         Debug.Log($"启动新对话: {fileName}");
-        
-        // 使用Lua环境启动新对话
-        var luaEnv = LuaEnvManager.Get();
-        if (luaEnv != null)
-        {
-            luaEnv.DoString($@"
-                local DialogueController = require('DialogueController')
-                DialogueController.Start('{fileName}')
-            ");
-        }
+        DialogueController.Start(fileName);
     }
 }

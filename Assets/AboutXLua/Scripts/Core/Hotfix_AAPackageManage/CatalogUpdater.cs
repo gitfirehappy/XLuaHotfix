@@ -10,14 +10,14 @@ using UnityEngine.AddressableAssets.ResourceLocators;
 /// <summary>
 /// 合并更新下载的Catalog
 /// </summary>
-public class CatalogUpdater
+public static class CatalogUpdater
 {
-    private bool _transformInstalled = false;
+    private static bool _transformInstalled = false;
 
     /// <summary>
     /// 加载 HotfixRoot下的外部 Catalog
     /// </summary>
-    public async Task<bool> LoadExternalCatalog(string catalogFullPath)
+    public static async Task<bool> LoadExternalCatalog(string catalogFullPath)
     {
         if (!File.Exists(catalogFullPath))
         {
@@ -52,7 +52,7 @@ public class CatalogUpdater
     /// <summary>
     /// InternalId 路径重定向，热更后的资源
     /// </summary>
-    private void InstallInternalIdRedirect()
+    private static void InstallInternalIdRedirect()
     {
         if (_transformInstalled) return;
 
@@ -64,8 +64,8 @@ public class CatalogUpdater
             if (id.StartsWith("http"))
             {
                 string fileName = Path.GetFileName(id);
-                // TODO: 此时的临时路径下已经没有文件了，已被PackageCleaner删除，需要调整逻辑
-                string localPath = Path.Combine(PathManager.TempBundleRoot, fileName);
+                // 所有有效资源位于LocalBundleRoot
+                string localPath = Path.Combine(PathManager.LocalBundleRoot, fileName);
 
                 // 如果本地已有下载的包，则强制使用本地路径
                 if (File.Exists(localPath))
@@ -73,7 +73,6 @@ public class CatalogUpdater
                     return localPath;
                 }
             }
-
             return id;
         };
 

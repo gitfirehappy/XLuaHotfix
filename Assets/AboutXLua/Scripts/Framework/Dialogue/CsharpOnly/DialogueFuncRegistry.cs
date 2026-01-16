@@ -52,24 +52,13 @@ public static class DialogueFuncRegistry
             }
         }
     }
-    
-    /// <summary>
-    /// 获取对话函数
-    /// </summary>
-    public static MethodInfo GetFunction(string funcName)
-    {
-        _funcMap.TryGetValue(funcName, out var method);
-        return method;
-    }
 
     /// <summary>
-    /// Lua端调用对话函数
+    /// 调用对话函数
     /// </summary>
-    [LuaCallCSharp]
     public static object InvokeFunction(string funcName, params object[] parameters)
     {
-        
-        var method = GetFunction(funcName);
+        _funcMap.TryGetValue(funcName,out var method);
         if (method == null)
         {
             Debug.LogError($"[DialogueFuncRegistry] 未找到对话函数：{funcName}");
