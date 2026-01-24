@@ -22,10 +22,19 @@ local function SplitTableElements(str, delimiter)
     
     while i <= #str do
         local char = str:sub(i, i)
-        local prevChar = i > 1 and str:sub(i - 1, i - 1) or ""
         
-        -- 检查是否是转义的引号
-        if char == '"' and prevChar ~= "\\" then
+        -- 计算前面有多少个连续的反斜杠
+        local backslashCount = 0
+        local j = i - 1
+        while j >= 1 and str:sub(j, j) == "\\" do
+            backslashCount = backslashCount + 1
+            j = j - 1
+        end
+        
+        -- 如果前面有偶数个反斜杠（包括0），则当前字符未被转义
+        local isEscaped = (backslashCount % 2 == 1)
+        
+        if char == '"' and not isEscaped then
             inString = not inString
             current = current .. char
         elseif not inString then

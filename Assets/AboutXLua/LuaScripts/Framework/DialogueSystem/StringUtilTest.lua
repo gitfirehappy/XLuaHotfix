@@ -8,6 +8,31 @@ local totalTests = 0
 local passedTests = 0
 local failedTests = 0
 
+-- 辅助函数：比较两个表是否相等
+local function table_equals(t1, t2)
+    if t1 == t2 then return true end
+    if type(t1) ~= "table" or type(t2) ~= "table" then return false end
+    
+    -- 检查所有键值对
+    for k, v in pairs(t1) do
+        if type(v) == "table" then
+            if not table_equals(v, t2[k]) then return false end
+        else
+            if v ~= t2[k] then return false end
+        end
+    end
+    
+    for k, v in pairs(t2) do
+        if type(v) == "table" then
+            if not table_equals(v, t1[k]) then return false end
+        else
+            if v ~= t1[k] then return false end
+        end
+    end
+    
+    return true
+end
+
 -- 辅助函数：打印测试结果
 local function assert_equal(actual, expected, testName)
     totalTests = totalTests + 1
@@ -32,29 +57,28 @@ local function assert_equal(actual, expected, testName)
     end
 end
 
--- 辅助函数：比较两个表是否相等
-local function table_equals(t1, t2)
-    if t1 == t2 then return true end
-    if type(t1) ~= "table" or type(t2) ~= "table" then return false end
+-- 辅助函数：打印测试结果
+local function assert_equal(actual, expected, testName)
+    totalTests = totalTests + 1
+    local success = false
     
-    -- 检查所有键值对
-    for k, v in pairs(t1) do
-        if type(v) == "table" then
-            if not table_equals(v, t2[k]) then return false end
+    if type(actual) == type(expected) then
+        if type(actual) == "table" then
+            success = table_equals(actual, expected)
         else
-            if v ~= t2[k] then return false end
+            success = (actual == expected)
         end
     end
     
-    for k, v in pairs(t2) do
-        if type(v) == "table" then
-            if not table_equals(v, t1[k]) then return false end
-        else
-            if v ~= t1[k] then return false end
-        end
+    if success then
+        passedTests = passedTests + 1
+        print(string.format("✓ PASS: %s", testName))
+    else
+        failedTests = failedTests + 1
+        print(string.format("✗ FAIL: %s", testName))
+        print(string.format("  Expected: %s (type: %s)", tostring(expected), type(expected)))
+        print(string.format("  Actual:   %s (type: %s)", tostring(actual), type(actual)))
     end
-    
-    return true
 end
 
 -- 辅助函数：打印表内容（用于调试）
