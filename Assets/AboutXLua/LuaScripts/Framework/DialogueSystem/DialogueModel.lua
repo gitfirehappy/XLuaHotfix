@@ -2,6 +2,67 @@
 local DialogueModel = {}
 local stringUtil = require("StringUtil")
 
+---@function 格式化参数用于日志输出
+---@param value any 要格式化的值
+---@return string 格式化后的字符串
+local function FormatValueForLog(value)
+    if type(value) == "nil" then
+        return "nil"
+    elseif type(value) == "string" then
+        return '"' .. value .. '"'
+    elseif type(value) == "number" or type(value) == "boolean" then
+        return tostring(value)
+    elseif type(value) == "table" then
+        local items = {}
+        local hasKeys = false
+        local hasArray = false
+        
+        -- 检查是否有数组元素
+        for i = 1, #value do
+            if value[i] ~= nil then
+                hasArray = true
+                break
+            end
+        end
+        
+        -- 检查是否有键值对
+        for k, v in pairs(value) do
+            if type(k) ~= "number" or k > #value then
+                hasKeys = true
+                break
+            end
+        end
+        
+        if hasArray and not hasKeys then
+            -- 纯数组
+            for i = 1, #value do
+                table.insert(items, FormatValueForLog(value[i]))
+            end
+            return "[" .. table.concat(items, ",") .. "]"
+        elseif hasKeys and not hasArray then
+            -- 纯哈希表
+            for k, v in pairs(value) do
+                table.insert(items, k .. "=" .. FormatValueForLog(v))
+            end
+            return "{" .. table.concat(items, ",") .. "}"
+        else
+            -- 混合表
+            local result = "{"
+            for i = 1, #value do
+                table.insert(items, FormatValueForLog(value[i]))
+            end
+            for k, v in pairs(value) do
+                if type(k) ~= "number" or k > #value then
+                    table.insert(items, k .. "=" .. FormatValueForLog(v))
+                end
+            end
+            return "{" .. table.concat(items, ",") .. "}"
+        end
+    else
+        return tostring(value)
+    end
+end
+
 ---@function 初始化对话数据
 ---@param data table
 function DialogueModel:Init(data)
@@ -63,7 +124,11 @@ function DialogueModel:GetImmediateFunc()
 
     local paramLogs = {}
     for _, _params in ipairs(paramList) do
-        table.insert(paramLogs, "{" .. table.concat(_params, ", ") .. "}")
+        local formattedParams = {}
+        for _, param in ipairs(_params) do
+            table.insert(formattedParams, FormatValueForLog(param))
+        end
+        table.insert(paramLogs, "{" .. table.concat(formattedParams, ", ") .. "}")
     end
 
     CS.UnityEngine.Debug.Log("获取执行即时函数: " .. table.concat(funcList, ", ")
@@ -98,7 +163,11 @@ function DialogueModel:GetInteractiveFunc()
 
     local paramLogs = {}
     for _, _params in ipairs(paramList) do
-        table.insert(paramLogs, "{" .. table.concat(_params, ", ") .. "}")
+        local formattedParams = {}
+        for _, param in ipairs(_params) do
+            table.insert(formattedParams, FormatValueForLog(param))
+        end
+        table.insert(paramLogs, "{" .. table.concat(formattedParams, ", ") .. "}")
     end
 
     CS.UnityEngine.Debug.Log("获取执行交互函数: " .. table.concat(funcList, ", ")
