@@ -47,7 +47,6 @@ local function FormatValueForLog(value)
             return "{" .. table.concat(items, ",") .. "}"
         else
             -- 混合表
-            local result = "{"
             for i = 1, #value do
                 table.insert(items, FormatValueForLog(value[i]))
             end

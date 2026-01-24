@@ -18,18 +18,14 @@ local function SplitTableElements(str, delimiter)
     local current = ""
     local depth = 0  -- 嵌套深度
     local inString = false
-    local escapeNext = false
+    local i = 1
     
-    for i = 1, #str do
+    while i <= #str do
         local char = str:sub(i, i)
+        local prevChar = i > 1 and str:sub(i - 1, i - 1) or ""
         
-        if escapeNext then
-            current = current .. char
-            escapeNext = false
-        elseif char == "\\" then
-            current = current .. char
-            escapeNext = true
-        elseif char == '"' and not escapeNext then
+        -- 检查是否是转义的引号
+        if char == '"' and prevChar ~= "\\" then
             inString = not inString
             current = current .. char
         elseif not inString then
@@ -49,6 +45,8 @@ local function SplitTableElements(str, delimiter)
         else
             current = current .. char
         end
+        
+        i = i + 1
     end
     
     -- 添加最后一个元素
@@ -155,13 +153,15 @@ function StringUtil.ParseValue(str)
     if str:sub(1, 1) == '"' and str:sub(-1, -1) == '"' then
         local content = str:sub(2, -2)
         -- 处理转义字符
-        content = content:gsub("\\(.)", {
-            ["n"] = "\n",
-            ["t"] = "\t",
-            ["r"] = "\r",
-            ["\\"] = "\\",
-            ['"'] = '"'
-        })
+        content = content:gsub("\\(.)", function(char)
+            if char == "n" then return "\n"
+            elseif char == "t" then return "\t"
+            elseif char == "r" then return "\r"
+            elseif char == "\\" then return "\\"
+            elseif char == '"' then return '"'
+            else return "\\" .. char  -- 未知的转义序列保持原样
+            end
+        end)
         return content
     end
     

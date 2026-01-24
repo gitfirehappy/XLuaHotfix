@@ -33,7 +33,7 @@ local function assert_equal(actual, expected, testName)
 end
 
 -- 辅助函数：比较两个表是否相等
-function table_equals(t1, t2)
+local function table_equals(t1, t2)
     if t1 == t2 then return true end
     if type(t1) ~= "table" or type(t2) ~= "table" then return false end
     
@@ -246,6 +246,13 @@ assert_equal(result, "hello\nworld", "转义换行符")
 
 result = StringUtil.ParseValue('"test\\"quote"')
 assert_equal(result, 'test"quote', "转义引号")
+
+result = StringUtil.ParseValue('"path\\\\to\\\\file"')
+assert_equal(result, 'path\\to\\file', "转义反斜杠")
+
+-- 测试包含转义引号的字符串在表中
+result = StringUtil.ParseValue('{msg="He said \\"Hello\\""}')
+assert_equal(result.msg, 'He said "Hello"', "表中的转义引号")
 
 -- ==========================================
 -- 测试 9: 复杂嵌套场景
