@@ -57,13 +57,20 @@ function DialogueModel:GetImmediateFunc()
         if string.sub(func, 1, 1) == ">" then
             table.insert(funcList, string.sub(func, 2))  -- 移除>前缀
             -- 单个函数的参数用&分割，参数列表索引与函数对应
-            table.insert(paramList, stringUtil.SplitAmpersand(params[i] or ""))
+            local rawParams = stringUtil.SplitAmpersand(params[i] or "")
+            -- 使用 StringUtil 的参数推导，将字符串参数解析为数字/表/布尔等
+            table.insert(paramList, stringUtil.ParseParamList(rawParams))
         end
     end
 
+    -- 日志
     local paramLogs = {}
     for _, _params in ipairs(paramList) do
-        table.insert(paramLogs, "{" .. table.concat(_params, ", ") .. "}")
+        local parts = {}
+        for _, v in ipairs(_params) do
+            table.insert(parts, tostring(v))
+        end
+        table.insert(paramLogs, "{" .. table.concat(parts, ", ") .. "}")
     end
 
     CS.UnityEngine.Debug.Log("获取执行即时函数: " .. table.concat(funcList, ", ")
@@ -92,13 +99,19 @@ function DialogueModel:GetInteractiveFunc()
         if string.sub(func, 1, 1) == "<" then
             table.insert(funcList, string.sub(func, 2))  -- 移除<前缀
             -- 单个函数的参数用&分割，参数列表索引与函数对应
-            table.insert(paramList, stringUtil.SplitAmpersand(params[i] or ""))
+            local rawParams = stringUtil.SplitAmpersand(params[i] or "")
+            table.insert(paramList, stringUtil.ParseParamList(rawParams))
         end
     end
 
+    -- 日志
     local paramLogs = {}
     for _, _params in ipairs(paramList) do
-        table.insert(paramLogs, "{" .. table.concat(_params, ", ") .. "}")
+        local parts = {}
+        for _, v in ipairs(_params) do
+            table.insert(parts, tostring(v))
+        end
+        table.insert(paramLogs, "{" .. table.concat(parts, ", ") .. "}")
     end
 
     CS.UnityEngine.Debug.Log("获取执行交互函数: " .. table.concat(funcList, ", ")

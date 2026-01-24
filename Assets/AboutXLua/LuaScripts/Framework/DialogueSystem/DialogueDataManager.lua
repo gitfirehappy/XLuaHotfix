@@ -14,10 +14,10 @@ function DialogueDataManager.LoadDialogueData(fileName)
     local ok, data = pcall(require, fileName)
     if ok and data then
         loadedDialogues[fileName] = data
-        CS.UnityEngine.Debug.Log("Successfully loaded dialogue: " .. fileName)
+        CS.UnityEngine.Debug.Log("成功加载对话文件: " .. fileName)
         return data
     else
-        CS.UnityEngine.Debug.LogError("Load dialogue file failed: " .. fileName .. ", error: " .. tostring(data))
+        CS.UnityEngine.Debug.LogError("加载对话文件失败: " .. fileName .. ", error: " .. tostring(data))
         return nil
     end
 end

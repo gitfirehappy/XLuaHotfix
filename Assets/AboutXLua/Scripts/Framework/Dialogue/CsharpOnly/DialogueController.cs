@@ -110,7 +110,7 @@ public static class DialogueController
     /// 下一条对话
     /// TODO：绑定点击Panel的点击事件,IPointerClickHandler
     /// </summary>
-    private static void Next(string nextID = null)
+    public static void Next(string nextID = null)
     {
         var currentDialogue = _model.GetCurrentDialogue();
         if (currentDialogue == null) return;

@@ -7,18 +7,24 @@ using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using XLua;
 
-public class DialoguePanel : UIFormBase
+/// <summary>
+/// 对话系统面板，Csharp和Lua共用
+/// </summary>
+public class DialoguePanel : UIFormBase,IPointerClickHandler
 {
+    [Header("基于C#实现还是Lua实现")]
+    public bool IsBaseCsharp = false;
+    
     [Header("UI组件")]
-    public TextMeshProUGUI contentText;
-    public TextMeshProUGUI characterNameText;
-    public Transform optionsParent;
-    public GameObject optionPrefab;
-    public Transform characterImageParent; 
+    [Tooltip("对话内容")] public TextMeshProUGUI contentText;
+    [Tooltip("角色名称")] public TextMeshProUGUI characterNameText;
+    [Tooltip("选项父物体")] public Transform optionsParent;
+    [Tooltip("选项预制体")] public GameObject optionPrefab;
+    [Tooltip("角色图片父物体")] public Transform characterImageParent; 
     
     [Header("静态配置")]
-    [SerializeField] private List<CharacterImageSources> characterImages;
-    [SerializeField] private List<PosCanChoose> characterPos;
+    [Tooltip("角色差分图")][SerializeField] private List<CharacterImageSources> characterImages;
+    [Tooltip("角色位置设置")][SerializeField] private List<PosCanChoose> characterPos;
     
     private List<GameObject> currentOptions = new();
     
@@ -352,4 +358,15 @@ public class DialoguePanel : UIFormBase
         activeCharacters.Clear();
         positionOccupancy.Clear();
     }
+    
+    /// <summary>
+    /// Csharp版本点击下一句
+    /// </summary>
+    public void OnPointerClick(PointerEventData eventData)
+    {
+        if(!IsBaseCsharp) return;
+        
+        DialogueController.Next();
+    }
 }
+

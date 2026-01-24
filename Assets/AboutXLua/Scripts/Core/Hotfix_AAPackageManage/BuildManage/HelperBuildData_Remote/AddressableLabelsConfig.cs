@@ -19,6 +19,7 @@ public class AddressableLabelsConfig : ScriptableObject
     public List<LabelToKeys> keysByLabel = new();
     
     // Group + Label -> LogicalHash
+    // TODO: 是否需要删除，version_state不依靠这个比对删除
     public List<GroupLabelToLogicalHash> labelLogicalHashes = new();    // 作用：生成version_state进行差异比对
 
     // 运行时快速查找字典 

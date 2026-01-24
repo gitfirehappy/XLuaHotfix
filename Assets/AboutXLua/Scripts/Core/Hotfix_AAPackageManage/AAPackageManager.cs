@@ -17,6 +17,7 @@ public class AAPackageManager : Singleton<AAPackageManager>
 
     private bool _isInitialized = false;
     
+    /// <summary> 资源缓存 </summary>
     private readonly Dictionary<string, ResourceEntry> _resourceCache = new();
     private readonly Dictionary<string, List<string>> _labelToKeys = new();
 
