@@ -24,7 +24,7 @@ public class GameLauncher : MonoBehaviour
     
     // TODO: 替换为SO资源，AAPackageManager获取
     [Tooltip("Addressables标签，用于加载Lua脚本")]
-    public List<string> aaLabels = new() { "LuaScriptContainer" };
+    public List<string> aaLabels = new() { "LuaScriptContainer" }; // 初始第一批必备加载，后续可按需加载
     
     async void Awake()
     {

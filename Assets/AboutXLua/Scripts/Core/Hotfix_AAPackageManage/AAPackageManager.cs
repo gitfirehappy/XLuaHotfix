@@ -34,9 +34,9 @@ public class AAPackageManager : Singleton<AAPackageManager>
     public async Task Initialize()
     {
         // 异步加载配置SO
-        AsyncOperationHandle<AddressableLabelsConfig> handle = 
+        AsyncOperationHandle<AddressableLabelsConfig> handle =
             Addressables.LoadAssetAsync<AddressableLabelsConfig>(Constants.AA_LABELS_CONFIG);
-        
+
         _config = await handle.Task;
 
         if (handle.Status != AsyncOperationStatus.Succeeded || _config == null)
@@ -138,14 +138,17 @@ public class AAPackageManager : Singleton<AAPackageManager>
             entry.ReferenceCount++;
             return entry.Handle.Result as T;
         }
-            
+
         var handle = Addressables.LoadAssetAsync<T>(key);
+        await handle.Task;
+        
         if (handle.IsDone && handle.Status == AsyncOperationStatus.Succeeded)
         {
             AddToCache(key, handle);
             return handle.Result as T;
         }
 
+        Addressables.Release(handle);
         throw new Exception($"[AAPackageManager] 加载资源失败: {key}");
     }
 
@@ -236,7 +239,7 @@ public class AAPackageManager : Singleton<AAPackageManager>
     public void UnloadAssetByLabel(string label)
     {
         if(!_labelToKeys.TryGetValue(label, out var keys)) return;
-        
+
         foreach (var key in keys)
         {
             UnloadAsset(key);
@@ -280,7 +283,7 @@ public class AAPackageManager : Singleton<AAPackageManager>
 
         // 启动异步操作
         var handle = Addressables.LoadAssetAsync<T>(key);
-        
+
         // 强制主线程等待直到完成
         T result = handle.WaitForCompletion();
 

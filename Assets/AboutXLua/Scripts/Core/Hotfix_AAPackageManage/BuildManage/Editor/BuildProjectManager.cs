@@ -78,15 +78,17 @@ public static class BuildProjectManager
 
         try
         {
+            // TODO: 如果是整包需要先重置分组，采用手动重置，此处暂不处理
+            
             List<string> deleteList = new List<string>();
+            HashSet<string> unchangedBundles = new HashSet<string>();
             if (buildType == BuildType.Hotfix)
             {
-                // 这步会将变动资源移入 Remote_Hotfix_Group
-                bool hasChanges = DifferentialProcessor.PrepareHotfix(version, deleteList);
+                // 将变动资源移入 Remote_Hotfix_Group
+                bool hasChanges = DifferentialProcessor.PrepareHotfix(version, deleteList, out unchangedBundles);
                 if (!hasChanges)
                 {
                     Debug.LogWarning("无资源变更，终止构建。");
-                    return; 
                 }
             }    
             
@@ -116,8 +118,8 @@ public static class BuildProjectManager
             string packagesDir = Path.Combine(OutputRoot, "Packages");
             Directory.CreateDirectory(packagesDir);
             string hotfixOutputDir = Path.Combine(packagesDir, currentPackageName);
-
-            BuildPathCustomizer.OrganizeBuildOutput(serverDataPath, hotfixOutputDir);
+            
+            BuildPathCustomizer.OrganizeBuildOutput(serverDataPath, hotfixOutputDir, unchangedBundles); 
 
             // 6. 生成 version_state.json 到指定目录
             GenerateVersionStateFile(hotfixOutputDir, version, deleteList);
@@ -137,13 +139,9 @@ public static class BuildProjectManager
             Debug.Log($"[BuildProjectManager] 包体构建完毕: {hotfixOutputDir}");
             EditorUtility.RevealInFinder(hotfixOutputDir);
         }
-        finally
+        catch(Exception ex)
         {
-            // 还原组
-            if (buildType == BuildType.Hotfix)
-            {
-                DifferentialProcessor.RestoreAfterHotfix();
-            }
+            Debug.LogError($"[BuildProjectManager] 构建过程中出现异常: {ex}");
         }
     }
 

@@ -50,11 +50,11 @@ public class AssetSnapshot
     public string Address;
     public string AssetPath;
     public string AssetGUID;
-    public string GroupName;
+    public string CurrentGroupName;     // 当前组名
     public List<string> Labels;
-    public string FileHash;  // 内容Hash
-    public bool hasUpdated; // 是否更新过
-    public string RemoteGroupName; // 临时保存的远程组名
+    public string FileHash;             // 内容Hash
+    public string OriginalGroupName;    // 原始组名
+    public string RemoteGroupName;      // 迁移后的远程组名
 }
 
 #endif

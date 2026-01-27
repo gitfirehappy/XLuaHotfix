@@ -111,7 +111,6 @@ public class HelperBuildDataExporter
         config.allEntries.Clear();
         config.keysByType.Clear();
         config.keysByLabel.Clear();
-        config.labelLogicalHashes.Clear();
         
         var tempTypeDict = new Dictionary<string, List<string>>();
         var tempLabelDict = new Dictionary<string, List<string>>();
@@ -167,13 +166,6 @@ public class HelperBuildDataExporter
             foreach (var k in keys) sb.Append(k);
             
             string logicalHash = HashGenerator.GenerateStringHash(sb.ToString());
-
-            config.labelLogicalHashes.Add(new GroupLabelToLogicalHash 
-            { 
-                Group = kvp.Key.Group,
-                CombineLabel = kvp.Key.CombineLabel, 
-                Hash = logicalHash 
-            });
         }
         
         EditorUtility.SetDirty(config);

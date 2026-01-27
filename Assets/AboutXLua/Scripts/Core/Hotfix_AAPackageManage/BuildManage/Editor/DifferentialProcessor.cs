@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Unity.VisualScripting;
 using UnityEditor;
 using UnityEditor.AddressableAssets;
 using UnityEditor.AddressableAssets.Settings;
@@ -11,20 +12,19 @@ using UnityEngine;
 
 /// <summary>
 /// 差异化构建处理器
-/// 负责计算差异、临时切换Remote状态、快照轮转
+/// 负责计算差异、切换Remote状态、快照轮转
 /// </summary>
 public static class DifferentialProcessor
 {
     private static string SnapShotAssetPath = Constants.SNAPSHOT_ASSET_PATH;
-
-    ///<summary> 缓存用于构建后还原组，GUID ->原Group </summary> 
-    private static Dictionary<string, string> _groupCache = new();
     
     /// <summary>
-    /// 分析快照差异并临时修改配置
+    /// 分析快照差异，将修改的资源移入 Hotfix 组
+    /// 并生成 Staged 快照
     /// </summary>
     /// <param name="deleteList">要删除的资源列表</param>
-    public static bool PrepareHotfix(VersionNumber currentVersion, List<string> deleteList)
+    /// <param name="unchangedBundleIdentifiers">热更组中未修改的 bundle 标识符列表（用于跳过复制）</param>
+    public static bool PrepareHotfix(VersionNumber currentVersion, List<string> deleteList, out HashSet<string> unchangedBundleIdentifiers)
     {
         var settings = AddressableAssetSettingsDefaultObject.Settings;
         var data = GetOrCreateSnapshotData();
@@ -34,32 +34,30 @@ public static class DifferentialProcessor
         if (head == null)
         {
             Debug.LogError("[DiffProcessor] 没有找到基准版本(Head)，无法执行热更构建。请先执行 Build Full Package。");
+            unchangedBundleIdentifiers = new HashSet<string>();
             return false;
         }
         
-        var modifiedAssets = FindModifiedAssets(currentAssets, head, deleteList);
-
+        var modifiedAssets = FindModifiedAssets(currentAssets, head, deleteList, out unchangedBundleIdentifiers);
+        
         if (modifiedAssets.Count == 0 && deleteList.Count == 0)
         {
             Debug.Log("[DiffProcessor] 没有修改的资源，无需调整。");
             return false;
         }
         
-        // 移动逻辑
-        _groupCache.Clear();
         if (modifiedAssets.Count > 0)
         {
             var hotfixGroup = GetOrCreateHotfixGroup(settings);
 
             foreach (var asset in modifiedAssets)
             {
-                _groupCache[asset.AssetGUID] = asset.GroupName;
-
                 var entry = settings.FindAssetEntry(asset.AssetGUID);
                 if (entry != null)
                 {
                     settings.MoveEntry(entry, hotfixGroup);
                     asset.RemoteGroupName = hotfixGroup.Name;
+                    Debug.Log($"[DiffProcessor] 移入热更组: {asset.AssetPath}");
                 }
             }
         }
@@ -78,48 +76,8 @@ public static class DifferentialProcessor
         return true;
     }
 
-    /// <summary>
-    /// 恢复修改的配置
-    /// TODO：需要移除逻辑，并修改
-    /// </summary>
-    public static void RestoreAfterHotfix()
-    {
-        if (_groupCache.Count == 0) return;
-
-        Debug.Log("[DiffProcessor] 正在恢复资源位置...");
-        var settings = AddressableAssetSettingsDefaultObject.Settings;
-        var hotfixGroup = settings.FindGroup(Constants.HOTFIX_GROUP_NAME);
-
-        List<string> guidsToRemove = new List<string>();
-
-        foreach (var kvp in _groupCache)
-        {
-            string guid = kvp.Key;
-            string originalGroupName = kvp.Value;
-            
-            var targetGroup = settings.FindGroup(originalGroupName);
-            if (targetGroup == null)
-            {
-                // 如果原组没了，就建一个默认的或者放到Default
-                targetGroup = settings.DefaultGroup;
-                Debug.LogWarning($"[DiffProcessor] 原分组 {originalGroupName} 不存在，移动至默认组。");
-            }
-
-            var entry = settings.FindAssetEntry(guid);
-            if (entry != null)
-            {
-                settings.MoveEntry(entry, targetGroup);
-            }
-            guidsToRemove.Add(guid);
-        }
-        
-        _groupCache.Clear();
-
-        EditorUtility.SetDirty(settings);
-        AssetDatabase.SaveAssets();
-        Debug.Log("[DiffProcessor] 资源位置已恢复。");
-    }
-
+    // TODO: 将远端Group重置回本地Group（手动调用）
+    
     /// <summary>
     /// 确认发布上线热更包，更新快照列表和 Head
     /// TODO: 此处添加按钮或在上层封装
@@ -132,12 +90,7 @@ public static class DifferentialProcessor
             EditorUtility.DisplayDialog("提示", "当前没有待发布的暂存快照 (Staged Snapshot)。请先构建热更包。", "OK");
             return;
         }
-
-        // 将 Staged 转正，一定是hasUpdated=true
-        foreach(var asset in data.StageSnapshot.Assets)
-        {
-            asset.hasUpdated = true;
-        }
+        
         data.Snapshots.Add(data.StageSnapshot);
         data.HeadIndex = data.Snapshots.Count - 1;
         
@@ -211,10 +164,9 @@ public static class DifferentialProcessor
         foreach (var group in settings.groups)
         {
             if (group == null) continue;
-            // 跳过内置数据、HelperData(由BuildManager处理)、以及我们的临时热更组
+            // 跳过内置数据、HelperData(由BuildManager处理)
             if (group.Name == "Built In Data" || 
-                group.Name == Constants.HELPER_BUILD_DATA_GROUP_NAME ||
-                group.Name == Constants.HOTFIX_GROUP_NAME) 
+                group.Name == Constants.HELPER_BUILD_DATA_GROUP_NAME) 
                 continue;
 
             foreach (var entry in group.entries)
@@ -234,9 +186,9 @@ public static class DifferentialProcessor
                     AssetPath = entry.AssetPath,
                     AssetGUID = entry.guid,
                     Labels = new List<string>(entry.labels),
-                    GroupName = group.Name, // 记录其所在的本地组
+                    CurrentGroupName = group.Name, 
                     FileHash = hash,
-                    hasUpdated = false
+                    // TODO: 处理 OriginalGroupName 逻辑
                 });
             }
         }
@@ -246,9 +198,11 @@ public static class DifferentialProcessor
     /// <summary>
     /// 找出修改的资源
     /// </summary>
-    private static List<AssetSnapshot> FindModifiedAssets(List<AssetSnapshot> currentAssets, BuildSnapshot head, List<string> deleteList)
+    /// <param name="unchangedBundleIdentifiers">输出：热更组中未修改的 bundle 标识符（用户已有且此次无改动）</param>
+    private static List<AssetSnapshot> FindModifiedAssets(List<AssetSnapshot> currentAssets, BuildSnapshot head, List<string> deleteList, out HashSet<string> unchangedBundleIdentifiers)
     {
         List<AssetSnapshot> modified = new List<AssetSnapshot>();
+        unchangedBundleIdentifiers = new HashSet<string>();
         
         // 转字典加速查找
         var headDict = new Dictionary<string, AssetSnapshot>();
@@ -272,6 +226,12 @@ public static class DifferentialProcessor
                     Debug.Log($"[DiffProcessor] 资源修改: {curr.AssetPath}");
                     AppendDeletList(deleteList, oldAsset);
                     modified.Add(curr);
+                }
+                else
+                {
+                    // Hash 相同，表示该资源未修改，记录其 bundle 标识符
+                    string bundleIdentifier = GetBundleIdentifier(oldAsset);
+                    unchangedBundleIdentifiers.Add(bundleIdentifier);
                 }
             }
             else
@@ -299,15 +259,23 @@ public static class DifferentialProcessor
     /// </summary>
     private static void AppendDeletList(List<string> deleteList, AssetSnapshot oldAssets)
     {
-        string deletgroup = oldAssets.hasUpdated ? oldAssets.RemoteGroupName : oldAssets.GroupName;
-        string deletlabels = oldAssets.Labels.Count == 0 ? "untyped" : string.Join("", oldAssets.Labels).ToLowerInvariant();
-        string bundleIdentifier = $"{deletgroup}_assets_{deletlabels}";
+        string bundleIdentifier = GetBundleIdentifier(oldAssets);
         
         // 防止重复添加
         if (!deleteList.Contains(bundleIdentifier))
         {
             deleteList.Add(bundleIdentifier);
         }
+    }
+    
+    /// <summary>
+    /// 获取资源的 bundle 标识符
+    /// </summary>
+    private static string GetBundleIdentifier(AssetSnapshot asset)
+    {
+        string groupName = asset.CurrentGroupName;
+        string labels = asset.Labels.Count == 0 ? "untyped" : string.Join("", asset.Labels).ToLowerInvariant();
+        return $"{groupName}_assets_{labels}";
     }
     
     /// <summary>
