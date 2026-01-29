@@ -1,6 +1,6 @@
 ---@class DialogueFuncRegistry 对话函数注册
 local DialogueFuncRegistry = {}
-local stringUtil = require("stringUtil")
+local stringUtil = require("StringUtil")
 
 --- 模拟接口标记模块，用于扫描约束
 DialogueFuncRegistry.IDialogueFuncProvider = {}
@@ -41,14 +41,13 @@ function DialogueFuncRegistry.ScanModule(module, moduleName)
             local funcName = func.name or funcKey
             if _funcMap[funcName] then
                 CS.UnityEngine.Debug.LogWarning("[Lua-DialogueFuncRegistry] 函数名重复："..funcName.."模块名"..moduleName)
-                goto continue
+            else
+                _funcMap[funcName] = {
+                    func = func,
+                    module = moduleName
+                }
+                CS.UnityEngine.Debug.Log("[Lua-DialogueFuncRegistry] 注册Lua对话函数："..funcName.."模块名"..moduleName)
             end
-
-            _funcMap[funcName] = {
-                func = func,
-                module = moduleName
-            }
-            CS.UnityEngine.Debug.Log("[Lua-DialogueFuncRegistry] 注册Lua对话函数："..funcName.."模块名"..moduleName)
         end
     end
 end

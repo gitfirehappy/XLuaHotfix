@@ -10,20 +10,13 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: bbb281ee3bf0b054c82ac2347e9e782c, type: 3}
-  m_Name: Remote
+  m_Name: HotfixGroup
   m_EditorClassIdentifier: 
-  m_GroupName: Remote
+  m_GroupName: HotfixGroup
   m_Data:
     m_SerializedData: []
   m_GUID: 6410bf08a2786c94693d404180eb9a47
-  m_SerializeEntries:
-  - m_GUID: 5cdffe86e5bed254d9009d4ded5bc0ba
-    m_Address: LuaText
-    m_ReadOnly: 0
-    m_SerializedLabels:
-    - LuaScriptContainer
-    - Text
-    FlaggedDuringContentUpdateRestriction: 0
+  m_SerializeEntries: []
   m_ReadOnly: 0
   m_Settings: {fileID: 11400000, guid: 170f3ccdb3bee544095a2f2b92d47c18, type: 2}
   m_SchemaSet:

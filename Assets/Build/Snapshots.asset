@@ -9,12 +9,16 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fa01fe3afa1159a45bd0a3c54d11af6e, type: 3}
-  m_Name: VersionDataBase
-  m_EditorClassIdentifier: 
-  CurrentVersion:
-    Major: 1
-    Minor: 0
-    Patch: 0
-  LastBuildTime: 2026-01-29 20:29:54
-  DailyBuildCount: 3
+  m_Script: {fileID: 0}
+  m_Name: Snapshots
+  m_EditorClassIdentifier: Assembly-CSharp-Editor::BuildSnapshots
+  HeadIndex: -1
+  Snapshots: []
+  StageSnapshot:
+    Version:
+      Major: 0
+      Minor: 0
+      Patch: 0
+    Timestamp: 
+    Assets: []
+    DeleteList: []

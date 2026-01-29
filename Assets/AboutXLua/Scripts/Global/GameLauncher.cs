@@ -49,6 +49,7 @@ public class GameLauncher : MonoBehaviour
         Debug.Log("[GameLauncher] === Boot Phase ===");
         
         // HotfixManager 初始化
+        await HotfixManager.InitializeAsync();
         
         // xlua标签管理初始化
         await XluaTypeConfigLoader.InitAsync(xluaConfigLabel);

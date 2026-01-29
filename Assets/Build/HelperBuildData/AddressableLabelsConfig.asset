@@ -87,11 +87,6 @@ MonoBehaviour:
     Type: PlayerControllerSO
     Labels:
     - PlayerControllerSO
-  - key: LuaText
-    Type: LuaScriptContainer
-    Labels:
-    - LuaScriptContainer
-    - Text
   - key: AddressableLabelsConfig
     Type: AddressableLabelsConfig
     Labels:
@@ -120,7 +115,6 @@ MonoBehaviour:
     - Framework
     - Core
     - Dialogue
-    - LuaText
   - Type: LuaBehaviourConfigSO
     Keys:
     - DialoguePanel
@@ -168,13 +162,11 @@ MonoBehaviour:
     - Framework
     - Core
     - Dialogue
-    - LuaText
   - Label: Player
     Keys:
     - Player
   - Label: Text
     Keys:
-    - LuaText
     - LuaText
   - Label: Framework
     Keys:
@@ -207,52 +199,3 @@ MonoBehaviour:
   - Label: LuaScriptsIndex
     Keys:
     - LuaScriptsIndex
-  labelLogicalHashes:
-  - Group: built in data
-    CombineLabel: untyped
-    Hash: 8e5f1d09342ecb53c9d7c15094568167
-  - Group: localstaticdata
-    CombineLabel: buildindex
-    Hash: 38c8c3b88ffcb7f50b5da8b945270764
-  - Group: xlualabelconfig
-    CombineLabel: typememberlistsoxluaconfigs
-    Hash: 7ea808192456a70c7e71fa2cf127fcd3
-  - Group: luascripts
-    CombineLabel: luascriptcontainerplayer
-    Hash: 636da1d35e805b00eae0fcd8333f9234
-  - Group: luascripts
-    CombineLabel: luascriptcontainertext
-    Hash: 8fc1b3864d33900aad2b23e39f9e7ded
-  - Group: luascripts
-    CombineLabel: luascriptcontainerframework
-    Hash: 07782c22a88d1e82a09910124a9225a2
-  - Group: luascripts
-    CombineLabel: luascriptcontainercore
-    Hash: 83168e6cb289d732cc78427b51f93153
-  - Group: luascripts
-    CombineLabel: luascriptcontainerdialogue
-    Hash: 359928afdf6c973ee869e1698023a812
-  - Group: luabridge
-    CombineLabel: luabehaviourconfigso
-    Hash: 181e528df728e3a26f23569a5d6eb729
-  - Group: luabridge
-    CombineLabel: stateanimationconfigso
-    Hash: c411e651368e372a93c010c88051b801
-  - Group: luabridge
-    CombineLabel: scriptobjectbridgeconfig
-    Hash: 9147de49fb845cdd678b02ec162c4693
-  - Group: ui
-    CombineLabel: uiresourceconfigso
-    Hash: a7d439d961c0979c876253ccd2239cec
-  - Group: gamedata
-    CombineLabel: playercontrollerso
-    Hash: 7d4e6324ac4c653012d41669f91f3e20
-  - Group: remote
-    CombineLabel: luascriptcontainertext
-    Hash: 8fc1b3864d33900aad2b23e39f9e7ded
-  - Group: helperbuilddata
-    CombineLabel: addressablelabelsconfig
-    Hash: e6c2efd9b1198e1478b32f374dcba4e5
-  - Group: helperbuilddata
-    CombineLabel: luascriptsindex
-    Hash: a4a44e2de8f3f904659a342685ba78a8

@@ -23,6 +23,8 @@ MonoBehaviour:
     - DialogueModel
     - DialogueView
     - StringUtil
+    - DialogueFuncRegistry
+    - DemoDialogueFunctions
   - containerAddress: Framework
     scriptNames:
     - EventCentre
@@ -37,7 +39,6 @@ MonoBehaviour:
     - PlayerController
     - PlayerHFSMState
     - PlayerIdleState
-    - PlayerAnimation
     - PlayerStateMachine
     - PlayerInputHandler
     - GroundedState
@@ -45,7 +46,3 @@ MonoBehaviour:
     - PlayerRunState
     - PlayerJumpState
     - PlayerFallState
-  - containerAddress: LuaText
-    scriptNames:
-    - TalkTest1_Remote
-    - TalkTest2_Remote

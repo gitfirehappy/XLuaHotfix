@@ -7,7 +7,7 @@ local _aliases = {}
 ---@function 预加载常用模块
 function M.Init()
     -- 基础工具类
-    M.util = M.require("xlua.util")
+    -- M.util = M.require("xlua.util") -- 自带工具类可能因版本已细分
     
     -- 底层核心类
     -- M.LogUtility = M.require("LogUtility")
