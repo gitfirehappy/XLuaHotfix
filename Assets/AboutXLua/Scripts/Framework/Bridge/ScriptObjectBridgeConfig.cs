@@ -9,20 +9,9 @@ public class ScriptObjectBridgeConfig : ScriptableObject
     [Serializable]
     public class SOEntry
     {
-        public string key;
-        public ScriptableObject so;
+        [Tooltip("Lua中的标识")] public string luaKey;
+        [Tooltip("SO的Addressable Key")] public string assetKey;
     }
 
     public SOEntry[] entries;
-
-    public ScriptableObject GetSO(string key)
-    {
-        foreach (var e in entries)
-        {
-            if (e.key == key)
-                return e.so;
-        }
-        Debug.LogWarning($"[ScriptObjectBridgeConfig] SO with key '{key}' not found.");
-        return null;
-    }
 }

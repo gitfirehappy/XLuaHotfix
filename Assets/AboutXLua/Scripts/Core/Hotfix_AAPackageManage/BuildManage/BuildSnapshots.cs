@@ -1,4 +1,3 @@
-#if UNITY_EDITOR
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -56,5 +55,3 @@ public class AssetSnapshot
     public string OriginalGroupName;    // 原始组名
     public string RemoteGroupName;      // 迁移后的远程组名
 }
-
-#endif

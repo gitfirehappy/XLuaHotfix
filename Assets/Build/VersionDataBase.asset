@@ -13,8 +13,8 @@ MonoBehaviour:
   m_Name: VersionDataBase
   m_EditorClassIdentifier: 
   CurrentVersion:
-    Major: 1
+    Major: 8
     Minor: 0
     Patch: 0
-  LastBuildTime: 2026-01-29 20:29:54
-  DailyBuildCount: 3
+  LastBuildTime: 2026-01-31 20:38:13
+  DailyBuildCount: 8

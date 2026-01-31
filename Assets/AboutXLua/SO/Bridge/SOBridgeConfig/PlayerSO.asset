@@ -13,5 +13,5 @@ MonoBehaviour:
   m_Name: PlayerSO
   m_EditorClassIdentifier: 
   entries:
-  - key: PlayerControllerSO
-    so: {fileID: 11400000, guid: 571f4897ddc8c174bb977b1d279e309c, type: 2}
+  - luaKey: PlayerControllerSO
+    assetKey: PlayerControllerSO

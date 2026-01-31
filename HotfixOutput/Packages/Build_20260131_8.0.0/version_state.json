@@ -1,10 +1,10 @@
 {
     "version": {
-        "Major": 1,
+        "Major": 8,
         "Minor": 0,
         "Patch": 0
     },
-    "hash": "807717fc3201ec0f09656989c25d5fc3",
+    "hash": "7078c686dcb031bdf9bce1679fcd2cc7",
     "totalSize": 4974,
     "bundles": [
         {

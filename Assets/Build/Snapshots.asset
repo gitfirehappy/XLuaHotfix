@@ -9,11 +9,161 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 0}
+  m_Script: {fileID: 11500000, guid: 78442db4a5fe78e4fab7a97cd702a174, type: 3}
   m_Name: Snapshots
-  m_EditorClassIdentifier: Assembly-CSharp-Editor::BuildSnapshots
-  HeadIndex: -1
-  Snapshots: []
+  m_EditorClassIdentifier: 
+  HeadIndex: 0
+  Snapshots:
+  - Version:
+      Major: 8
+      Minor: 0
+      Patch: 0
+    Timestamp: 2026-01-31 20:38:18
+    Assets:
+    - Address: BuildIndex
+      AssetPath: Assets/Build/LocalStaticData/BuildIndex.asset
+      AssetGUID: d0f1c9f67705dc74d914529b5df2da4e
+      CurrentGroupName: LocalStaticData
+      Labels:
+      - BuildIndex
+      FileHash: 39065cd27b0008cc25a2255388965312
+      OriginalGroupName: 
+      RemoteGroupName: 
+    - Address: LuaCallCSharp
+      AssetPath: Assets/AboutXLua/SO/LabelConfig/LuaCallCSharp.asset
+      AssetGUID: 276eef6c8e9f88545951af44f2803712
+      CurrentGroupName: XLuaLabelConfig
+      Labels:
+      - TypeMemberListSO
+      - XLuaConfigs
+      FileHash: cc85e61e08352bae681fb95ff627a542
+      OriginalGroupName: 
+      RemoteGroupName: 
+    - Address: Hotfix
+      AssetPath: Assets/AboutXLua/SO/LabelConfig/Hotfix.asset
+      AssetGUID: 9270edc67bc19564ea89f136cf683452
+      CurrentGroupName: XLuaLabelConfig
+      Labels:
+      - TypeMemberListSO
+      - XLuaConfigs
+      FileHash: 00289ffef6e1b0ca681d338206a14733
+      OriginalGroupName: 
+      RemoteGroupName: 
+    - Address: CSharpCallLua
+      AssetPath: Assets/AboutXLua/SO/LabelConfig/CSharpCallLua.asset
+      AssetGUID: a8688d7b8585b454cb58678508d8a564
+      CurrentGroupName: XLuaLabelConfig
+      Labels:
+      - TypeMemberListSO
+      - XLuaConfigs
+      FileHash: 58b4ba46da46d4066074e45c7a82c16d
+      OriginalGroupName: 
+      RemoteGroupName: 
+    - Address: Player
+      AssetPath: Assets/AboutXLua/SO/LuaScriptsContainer/Player.asset
+      AssetGUID: e45ef0de1e9ec58489819bb02402a27c
+      CurrentGroupName: LuaScripts
+      Labels:
+      - LuaScriptContainer
+      - Player
+      FileHash: 739987e520d4fef3b529103448a63475
+      OriginalGroupName: 
+      RemoteGroupName: 
+    - Address: LuaText
+      AssetPath: Assets/AboutXLua/SO/LuaScriptsContainer/LuaText.asset
+      AssetGUID: 206590358b269444cb35a1d487fedd79
+      CurrentGroupName: LuaScripts
+      Labels:
+      - LuaScriptContainer
+      - Text
+      FileHash: 61c9c782ddda486f452e35969ffdb983
+      OriginalGroupName: 
+      RemoteGroupName: 
+    - Address: Framework
+      AssetPath: Assets/AboutXLua/SO/LuaScriptsContainer/Framework.asset
+      AssetGUID: d071648f3ea8bc140840e29184ba28ec
+      CurrentGroupName: LuaScripts
+      Labels:
+      - LuaScriptContainer
+      - Framework
+      FileHash: 80256dc4a018b38b932f0f50dcb71ecf
+      OriginalGroupName: 
+      RemoteGroupName: 
+    - Address: Core
+      AssetPath: Assets/AboutXLua/SO/LuaScriptsContainer/Core.asset
+      AssetGUID: d979210c1b9a34f41aa9954d47a5b29c
+      CurrentGroupName: LuaScripts
+      Labels:
+      - LuaScriptContainer
+      - Core
+      FileHash: 242101dc1c63a59835fa301a56955dd8
+      OriginalGroupName: 
+      RemoteGroupName: 
+    - Address: Dialogue
+      AssetPath: Assets/AboutXLua/SO/LuaScriptsContainer/Dialogue.asset
+      AssetGUID: 39aa4e765257c11479881bda90242ce2
+      CurrentGroupName: LuaScripts
+      Labels:
+      - LuaScriptContainer
+      - Dialogue
+      FileHash: 84e831a1e4a63c0e7dc1157cba1abcad
+      OriginalGroupName: 
+      RemoteGroupName: 
+    - Address: DialoguePanel
+      AssetPath: Assets/AboutXLua/SO/Bridge/LuaBehaviourConfigSO/DialoguePanel.asset
+      AssetGUID: 1e4e6ea9f2ed6d1489a2facb06e1d9da
+      CurrentGroupName: LuaBridge
+      Labels:
+      - LuaBehaviourConfigSO
+      FileHash: f7a02429c750e25f2f1ab681cc57180a
+      OriginalGroupName: 
+      RemoteGroupName: 
+    - Address: Player_LuaBridge
+      AssetPath: Assets/AboutXLua/SO/Bridge/LuaBehaviourConfigSO/Player.asset
+      AssetGUID: e15c45ca94390e2459e9625f3d23304d
+      CurrentGroupName: LuaBridge
+      Labels:
+      - LuaBehaviourConfigSO
+      FileHash: 33b8fc93a0646ab25ff3883735f51fb0
+      OriginalGroupName: 
+      RemoteGroupName: 
+    - Address: Player_AnimeBridge
+      AssetPath: Assets/AboutXLua/SO/Bridge/SateAnimationConfig/Player.asset
+      AssetGUID: 075c257b87614b04e908e0837fb94b1c
+      CurrentGroupName: LuaBridge
+      Labels:
+      - StateAnimationConfigSO
+      FileHash: 4a203427e87d6e5676fab2063b4e1d4f
+      OriginalGroupName: 
+      RemoteGroupName: 
+    - Address: Player_SOBridge
+      AssetPath: Assets/AboutXLua/SO/Bridge/SOBridgeConfig/PlayerSO.asset
+      AssetGUID: bfc5684e4ff167745b69f6677e5dc52b
+      CurrentGroupName: LuaBridge
+      Labels:
+      - ScriptObjectBridgeConfig
+      FileHash: 31dc224b11d238e19c8c610f2177bf12
+      OriginalGroupName: 
+      RemoteGroupName: 
+    - Address: UIResourceConfig
+      AssetPath: Assets/AboutXLua/SO/Game/BasicUI/UIResourceConfig.asset
+      AssetGUID: 2ef6ac3513a06b64f9ef2d2b4f255390
+      CurrentGroupName: UI
+      Labels:
+      - UIResourceConfigSO
+      FileHash: 940e7c3a622a8512647b01a99d8b364f
+      OriginalGroupName: 
+      RemoteGroupName: 
+    - Address: PlayerControllerSO
+      AssetPath: Assets/AboutXLua/SO/Game/Player/PlayerControllerSO.asset
+      AssetGUID: 571f4897ddc8c174bb977b1d279e309c
+      CurrentGroupName: GameData
+      Labels:
+      - PlayerControllerSO
+      FileHash: ddf46b7abc923d04c18df2e5bf84c92d
+      OriginalGroupName: 
+      RemoteGroupName: 
+    DeleteList: []
   StageSnapshot:
     Version:
       Major: 0

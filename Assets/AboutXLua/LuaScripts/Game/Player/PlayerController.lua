@@ -8,13 +8,17 @@ function PlayerController.New(go)
     setmetatable(obj, { __index = PlayerController })
     obj.gameObject = go
     obj.transform = go.transform
-    
-    -- Bridge组件
+
+    return obj
+end
+
+function PlayerController:Awake()
+    -- Bridge组件，不能在new时获取，因为那时组件可能还没挂载
+    obj.so = go:GetComponent("ScriptObjectBridge")
     obj.physics = go:GetComponent("Physics2DBridge")
     obj.collision = go:GetComponent("Collision2DBridge")
     obj.input = go:GetComponent("InputBridge")
     obj.gizmos = go:GetComponent("GizmosBridge")
-    obj.so = go:GetComponent("ScriptObjectBridge")
     obj.anim = go:GetComponent("AnimBridge")
 
     -- 从SO加载玩家属性
@@ -24,17 +28,13 @@ function PlayerController.New(go)
     else
         CS.UnityEngine.Debug.Log("[PlayerController] 成功加载PlayerData配置")
     end
-    
+
     obj.isGrounded = false
     obj.facingRight = true
-    
+
     -- 初始化状态机
     obj.stateMachine = nil
-
-    return obj
-end
-
-function PlayerController:Awake()
+    
     -- 从SO设置重力
     if self.playerData then
         self.physics:SetGravityScale(self.playerData.gravityScale)

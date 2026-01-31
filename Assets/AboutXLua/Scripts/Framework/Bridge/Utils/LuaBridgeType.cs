@@ -7,11 +7,11 @@ using UnityEngine;
 /// </summary>
 public enum LuaBridgeType
 {
+    [LuaBridgeTypeMapping(typeof(ScriptObjectBridge))]
+    SO,
+    
     [LuaBridgeTypeMapping(typeof(Collision2DBridge))]
     Collision2D,
-    
-    [LuaBridgeTypeMapping(typeof(GizmosBridge))]
-    Gizmos,
     
     [LuaBridgeTypeMapping(typeof(InputBridge))]
     Input,
@@ -22,9 +22,9 @@ public enum LuaBridgeType
     [LuaBridgeTypeMapping(typeof(UIEventBridge))]
     UIEvent,
     
-    [LuaBridgeTypeMapping(typeof(ScriptObjectBridge))]
-    SO,
-    
     [LuaBridgeTypeMapping(typeof(AnimBridge))]
     Anim,
+    
+    [LuaBridgeTypeMapping(typeof(GizmosBridge))]
+    Gizmos,
 }

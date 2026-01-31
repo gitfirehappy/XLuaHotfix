@@ -1725,7 +1725,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _dontDestroyOnLoad: 1
   uiConfigKey: UIResourceConfig
-  _firstDialogueFileName: 
+  _firstDialogueFileName: TalkTest1
 --- !u!4 &2057357476
 Transform:
   m_ObjectHideFlags: 0
