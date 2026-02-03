@@ -14,26 +14,26 @@ end
 
 function PlayerController:Awake()
     -- Bridge组件，不能在new时获取，因为那时组件可能还没挂载
-    obj.so = go:GetComponent("ScriptObjectBridge")
-    obj.physics = go:GetComponent("Physics2DBridge")
-    obj.collision = go:GetComponent("Collision2DBridge")
-    obj.input = go:GetComponent("InputBridge")
-    obj.gizmos = go:GetComponent("GizmosBridge")
-    obj.anim = go:GetComponent("AnimBridge")
+    self.so = self.gameObject:GetComponent("ScriptObjectBridge")
+    self.physics = self.gameObject:GetComponent("Physics2DBridge")
+    self.collision = self.gameObject:GetComponent("Collision2DBridge")
+    self.input = self.gameObject:GetComponent("InputBridge")
+    self.gizmos = self.gameObject:GetComponent("GizmosBridge")
+    self.anim = self.gameObject:GetComponent("AnimBridge")
 
     -- 从SO加载玩家属性
-    obj.playerData = obj.so:GetSO("PlayerControllerSO")
-    if not obj.playerData then
+    self.playerData = self.so:GetSO("PlayerControllerSO")
+    if not self.playerData then
         CS.UnityEngine.Debug.LogError("[PlayerController] 无法获取PlayerData配置！")
     else
         CS.UnityEngine.Debug.Log("[PlayerController] 成功加载PlayerData配置")
     end
 
-    obj.isGrounded = false
-    obj.facingRight = true
+    self.isGrounded = false
+    self.facingRight = true
 
     -- 初始化状态机
-    obj.stateMachine = nil
+    self.stateMachine = nil
     
     -- 从SO设置重力
     if self.playerData then

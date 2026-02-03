@@ -22,7 +22,7 @@ end
 --- funcName = {func, module}
 local _funcMap = {}
 
----@function 扫描指定模块，将模块中所有对话函数注册到对话函数注册表中
+---@function 扫描指定模块，将模块中所有对话函数注册到对话函数注册表中，需要提前调用
 ---@param module table 待扫描的Lua模块
 ---@param moduleName string 模块名
 function DialogueFuncRegistry.ScanModule(module, moduleName)
@@ -83,10 +83,19 @@ end
 
 ---@function 检查模块是否实现IDialogueFuncProvider接口（元表判断）
 ---@param module table 待检查的Lua模块
-local function IsImplementProvider(module)
+function IsImplementProvider(module)
     if not module or type(module) ~= "table" then return false end
     local mt = getmetatable(module)
-    return mt and mt == DialogueFuncRegistry.IDialogueFuncProvider
+
+    if not mt then return false end
+
+    -- 情况1: 直接将 Interface 设为元表 (setmetatable(t, Interface))
+    if mt == DialogueFuncRegistry.IDialogueFuncProvider then return true end
+
+    -- 情况2: 标准 Lua 继承，元表的 __index 指向 Interface (setmetatable(t, {__index = Interface}))
+    if mt.__index == DialogueFuncRegistry.IDialogueFuncProvider then return true end
+
+    return false
 end
 
 return DialogueFuncRegistry

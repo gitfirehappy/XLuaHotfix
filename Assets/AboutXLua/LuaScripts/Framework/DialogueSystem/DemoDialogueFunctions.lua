@@ -10,11 +10,12 @@ function DemoDialogueFunctions:init()
     if self.__inited then return end
 
     -- 集中赋值所有函数的name字段
-    self.TestImmediateFunc.name = "测试先执行函数"
-    self.TestInteractiveFunc.name = "测试后执行函数"
-    self.CheckCondition.name = "测试条件判断函数"
-    self.ShowSpecialEffect.name = "测试显示特效函数"
-    self.PlaySound.name = "测试播放音效函数"
+    -- TODO: Lua函数不能像表一样附带字段
+    self.TestImmediateFunc.name = "TestImmediateFunc"
+    self.TestInteractiveFunc.name = "TestInteractiveFunc"
+    self.CheckCondition.name = "CheckCondition"
+    self.ShowSpecialEffect.name = "ShowSpecialEffect"
+    self.PlaySound.name = "PlaySound"
     self.StartDialogue.name = "StartDialogue"
 
     CS.UnityEngine.Debug.Log("[Lua-DemoDialogueFunctions] 元数据初始化完成")

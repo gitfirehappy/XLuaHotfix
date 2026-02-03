@@ -26,7 +26,16 @@ public class GameUIManager : SingletonMono<GameUIManager>
         
         UIManager.Instance.ShowUIForm<DialoguePanel>();
         
-        // LuaEnvManager获取Env开启第一段对话
+        // 获取函数模块
+        _luaEnv.DoString(@"
+        local DialogueFuncRegistry = require('DialogueFuncRegistry')
+        local DemoDialogueFunctions = require('DemoDialogueFunctions')
+        
+        -- 扫描并注册函数模块
+        DialogueFuncRegistry.ScanModule(DemoDialogueFunctions, 'DemoDialogueFunctions')
+    ");
+        
+        // 开启第一段对话
          _luaEnv.DoString($@"
              local DialogueController = require('DialogueController')
              DialogueController.Start('{_firstDialogueFileName}')

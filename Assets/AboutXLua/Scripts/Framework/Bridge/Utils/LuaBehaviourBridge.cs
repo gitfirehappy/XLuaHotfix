@@ -1,4 +1,6 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using System.Reflection;
 using System.Threading.Tasks;
 using UnityEngine;
 using XLua;
@@ -10,6 +12,20 @@ using XLua;
 /// </summary>
 public class LuaBehaviourBridge : MonoBehaviour
 {
+    /// <summary>
+    /// 全局硬性规定的初始化顺序
+    /// </summary>
+    private static readonly List<LuaBridgeType> FixedInitOrder = new()
+    {
+        LuaBridgeType.SO,          // 通常数据最先初始化
+        LuaBridgeType.Input,       // 输入系统
+        LuaBridgeType.Physics2D,   // 物理系统
+        LuaBridgeType.Collision2D, // 碰撞回调
+        LuaBridgeType.Anim,        // 动画系统 
+        LuaBridgeType.UIEvent,     // UI
+        LuaBridgeType.Gizmos       // 调试绘制通常最后
+    };
+    
     /// <summary>
     /// 定义 Lua 脚本的加载模式
     /// </summary>
@@ -74,8 +90,8 @@ public class LuaBehaviourBridge : MonoBehaviour
         }
     }
 
-    private List<LuaRuntimeInstance> luaInstances = new List<LuaRuntimeInstance>();
-    private List<IBridge> bridges = new List<IBridge>();
+    private List<LuaRuntimeInstance> luaInstances = new();
+    private List<IBridge> bridges = new();
     private bool isInitialized = false;
     private bool areBridgesReady = false;
     
@@ -118,10 +134,7 @@ public class LuaBehaviourBridge : MonoBehaviour
         // 2. 获取所有桥接组件
         // GetComponents<IBridge>() 会找到此 GameObject 上的所有实现了 IBridge 接口的 C# 组件
         var bridgeComponents = GetComponents<IBridge>();
-        foreach (var bridge in bridgeComponents)
-        {
-            bridges.Add(bridge);
-        }
+        bridges = SortBridgesByFixedOrder(bridgeComponents);
 
         // 3. 遍历配置，创建和初始化每个 Lua 实例
         foreach (var config in _multiScriptConfig.scriptsToLoad)
@@ -206,6 +219,61 @@ public class LuaBehaviourBridge : MonoBehaviour
         {
             lua.startFunc?.Call(lua.instance);
         }
+    }
+    
+    /// <summary>
+    /// 根据 FixedInitOrder 对获取到的组件进行重排序
+    /// </summary>
+    private List<IBridge> SortBridgesByFixedOrder(IBridge[] rawBridges)
+    {
+        List<IBridge> sortedList = new List<IBridge>();
+        List<IBridge> remainingBridges = new List<IBridge>(rawBridges);
+
+        // 1. 遍历硬性规定的顺序列表
+        foreach (var bridgeTypeEnum in FixedInitOrder)
+        {
+            Type targetType = GetTypeFromBridgeEnum(bridgeTypeEnum);
+            if (targetType == null) continue;
+
+            // 倒序遍历剩余列表，找到匹配的组件移入 sortedList
+            for (int i = remainingBridges.Count - 1; i >= 0; i--)
+            {
+                var bridge = remainingBridges[i];
+                // 使用 IsAssignableFrom 兼容子类，或者直接用 == 严格匹配
+                if (targetType.IsAssignableFrom(bridge.GetType()))
+                {
+                    sortedList.Add(bridge);
+                    remainingBridges.RemoveAt(i);
+                }
+            }
+        }
+
+        // 2. 将未在 FixedInitOrder 中定义的其他 Bridge 组件放到最后
+        if (remainingBridges.Count > 0)
+        {
+            sortedList.AddRange(remainingBridges);
+        }
+
+        return sortedList;
+    }
+
+    /// <summary>
+    /// 利用 Attribute 从 Enum 获取 Type
+    /// </summary>
+    private Type GetTypeFromBridgeEnum(LuaBridgeType bridgeType)
+    {
+        string enumName = bridgeType.ToString();
+        MemberInfo[] memInfo = typeof(LuaBridgeType).GetMember(enumName);
+        
+        if (memInfo != null && memInfo.Length > 0)
+        {
+            object[] attrs = memInfo[0].GetCustomAttributes(typeof(LuaBridgeTypeMappingAttribute), false);
+            if (attrs != null && attrs.Length > 0)
+            {
+                return ((LuaBridgeTypeMappingAttribute)attrs[0]).BridgeType;
+            }
+        }
+        return null;
     }
 
     #region Unity生命周期桥接
