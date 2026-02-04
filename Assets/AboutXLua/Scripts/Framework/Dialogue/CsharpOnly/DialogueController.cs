@@ -7,7 +7,7 @@ using System;
 /// </summary>
 public static class DialogueController
 {
-    private static DialogueModel _model = new DialogueModel();
+    private static DialogueModel _model = new();
     private static DialoguePanel _dialoguePanel;
     private static string _currentDialogueFile;
 
@@ -86,12 +86,6 @@ public static class DialogueController
                 Next(nextID);
                 return; // 条件跳转后直接返回，避免重复执行
             }
-            else
-            {
-                Debug.LogError("[DialogueController] 条件判断返回空值，无法继续");
-                End();
-                return;
-            }
         }
 
         // 显示选项或普通对话
@@ -108,7 +102,6 @@ public static class DialogueController
 
     /// <summary>
     /// 下一条对话
-    /// TODO：绑定点击Panel的点击事件,IPointerClickHandler
     /// </summary>
     public static void Next(string nextID = null)
     {
@@ -138,7 +131,7 @@ public static class DialogueController
     private static void OnOptionSelect(int optionIndex)
     {
         var options = _model.GetOptions();
-        if (optionIndex < 1 || optionIndex > options.Count)
+        if (optionIndex < 0 || optionIndex > options.Count)
         {
             Debug.LogWarning($"[DialogueController] 无效的选项索引：{optionIndex}");
             return;

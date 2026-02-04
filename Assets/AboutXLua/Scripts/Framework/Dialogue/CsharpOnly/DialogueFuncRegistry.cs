@@ -6,7 +6,7 @@ using System.Reflection;
 using UnityEngine;
 using XLua;
 
-// TODO: 改为C#独有，Lua用其他的方式实现
+// C#版本对话系统函数注册与调用器
 public static class DialogueFuncRegistry
 {
     private static Dictionary<string, MethodInfo> _funcMap = new();

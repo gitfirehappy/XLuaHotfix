@@ -55,7 +55,8 @@ public class DialoguePanel : UIFormBase,IPointerClickHandler
                 text.text = optionTexts[i];
                 
             int index = i; // 闭包捕获
-            button.onClick.AddListener(() => onOptionSelected?.Invoke(index + 1));// 注意：Lua下标从1开始
+            int LuaDiff = IsBaseCsharp ? 0 : 1;
+            button.onClick.AddListener(() => onOptionSelected?.Invoke(index + LuaDiff)); // 注意：Lua下标从1开始
             
             currentOptions.Add(optionObj);
         }
@@ -109,34 +110,34 @@ public class DialoguePanel : UIFormBase,IPointerClickHandler
     /// </summary>
     private void ExecuteOperation(string characterName, string operation)
     {
-        switch (operation.ToLower())
-        {
-            case "left":
-                SetCharacterPosition(characterName, "left");
-                ShowCharacter(characterName);
-                break;
-            case "right":
-                SetCharacterPosition(characterName, "right");
-                ShowCharacter(characterName);
-                break;
-            case "center":
-                SetCharacterPosition(characterName, "center");
-                ShowCharacter(characterName);
-                break;
-            case "hide":
-                HideCharacter(characterName);
-                break;
-            case "show":
-                ShowCharacter(characterName);
-                break;
-            default:
-                // 检查是否为图片差分操作（diff+数字）
-                if (operation.StartsWith("diff"))
-                {
-                    SetCharacterExpression(characterName, operation);
-                }
-                break;
+        string opLower = operation.ToLower().Trim();
+    
+        // 优先处理预定义快捷操作
+        if (opLower == "hide") {
+            HideCharacter(characterName);
+            return;
         }
+        if (opLower == "show") {
+            ShowCharacter(characterName);
+            return;
+        }
+        if (opLower.StartsWith("diff")) {
+            SetCharacterExpression(characterName, operation);
+            return;
+        }
+    
+        // 动态匹配配置中的位置关键字
+        foreach (var posConfig in characterPos) {
+            if (string.Equals(posConfig.pos, operation, StringComparison.OrdinalIgnoreCase)) {
+                // 传入配置中原始关键字（保留大小写），供 SetCharacterPosition 精确查找
+                SetCharacterPosition(characterName, posConfig.pos);
+                ShowCharacter(characterName);
+                return;
+            }
+        }
+    
+        // 未匹配到任何配置位置
+        Debug.LogWarning($"[DialoguePanel] 未在 characterPos 配置中找到位置关键字: '{operation}'");
     }
 
     #region 具体快捷操作
@@ -336,7 +337,7 @@ public class DialoguePanel : UIFormBase,IPointerClickHandler
     {
         public string CharacterName;
         public Image CurrentImage;
-        public string CurrentPos = "center";
+        public string CurrentPos = "";
         public int CurrentDiffIndex = 0;
     }
     

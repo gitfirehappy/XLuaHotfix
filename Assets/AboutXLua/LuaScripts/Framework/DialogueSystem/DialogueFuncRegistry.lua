@@ -1,52 +1,35 @@
 ---@class DialogueFuncRegistry 对话函数注册
 local DialogueFuncRegistry = {}
-local stringUtil = require("StringUtil")
 
 --- 模拟接口标记模块，用于扫描约束
 DialogueFuncRegistry.IDialogueFuncProvider = {}
-
---- 接口元表的初始化钩子（统一执行模块init）
-function DialogueFuncRegistry.IDialogueFuncProvider.__init(module)
-    if type(module.init) == "function" and not module.__inited then
-        module:init()
-        module.__inited = true
-        CS.UnityEngine.Debug.Log("[Lua-DialogueFuncRegistry] 模块"..tostring(module).."初始化元数据完成")
-    end
-end
-
-function DialogueFuncRegistry.IDialogueFuncProvider:__index(key)
-    return DialogueFuncRegistry.IDialogueFuncProvider[key]
-end
 
 --- 函数注册表：函数名 -> 函数
 --- funcName = {func, module}
 local _funcMap = {}
 
----@function 扫描指定模块，将模块中所有对话函数注册到对话函数注册表中，需要提前调用
----@param module table 待扫描的Lua模块
----@param moduleName string 模块名
+---@function 扫描实现 IDialogueFuncProvider 的模块
+---@param module table
+---@param moduleName string
 function DialogueFuncRegistry.ScanModule(module, moduleName)
     if not IsImplementProvider(module) then
-        CS.UnityEngine.Debug.LogWarning("[Lua-DialogueFuncRegistry] 模块"..moduleName.."未实现IDialogueFuncProvider接口，跳过扫描")
+        CS.UnityEngine.Debug.LogWarning(("[Lua] 模块 %s 未实现 IDialogueFuncProvider 接口，跳过扫描"):format(moduleName))
         return
     end
-    
-    -- 先完成name赋值
-    DialogueFuncRegistry.IDialogueFuncProvider.__init(module)
-    
-    -- 扫描的函数定义时就自带名称
-    for funcKey, func in pairs(module) do
-        if type(func) == "function" and not string.find(tostring(funcKey), "^__") then
-            -- 优先使用函数自带的name属性，无则用模块中的key作为函数名
-            local funcName = func.name or funcKey
-            if _funcMap[funcName] then
-                CS.UnityEngine.Debug.LogWarning("[Lua-DialogueFuncRegistry] 函数名重复："..funcName.."模块名"..moduleName)
-            else
-                _funcMap[funcName] = {
-                    func = func,
-                    module = moduleName
-                }
-                CS.UnityEngine.Debug.Log("[Lua-DialogueFuncRegistry] 注册Lua对话函数："..funcName.."模块名"..moduleName)
+
+    for key, item in pairs(module) do
+        -- 跳过元字段（__开头）和非表类型
+        if type(key) == "string" and not key:find("^__") and type(item) == "table" then
+            -- 严格校验：必须含 name(string) + func(function)
+            if type(item.name) == "string" and type(item.func) == "function" then
+                local funcName = item.name
+                if _funcMap[funcName] then
+                    CS.UnityEngine.Debug.LogWarning(("[Lua] 函数名冲突: %s (原模块:%s, 新模块:%s)"):format(
+                            funcName, _funcMap[funcName].module, moduleName))
+                else
+                    _funcMap[funcName] = { func = item.func, module = moduleName }
+                    CS.UnityEngine.Debug.Log(("[Lua] 注册函数: %s (模块:%s)"):format(funcName, moduleName))
+                end
             end
         end
     end
@@ -82,20 +65,10 @@ function DialogueFuncRegistry.UnregisterFunction(moduleName)
 end
 
 ---@function 检查模块是否实现IDialogueFuncProvider接口（元表判断）
----@param module table 待检查的Lua模块
+---@param module table 待检查的Lua模块 
 function IsImplementProvider(module)
-    if not module or type(module) ~= "table" then return false end
     local mt = getmetatable(module)
-
-    if not mt then return false end
-
-    -- 情况1: 直接将 Interface 设为元表 (setmetatable(t, Interface))
-    if mt == DialogueFuncRegistry.IDialogueFuncProvider then return true end
-
-    -- 情况2: 标准 Lua 继承，元表的 __index 指向 Interface (setmetatable(t, {__index = Interface}))
-    if mt.__index == DialogueFuncRegistry.IDialogueFuncProvider then return true end
-
-    return false
+    return mt and mt.__index == DialogueFuncRegistry.IDialogueFuncProvider
 end
 
 return DialogueFuncRegistry

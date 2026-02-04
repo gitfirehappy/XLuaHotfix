@@ -247,7 +247,6 @@ public static class XLuaLoader
 
     /// <summary>
     /// 标准化模块名
-    /// TODO: 是否需要将这种通用工具单独抽取出来？
     /// </summary>
     public static string NormalizeModuleKey(string filepath)
     {

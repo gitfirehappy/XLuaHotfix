@@ -56,6 +56,6 @@ public class ScriptObjectBridge : MonoBehaviour,IBridge
         }
     }
     
-    // TODO: 可根据需要，根据生命周期进行释放
+    // 可根据需要，根据生命周期进行释放
 }
 
