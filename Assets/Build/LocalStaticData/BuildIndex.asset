@@ -12,11 +12,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 374a476314c24d34ba8adcfddf881e94, type: 3}
   m_Name: BuildIndex
   m_EditorClassIdentifier: 
-  BuildGUID: 20260204074348
-  BuildTime: 2026-02-04 07:43:48
+  BuildGUID: 20260206063318
+  BuildTime: 2026-02-06 06:33:18
   IsDebug: 0
   Platform: StandaloneWindows64
   Version:
-    Major: 2
+    Major: 6
     Minor: 0
     Patch: 0

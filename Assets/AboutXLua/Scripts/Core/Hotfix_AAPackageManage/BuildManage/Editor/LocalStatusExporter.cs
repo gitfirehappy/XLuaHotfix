@@ -41,6 +41,16 @@ public class LocalStatusExporter
             group = settings.CreateGroup(_groupName, false, false, true, null);
         }
 
+        var schema = group.GetSchema<UnityEditor.AddressableAssets.Settings.GroupSchemas.BundledAssetGroupSchema>();
+        if (schema == null) schema = group.AddSchema<UnityEditor.AddressableAssets.Settings.GroupSchemas.BundledAssetGroupSchema>();
+        
+        // 强制禁用缓存，确保每次都读取包内最新的 BuildIndex
+        if (schema.UseAssetBundleCache)
+        {
+            schema.UseAssetBundleCache = false; 
+            EditorUtility.SetDirty(group);
+        }
+        
         // BuildIndex (附带 BuildIndex 标签)
         EnsureAssetInGroup(settings, group, _buildIndexAssetPath, Constants.BUILD_INDEX, Constants.BUILD_INDEX);
     

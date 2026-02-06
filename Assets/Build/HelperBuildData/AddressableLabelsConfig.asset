@@ -43,11 +43,6 @@ MonoBehaviour:
     Labels:
     - LuaScriptContainer
     - Player
-  - key: LuaText
-    Type: LuaScriptContainer
-    Labels:
-    - LuaScriptContainer
-    - Text
   - key: Framework
     Type: LuaScriptContainer
     Labels:
@@ -63,6 +58,11 @@ MonoBehaviour:
     Labels:
     - LuaScriptContainer
     - Dialogue
+  - key: LuaText
+    Type: LuaScriptContainer
+    Labels:
+    - LuaScriptContainer
+    - Text
   - key: DialoguePanel
     Type: LuaBehaviourConfigSO
     Labels:
@@ -111,10 +111,10 @@ MonoBehaviour:
   - Type: LuaScriptContainer
     Keys:
     - Player
-    - LuaText
     - Framework
     - Core
     - Dialogue
+    - LuaText
   - Type: LuaBehaviourConfigSO
     Keys:
     - DialoguePanel
@@ -158,16 +158,13 @@ MonoBehaviour:
   - Label: LuaScriptContainer
     Keys:
     - Player
-    - LuaText
     - Framework
     - Core
     - Dialogue
+    - LuaText
   - Label: Player
     Keys:
     - Player
-  - Label: Text
-    Keys:
-    - LuaText
   - Label: Framework
     Keys:
     - Framework
@@ -177,6 +174,9 @@ MonoBehaviour:
   - Label: Dialogue
     Keys:
     - Dialogue
+  - Label: Text
+    Keys:
+    - LuaText
   - Label: LuaBehaviourConfigSO
     Keys:
     - DialoguePanel

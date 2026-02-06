@@ -22,7 +22,7 @@ public static class HotfixManager
     private static readonly string _hotfixUrl = Constants.HOTFIX_URL;
     
     // 固定下载 manifest 动态获取路径
-    private static readonly string _manifestUrl = $"{_hotfixUrl}/manifest.json";
+    private static readonly string _manifestUrl = $"{_hotfixUrl}manifest.json";
     
     private static string _remoteUrlRoot;
     
@@ -67,7 +67,7 @@ public static class HotfixManager
         
         // 1. 初始化 Addressable 本地包
         BeginStep("Initialize Addressables", 0);
-        var initHandle = Addressables.InitializeAsync();
+        var initHandle = Addressables.InitializeAsync(false);
         try 
         {
             await initHandle.Task;
@@ -99,6 +99,9 @@ public static class HotfixManager
             ReportError("[HotfixManager] 致命错误：无法加载 BuildIndex！无法确定版本路径。");
             return;
         }
+        
+        CheckAndCleanIfNewBuild(buildIndex);
+        
         PathManager.Initialize(buildIndex);
         PathManager.EnsureDirectories();
         CompleteStep();
@@ -134,7 +137,7 @@ public static class HotfixManager
         {
             ParseJson<VersionState>(File.ReadAllText(localVersionStatePath), out var localstate);
             localVersionState = localstate;
-            Debug.Log($"[HotfixManager] 本地版本: {localVersionState?.version}, Hash: {localVersionState?.hash}");
+            Debug.Log($"[HotfixManager] 本地版本: {localVersionState?.version.GetVersionString()}, Hash: {localVersionState?.hash}");
         }
 
         // 5. 下载远端 version_state.json
@@ -148,18 +151,19 @@ public static class HotfixManager
             return;
         }
         ParseJson<VersionState>(remoteVersionJson, out var remoteVersionState);
-        Debug.Log($"[HotfixManager] 远端版本: {remoteVersionState?.version}");
+        Debug.Log($"[HotfixManager] 远端版本: {remoteVersionState?.version.GetVersionString()}");
 
         if (localVersionState != null && localVersionState.version.Major != remoteVersionState.version.Major)
         {
             if (buildIndex.Version == remoteVersionState.version)
             {
-                Debug.Log($"[HotfixManager] 检测到大版本更新，执行全量清理。版本：{buildIndex.Version}");
+                Debug.Log($"[HotfixManager] 检测到大版本更新，执行全量清理。版本：{buildIndex.Version.GetVersionString()}");
                 PackageCleaner.ClearAllHotfix();
             }
             else
             {
                 ReportError("[HotfixManager] 检测到整包版本不一致，请下载最新整包");
+                Debug.LogError($"[HotfixManager] 本地版本:{buildIndex.Version.GetVersionString()},远端版本:{remoteVersionState.version.GetVersionString()}");
                 return;
             }
         }
@@ -237,6 +241,54 @@ public static class HotfixManager
     private static async Task FinishHotfix()
     {
         await AAPackageManager.Instance.Initialize();
+    }
+    
+    /// <summary>
+    /// 检查 BuildGUID，如果发现是新构建的包，则清理旧缓存
+    /// TODO: 要修改BuildIndex比对逻辑
+    /// </summary>
+    private static void CheckAndCleanIfNewBuild(BuildIndex currentBuildIndex)
+    {
+        string lastGuid = PlayerPrefs.GetString("LastBuildGUID", "");
+        string currentGuid = currentBuildIndex.BuildGUID;
+
+        // 如果记录的 GUID 和当前包的 GUID 不一致，说明覆盖安装了新整包
+        if (lastGuid != currentGuid)
+        {
+            Debug.Log($"[HotfixManager] 检测到新整包覆盖 (GUID: {lastGuid} -> {currentGuid})。执行深度清理...");
+
+            // 1. 清理 Unity AssetBundle 缓存
+            bool cacheCleared = Caching.ClearCache();
+            
+            // 2. 暴力删除热更下载目录
+            // 这一步删除了之前下载的所有 Remote Bundle 和 Catalog
+            try 
+            {
+                PackageCleaner.ClearAllHotfix();
+            }
+            catch(Exception ex) { Debug.LogWarning(ex.Message); }
+
+            // 3. 清理 Addressables 内部缓存 (Catalog 缓存)
+            string aaCachePath = Path.Combine(Application.persistentDataPath, "com.unity.addressables");
+            try
+            {
+                if (Directory.Exists(aaCachePath))
+                {
+                    Directory.Delete(aaCachePath, true);
+                }
+            }
+            catch(Exception ex) { Debug.LogWarning(ex.Message); }
+
+            // 4. 更新记录
+            PlayerPrefs.SetString("LastBuildGUID", currentGuid);
+            PlayerPrefs.Save();
+            
+            Debug.Log("[HotfixManager] 清理完成，作为全新版本运行。");
+        }
+        else
+        {
+            Debug.Log($"[HotfixManager] 版本 GUID 一致 ({currentGuid})，保持热更缓存。");
+        }
     }
     
     /// <summary>

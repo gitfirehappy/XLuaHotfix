@@ -11,7 +11,7 @@ public static class Constants
     public const string PROJECTNAME = "ProjectName";
     
     /// <summary> 服务器url </summary>
-    public const string HOTFIX_URL = "https://my-game-xlua-hotfix.netlify.app";
+    public const string HOTFIX_URL = "https://firehappy-cfy.com/";
     
     /// <summary> 导出的AA配置条目的 Key </summary>
     public const string AA_LABELS_CONFIG = "AddressableLabelsConfig";

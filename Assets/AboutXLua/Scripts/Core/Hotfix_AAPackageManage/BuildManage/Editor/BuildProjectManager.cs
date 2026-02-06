@@ -2,6 +2,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.ComponentModel.Design.Serialization;
 using System.IO;
 using Codice.Client.Common.EventTracking;
 using NUnit.Framework;
@@ -31,7 +32,7 @@ public static class BuildProjectManager
     /// <summary>
     /// 构建完整包，用于大版本更新
     /// </summary>
-    [MenuItem("Tools/Build/Build Full Package")]
+    [MenuItem("Tools/Build/Build Full Package",false, 1)]
     public static void BuildFullPackage()
     {
         VersionDataBase versionData = LoadVersionDataBase();
@@ -51,7 +52,7 @@ public static class BuildProjectManager
     /// <summary>
     /// 构建热更包，用于小版本更新
     /// </summary>
-    [MenuItem("Tools/Build/Build Hotfix Package")]
+    [MenuItem("Tools/Build/Build Hotfix Package",false, 2)]
     public static void BuildHotfix()
     {
         VersionDataBase versionData = LoadVersionDataBase();
@@ -63,6 +64,33 @@ public static class BuildProjectManager
         AssetDatabase.Refresh();
         
         ExecuteBuildFlow(versionData.CurrentVersion, BuildType.Hotfix);
+    }
+    
+    /// <summary>
+    /// 确认发布上线 (Manual Trigger)
+    /// 将 Staged 快照转正为 Head，通常在热更包上传 CDN 后点击
+    /// </summary>
+    [MenuItem("Tools/Build/Confirm Release Hotfix",false, 3)]
+    public static void ConfirmReleaseHotfix()
+    {
+        DifferentialProcessor.ConfirmRelease();
+    }
+
+    /// <summary>
+    /// 重置分组 (Manual Trigger)
+    /// 将位于 Hotfix 组的资源还原回它们原始的分组 (通常在打整包前，或者放弃本次热更时使用)
+    /// </summary>
+    [MenuItem("Tools/Build/Reset Remote Groups to Original",false, 0)]
+    public static void ResetGroupsToOriginal()
+    {
+        bool confirm = EditorUtility.DisplayDialog("重置分组", 
+            "确定要将所有热更组 (Remote_Hotfix_Group) 中的资源还原回原始分组吗？\n\n注意：这通常在构建新的整包前执行。", 
+            "确定重置", "取消");
+
+        if (confirm)
+        {
+            DifferentialProcessor.RestoreOriginalGroups();
+        }
     }
     
     private static void ExecuteBuildFlow(VersionNumber version, BuildType buildType)
@@ -78,8 +106,6 @@ public static class BuildProjectManager
 
         try
         {
-            // TODO: 如果是整包需要先重置分组，采用手动重置，此处暂不处理
-            
             List<string> deleteList = new List<string>();
             HashSet<string> unchangedBundles = new HashSet<string>();
             if (buildType == BuildType.Hotfix)

@@ -1,9 +1,9 @@
 #if UNITY_EDITOR
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using Unity.VisualScripting;
 using UnityEditor;
 using UnityEditor.AddressableAssets;
 using UnityEditor.AddressableAssets.Settings;
@@ -29,7 +29,7 @@ public static class DifferentialProcessor
         var settings = AddressableAssetSettingsDefaultObject.Settings;
         var data = GetOrCreateSnapshotData();
         var head = data.GetHead();
-        var currentAssets = ScanCurrentProjectAssets(settings);
+        var currentAssets = ScanCurrentProjectAssets(settings,head);
 
         if (head == null)
         {
@@ -76,11 +76,89 @@ public static class DifferentialProcessor
         return true;
     }
 
-    // TODO: 将远端Group重置回本地Group（手动调用）
+     /// <summary>
+    /// 将远端Group重置回本地Group
+    /// 根据 Head 快照中的记录，将 Hotfix Group 中的资源还原回 OriginalGroupName
+    /// </summary>
+    public static void RestoreOriginalGroups()
+    {
+        var settings = AddressableAssetSettingsDefaultObject.Settings;
+        var hotfixGroup = settings.FindGroup(Constants.HOTFIX_GROUP_NAME);
+        
+        if (hotfixGroup == null || hotfixGroup.entries.Count == 0)
+        {
+            Debug.Log("[DiffProcessor] 热更组为空或不存在，无需重置。");
+            return;
+        }
+
+        var data = GetOrCreateSnapshotData();
+        var head = data.GetHead();
+
+        if (head == null)
+        {
+            Debug.LogWarning("[DiffProcessor] 找不到基准快照 (Head)，无法精确还原分组。请手动检查资源。");
+            return;
+        }
+
+        // 建立 Head 索引以便快速查找
+        Dictionary<string, AssetSnapshot> headIndex = new Dictionary<string, AssetSnapshot>();
+        foreach (var asset in head.Assets)
+        {
+            if (!headIndex.ContainsKey(asset.AssetGUID))
+            {
+                headIndex.Add(asset.AssetGUID, asset);
+            }
+        }
+
+        List<AddressableAssetEntry> entriesToMove = new List<AddressableAssetEntry>(hotfixGroup.entries);
+        int moveCount = 0;
+
+        foreach (var entry in entriesToMove)
+        {
+            if (headIndex.TryGetValue(entry.guid, out var originalInfo))
+            {
+                string targetGroupName = originalInfo.OriginalGroupName;
+                
+                // 如果原始组名无效或为空，尝试使用 CurrentGroupName (如果它不是 HotfixGroup)
+                if (string.IsNullOrEmpty(targetGroupName) || targetGroupName == Constants.HOTFIX_GROUP_NAME)
+                {
+                    // 尝试寻找是否有更早的记录，或者只能放到 Default Group
+                    targetGroupName = "Default Local Group"; 
+                }
+
+                var targetGroup = settings.FindGroup(targetGroupName);
+                if (targetGroup == null)
+                {
+                    // 如果原分组被删除了，创建一个新的或移入默认组
+                    Debug.LogWarning($"[DiffProcessor] 原分组 {targetGroupName} 不存在，移入 Default Local Group: {entry.address}");
+                    targetGroup = settings.FindGroup("Default Local Group");
+                    if (targetGroup == null) targetGroup = settings.DefaultGroup;
+                }
+
+                if (targetGroup != null)
+                {
+                    settings.MoveEntry(entry, targetGroup);
+                    moveCount++;
+                }
+            }
+            else
+            {
+                // 快照里没找到（可能是热更期间新增的资源），根据策略处理
+                // 这里选择移入 Default Group
+                Debug.LogWarning($"[DiffProcessor] 快照中未找到资源记录 {entry.address}，移入默认组。");
+                settings.MoveEntry(entry, settings.DefaultGroup);
+                moveCount++;
+            }
+        }
+
+        EditorUtility.SetDirty(settings);
+        AssetDatabase.SaveAssets();
+        
+        Debug.Log($"[DiffProcessor] 分组重置完成。已还原 {moveCount} 个资源。");
+    }
     
     /// <summary>
     /// 确认发布上线热更包，更新快照列表和 Head
-    /// TODO: 此处添加按钮或在上层封装
     /// </summary>
     public static void ConfirmRelease()
     {
@@ -116,7 +194,7 @@ public static class DifferentialProcessor
         var data = GetOrCreateSnapshotData();
 
         // 扫描当前所有资源
-        var currentAssets = ScanCurrentProjectAssets(settings);
+        var currentAssets = ScanCurrentProjectAssets(settings,null);
         
         data.Snapshots.Clear();
         data.StageSnapshot = null;
@@ -157,9 +235,21 @@ public static class DifferentialProcessor
     /// <summary>
     /// 扫描当前项目所有资源
     /// </summary>
-    private static List<AssetSnapshot> ScanCurrentProjectAssets(AddressableAssetSettings settings)
+    /// <param name="headSnapshot">基准快照，用于查找 OriginalGroupName</param>
+    private static List<AssetSnapshot> ScanCurrentProjectAssets(AddressableAssetSettings settings, BuildSnapshot headSnapshot)
     {
         List<AssetSnapshot> list = new List<AssetSnapshot>();
+        
+        // 建立 Head 索引 (如果存在)
+        Dictionary<string, AssetSnapshot> headIndex = null;
+        if (headSnapshot != null)
+        {
+            headIndex = new Dictionary<string, AssetSnapshot>();
+            foreach(var a in headSnapshot.Assets)
+            {
+                if(!headIndex.ContainsKey(a.AssetGUID)) headIndex[a.AssetGUID] = a;
+            }
+        }
         
         foreach (var group in settings.groups)
         {
@@ -177,9 +267,42 @@ public static class DifferentialProcessor
                 string fullPath = AssetDatabase.GUIDToAssetPath(entry.guid);
                 if (!File.Exists(fullPath)) continue;
                 
-                string hash = HashGenerator.GenerateFileHash(fullPath); 
-                long size = new FileInfo(fullPath).Length;
+                string hash = "";
+                Type assetType = AssetDatabase.GetMainAssetTypeAtPath(fullPath);
 
+                // 判断是否为 ScriptableObject
+                // 也可以根据需要把 typeof(GameObject) 加进去，让 Prefab 也支持深度依赖检测
+                bool isScriptableObject = assetType != null && typeof(ScriptableObject).IsAssignableFrom(assetType)
+                    || assetType == typeof(GameObject); 
+
+                if (isScriptableObject)
+                {
+                    // 递归计算 SO 及其所有引用的 Hash (Lua, Texture, Material 等)
+                    hash = HashGenerator.GenerateDeepHash(fullPath);
+                }
+                else
+                {
+                    // 普通资源 (Texture, Audio, TextAsset) 直接计算文件 Hash
+                    hash = HashGenerator.GenerateFileHash(fullPath); 
+                }
+
+                // 确定 OriginalGroupName
+                string originalGroup = group.Name;
+                
+                // 如果当前资源在 Hotfix Group，我们需要查阅历史记录来获取它原本在哪
+                if (group.Name == Constants.HOTFIX_GROUP_NAME && headIndex != null)
+                {
+                    if (headIndex.TryGetValue(entry.guid, out var oldAsset))
+                    {
+                        originalGroup = oldAsset.OriginalGroupName;
+                        // 如果历史记录里 original 也是 hotfix (极少情况)，则尝试保持现状或 fallback
+                        if (originalGroup == Constants.HOTFIX_GROUP_NAME) 
+                        {
+                            originalGroup = "Default Local Group"; 
+                        }
+                    }
+                }
+                
                 list.Add(new AssetSnapshot
                 {
                     Address = entry.address,
@@ -188,7 +311,7 @@ public static class DifferentialProcessor
                     Labels = new List<string>(entry.labels),
                     CurrentGroupName = group.Name, 
                     FileHash = hash,
-                    // TODO: 处理 OriginalGroupName 逻辑
+                    OriginalGroupName = originalGroup
                 });
             }
         }

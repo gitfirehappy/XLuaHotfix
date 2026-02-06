@@ -24,13 +24,6 @@ MonoBehaviour:
     - LuaScriptContainer
     - Player
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 206590358b269444cb35a1d487fedd79
-    m_Address: LuaText
-    m_ReadOnly: 0
-    m_SerializedLabels:
-    - LuaScriptContainer
-    - Text
-    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: d071648f3ea8bc140840e29184ba28ec
     m_Address: Framework
     m_ReadOnly: 0
@@ -51,6 +44,13 @@ MonoBehaviour:
     m_SerializedLabels:
     - LuaScriptContainer
     - Dialogue
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 206590358b269444cb35a1d487fedd79
+    m_Address: LuaText
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - LuaScriptContainer
+    - Text
     FlaggedDuringContentUpdateRestriction: 0
   m_ReadOnly: 0
   m_Settings: {fileID: 11400000, guid: 170f3ccdb3bee544095a2f2b92d47c18, type: 2}
