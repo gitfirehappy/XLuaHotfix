@@ -15,15 +15,6 @@ public static class Constants
     
     /// <summary> 导出的AA配置条目的 Key </summary>
     public const string AA_LABELS_CONFIG = "AddressableLabelsConfig";
-    
-    /// <summary> 本地整包辅助构建数据组名 </summary>
-    public const string LOCAL_STATUS_GROUP_NAME = "LocalStaticData";
-
-    /// <summary> BuildIndex的 Key </summary>
-    public const string BUILD_INDEX = "BuildIndex";
-    
-    /// <summary> BuildIndex文件保存路径 </summary>
-    public const string BUILD_INDEX_ASSETPATH = "Assets/Build/LocalStaticData/BuildIndex.asset";
 
     /// <summary> 远端辅助构建数据组名 </summary>
     public const string HELPER_BUILD_DATA_GROUP_NAME = "HelperBuildData";
@@ -45,4 +36,10 @@ public static class Constants
 
     /// <summary> 热更AAGroup名 </summary>
     public const string HOTFIX_GROUP_NAME = "HotfixGroup";
+
+    /// <summary> StreamingAssets 中 BuildIndex.json 的文件名 </summary>
+    public const string BUILD_INDEX_FILENAME = "BuildIndex.json";
+    
+    /// <summary> BuildIndex Json 文件的编辑器存储路径（仅用于查看） </summary>
+    public const string BUILD_INDEX_JSON_PROJECT_PATH = "Assets/Build/LocalStaticData/BuildIndex.json";
 }

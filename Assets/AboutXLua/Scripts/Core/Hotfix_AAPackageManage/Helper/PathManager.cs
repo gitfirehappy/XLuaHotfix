@@ -28,7 +28,7 @@ public static class PathManager
     /// <summary>
     /// 初始化路径
     /// </summary>
-    public static void Initialize(BuildIndex buildIndex)
+    public static void Initialize(BuildIndexData buildIndex)
     {
         string platform = buildIndex.Platform;
         if(string.IsNullOrEmpty(platform)) platform = "Unknown";

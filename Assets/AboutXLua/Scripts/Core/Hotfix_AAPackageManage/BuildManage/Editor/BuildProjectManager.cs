@@ -153,11 +153,10 @@ public static class BuildProjectManager
             // 7. 更新 Manifest 文件
             UpdateManifestFile(currentPackageName, version);
 
-            // 8. 如果是整包构建，需要导出 LocalStatus
+            // 8. 如果是整包构建，导出 BuildIndex 到 StreamingAssets
             if (buildType == BuildType.Full)
             {
                 LocalStatusExporter.ExportData(version);
-                LocalStatusExporter.EnsureExportDataInGroup();
                 
                 DifferentialProcessor.ReBuildSnapShots(version);
             }

@@ -1,114 +1,95 @@
 #if UNITY_EDITOR
 using System.IO;
 using UnityEditor;
-using UnityEditor.AddressableAssets;
-using UnityEditor.AddressableAssets.Settings;
 using UnityEngine;
 
 /// <summary>
 /// 本地Build数据导出，只有整包构建时使用，小版本热更不需要
+/// 将 BuildIndex 导出为 JSON 文件到 StreamingAssets，绕过 Addressables 缓存问题
 /// </summary>
-public class LocalStatusExporter
+public static class LocalStatusExporter
 {
-    private const string _buildIndexAssetPath = Constants.BUILD_INDEX_ASSETPATH;
-
-    private const string _groupName = Constants.LOCAL_STATUS_GROUP_NAME;
+    /// <summary>
+    /// StreamingAssets 中 BuildIndex.json 的相对路径
+    /// </summary>
+    private const string BUILD_INDEX_FILENAME = Constants.BUILD_INDEX_FILENAME;
+    
+    /// <summary>
+    /// 获取 BuildIndex.json 在 StreamingAssets 中的完整路径
+    /// </summary>
+    public static string BuildIndexStreamingPath => Path.Combine(Application.streamingAssetsPath, BUILD_INDEX_FILENAME);
 
     /// <summary>
-    /// 总导出入口
+    /// 总导出入口 - 负责调用所有本地静态数据（LocalStaticData）的导出逻辑
     /// </summary>
     public static void ExportData(VersionNumber version)
     {
-        Debug.Log("[LocalBuildData] 开始导出所有本地构建数据...");
-    
+        Debug.Log("[LocalStatusExporter] 开始导出所有本地构建数据到 StreamingAssets...");
+        
+        // 确保 StreamingAssets 目录存在
+        if (!Directory.Exists(Application.streamingAssetsPath))
+        {
+            Directory.CreateDirectory(Application.streamingAssetsPath);
+        }
+
+        // 1. 导出 BuildIndex
         ExportBuildIndex(version);
-    
-        AssetDatabase.SaveAssets();
-        Debug.Log("[LocalBuildData] 导出完成。");
-    }
-    
-    /// <summary>
-    /// 确保所有本地配置进入 AddressableGroup
-    /// </summary>
-    public static void EnsureExportDataInGroup()
-    {
-        var settings = AddressableAssetSettingsDefaultObject.Settings;
-        if (settings == null) return;
-
-        var group = settings.FindGroup(_groupName);
-        if (group == null)
-        {
-            group = settings.CreateGroup(_groupName, false, false, true, null);
-        }
-
-        var schema = group.GetSchema<UnityEditor.AddressableAssets.Settings.GroupSchemas.BundledAssetGroupSchema>();
-        if (schema == null) schema = group.AddSchema<UnityEditor.AddressableAssets.Settings.GroupSchemas.BundledAssetGroupSchema>();
         
-        // 强制禁用缓存，确保每次都读取包内最新的 BuildIndex
-        if (schema.UseAssetBundleCache)
-        {
-            schema.UseAssetBundleCache = false; 
-            EditorUtility.SetDirty(group);
-        }
-        
-        // BuildIndex (附带 BuildIndex 标签)
-        EnsureAssetInGroup(settings, group, _buildIndexAssetPath, Constants.BUILD_INDEX, Constants.BUILD_INDEX);
-    
-        Debug.Log("[LocalBuildData] 已确保本地数据进入 Group。");
-    }
-    
-    /// <summary>
-    /// 辅助方法：确保资源进入指定组，并设置地址和标签
-    /// </summary>
-    private static void EnsureAssetInGroup(AddressableAssetSettings settings, AddressableAssetGroup group, string path, string address, string label = null)
-    {
-        var guid = AssetDatabase.AssetPathToGUID(path);
-        if (string.IsNullOrEmpty(guid)) return;
+        // 2. 预留其他本地数据的导出位置
+        // ExportOtherLocalData(version);
 
-        var entry = settings.CreateOrMoveEntry(guid, group);
-        entry.address = address;
-    
-        if (!string.IsNullOrEmpty(label))
-        {
-            if (!entry.labels.Contains(label))
-            {
-                entry.labels.Add(label);
-            }
-        }
+        AssetDatabase.Refresh();
+        Debug.Log("[LocalStatusExporter] 本地数据导出完成。");
     }
-    
-    #region BuildIndex
-    
+
     /// <summary>
-    /// 导出BuildIndex
+    /// 导出 BuildIndex 到 StreamingAssets
     /// </summary>
     private static void ExportBuildIndex(VersionNumber version)
-    { 
-        // 创建BuildIndex
-        BuildIndex buildIndex = ScriptableObject.CreateInstance<BuildIndex>();
-        
-        buildIndex.BuildGUID = System.DateTime.UtcNow.ToString("yyyyMMddHHmmss");
-        
-        buildIndex.BuildTime = System.DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss");
-        
-        buildIndex.IsDebug = EditorUserBuildSettings.development;
-        
-        buildIndex.Platform = EditorUserBuildSettings.activeBuildTarget.ToString();
-        
-        buildIndex.Version = version;
-        
-        // 保存到Asset
-        string directoryPath = Path.GetDirectoryName(_buildIndexAssetPath);
-        if (!Directory.Exists(directoryPath))
+    {
+        Debug.Log("[LocalStatusExporter] 正在生成 BuildIndex...");
+
+        // 创建数据对象
+        var buildIndexData = new BuildIndexData
         {
-            Directory.CreateDirectory(directoryPath);
+            BuildGUID = System.DateTime.UtcNow.ToString("yyyyMMddHHmmss"),
+            BuildTime = System.DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss"),
+            IsDebug = EditorUserBuildSettings.development,
+            Platform = EditorUserBuildSettings.activeBuildTarget.ToString(),
+            Version = version
+        };
+
+        // 序列化为 JSON
+        string json = JsonUtility.ToJson(buildIndexData, true);
+        
+        // 写入 StreamingAssets
+        File.WriteAllText(BuildIndexStreamingPath, json);
+        
+        // 额外写入一份到编辑器 LocalStaticData 目录（便于查看，不做运行时读取）
+        string projectPath = Constants.BUILD_INDEX_JSON_PROJECT_PATH;
+        string projectDir = Path.GetDirectoryName(projectPath);
+        if (!Directory.Exists(projectDir))
+        {
+            Directory.CreateDirectory(projectDir);
         }
+        File.WriteAllText(projectPath, json);
         
-        AssetDatabase.CreateAsset(buildIndex, _buildIndexAssetPath);
-        
-        Debug.Log($"[BuildIndexExporter] BuildIndex已生成: {buildIndex.BuildGUID}, Platform: {buildIndex.Platform}");
+        Debug.Log($"[LocalStatusExporter] BuildIndex 已写入: {BuildIndexStreamingPath}");
+        Debug.Log($"[LocalStatusExporter] BuildIndex 副本已写入: {projectPath}");
+        Debug.Log($"[LocalStatusExporter] Info - GUID: {buildIndexData.BuildGUID}, Ver: {version.GetVersionString()}");
     }
-    
-    #endregion
+
+    /// <summary>
+    /// 清理旧的 BuildIndex（如果存在）
+    /// </summary>
+    public static void CleanBuildIndex()
+    {
+        if (File.Exists(BuildIndexStreamingPath))
+        {
+            File.Delete(BuildIndexStreamingPath);
+            AssetDatabase.Refresh();
+            Debug.Log("[LocalStatusExporter] 已清理旧的 BuildIndex.json");
+        }
+    }
 }
 #endif

@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.AddressableAssets.ResourceLocators;
+using UnityEngine.Networking;
 using UnityEngine.ResourceManagement.AsyncOperations;
 
 /// <summary>
@@ -23,6 +24,8 @@ public static class HotfixManager
     
     // 固定下载 manifest 动态获取路径
     private static readonly string _manifestUrl = $"{_hotfixUrl}manifest.json";
+    
+    private static BuildIndexData _currentBuildIndex;
     
     private static string _remoteUrlRoot;
     
@@ -65,38 +68,12 @@ public static class HotfixManager
         _currentStepIndex = 0;
         CurrentProgressValue = 0f;
         
-        // 1. 初始化 Addressable 本地包
-        BeginStep("Initialize Addressables", 0);
-        var initHandle = Addressables.InitializeAsync(false);
-        try 
-        {
-            await initHandle.Task;
-            // 不要在这里访问 initHandle.Status，否则会再次报错
-        }
-        catch (Exception e)
-        {
-            ReportError($"[HotfixManager] Addressables 初始化异常: {e.Message}");
-            return;
-        }
-        Debug.Log("[HotfixManager] Addressables 本地包初始化成功");
-        CompleteStep();
-
-        // 2. 加载 BuildIndex，并初始化路径 (从 Local AA 包中)
-        BeginStep("Load BuildIndex", 1);
-        var indexHandle = Addressables.LoadAssetAsync<BuildIndex>(Constants.BUILD_INDEX);
-        BuildIndex buildIndex = null;
-        try 
-        {
-            buildIndex = await indexHandle.Task;
-        }
-        catch (Exception e)
-        {
-            ReportError($"[HotfixManager] 加载 BuildIndex 异常: {e.Message}");
-            return;
-        }
+        // 1. 从 StreamingAssets 直接读取 BuildIndex（绕过 AA 缓存）
+        BeginStep("Load BuildIndex", 0);
+        BuildIndexData buildIndex = await LoadBuildIndexFromStreamingAssets();
         if (buildIndex == null)
         {
-            ReportError("[HotfixManager] 致命错误：无法加载 BuildIndex！无法确定版本路径。");
+            ReportError("[HotfixManager] 致命错误：无法加载 BuildIndex！");
             return;
         }
         
@@ -104,6 +81,21 @@ public static class HotfixManager
         
         PathManager.Initialize(buildIndex);
         PathManager.EnsureDirectories();
+        CompleteStep();
+
+        // 2. 初始化 Addressable 本地包
+        BeginStep("Initialize Addressables", 1);
+        var initHandle = Addressables.InitializeAsync(false);
+        try 
+        {
+            await initHandle.Task;
+        }
+        catch (Exception e)
+        {
+            ReportError($"[HotfixManager] Addressables 初始化异常: {e.Message}");
+            return;
+        }
+        Debug.Log("[HotfixManager] Addressables 本地包初始化成功");
         CompleteStep();
 
         // 3. 获取 manifest.json，确定下载路径
@@ -230,7 +222,7 @@ public static class HotfixManager
         CompleteStep();
         OnFinished?.Invoke();
     }
-
+    
     private static async Task<bool> DownloadBundleWithTrack(string url, string savePath, Action onDone)
     {
         bool ok = await NetworkDownloader.Instance.DownloadFile(url, savePath);
@@ -245,11 +237,26 @@ public static class HotfixManager
     
     /// <summary>
     /// 检查 BuildGUID，如果发现是新构建的包，则清理旧缓存
-    /// TODO: 要修改BuildIndex比对逻辑
+    /// 使用本地文件标记
     /// </summary>
-    private static void CheckAndCleanIfNewBuild(BuildIndex currentBuildIndex)
+    private static void CheckAndCleanIfNewBuild(BuildIndexData currentBuildIndex)
     {
-        string lastGuid = PlayerPrefs.GetString("LastBuildGUID", "");
+        string guidFilePath = Path.Combine(Application.persistentDataPath, "build_guid.txt");
+        string lastGuid = "";
+        
+        // 从文件读取上次的 GUID
+        if (File.Exists(guidFilePath))
+        {
+            try
+            {
+                lastGuid = File.ReadAllText(guidFilePath).Trim();
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[HotfixManager] 读取 build_guid.txt 失败: {ex.Message}");
+            }
+        }
+        
         string currentGuid = currentBuildIndex.BuildGUID;
 
         // 如果记录的 GUID 和当前包的 GUID 不一致，说明覆盖安装了新整包
@@ -258,11 +265,10 @@ public static class HotfixManager
             Debug.Log($"[HotfixManager] 检测到新整包覆盖 (GUID: {lastGuid} -> {currentGuid})。执行深度清理...");
 
             // 1. 清理 Unity AssetBundle 缓存
-            bool cacheCleared = Caching.ClearCache();
-            
+            Caching.ClearCache();
+
             // 2. 暴力删除热更下载目录
-            // 这一步删除了之前下载的所有 Remote Bundle 和 Catalog
-            try 
+            try
             {
                 PackageCleaner.ClearAllHotfix();
             }
@@ -279,15 +285,72 @@ public static class HotfixManager
             }
             catch(Exception ex) { Debug.LogWarning(ex.Message); }
 
-            // 4. 更新记录
-            PlayerPrefs.SetString("LastBuildGUID", currentGuid);
-            PlayerPrefs.Save();
+            // 4. 使用文件存储 GUID（替代 PlayerPrefs）
+            try
+            {
+                File.WriteAllText(guidFilePath, currentGuid);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[HotfixManager] 写入 build_guid.txt 失败: {ex.Message}");
+            }
             
             Debug.Log("[HotfixManager] 清理完成，作为全新版本运行。");
         }
         else
         {
             Debug.Log($"[HotfixManager] 版本 GUID 一致 ({currentGuid})，保持热更缓存。");
+        }
+    }
+    
+    /// <summary>
+    /// 从 StreamingAssets 直接读取 BuildIndex，绕过 Addressables 缓存
+    /// </summary>
+    private static async Task<BuildIndexData> LoadBuildIndexFromStreamingAssets()
+    {
+        string path = Path.Combine(Application.streamingAssetsPath, "BuildIndex.json");
+        
+        try
+        {
+#if UNITY_ANDROID && !UNITY_EDITOR
+            // Android 需要使用 UnityWebRequest 读取 StreamingAssets
+            using (var request = UnityWebRequest.Get(path))
+            {
+                var operation = request.SendWebRequest();
+                while (!operation.isDone)
+                {
+                    await Task.Yield();
+                }
+                
+                if (request.result == UnityWebRequest.Result.Success)
+                {
+                    string json = request.downloadHandler.text;
+                    return JsonUtility.FromJson<BuildIndexData>(json);
+                }
+                else
+                {
+                    Debug.LogError($"[HotfixManager] 读取 BuildIndex 失败: {request.error}");
+                    return null;
+                }
+            }
+#else
+            // 其他平台可直接读取文件
+            if (File.Exists(path))
+            {
+                string json = File.ReadAllText(path);
+                return JsonUtility.FromJson<BuildIndexData>(json);
+            }
+            else
+            {
+                Debug.LogError($"[HotfixManager] BuildIndex.json 不存在: {path}");
+                return null;
+            }
+#endif
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"[HotfixManager] 读取 BuildIndex 异常: {e.Message}");
+            return null;
         }
     }
     
