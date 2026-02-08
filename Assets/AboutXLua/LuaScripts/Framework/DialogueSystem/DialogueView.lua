@@ -100,4 +100,11 @@ function DialogueView.HideOptions()
     end   
 end
 
+---@function 清理角色
+function DialogueView.ClearCharacters()
+    if DialogueView.uiRefs and DialogueView.uiRefs.panel then
+        DialogueView.uiRefs.panel:ClearAllCharacters()
+    end
+end
+
 return DialogueView

@@ -57,9 +57,10 @@ function DialogueController.Refresh()
 
         -- 处理条件判断返回值（仅条件类型需要）
         if model:IsConditionType() then
-            CS.UnityEngine.Debug.Log("条件判断类型，结果: " .. tostring(conditionResult))
-            if conditionResult then
-                DialogueController.Next(conditionResult)
+            local targetResult = tostring(conditionResult)
+            CS.UnityEngine.Debug.Log("条件判断类型，结果: " .. targetResult)
+            if targetResult then
+                DialogueController.Next(targetResult)
                 return  -- 重要：条件判断跳转后直接返回，避免重复执行
             else
                 CS.UnityEngine.Debug.LogError("条件判断返回空值，无法继续")
@@ -125,8 +126,11 @@ end
 ---@function 结束对话
 function DialogueController.End()
     CS.UnityEngine.Debug.Log("End dialogue: " .. (currentDialogueFile or ""))
+    
+    view.ClearCharacters()
     view.HideOptions()
     view.HideDialogue()
+    
     model:Cleanup()
     currentDialogueFile = nil
     -- 可选：卸载文件

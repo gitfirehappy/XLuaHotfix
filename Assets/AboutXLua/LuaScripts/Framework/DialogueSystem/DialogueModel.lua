@@ -124,24 +124,27 @@ end
 ---@param nextID string
 function DialogueModel:UpdateCurrentID(nextID)
     self.optionIDs = nil  -- 重置选项ID
-    if nextID == "END" then
+
+    local targetNextID = tostring(nextID)
+    
+    if targetNextID == "END" then
         self.isEnd = true
         self.currentID = nil
-    elseif nextID:find(";") then
+    elseif targetNextID:find(";") then
         -- 多个ID视为选项
-        self.optionIDs = stringUtil.SplitSemicolon(nextID)
+        self.optionIDs = stringUtil.SplitSemicolon(targetNextID)
     else
         -- 检测是否进入无限循环
-        if self.visitedIDs[nextID] then
-            CS.UnityEngine.Debug.LogError("警告: 检测到对话ID " .. nextID .. " 出现循环引用，强制结束对话")
+        if self.visitedIDs[targetNextID] then
+            CS.UnityEngine.Debug.LogError("警告: 检测到对话ID " .. targetNextID .. " 出现循环引用，强制结束对话")
             self.isEnd = true
             self.currentID = nil
             return
         end
 
         -- 记录访问过的ID
-        self.visitedIDs[nextID] = true
-        self.currentID = nextID
+        self.visitedIDs[targetNextID] = true
+        self.currentID = targetNextID
     end
 end
 

@@ -15,11 +15,6 @@ using UnityEngine.ResourceManagement.AsyncOperations;
 /// </summary>
 public static class HotfixManager
 {
-    public static event Action<string> OnStepChanged;
-    public static event Action<float, string> OnProgress;
-    public static event Action<string> OnError;
-    public static event Action OnFinished;
-
     private static readonly string _hotfixUrl = Constants.HOTFIX_URL;
     
     // 固定下载 manifest 动态获取路径
@@ -29,12 +24,19 @@ public static class HotfixManager
     
     private static string _remoteUrlRoot;
     
+    public static event Action<string> OnStepChanged;
+    public static event Action<float, string> OnProgress;
+    public static event Action<string> OnError;
+    public static event Action OnFinished;
+    
     private const int TotalSteps = 9;
     private static int _currentStepIndex = -1;
     private static string _currentStepName = string.Empty;
 
     public static string CurrentStepName => _currentStepName;
     public static float CurrentProgressValue { get; private set; } = 0f;
+
+    #region 进度回调
     
     private static void BeginStep(string stepName, int stepIndex)
     {
@@ -62,43 +64,95 @@ public static class HotfixManager
         OnError?.Invoke(message);
         Debug.LogError(message);
     }
+    
+    #endregion
 
     public async static Task InitializeAsync()
     {
         _currentStepIndex = 0;
         CurrentProgressValue = 0f;
-        
-        // 1. 从 StreamingAssets 直接读取 BuildIndex（绕过 AA 缓存）
+
+        // 1. 加载 BuildIndex
+        var buildIndex = await StepLoadBuildIndexAsync();
+        if (buildIndex == null) return;
+
+        // 2. 初始化 Addressable 本地包
+        if (!await StepInitAddressablesAsync()) return;
+
+        // 3. 获取 manifest.json
+        if (!await StepDownloadManifestAsync()) return;
+
+        // 4. 检测版本
+        var versionResult = await StepCheckVersionAsync(buildIndex);
+        if (!versionResult.success) return;
+        var remoteVersionState = versionResult.remoteState;
+        var remoteVersionJson = versionResult.remoteJson;
+
+        // 5. 下载远端 bundle
+        if (!await StepDownloadBundlesAsync(remoteVersionState)) return;
+
+        // 6. 下载 catalog.json
+        if (!await StepDownloadCatalogAsync(remoteVersionJson)) return;
+
+        // 7. 应用更新
+        StepApplyUpdate(remoteVersionState);
+
+        // 8. 加载新的 catalog
+        await StepLoadCatalogAsync();
+
+        BeginStep("Finalize", 8);
+        await FinishHotfix();
+        CompleteStep();
+        OnFinished?.Invoke();
+    }
+
+    /// <summary>
+    /// 步骤1：加载 BuildIndex 并初始化路径
+    /// </summary>
+    private static async Task<BuildIndexData> StepLoadBuildIndexAsync()
+    {
         BeginStep("Load BuildIndex", 0);
         BuildIndexData buildIndex = await LoadBuildIndexFromStreamingAssets();
         if (buildIndex == null)
         {
             ReportError("[HotfixManager] 致命错误：无法加载 BuildIndex！");
-            return;
+            return null;
         }
-        
+
         CheckAndCleanIfNewBuild(buildIndex);
-        
+
         PathManager.Initialize(buildIndex);
         PathManager.EnsureDirectories();
         CompleteStep();
+        return buildIndex;
+    }
 
-        // 2. 初始化 Addressable 本地包
+    /// <summary>
+    /// 步骤2：初始化 Addressables
+    /// </summary>
+    private static async Task<bool> StepInitAddressablesAsync()
+    {
         BeginStep("Initialize Addressables", 1);
         var initHandle = Addressables.InitializeAsync(false);
-        try 
+        try
         {
             await initHandle.Task;
         }
         catch (Exception e)
         {
             ReportError($"[HotfixManager] Addressables 初始化异常: {e.Message}");
-            return;
+            return false;
         }
         Debug.Log("[HotfixManager] Addressables 本地包初始化成功");
         CompleteStep();
+        return true;
+    }
 
-        // 3. 获取 manifest.json，确定下载路径
+    /// <summary>
+    /// 步骤3：下载 Manifest，确定下载路径
+    /// </summary>
+    private static async Task<bool> StepDownloadManifestAsync()
+    {
         BeginStep("Download manifest", 2);
         string manifestJson = await NetworkDownloader.Instance.DownloadText(_manifestUrl);
         if (string.IsNullOrEmpty(manifestJson))
@@ -106,7 +160,7 @@ public static class HotfixManager
             ReportError("[HotfixManager] 无法获取manifest.json，使用本地资源运行。");
             await FinishHotfix();
             CompleteStep();
-            return;
+            return false;
         }
         Manifest manifest = JsonUtility.FromJson<Manifest>(manifestJson);
         if (string.IsNullOrEmpty(manifest.latestPackage))
@@ -114,13 +168,20 @@ public static class HotfixManager
             ReportError("[HotfixManager] manifest.json 无效，使用本地资源运行。");
             await FinishHotfix();
             CompleteStep();
-            return;
+            return false;
         }
         string packagePath = manifest.latestPackage;
         _remoteUrlRoot = $"{_hotfixUrl}/Packages/{packagePath}";
         Debug.Log($"[HotfixManager] 获取最新包体: {packagePath}，URL已更新: {_remoteUrlRoot}");
         CompleteStep();
+        return true;
+    }
 
+    /// <summary>
+    /// 步骤4：检查本地版本与远端版本
+    /// </summary>
+    private static async Task<(bool success, VersionState remoteState, string remoteJson)> StepCheckVersionAsync(BuildIndexData buildIndex)
+    {
         // 4. 加载本地 version_state.json
         BeginStep("Check local version", 3);
         string localVersionStatePath = Path.Combine(PathManager.LocalRoot, "version_state.json");
@@ -140,7 +201,7 @@ public static class HotfixManager
             ReportError("[HotfixManager] 无法获取远端版本信息，将使用本地资源运行。");
             await FinishHotfix();
             CompleteStep();
-            return;
+            return (false, null, null);
         }
         ParseJson<VersionState>(remoteVersionJson, out var remoteVersionState);
         Debug.Log($"[HotfixManager] 远端版本: {remoteVersionState?.version.GetVersionString()}");
@@ -156,21 +217,33 @@ public static class HotfixManager
             {
                 ReportError("[HotfixManager] 检测到整包版本不一致，请下载最新整包");
                 Debug.LogError($"[HotfixManager] 本地版本:{buildIndex.Version.GetVersionString()},远端版本:{remoteVersionState.version.GetVersionString()}");
-                return;
+                return (false, null, null);
             }
         }
         Debug.Log($"[HotfixManager] 此次需下载Bundle数: {remoteVersionState.bundles.Count}, 总大小: {remoteVersionState.totalSize}");
         CompleteStep();
+        return (true, remoteVersionState, remoteVersionJson);
+    }
 
+    /// <summary>
+    /// 步骤5：下载所有的远端 bundle
+    /// </summary>
+    private static async Task<bool> StepDownloadBundlesAsync(VersionState remoteVersionState)
+    {
         // 6. 下载所有的远端 bundle 到 RemoteRoot （暂存远端文件）
         BeginStep("Download bundles", 4);
+
+        // 清理旧的 Build_xxxx 包体目录，避免占用过多用户空间
+        // 保留最近的 1 个包体（即当前包体）
+        PackageCleaner.CleanOldBuildPackages(maxKeepCount: 1);
+
         string remoteBundleRoot = PathManager.TempBundleRoot;
         if (!Directory.Exists(remoteBundleRoot)) Directory.CreateDirectory(remoteBundleRoot);
         int totalBundles = remoteVersionState.bundles.Count;
         int completedBundles = 0;
-       
+
         ReportStepProgress(0f);
-        
+
         var task = new List<Task<bool>>();
         foreach (var bundleInfo in remoteVersionState.bundles)
         {
@@ -188,10 +261,17 @@ public static class HotfixManager
         if (task.Any(t => !t.Result))
         {
             ReportError("[HotfixManager] 存在下载失败的 bundle，请检查网络！");
-            return;
+            return false;
         }
         CompleteStep();
+        return true;
+    }
 
+    /// <summary>
+    /// 步骤6：下载 catalog.json
+    /// </summary>
+    private static async Task<bool> StepDownloadCatalogAsync(string remoteVersionJson)
+    {
         // 7. 下载 catalog.json
         BeginStep("Download catalog", 5);
         string catalogUrl = $"{_remoteUrlRoot}/catalog.json";
@@ -199,16 +279,29 @@ public static class HotfixManager
         if (!catalogOk)
         {
             ReportError("[HotfixManager] catalog.json 下载失败");
-            return;
+            return false;
         }
         File.WriteAllText(Path.Combine(PathManager.TempRoot, "version_state.json"), remoteVersionJson);
         CompleteStep();
+        return true;
+    }
 
+    /// <summary>
+    /// 步骤7：应用更新（删除旧文件，移动新文件）
+    /// </summary>
+    private static void StepApplyUpdate(VersionState remoteVersionState)
+    {
         // 8. 拿version_state中的删除名单比对，删除并更新文件
         BeginStep("Apply update", 6);
         PackageCleaner.ApplyUpdate(remoteVersionState.deleteList, PathManager.TempRoot, PathManager.LocalRoot);
         CompleteStep();
+    }
 
+    /// <summary>
+    /// 步骤8：加载新的 Catalog
+    /// </summary>
+    private static async Task StepLoadCatalogAsync()
+    {
         // 9. 加载新的 catalog，此时LocalRoot中的catalog.json已经是最新
         BeginStep("Load catalog", 7);
         Debug.Log("[HotfixManager] 加载新的远端 Catalog...");
@@ -216,13 +309,8 @@ public static class HotfixManager
         bool catalogLoaded = await CatalogUpdater.LoadExternalCatalog(localCatalogPath);
         if (catalogLoaded) Debug.Log("[HotfixManager] 热更流程成功完成！");
         CompleteStep();
-
-        BeginStep("Finalize", 8);
-        await FinishHotfix();
-        CompleteStep();
-        OnFinished?.Invoke();
     }
-    
+
     private static async Task<bool> DownloadBundleWithTrack(string url, string savePath, Action onDone)
     {
         bool ok = await NetworkDownloader.Instance.DownloadFile(url, savePath);
