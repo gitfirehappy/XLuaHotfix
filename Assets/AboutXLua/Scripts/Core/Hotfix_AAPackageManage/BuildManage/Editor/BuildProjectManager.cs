@@ -106,12 +106,10 @@ public static class BuildProjectManager
 
         try
         {
-            List<string> deleteList = new List<string>();
-            HashSet<string> unchangedBundles = new HashSet<string>();
             if (buildType == BuildType.Hotfix)
             {
                 // 将变动资源移入 Remote_Hotfix_Group
-                bool hasChanges = DifferentialProcessor.PrepareHotfix(version, deleteList, out unchangedBundles);
+                bool hasChanges = DifferentialProcessor.PrepareHotfix(version);
                 if (!hasChanges)
                 {
                     Debug.LogWarning("无资源变更，终止构建。");
@@ -145,10 +143,12 @@ public static class BuildProjectManager
             Directory.CreateDirectory(packagesDir);
             string hotfixOutputDir = Path.Combine(packagesDir, currentPackageName);
             
-            BuildPathCustomizer.OrganizeBuildOutput(serverDataPath, hotfixOutputDir, unchangedBundles); 
+            // 全量导出，不再过滤未改动bundle
+            BuildPathCustomizer.OrganizeBuildOutput(serverDataPath, hotfixOutputDir); 
 
             // 6. 生成 version_state.json 到指定目录
-            GenerateVersionStateFile(hotfixOutputDir, version, deleteList);
+            // 由于采用目录隔离策略，deleteList 不再需要在客户端执行删除，字段已移除
+            GenerateVersionStateFile(hotfixOutputDir, version);
 
             // 7. 更新 Manifest 文件
             UpdateManifestFile(currentPackageName, version);
@@ -250,15 +250,14 @@ public static class BuildProjectManager
     /// <summary>
     /// 生成 version_state.json
     /// </summary>
-    private static void GenerateVersionStateFile(string outputDir, VersionNumber version, List<string> deleteList)
+    private static void GenerateVersionStateFile(string outputDir, VersionNumber version)
     {
         Debug.Log("[BuildProjectManager] 正在生成 version_state.json...");
         
         var versionState = new VersionState
         {
             version = version,
-            bundles = new List<BundleInfo>(),
-            deleteList = new List<string>()
+            bundles = new List<BundleInfo>()
         };
         
         // 扫描 bundles 目录下的所有文件
@@ -284,9 +283,7 @@ public static class BuildProjectManager
             }
         }
         
-        // 导入删除列表
-        versionState.deleteList.AddRange(deleteList);
-        
+
         // 包体大小预警
         if (versionState.totalSize >= MaxHotfixSizeBytes)
         {

@@ -10,7 +10,6 @@ public class VersionState
     public string hash;     // 唯一比对标识
     public long totalSize;  // 更新bundle的总大小
     public List<BundleInfo> bundles = new(); // 导出的的bundle列表
-    public List<string> deleteList = new(); // 热更比对后需要删除的原始bundle的前缀用于匹配（不包含后续hash）
 }
 
 [Serializable]

@@ -65,4 +65,27 @@ public class VersionNumber
     public int Patch;
     
     public string GetVersionString() => $"{Major}.{Minor}.{Patch}";
+    
+    public override bool Equals(object obj)
+    {
+        if (obj is VersionNumber other)
+        {
+            return Major == other.Major && Minor == other.Minor && Patch == other.Patch;
+        }
+        return false;
+    }
+
+    public override int GetHashCode()
+    {
+        return HashCode.Combine(Major, Minor, Patch);
+    }
+
+    public static bool operator ==(VersionNumber a, VersionNumber b)
+    {
+        if (ReferenceEquals(a, b)) return true;
+        if (ReferenceEquals(a, null) || ReferenceEquals(b, null)) return false;
+        return a.Equals(b);
+    }
+
+    public static bool operator !=(VersionNumber a, VersionNumber b) => !(a == b);
 }

@@ -1,0 +1,31 @@
+{
+    "version": {
+        "Major": 2,
+        "Minor": 0,
+        "Patch": 2
+    },
+    "hash": "ac54ef96e49fd49b4ed59f26b7a1265c",
+    "totalSize": 10205,
+    "bundles": [
+        {
+            "bundleName": "helperbuilddata_assets_addressablelabelsconfig_6a3b3c11c9289ebc960ca3daca1fdbc0.bundle",
+            "hash": "2dc1ae164c8b7aee1bcaee69ea5654ca",
+            "size": 2704
+        },
+        {
+            "bundleName": "helperbuilddata_assets_luascriptsindex_dc8999674ce136a3d568f91b2b4e771c.bundle",
+            "hash": "850370e0499a346396c9ecda2b5b6f94",
+            "size": 2245
+        },
+        {
+            "bundleName": "hotfixgroup_assets_luascriptcontainertext_bda1205ddd9aea8b1f9526686709012e.bundle",
+            "hash": "1754c2a80fdea09d647f9075053aba01",
+            "size": 3306
+        },
+        {
+            "bundleName": "hotfixgroup_assets_playercontrollerso_6641cf665f81c4620a008ffcd0770541.bundle",
+            "hash": "a1987c90e84b0b7a426f9498479cc213",
+            "size": 1950
+        }
+    ]
+}

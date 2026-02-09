@@ -16,7 +16,20 @@ MonoBehaviour:
   m_Data:
     m_SerializedData: []
   m_GUID: 6410bf08a2786c94693d404180eb9a47
-  m_SerializeEntries: []
+  m_SerializeEntries:
+  - m_GUID: 571f4897ddc8c174bb977b1d279e309c
+    m_Address: PlayerControllerSO
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - PlayerControllerSO
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 206590358b269444cb35a1d487fedd79
+    m_Address: LuaText
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - LuaScriptContainer
+    - Text
+    FlaggedDuringContentUpdateRestriction: 0
   m_ReadOnly: 0
   m_Settings: {fileID: 11400000, guid: 170f3ccdb3bee544095a2f2b92d47c18, type: 2}
   m_SchemaSet:

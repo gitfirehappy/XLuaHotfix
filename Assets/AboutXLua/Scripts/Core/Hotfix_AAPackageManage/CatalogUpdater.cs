@@ -78,13 +78,14 @@ public static class CatalogUpdater
             if (id.StartsWith("http"))
             {
                 string fileName = Path.GetFileName(id);
-                // 所有有效资源位于LocalBundleRoot
-                string localPath = Path.Combine(PathManager.LocalBundleRoot, fileName);
+                // 所有有效资源位于 CurrentGUIDRoot/bundles 下
+                string localPath = Path.Combine(PathManager.CurrentGUIDRoot, "bundles", fileName);
 
                 // 如果本地已有下载的包，则强制使用本地路径
                 if (File.Exists(localPath))
                 {
-                    return localPath;
+                    // 必须转换为 URI 格式 (file://)，否则 Windows 平台下 AssetBundleProvider 创建 Uri 时会报 "Invalid port specified"
+                    return new System.Uri(localPath).AbsoluteUri;
                 }
             }
             return id;

@@ -22,9 +22,7 @@ public static class DifferentialProcessor
     /// 分析快照差异，将修改的资源移入 Hotfix 组
     /// 并生成 Staged 快照
     /// </summary>
-    /// <param name="deleteList">要删除的资源列表</param>
-    /// <param name="unchangedBundleIdentifiers">热更组中未修改的 bundle 标识符列表（用于跳过复制）</param>
-    public static bool PrepareHotfix(VersionNumber currentVersion, List<string> deleteList, out HashSet<string> unchangedBundleIdentifiers)
+    public static bool PrepareHotfix(VersionNumber currentVersion)
     {
         var settings = AddressableAssetSettingsDefaultObject.Settings;
         var data = GetOrCreateSnapshotData();
@@ -34,13 +32,12 @@ public static class DifferentialProcessor
         if (head == null)
         {
             Debug.LogError("[DiffProcessor] 没有找到基准版本(Head)，无法执行热更构建。请先执行 Build Full Package。");
-            unchangedBundleIdentifiers = new HashSet<string>();
             return false;
         }
         
-        var modifiedAssets = FindModifiedAssets(currentAssets, head, deleteList, out unchangedBundleIdentifiers);
+        var modifiedAssets = FindModifiedAssets(currentAssets, head);
         
-        if (modifiedAssets.Count == 0 && deleteList.Count == 0)
+        if (modifiedAssets.Count == 0)
         {
             Debug.Log("[DiffProcessor] 没有修改的资源，无需调整。");
             return false;
@@ -321,11 +318,9 @@ public static class DifferentialProcessor
     /// <summary>
     /// 找出修改的资源
     /// </summary>
-    /// <param name="unchangedBundleIdentifiers">输出：热更组中未修改的 bundle 标识符（用户已有且此次无改动）</param>
-    private static List<AssetSnapshot> FindModifiedAssets(List<AssetSnapshot> currentAssets, BuildSnapshot head, List<string> deleteList, out HashSet<string> unchangedBundleIdentifiers)
+    private static List<AssetSnapshot> FindModifiedAssets(List<AssetSnapshot> currentAssets, BuildSnapshot head)
     {
         List<AssetSnapshot> modified = new List<AssetSnapshot>();
-        unchangedBundleIdentifiers = new HashSet<string>();
         
         // 转字典加速查找
         var headDict = new Dictionary<string, AssetSnapshot>();
@@ -347,14 +342,7 @@ public static class DifferentialProcessor
                 if (curr.FileHash != oldAsset.FileHash)
                 {
                     Debug.Log($"[DiffProcessor] 资源修改: {curr.AssetPath}");
-                    AppendDeletList(deleteList, oldAsset);
                     modified.Add(curr);
-                }
-                else
-                {
-                    // Hash 相同，表示该资源未修改，记录其 bundle 标识符
-                    string bundleIdentifier = GetBundleIdentifier(oldAsset);
-                    unchangedBundleIdentifiers.Add(bundleIdentifier);
                 }
             }
             else
@@ -365,30 +353,15 @@ public static class DifferentialProcessor
             }
         }
 
-        // 删除不存在的资源
+        // 删除不存在的资源仅做日志，不输出删除列表
         foreach (var oldAsset in head.Assets)
         {
             if (!currentGuids.Contains(oldAsset.AssetGUID))
             {
-                Debug.Log($"[DiffProcessor] 删除资源: {oldAsset.AssetPath}");
-                AppendDeletList(deleteList, oldAsset);
+                Debug.Log($"[DiffProcessor] 资源被删除 (仅日志): {oldAsset.AssetPath}");
             }
         }
         return modified;
-    }
-    
-    /// <summary>
-    /// 添加删除列表
-    /// </summary>
-    private static void AppendDeletList(List<string> deleteList, AssetSnapshot oldAssets)
-    {
-        string bundleIdentifier = GetBundleIdentifier(oldAssets);
-        
-        // 防止重复添加
-        if (!deleteList.Contains(bundleIdentifier))
-        {
-            deleteList.Add(bundleIdentifier);
-        }
     }
     
     /// <summary>

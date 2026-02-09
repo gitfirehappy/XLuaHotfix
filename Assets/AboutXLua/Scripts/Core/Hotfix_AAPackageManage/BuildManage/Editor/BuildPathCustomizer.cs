@@ -21,8 +21,7 @@ public static class BuildPathCustomizer
     /// </summary>
     /// <param name="buildSourceDir">Addressables 默认输出目录 (ServerData/Platform)</param>
     /// <param name="finalOutputDir">最终打包输出目录 (Project/HotfixOutput/Packages/ProjectName_...)</param>
-    /// <param name="unchangedBundles">热更组中未修改 bundle 标识符集合（用户已有且无改动，跳过复制以减少下载量）</param>
-    public static void OrganizeBuildOutput(string buildSourceDir, string finalOutputDir, HashSet<string> unchangedBundles = null)
+    public static void OrganizeBuildOutput(string buildSourceDir, string finalOutputDir)
     {
         if (Directory.Exists(finalOutputDir))
         {
@@ -54,16 +53,9 @@ public static class BuildPathCustomizer
                 continue;
             }
             // 处理 Bundles (.bundle)
-            // 热更组无改动的bundle不复制到导出目录，节省用户下载量
+            // 全量导出，下载时再通过 version_state.json 优化
             else if (extension == ".bundle")
             {
-                // 检查是否为未修改的 bundle（用户已有且此次无改动）
-                if (unchangedBundles != null && IsBundleUnchanged(fileName, unchangedBundles))
-                {
-                    Debug.Log($"[PathCustomizer] 跳过未修改的 Bundle (用户已有): {fileName}");
-                    continue;
-                }
-                
                 string targetPath = Path.Combine(bundleTargetDir, fileName);
                 File.Copy(file, targetPath, true);
             }
@@ -76,32 +68,6 @@ public static class BuildPathCustomizer
         }
         
         Debug.Log($"[PathCustomizer] 构建产物整理完毕: {finalOutputDir}");
-    }
-    
-    /// <summary>
-    /// 检查 bundle 文件名是否属于未修改的 bundle 集合
-    /// bundle 文件名格式通常为: groupname_assets_labels_hashcode.bundle
-    /// </summary>
-    private static bool IsBundleUnchanged(string bundleFileName, HashSet<string> unchangedBundles)
-    {
-        if (unchangedBundles == null || unchangedBundles.Count == 0) 
-            return false;
-        
-        // bundle 文件名格式: groupname_assets_labels_hashcode.bundle
-        // 需要匹配 unchangedBundles 中的标识符 (groupname_assets_labels)
-        string fileNameWithoutExt = Path.GetFileNameWithoutExtension(bundleFileName).ToLowerInvariant();
-        
-        foreach (var identifier in unchangedBundles)
-        {
-            string lowerIdentifier = identifier.ToLowerInvariant();
-            // 检查文件名是否以该标识符开头（后面是 _hashcode）
-            if (fileNameWithoutExt.StartsWith(lowerIdentifier + "_") || 
-                fileNameWithoutExt == lowerIdentifier)
-            {
-                return true;
-            }
-        }
-        return false;
     }
     
     /// <summary>
