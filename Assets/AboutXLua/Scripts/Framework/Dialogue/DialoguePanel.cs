@@ -20,8 +20,8 @@ public class DialoguePanel : UIFormBase,IPointerClickHandler
     [Tooltip("角色名称")] public TextMeshProUGUI characterNameText;
     [Tooltip("选项父物体")] public Transform optionsParent;
     [Tooltip("选项预制体")] public GameObject optionPrefab;
-    [Tooltip("角色图片父物体")] public Transform characterImageParent; 
-    
+    [Tooltip("角色图片父物体")] public Transform characterImageParent;
+
     [Header("静态配置")]
     [Tooltip("角色差分图")][SerializeField] private List<CharacterImageSources> characterImages;
     [Tooltip("角色位置设置")][SerializeField] private List<PosCanChoose> characterPos;
@@ -33,6 +33,40 @@ public class DialoguePanel : UIFormBase,IPointerClickHandler
     
     ///<summary>位置 -> 角色名 </summary>>
     private Dictionary<string, string> positionOccupancy = new();
+
+    [Header("效果参数")]
+    [Tooltip("打字机速度 (秒/字)")] public float typingSpeed = 0.05f;
+    [Tooltip("图片淡入时间")] public float imageFadeInDuration = 0.2f;
+
+    private Coroutine typingCoroutine;
+
+    /// <summary>
+    /// 设置对话内容（包含打字机效果）
+    /// </summary>
+    /// <param name="content">文本内容</param>
+    /// <param name="speed">打字速度</param>
+    [LuaCallCSharp]
+    public void SetDialogueContent(string content, float speed = -1f)
+    {
+        if (contentText == null) return;
+        
+        if (typingCoroutine != null)
+            StopCoroutine(typingCoroutine);
+
+        typingCoroutine = StartCoroutine(TypewriterEffect(content, speed > 0 ? speed : typingSpeed));
+    }
+
+    private IEnumerator TypewriterEffect(string content, float speed)
+    {
+        contentText.text = "";
+        foreach (char c in content)
+        {
+            contentText.text += c;
+            if (speed > 0)
+                yield return new WaitForSeconds(speed);
+        }
+        typingCoroutine = null;
+    }
     
     /// <summary>
     /// 创建并显示选项
@@ -135,13 +169,13 @@ public class DialoguePanel : UIFormBase,IPointerClickHandler
                 return;
             }
         }
-    
+
         // 未匹配到任何配置位置
         Debug.LogWarning($"[DialoguePanel] 未在 characterPos 配置中找到位置关键字: '{operation}'");
     }
 
     #region 具体快捷操作
-    
+
     private void SetCharacterPosition(string characterName, string pos)
     {
         // 查找角色配置
@@ -177,8 +211,16 @@ public class DialoguePanel : UIFormBase,IPointerClickHandler
             positionOccupancy.Remove(runtimeState.CurrentPos);
         }
         
-        // 设置新位置
-        runtimeState.CurrentImage.rectTransform.localPosition = posConfig.transform.localPosition;
+        // 设置新位置：设为posConfig子物体
+        if (runtimeState.CurrentImage != null)
+        {
+            runtimeState.CurrentImage.transform.SetParent(posConfig.transform, false);
+            runtimeState.CurrentImage.transform.localPosition = Vector3.zero;
+            runtimeState.CurrentImage.transform.localScale = Vector3.one;
+            // 确保没有被隐藏
+            // runtimeState.CurrentImage.gameObject.SetActive(true); // 这里不需要强制显示，由ShowCharacter控制
+        }
+        
         runtimeState.CurrentPos = pos;
         positionOccupancy[pos] = characterName;
     }
@@ -205,25 +247,58 @@ public class DialoguePanel : UIFormBase,IPointerClickHandler
         }
         
         // 显示角色
-        runtimeState.CurrentImage.gameObject.SetActive(true);
+        if (runtimeState.CurrentImage != null)
+        {
+            bool wasActive = runtimeState.CurrentImage.gameObject.activeSelf;
+            // 简单检查透明度，避免重复淡入
+            bool isVisible = wasActive && runtimeState.CurrentImage.color.a > 0.95f;
+            
+            runtimeState.CurrentImage.gameObject.SetActive(true);
+            
+            // 仅当未显示或不可见时执行淡入
+            if (!isVisible)
+            {
+                StartCoroutine(FadeInImage(runtimeState.CurrentImage));
+            }
+        }
     }
-    
+
+    private IEnumerator FadeInImage(Image img)
+    {
+        float elapsed = 0;
+        Color c = img.color;
+        c.a = 0;
+        img.color = c;
+        
+        while (elapsed < imageFadeInDuration)
+        {
+            elapsed += Time.deltaTime;
+            c.a = Mathf.Clamp01(elapsed / imageFadeInDuration);
+            img.color = c;
+            yield return null;
+        }
+        c.a = 1;
+        img.color = c;
+    }
+
+    /// <summary>
+    /// 隐藏角色
+    /// </summary>
+    /// <param name="characterName">角色名</param>
     private void HideCharacter(string characterName)
     {
         if (activeCharacters.TryGetValue(characterName, out var runtimeState))
         {
             // 隐藏角色
-            runtimeState.CurrentImage.gameObject.SetActive(false);
-            
+            if (runtimeState.CurrentImage != null)
+                runtimeState.CurrentImage.gameObject.SetActive(false);
+
             // 释放位置占用
             if (!string.IsNullOrEmpty(runtimeState.CurrentPos))
             {
                 positionOccupancy.Remove(runtimeState.CurrentPos);
                 runtimeState.CurrentPos = null;
             }
-            
-            // 可选：完全移除运行时状态
-            // activeCharacters.Remove(characterName);
         }
     }
     
@@ -242,14 +317,9 @@ public class DialoguePanel : UIFormBase,IPointerClickHandler
             return;
         }
 
-        // 验证操作格式并提取差分索引
-        if (!operation.StartsWith("diff"))
-        {
-            Debug.LogWarning($"无效的表情差分指令: {operation}，格式应为diff+数字（如diff1）");
-            return;
-        }
+        if (!operation.StartsWith("diff")) return;
 
-        // 提取数字部分（支持多位数字）
+        // 提取数字部分
         string indexStr = operation.Substring(4);
         if (!int.TryParse(indexStr, out int diffIndex))
         {
@@ -260,45 +330,45 @@ public class DialoguePanel : UIFormBase,IPointerClickHandler
         // 验证索引有效性
         if (diffIndex < 0 || diffIndex >= characterConfig.Images.Count)
         {
-            Debug.LogWarning($"角色{characterName}表情索引越界: {diffIndex}（有效范围1-{characterConfig.Images.Count}）");
+            Debug.LogWarning($"角色{characterName}表情索引越界: {diffIndex}");
             return;
         }
 
         // 获取或创建运行时状态
         if (!activeCharacters.TryGetValue(characterName, out var runtimeState))
         {
-            // 如果角色未激活，创建默认渲染器
             runtimeState = new CharacterRuntimeState
             {
                 CharacterName = characterName,
-                CurrentImage = CreateCharacterImage(characterName, characterConfig.Images[diffIndex])
+                CurrentImage = CreateCharacterImage(characterName, characterConfig.Images[diffIndex]),
+                CurrentDiffIndex = diffIndex
             };
             activeCharacters[characterName] = runtimeState;
         }
         else
         {
             // 更新现有角色的表情
-            runtimeState.CurrentImage.sprite = characterConfig.Images[diffIndex];
+            if (runtimeState.CurrentImage != null)
+            {
+                 runtimeState.CurrentImage.sprite = characterConfig.Images[diffIndex];
+            }
+            runtimeState.CurrentDiffIndex = diffIndex;
         }
-
-        // 更新当前差分索引
-        runtimeState.CurrentDiffIndex = diffIndex;
     }
-    
+
     /// <summary>
     /// 创建角色Image组件
     /// </summary>
     private Image CreateCharacterImage(string characterName, Sprite defaultSprite)
     {
-        // 校验父对象是否设置
         if (characterImageParent == null)
         {
-            Debug.LogError("[DialoguePanel] 未设置CharacterImageParent，请在Inspector中指定角色图片父对象");
+            Debug.LogError("[DialoguePanel] 未设置CharacterImageParent");
             return null;
         }
         
         var go = new GameObject($"Character_{characterName}");
-        // 设置父对象为指定的characterImageParent
+        // 初始父节点设为characterImageParent，后续SetPosition会修改
         go.transform.SetParent(characterImageParent);
         go.transform.localScale = Vector3.one;
         go.transform.localPosition = Vector3.zero; // 初始位置相对于父对象归零
@@ -308,7 +378,13 @@ public class DialoguePanel : UIFormBase,IPointerClickHandler
         image.sprite = defaultSprite;
         image.raycastTarget = false; // 不响应点击
         
-        // 层级由父对象所在Canvas统一管理，无需单独设置Canvas组件
+        // 初始透明度设为0 (为了支持FadeIn)
+        Color c = image.color;
+        c.a = 0;
+        image.color = c;
+        
+        go.SetActive(false); // 默认隐藏，由ShowCharacter显示
+
         return image;
     }
     
@@ -327,7 +403,8 @@ public class DialoguePanel : UIFormBase,IPointerClickHandler
     public class CharacterImageSources
     {
         public string Name;
-        public List<Sprite> Images;
+        // 回退为 Sprite
+        public List<Sprite> Images; 
     }
     
     /// <summary>
@@ -336,7 +413,9 @@ public class DialoguePanel : UIFormBase,IPointerClickHandler
     private class CharacterRuntimeState
     {
         public string CharacterName;
-        public Image CurrentImage;
+        // 回退为仅引用 Image
+        public Image CurrentImage; 
+
         public string CurrentPos = "";
         public int CurrentDiffIndex = 0;
     }

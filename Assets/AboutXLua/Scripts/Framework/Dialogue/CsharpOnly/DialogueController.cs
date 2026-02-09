@@ -194,8 +194,8 @@ public static class DialogueController
         var characterNames = StringUtil.SplitSemicolon(dialogueData.Character);
         var posAndOps = StringUtil.SplitSemicolon(dialogueData.PosAndOp);
 
-        // 更新文本
-        _dialoguePanel.contentText.text = dialogueData.Content;
+        // 更新文本 (交给Panel处理打字机效果)
+        _dialoguePanel.SetDialogueContent(dialogueData.Content);
         _dialoguePanel.characterNameText.text = characterNames.Count > 0 ? characterNames[0] : "";
 
         // 更新角色位置/操作

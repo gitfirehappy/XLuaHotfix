@@ -54,13 +54,13 @@ public class DialogueModel
     /// <summary>
     /// 获取即时执行函数（>前缀）
     /// </summary>
-    public (List<string> funcList, List<List<string>> paramList) GetImmediateFunc()
+    public (List<string> funcList, List<List<object>> paramList) GetImmediateFunc()
     {
         var current = GetCurrentDialogue();
-        if (current == null) return (new List<string>(), new List<List<string>>());
+        if (current == null) return (new List<string>(), new List<List<object>>());
 
         var funcList = new List<string>();
-        var paramList = new List<List<string>>();
+        var paramList = new List<List<object>>();
 
         var funcs = StringUtil.SplitSemicolon(current.Func);
         var paramsArr = StringUtil.SplitSemicolon(current.Params);
@@ -73,8 +73,9 @@ public class DialogueModel
             {
                 funcList.Add(func.Substring(1)); // 移除>前缀
                 // 匹配对应参数（&分隔）
-                var param = i < paramsArr.Count ? paramsArr[i] : "";
-                paramList.Add(StringUtil.SplitAmpersand(param));
+                var paramStr = i < paramsArr.Count ? paramsArr[i] : "";
+                var rawParams = StringUtil.SplitAmpersand(paramStr);
+                paramList.Add(StringUtil.ParseParamList(rawParams));
             }
         }
 
@@ -90,13 +91,13 @@ public class DialogueModel
     /// <summary>
     /// 获取交互执行函数（<前缀）
     /// </summary>
-    public (List<string> funcList, List<List<string>> paramList) GetInteractiveFunc()
+    public (List<string> funcList, List<List<object>> paramList) GetInteractiveFunc()
     {
         var current = GetCurrentDialogue();
-        if (current == null) return (new List<string>(), new List<List<string>>());
+        if (current == null) return (new List<string>(), new List<List<object>>());
 
         var funcList = new List<string>();
-        var paramList = new List<List<string>>();
+        var paramList = new List<List<object>>();
 
         var funcs = StringUtil.SplitSemicolon(current.Func);
         var paramsArr = StringUtil.SplitSemicolon(current.Params);
@@ -109,17 +110,12 @@ public class DialogueModel
             {
                 funcList.Add(func.Substring(1)); // 移除<前缀
                 // 匹配对应参数（&分隔）
-                var param = i < paramsArr.Count ? paramsArr[i] : "";
-                paramList.Add(StringUtil.SplitAmpersand(param));
+                var paramStr = i < paramsArr.Count ? paramsArr[i] : "";
+                var rawParams = StringUtil.SplitAmpersand(paramStr);
+                paramList.Add(StringUtil.ParseParamList(rawParams));
             }
         }
-
-        // 日志输出
-        var paramLogs = new List<string>();
-        foreach (var p in paramList)
-            paramLogs.Add($"{{{string.Join(", ", p)}}}");
-        Debug.Log($"[DialogueModel] 交互函数：{string.Join(", ", funcList)} 参数：{string.Join(", ", paramLogs)}");
-
+        
         return (funcList, paramList);
     }
 

@@ -593,6 +593,7 @@ MonoBehaviour:
   originalLocalPos: {x: 0, y: 0, z: 0}
   isDynamicForm: 0
   dynamicGroupID: 
+  IsBaseCsharp: 0
   contentText: {fileID: 7964226149014418556}
   characterNameText: {fileID: 1894807819586346505}
   optionsParent: {fileID: 6826552292739822771}
@@ -601,9 +602,9 @@ MonoBehaviour:
   characterImages:
   - Name: "\u6D4B\u8BD5NPC"
     Images:
-    - {fileID: -6367560908665664636, guid: cd947491a13509945aa1b644f9db3ef2, type: 3}
-    - {fileID: -1675461080110260169, guid: 18a451ae5d817e04bbf3101eaed9466e, type: 3}
-    - {fileID: -4540918584354326388, guid: e362bc6a7c79fce4db16d145d43a5550, type: 3}
+    - {fileID: 21300000, guid: a271e9bcfd8af794e8ef2499611f0835, type: 3}
+    - {fileID: 21300000, guid: e2696893c78d01b46ba9a1198d79718e, type: 3}
+    - {fileID: 21300000, guid: c39a79c129edc4f419168c70cc9ad75a, type: 3}
   - Name: "\u52A9\u624B"
     Images:
     - {fileID: -6367560908665664636, guid: 40de9a8703e2e5a47882b0b86451c741, type: 3}
@@ -616,6 +617,8 @@ MonoBehaviour:
     transform: {fileID: 947841171574865844}
   - pos: right
     transform: {fileID: 2209651249492640269}
+  typingSpeed: 0.06
+  imageFadeInDuration: 0.2
 --- !u!114 &-7481924906276156231
 MonoBehaviour:
   m_ObjectHideFlags: 0

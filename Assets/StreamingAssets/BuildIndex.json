@@ -1,10 +1,10 @@
 {
-    "BuildGUID": "20260209081827",
-    "BuildTime": "2026-02-09 08:18:27",
+    "BuildGUID": "20260209124322",
+    "BuildTime": "2026-02-09 12:43:22",
     "IsDebug": false,
     "Platform": "StandaloneWindows64",
     "Version": {
-        "Major": 2,
+        "Major": 6,
         "Minor": 0,
         "Patch": 0
     }

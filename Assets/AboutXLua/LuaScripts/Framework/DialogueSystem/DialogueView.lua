@@ -65,7 +65,8 @@ function DialogueView.UpdateDialogue(dialogueData)
     local characterNames = stringUtil.SplitSemicolon(characterName)
     local posAndOps = stringUtil.SplitSemicolon(posAndOp)
     
-    uiRefs.contentText.text = content
+    -- 更新文本有过渡效果，移交给C#端处理
+    uiRefs.panel:SetDialogueContent(content)
     uiRefs.characterNameText.text = characterNames[1]
     
     CS.UnityEngine.Debug.Log("已更新角色名和内容")
