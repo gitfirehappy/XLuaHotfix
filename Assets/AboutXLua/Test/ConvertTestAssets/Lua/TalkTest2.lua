@@ -10,5 +10,8 @@ return {
     {["Sign"] = "#", ["ID"] = "3", ["Character"] = "测试NPC", ["PosAndOp"] = "left&diff2", ["Content"] = "我的表情也变化了！", ["NextID"] = "4", ["Func"] = "", ["Params"] = ""},
     {["Sign"] = "#", ["ID"] = "4", ["Character"] = "助手", ["PosAndOp"] = "right&diff1", ["Content"] = "这证明对话系统运行正常", ["NextID"] = "5", ["Func"] = "", ["Params"] = ""},
     {["Sign"] = "#", ["ID"] = "5", ["Character"] = "测试NPC;助手", ["PosAndOp"] = "left;hide", ["Content"] = "现在隐藏助手角色", ["NextID"] = "6", ["Func"] = "", ["Params"] = ""},
-    {["Sign"] = "#", ["ID"] = "6", ["Character"] = "测试NPC", ["PosAndOp"] = "center", ["Content"] = "连续对话测试完成！", ["NextID"] = "END", ["Func"] = ">ShowSpecialEffect", ["Params"] = "complete"}
+    {["Sign"] = "#", ["ID"] = "6", ["Character"] = "测试NPC", ["PosAndOp"] = "center", ["Content"] = "连续对话测试完成！", ["NextID"] = "7", ["Func"] = ">ShowSpecialEffect", ["Params"] = "complete"},
+    {["Sign"] = "#", ["ID"] = "7", ["Character"] = "测试NPC", ["PosAndOp"] = "center", ["Content"] = "参数测试完成 (Next is Nested Test)", ["NextID"] = "8", ["Func"] = "", ["Params"] = ""},
+    {["Sign"] = "#", ["ID"] = "8", ["Character"] = "测试NPC", ["PosAndOp"] = "center", ["Content"] = "测试嵌套参数及打印", ["NextID"] = "9", ["Func"] = ">TestDict", ["Params"] = "{config={vol=100, mute=false}, items={101, 102}, meta={author=\'XLua\', ver=1.0}}"},
+    {["Sign"] = "#", ["ID"] = "9", ["Character"] = "测试NPC", ["PosAndOp"] = "center", ["Content"] = "完全结束", ["NextID"] = "END", ["Func"] = "", ["Params"] = ""}
 }

@@ -11,18 +11,32 @@ public class DialogueModel
     private bool _isEnd;
     private List<string> _optionIDs;
     private Dictionary<string, DialogueData> _dialogueCache; // ID -> 对话数据
-    private HashSet<string> _visitedIDs; // 防循环引用
+    private int _jumpCount = 0; // 跳转计数，防止无限循环
+    private const int MAX_JUMP_COUNT = 100;
 
     /// <summary>
     /// 初始化对话数据
     /// </summary>
     public void Init(List<DialogueData> data)
     {
-        _currentID = "0";
         _dialogueData = data;
         _isEnd = false;
         _optionIDs = null;
-        _visitedIDs = new HashSet<string>();
+        _jumpCount = 0;
+
+        if (_dialogueData != null && _dialogueData.Count > 0)
+        {
+            var firstID = _dialogueData[0].ID;
+            if (firstID != "0")
+            {
+                Debug.LogWarning($"[DialogueModel] 首条对话ID不是'0'，而是'{firstID}'，建议使用'0'作为起始ID");
+            }
+            _currentID = firstID;
+        }
+        else
+        {
+            _currentID = "0";
+        }
 
         // 构建ID缓存
         _dialogueCache = new Dictionary<string, DialogueData>();
@@ -34,10 +48,19 @@ public class DialogueModel
     }
 
     /// <summary>
+    /// 重置跳转计数（在等待用户输入时调用）
+    /// </summary>
+    public void ResetJumpCount()
+    {
+        _jumpCount = 0;
+    }
+
+    /// <summary>
     /// 获取当前对话数据
     /// </summary>
     public DialogueData GetCurrentDialogue()
     {
+        if (_dialogueCache == null || _currentID == null) return null;
         _dialogueCache.TryGetValue(_currentID, out var data);
         return data;
     }
@@ -94,13 +117,21 @@ public class DialogueModel
     public (List<string> funcList, List<List<object>> paramList) GetInteractiveFunc()
     {
         var current = GetCurrentDialogue();
-        if (current == null) return (new List<string>(), new List<List<object>>());
+        return GetInteractiveFunc(current);
+    }
+
+    /// <summary>
+    /// 获取指定对话数据的交互执行函数（<前缀）
+    /// </summary>
+    public (List<string> funcList, List<List<object>> paramList) GetInteractiveFunc(DialogueData data)
+    {
+        if (data == null) return (new List<string>(), new List<List<object>>());
 
         var funcList = new List<string>();
         var paramList = new List<List<object>>();
 
-        var funcs = StringUtil.SplitSemicolon(current.Func);
-        var paramsArr = StringUtil.SplitSemicolon(current.Params);
+        var funcs = StringUtil.SplitSemicolon(data.Func);
+        var paramsArr = StringUtil.SplitSemicolon(data.Params);
 
         // 过滤<前缀函数
         for (int i = 0; i < funcs.Count; i++)
@@ -125,6 +156,16 @@ public class DialogueModel
     public void UpdateCurrentID(string nextID)
     {
         _optionIDs = null;
+        _jumpCount++;
+
+        if (_jumpCount > MAX_JUMP_COUNT)
+        {
+            Debug.LogError($"[DialogueModel] 检测到对话跳转次数过多（>{MAX_JUMP_COUNT}），疑似无限循环，强制结束");
+            _isEnd = true;
+            _currentID = null;
+            return;
+        }
+
         if (nextID == "END")
         {
             _isEnd = true;
@@ -137,16 +178,6 @@ public class DialogueModel
         }
         else
         {
-            // 检测循环引用
-            if (_visitedIDs.Contains(nextID))
-            {
-                Debug.LogError($"[DialogueModel] 检测到对话ID {nextID} 循环引用，强制结束");
-                _isEnd = true;
-                _currentID = null;
-                return;
-            }
-
-            _visitedIDs.Add(nextID);
             _currentID = nextID;
         }
     }
@@ -177,7 +208,8 @@ public class DialogueModel
         _isEnd = false;
         _optionIDs = null;
         _dialogueCache = null;
-        _visitedIDs = null;
+        // _visitedIDs 不再需要清理，因为Init中会新建，或者也可以清理
+        // _visitedIDs = null; 
     }
 
     // 只读属性

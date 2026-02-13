@@ -28,6 +28,8 @@ end
 
 ---@function 刷新对话（核心流程）
 function DialogueController.Refresh()
+    local entryFile = currentDialogueFile
+
     if model.isEnd then
         DialogueController.End()
         return
@@ -49,6 +51,10 @@ function DialogueController.Refresh()
             local params = paramList[i] or {}
             -- 按顺序执行函数
             local result = DialogueController.Execute(funcName, params)
+
+            -- 若即时函数中启动了新对话，则终止当前流程
+            if currentDialogueFile ~= entryFile then return end
+
             -- 记录第一个函数的返回值作为条件判断结果
             if i == 1 then
                 conditionResult = result
@@ -73,15 +79,20 @@ function DialogueController.Refresh()
     -- 显示选项或普通对话
     local options = model:GetOptions()
     if #options > 0 then
+        model:ResetJumpCount()
         view.ShowOptions(options, DialogueController.OnOptionSelect)
     else
+        model:ResetJumpCount()
         view.UpdateDialogue(currentDialogue)
     end
 end
 
 ---@function 下一条对话（平台对话点击面板回调，选项和条件判断跳转调用）
 ---@param nextID string 下一条ID
-function DialogueController.Next(nextID)
+---@param optionData table 可选，选项数据
+function DialogueController.Next(nextID, optionData)
+    local entryFile = currentDialogueFile
+
     local currentDialogue = model:GetCurrentDialogue()
     if not currentDialogue then return end
 
@@ -92,6 +103,28 @@ function DialogueController.Next(nextID)
             local params = paramList[i] or {}
             -- 按顺序执行函数
             DialogueController.Execute(funcName, params)
+
+            -- 若交互函数中启动了新对话，则终止当前流程
+            if currentDialogueFile ~= entryFile then
+                return
+            end
+        end
+    end
+
+    -- 若有选项数据，执行选项的交互函数
+    if optionData then
+        local optionFuncList, optionParamList = model:GetInteractiveFunc(optionData)
+        if #optionFuncList > 0 then
+             for i, funcName in ipairs(optionFuncList) do
+                local params = optionParamList[i] or {}
+                -- 按顺序执行函数
+                DialogueController.Execute(funcName, params)
+    
+                -- 若交互函数中启动了新对话，则终止当前流程
+                if currentDialogueFile ~= entryFile then
+                    return
+                end
+            end
         end
     end
 
@@ -110,7 +143,7 @@ function DialogueController.OnOptionSelect(optionIndex)
     if optionIndex and options[optionIndex] then -- 默认从1开始，可根据需求调整
         local selectedOption = options[optionIndex]
         -- 执行选项对应的跳转
-        DialogueController.Next(selectedOption.NextID)
+        DialogueController.Next(selectedOption.NextID, selectedOption)
     end
 end
 

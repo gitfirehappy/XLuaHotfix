@@ -48,6 +48,8 @@ public static class DialogueController
     /// </summary>
     private static void Refresh()
     {
+        string entryFile = _currentDialogueFile;
+
         if (_model.IsEnd)
         {
             End();
@@ -72,6 +74,10 @@ public static class DialogueController
             var funcName = immediateFuncs[i];
             var param = immediateParams[i].ToArray();
             var result = ExecuteFunction(funcName, param);
+
+            // 若即时函数中启动了新对话（例如StartDialogue），则终止当前流程，避免旧UI覆盖新UI
+            if (_currentDialogueFile != entryFile) return;
+
             // 条件判断仅取第一个函数返回值
             if (i == 0 && _model.IsConditionType())
                 conditionResult = result;
@@ -92,10 +98,12 @@ public static class DialogueController
         var options = _model.GetOptions();
         if (options.Count > 0)
         {
+            _model.ResetJumpCount();
             ShowOptions(options);
         }
         else
         {
+            _model.ResetJumpCount();
             UpdateDialogue(currentDialogue);
         }
     }
@@ -103,18 +111,37 @@ public static class DialogueController
     /// <summary>
     /// 下一条对话
     /// </summary>
-    public static void Next(string nextID = null)
+    public static void Next(string nextID = null, DialogueData optionData = null)
     {
+        string entryFile = _currentDialogueFile;
         var currentDialogue = _model.GetCurrentDialogue();
         if (currentDialogue == null) return;
 
-        // 执行交互函数
+        // 执行当前对话的交互函数（父节点）
         var (interactiveFuncs, interactiveParams) = _model.GetInteractiveFunc();
         for (int i = 0; i < interactiveFuncs.Count; i++)
         {
             var funcName = interactiveFuncs[i];
             var param = interactiveParams[i].ToArray();
             ExecuteFunction(funcName, param);
+
+            // 若交互函数中启动了新对话，则终止当前流程
+            if (_currentDialogueFile != entryFile) return;
+        }
+
+        // 若有选项数据，执行选项的交互函数
+        if (optionData != null)
+        {
+            var (optionFuncs, optionParams) = _model.GetInteractiveFunc(optionData);
+            for (int i = 0; i < optionFuncs.Count; i++)
+            {
+                var funcName = optionFuncs[i];
+                var param = optionParams[i].ToArray();
+                ExecuteFunction(funcName, param);
+
+                // 若交互函数中启动了新对话，则终止当前流程
+                if (_currentDialogueFile != entryFile) return;
+            }
         }
 
         // 确定目标ID
@@ -138,7 +165,7 @@ public static class DialogueController
         }
 
         var selectedOption = options[optionIndex]; // 选项索引从0开始
-        Next(selectedOption.NextID);
+        Next(selectedOption.NextID, selectedOption);
     }
 
     /// <summary>
@@ -192,13 +219,35 @@ public static class DialogueController
         if (_dialoguePanel == null) return;
 
         var characterNames = StringUtil.SplitSemicolon(dialogueData.Character);
-        var posAndOps = StringUtil.SplitSemicolon(dialogueData.PosAndOp);
+        
+        // 生成对话文本（首尾加引号）
+        string content = dialogueData.Content;
+        if (characterNames.Count > 0 && !string.IsNullOrEmpty(characterNames[0]))
+        {
+            content = $"「{content}」";
+        }
 
         // 更新文本 (交给Panel处理打字机效果)
-        _dialoguePanel.SetDialogueContent(dialogueData.Content);
-        _dialoguePanel.characterNameText.text = characterNames.Count > 0 ? characterNames[0] : "";
+        _dialoguePanel.SetDialogueContent(content);
+        
+        // 设置说话人名字（若第一个角色名为空，则设为空字符串）
+        if (characterNames.Count > 0)
+        {
+            // 若角色名包含下划线后缀 (Role_xxxx)，UI仅显示 Role
+            string dispName = characterNames[0];
+            int idx = dispName.IndexOf('_');
+            if (idx >= 0)
+            {
+                dispName = dispName.Substring(0, idx);
+            }
+            _dialoguePanel.characterNameText.text = dispName;
+        }
+        else
+            _dialoguePanel.characterNameText.text = "";
 
         // 更新角色位置/操作
+        // 允许characterNames包含空字符串（如;p1），或者完全没找到配置的情况，由Panel内部处理
+        var posAndOps = StringUtil.SplitSemicolon(dialogueData.PosAndOp);
         _dialoguePanel.UpdateCharacter(characterNames, posAndOps);
 
         Debug.Log("[DialogueController] 已更新对话文本和角色状态");

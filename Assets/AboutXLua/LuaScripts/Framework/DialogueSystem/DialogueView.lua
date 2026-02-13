@@ -57,20 +57,34 @@ function DialogueView.UpdateDialogue(dialogueData)
     
     local characterName = dialogueData.Character or ""
     local content = dialogueData.Content or ""
-    local posAndOp = dialogueData.PosAndOp or ""
-    
-    -- 更新角色名和内容
-    -- 第一个角色名为说话人
-    -- 分隔好角色名和操作作为List<string>传入CS.DialoguePanel.UpdateCharacter
+
     local characterNames = stringUtil.SplitSemicolon(characterName)
-    local posAndOps = stringUtil.SplitSemicolon(posAndOp)
+    local posAndOps = stringUtil.SplitSemicolon(dialogueData.PosAndOp or "")
+
+    -- 若第一个角色名存在且不为空，添加引号
+    if #characterNames > 0 and characterNames[1] ~= "" then
+        content = "「" .. content .. "」"
+    end
     
     -- 更新文本有过渡效果，移交给C#端处理
     uiRefs.panel:SetDialogueContent(content)
-    uiRefs.characterNameText.text = characterNames[1]
+    
+    -- 更新角色名
+    if #characterNames > 0 then
+        -- 若角色名包含下划线后缀 (Role_xxxx)，UI仅显示 Role
+        local dispName = characterNames[1]
+        local idx = string.find(dispName, "_")
+        if idx then
+            dispName = string.sub(dispName, 1, idx - 1)
+        end
+        uiRefs.characterNameText.text = dispName
+    else
+        uiRefs.characterNameText.text = ""
+    end
     
     CS.UnityEngine.Debug.Log("已更新角色名和内容")
     
+    -- 更新角色位置和操作（允许空角色名，如;p1）
     uiRefs.panel:UpdateCharacter(characterNames, posAndOps)
     
     CS.UnityEngine.Debug.Log("已更新角色位置和操作")

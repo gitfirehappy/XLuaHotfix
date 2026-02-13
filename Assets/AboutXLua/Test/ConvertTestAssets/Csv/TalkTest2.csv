@@ -5,4 +5,7 @@
 #,3,测试NPC,left&diff2,我的表情也变化了！,4,,
 #,4,助手,right&diff1,这证明对话系统运行正常,5,,
 #,5,测试NPC;助手,left;hide,现在隐藏助手角色,6,,
-#,6,测试NPC,center,连续对话测试完成！,END,>ShowSpecialEffect,complete
+#,6,测试NPC,center,连续对话测试完成！,7,>ShowSpecialEffect,complete
+#,7,测试NPC,center,参数测试完成 (Next is Nested Test),8,,
+#,8,测试NPC,center,测试嵌套参数及打印,9,>TestDict,"{config={vol=100, mute=false}, items={101, 102}, meta={author='XLua', ver=1.0}}"
+#,9,测试NPC,center,完全结束,END,,

@@ -67,6 +67,7 @@ public static class DialogueCsvReader
     {
         var columns = new List<string>();
         var inQuotes = false;
+        var braceDepth = 0;
         var currentColumn = "";
 
         foreach (var c in line)
@@ -75,7 +76,18 @@ public static class DialogueCsvReader
             {
                 inQuotes = !inQuotes;
             }
-            else if (c == ',' && !inQuotes)
+            // 增强鲁棒性：如果遇到花括号，只有在括号闭合时才分割（防止忘记写引号导致的分割错误）
+            else if (c == '{' && !inQuotes)
+            {
+                braceDepth++;
+                currentColumn += c;
+            }
+            else if (c == '}' && !inQuotes)
+            {
+                if (braceDepth > 0) braceDepth--;
+                currentColumn += c;
+            }
+            else if (c == ',' && !inQuotes && braceDepth == 0)
             {
                 columns.Add(currentColumn);
                 currentColumn = "";

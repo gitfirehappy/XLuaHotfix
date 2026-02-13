@@ -49,16 +49,16 @@ MonoBehaviour:
     Labels:
     - LuaScriptContainer
     - Core
-  - key: Dialogue
-    Type: LuaScriptContainer
-    Labels:
-    - LuaScriptContainer
-    - Dialogue
   - key: LuaText
     Type: LuaScriptContainer
     Labels:
     - LuaScriptContainer
     - Text
+  - key: Dialogue
+    Type: LuaScriptContainer
+    Labels:
+    - LuaScriptContainer
+    - Dialogue
   - key: DialoguePanel
     Type: LuaBehaviourConfigSO
     Labels:
@@ -83,6 +83,12 @@ MonoBehaviour:
     Type: PlayerControllerSO
     Labels:
     - PlayerControllerSO
+  - key: TalkTest1
+    Type: Untyped
+    Labels: []
+  - key: TalkTest2
+    Type: Untyped
+    Labels: []
   - key: AddressableLabelsConfig
     Type: AddressableLabelsConfig
     Labels:
@@ -96,6 +102,8 @@ MonoBehaviour:
     Keys:
     - Resources
     - EditorSceneList
+    - TalkTest1
+    - TalkTest2
   - Type: TypeMemberListSO
     Keys:
     - LuaCallCSharp
@@ -106,8 +114,8 @@ MonoBehaviour:
     - Player
     - Framework
     - Core
-    - Dialogue
     - LuaText
+    - Dialogue
   - Type: LuaBehaviourConfigSO
     Keys:
     - DialoguePanel
@@ -135,6 +143,8 @@ MonoBehaviour:
     Keys:
     - Resources
     - EditorSceneList
+    - TalkTest1
+    - TalkTest2
   - Label: TypeMemberListSO
     Keys:
     - LuaCallCSharp
@@ -150,8 +160,8 @@ MonoBehaviour:
     - Player
     - Framework
     - Core
-    - Dialogue
     - LuaText
+    - Dialogue
   - Label: Player
     Keys:
     - Player
@@ -161,12 +171,12 @@ MonoBehaviour:
   - Label: Core
     Keys:
     - Core
-  - Label: Dialogue
-    Keys:
-    - Dialogue
   - Label: Text
     Keys:
     - LuaText
+  - Label: Dialogue
+    Keys:
+    - Dialogue
   - Label: LuaBehaviourConfigSO
     Keys:
     - DialoguePanel

@@ -18,8 +18,7 @@ public static class StringUtil
         foreach (var part in parts)
         {
             var trimed = part.Trim();
-            if (!string.IsNullOrEmpty(trimed))
-                result.Add(trimed);
+            result.Add(trimed);
         }
         return result;
     }
@@ -36,8 +35,7 @@ public static class StringUtil
         foreach (var part in parts)
         {
             var trimed = part.Trim();
-            if (!string.IsNullOrEmpty(trimed))
-                result.Add(trimed);
+            result.Add(trimed);
         }
         return result;
     }
@@ -250,5 +248,23 @@ public static class StringUtil
             // 纯数组
             return listData;
         }
+    }
+
+    /// <summary>
+    /// 格式化对象为字符串（支持List和Dictionary递归）
+    /// </summary>
+    public static string FormatObject(object obj)
+    {
+        if (obj == null) return "null";
+        if (obj is string str) return $"'{str}'";
+        if (obj is List<object> list)
+        {
+            return "{" + string.Join(", ", list.Select(FormatObject)) + "}";
+        }
+        if (obj is Dictionary<object, object> dict)
+        {
+            return "{" + string.Join(", ", dict.Select(kv => $"{kv.Key}={FormatObject(kv.Value)}")) + "}";
+        }
+        return obj.ToString();
     }
 }

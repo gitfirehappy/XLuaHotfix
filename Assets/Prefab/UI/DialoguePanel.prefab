@@ -496,7 +496,7 @@ GameObject:
   - component: {fileID: 5908492064482078410}
   - component: {fileID: 1038251688711619081}
   - component: {fileID: -7481924906276156231}
-  - component: {fileID: 8960072317828112662}
+  - component: {fileID: 4982031423112076977}
   m_Layer: 5
   m_Name: DialoguePanel
   m_TagString: Untagged
@@ -599,17 +599,9 @@ MonoBehaviour:
   optionsParent: {fileID: 6826552292739822771}
   optionPrefab: {fileID: 4024617338432933623, guid: f6a085bf0256f2d46a933670b697ac56, type: 3}
   characterImageParent: {fileID: 841895826401346557}
-  characterImages:
-  - Name: "\u6D4B\u8BD5NPC"
-    Images:
-    - {fileID: 21300000, guid: a271e9bcfd8af794e8ef2499611f0835, type: 3}
-    - {fileID: 21300000, guid: e2696893c78d01b46ba9a1198d79718e, type: 3}
-    - {fileID: 21300000, guid: c39a79c129edc4f419168c70cc9ad75a, type: 3}
-  - Name: "\u52A9\u624B"
-    Images:
-    - {fileID: -6367560908665664636, guid: 40de9a8703e2e5a47882b0b86451c741, type: 3}
-    - {fileID: -1675461080110260169, guid: 0b4768f2ab470f44ca33fa59836a0774, type: 3}
-    - {fileID: 2470319409956435798, guid: 552146dbb8bac6f449493bca4b69540f, type: 3}
+  characterConfigs:
+  - {fileID: 11400000, guid: faa3282a3d102f746b3b7db14786817a, type: 2}
+  - {fileID: 11400000, guid: 0bd81b63e7394c84dbbd633d566b615e, type: 2}
   characterPos:
   - pos: left
     transform: {fileID: 2901388683925644796}
@@ -619,6 +611,9 @@ MonoBehaviour:
     transform: {fileID: 2209651249492640269}
   typingSpeed: 0.06
   imageFadeInDuration: 0.2
+  textFadeDuration: 0.01
+  imageDiffFadeDuration: 0.1
+  imageDiffFadeAlpha: 0.8
 --- !u!114 &-7481924906276156231
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -632,7 +627,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   configKey: DialoguePanel
---- !u!114 &8960072317828112662
+--- !u!114 &4982031423112076977
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}

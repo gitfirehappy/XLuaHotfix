@@ -26,9 +26,11 @@ DemoDialogueFunctions.TestInteractiveFunc = {
 ---@return string 选中的分支ID
 DemoDialogueFunctions.CheckCondition = {
     name = "CheckCondition",
+    paramTypes = {"string", "string"}, -- 指定参数类型为字符串
     func =  function(branchA, branchB)
         local condition = CS.UnityEngine.Random.Range(0, 2) == 0
         local result = condition and branchA or branchB
+        result = branchB; -- 固定返回测试
         CS.UnityEngine.Debug.Log("[Lua] 条件判断，返回分支: "..result)
         return result
     end
@@ -57,6 +59,26 @@ DemoDialogueFunctions.StartDialogue = {
         CS.UnityEngine.Debug.Log("[Lua] 启动新对话: "..fileName)
         local DialogueController = require("DialogueController")
         DialogueController.Start(fileName)
+    end
+}
+
+---@function 辅助打印表
+local stringUtil = require("StringUtil")
+
+---@function 测试List参数
+DemoDialogueFunctions.TestList = {
+    name = "TestList",
+    paramTypes = {"table"}, -- 指定参数类型为表（列表）
+    func = function(list)
+        CS.UnityEngine.Debug.Log("[Lua Demo] TestList: " .. stringUtil.Dump(list))
+    end
+}
+
+---@function 测试Dict参数
+DemoDialogueFunctions.TestDict = {
+    name = "TestDict",
+    func = function(dict)
+        CS.UnityEngine.Debug.Log("[Lua Demo] TestDict: " .. stringUtil.Dump(dict))
     end
 }
 

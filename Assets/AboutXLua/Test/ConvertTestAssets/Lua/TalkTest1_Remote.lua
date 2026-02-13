@@ -4,16 +4,17 @@
 -- Mode: Array
 
 return {
-    {["Sign"] = "#", ["ID"] = "0", ["Character"] = "测试NPC", ["PosAndOp"] = "left", ["Content"] = "基于Lua文本的对话框架测试（热更版本），请点击继续", ["NextID"] = "1", ["Func"] = ">TestImmediateFunc", ["Params"] = "param1"},
-    {["Sign"] = "#", ["ID"] = "1", ["Character"] = "测试NPC", ["PosAndOp"] = "left&diff1", ["Content"] = "现在测试选项功能，请选择一个选项", ["NextID"] = "2;3;4", ["Func"] = "", ["Params"] = ""},
+    {["Sign"] = "#", ["ID"] = "0", ["Character"] = "测试NPC", ["PosAndOp"] = "left", ["Content"] = "这是一个基于Lua文本的对话框架测试，请点击继续", ["NextID"] = "1", ["Func"] = ">TestImmediateFunc", ["Params"] = "param1"},
+    {["Sign"] = "#", ["ID"] = "1", ["Character"] = "测试NPC", ["PosAndOp"] = "left&diff1", ["Content"] = "现在测试选项功能，请选择一个选项", ["NextID"] = "2;3;4;12", ["Func"] = "", ["Params"] = ""},
     {["Sign"] = "%", ["ID"] = "2", ["Character"] = "", ["PosAndOp"] = "", ["Content"] = "选项1：测试角色差分和继续对话", ["NextID"] = "5", ["Func"] = "<TestInteractiveFunc", ["Params"] = "option1"},
-    {["Sign"] = "%", ["ID"] = "3", ["Character"] = "", ["PosAndOp"] = "", ["Content"] = "选项2：函数由于是C#程序集，没法热更QAQ", ["NextID"] = "6", ["Func"] = "<TestInteractiveFunc", ["Params"] = "option2"},
+    {["Sign"] = "%", ["ID"] = "3", ["Character"] = "", ["PosAndOp"] = "", ["Content"] = "选项2：多角色显示，条件分支", ["NextID"] = "6", ["Func"] = "<TestInteractiveFunc", ["Params"] = "option2"},
     {["Sign"] = "%", ["ID"] = "4", ["Character"] = "", ["PosAndOp"] = "", ["Content"] = "选项3：直接结束对话", ["NextID"] = "END", ["Func"] = "<TestInteractiveFunc", ["Params"] = "option3"},
     {["Sign"] = "#", ["ID"] = "5", ["Character"] = "测试NPC", ["PosAndOp"] = "right", ["Content"] = "选择了选项1，下一步测试多角色显示", ["NextID"] = "7", ["Func"] = "", ["Params"] = ""},
     {["Sign"] = "#", ["ID"] = "6", ["Character"] = "测试NPC;助手", ["PosAndOp"] = "left;right", ["Content"] = "选择了选项2，下一步会测试条件语句", ["NextID"] = "8", ["Func"] = "", ["Params"] = ""},
     {["Sign"] = "#", ["ID"] = "7", ["Character"] = "测试NPC;助手", ["PosAndOp"] = "left&diff2;hide", ["Content"] = "测试角色隐藏和差分图切换", ["NextID"] = "9", ["Func"] = ">ShowSpecialEffect", ["Params"] = "effect1"},
     {["Sign"] = "$", ["ID"] = "8", ["Character"] = "", ["PosAndOp"] = "", ["Content"] = "", ["NextID"] = "", ["Func"] = ">CheckCondition", ["Params"] = "10&11"},
-    {["Sign"] = "#", ["ID"] = "9", ["Character"] = "测试NPC", ["PosAndOp"] = "left", ["Content"] = "这段对话结束，下一段文本TalkTest2开始", ["NextID"] = "END", ["Func"] = ">StartDialogue", ["Params"] = "TalkTest2"},
+    {["Sign"] = "#", ["ID"] = "9", ["Character"] = "测试NPC", ["PosAndOp"] = "left", ["Content"] = "这段对话结束，下一段文本TalkTest2开始", ["NextID"] = "END", ["Func"] = "<StartDialogue", ["Params"] = "TalkTest2"},
     {["Sign"] = "#", ["ID"] = "10", ["Character"] = "助手", ["PosAndOp"] = "right", ["Content"] = "条件判断结果：分支A", ["NextID"] = "END", ["Func"] = ">PlaySound", ["Params"] = "soundA"},
-    {["Sign"] = "#", ["ID"] = "11", ["Character"] = "助手", ["PosAndOp"] = "right", ["Content"] = "条件判断结果：分支B", ["NextID"] = "END", ["Func"] = ">PlaySound", ["Params"] = "soundB"}
+    {["Sign"] = "#", ["ID"] = "11", ["Character"] = "助手", ["PosAndOp"] = "right", ["Content"] = "条件判断结果：分支B", ["NextID"] = "END", ["Func"] = ">PlaySound", ["Params"] = "soundB"},
+    {["Sign"] = "%", ["ID"] = "12", ["Character"] = "", ["PosAndOp"] = "", ["Content"] = "选项4：进入进阶教程 (TalkTest2)", ["NextID"] = "END", ["Func"] = "<StartDialogue", ["Params"] = "TalkTest2"}
 }

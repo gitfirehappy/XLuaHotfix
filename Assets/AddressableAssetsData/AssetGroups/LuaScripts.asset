@@ -38,13 +38,6 @@ MonoBehaviour:
     - LuaScriptContainer
     - Core
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 39aa4e765257c11479881bda90242ce2
-    m_Address: Dialogue
-    m_ReadOnly: 0
-    m_SerializedLabels:
-    - LuaScriptContainer
-    - Dialogue
-    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 206590358b269444cb35a1d487fedd79
     m_Address: LuaText
     m_ReadOnly: 0

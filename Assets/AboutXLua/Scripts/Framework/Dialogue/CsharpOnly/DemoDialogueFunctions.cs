@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 public class DemoDialogueFunctions : IDialogueFuncProvider
@@ -29,19 +30,31 @@ public class DemoDialogueFunctions : IDialogueFuncProvider
     [DialogueFunc("ShowSpecialEffect")]
     public static void ShowSpecialEffect(string effectName)
     {
-        Debug.Log($"显示特效: {effectName}");
+        Debug.Log($"[Demo] 播放特殊特效：{effectName}");
     }
-    
-    [DialogueFunc("PlaySound")] 
+
+    [DialogueFunc("PlaySound")]
     public static void PlaySound(string soundName)
     {
         Debug.Log($"播放音效: {soundName}");
     }
-    
+
     [DialogueFunc("StartDialogue")]
     public static void StartDialogue(string fileName)
     {
         Debug.Log($"启动新对话: {fileName}");
         DialogueController.Start(fileName);
+    }
+
+    [DialogueFunc("TestList")]
+    public static void TestList(List<object> list)
+    {
+        Debug.Log($"[Demo] TestList: {StringUtil.FormatObject(list)}");
+    }
+
+    [DialogueFunc("TestDict")]
+    public static void TestDict(Dictionary<object, object> dict)
+    {
+        Debug.Log($"[Demo] TestDict: {StringUtil.FormatObject(dict)}");
     }
 }

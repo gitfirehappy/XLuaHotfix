@@ -1,12 +1,22 @@
 --- 辅助工具类
 local StringUtil = {}
 
+--- 去除字符串首尾空格
+local function trim(s)
+    if not s then return s end
+    return (s:gsub("^%s*(.-)%s*$", "%1"))
+end
+
 ---@function ;分隔字符串解析（保留空字符串）
 ---@param str string
 function StringUtil.SplitSemicolon(str)
     local result = {}
-    for param in string.gmatch(str, "([^;]*)") do
-        table.insert(result, string.match(param, "^%s*(.-)%s*$"))
+    if not str or str == "" then return result end
+    -- 追加分隔符以统一处理逻辑
+    local s = str .. ";"
+    -- 非贪婪匹配直到下一个分隔符
+    for param in s:gmatch("(.-);") do
+        table.insert(result, trim(param))
     end
     return result
 end
@@ -15,16 +25,12 @@ end
 ---@param str string
 function StringUtil.SplitAmpersand(str)
     local result = {}
-    for param in string.gmatch(str, "([^&]*)") do
-        table.insert(result, string.match(param, "^%s*(.-)%s*$"))
+    if not str or str == "" then return result end
+    local s = str .. "&"
+    for param in s:gmatch("(.-)&") do
+        table.insert(result, trim(param))
     end
     return result
-end
-
---- 去除字符串首尾空格
-local function trim(s)
-    if not s then return s end
-    return (s:gsub("^%s*(.-)%s*$", "%1"))
 end
 
 --- 常见字符串转义处理
@@ -182,6 +188,39 @@ function StringUtil.ParseParamList(paramStrList)
         table.insert(out, parseValue(p))
     end
     return out
+end
+
+---@function 格式化打印表
+function StringUtil.Dump(o)
+   if type(o) == 'table' then
+      local s = '{ '
+      -- 判断是否为数组
+      local isArray = true
+      for k,v in pairs(o) do
+         if type(k) ~= 'number' then isArray = false break end
+      end
+      
+      if isArray and #o > 0 then
+          for i, v in ipairs(o) do
+             if i > 1 then s = s .. ', ' end
+             s = s .. StringUtil.Dump(v)
+          end
+      else
+          local first = true
+          for k,v in pairs(o) do
+             if not first then s = s .. ', ' end
+             local kStr = k
+             if type(k) ~= 'number' then kStr = tostring(k) end
+             s = s .. kStr .. '=' .. StringUtil.Dump(v)
+             first = false
+          end
+      end
+      return s .. ' }'
+   elseif type(o) == 'string' then
+      return "'" .. o .. "'"
+   else
+      return tostring(o)
+   end
 end
 
 return StringUtil

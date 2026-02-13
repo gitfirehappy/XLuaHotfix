@@ -1,13 +1,14 @@
 ﻿Sign,ID,Character,PosAndOp,Content,NextID,Func,Params
 #,0,测试NPC,left,这是一个基于Lua文本的对话框架测试，请点击继续,1,>TestImmediateFunc,param1
-#,1,测试NPC,left&diff1,现在测试选项功能，请选择一个选项,2;3;4,,
+#,1,测试NPC,left&diff1,现在测试选项功能，请选择一个选项,2;3;4;12,,
 %,2,,,选项1：测试角色差分和继续对话,5,<TestInteractiveFunc,option1
 %,3,,,选项2：多角色显示，条件分支,6,<TestInteractiveFunc,option2
-%,4,,,选项3：直接结束对话,END,<TestInteractiveFunc,option3
+%,4,,,选项3：下一段对话，选项测试,END,<StartDialogue,TalkTest2
 #,5,测试NPC,right,选择了选项1，下一步测试多角色显示,7,,
 #,6,测试NPC;助手,left;right,选择了选项2，下一步会测试条件语句,8,,
 #,7,测试NPC;助手,left&diff2;hide,测试角色隐藏和差分图切换,9,>ShowSpecialEffect,effect1
 $,8,,,,,>CheckCondition,10&11
-#,9,测试NPC,left,这段对话结束，下一段文本TalkTest2开始,END,>StartDialogue,TalkTest2
+#,9,测试NPC,left,这段对话结束，下一段文本TalkTest2开始,END,<StartDialogue,TalkTest2
 #,10,助手,right,条件判断结果：分支A,END,>PlaySound,soundA
 #,11,助手,right,条件判断结果：分支B,END,>PlaySound,soundB
+

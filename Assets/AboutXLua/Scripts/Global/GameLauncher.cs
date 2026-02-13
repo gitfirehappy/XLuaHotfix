@@ -83,9 +83,6 @@ public class GameLauncher : MonoBehaviour
     {
         Debug.Log("[GameLauncher] === Start Phase ===");
         
-        // 对话功能注册
-        // DialogueFuncRegistry.ScanAndRegister(); // C#版本
-        
         // UI初始化
         await GameUIManager.Instance.Initialize();
         

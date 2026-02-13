@@ -10,29 +10,26 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: bbb281ee3bf0b054c82ac2347e9e782c, type: 3}
-  m_Name: HotfixGroup
+  m_Name: CsvText
   m_EditorClassIdentifier: 
-  m_GroupName: HotfixGroup
+  m_GroupName: CsvText
   m_Data:
     m_SerializedData: []
-  m_GUID: 6410bf08a2786c94693d404180eb9a47
+  m_GUID: 7a4f035b1e565114b94c30f0406dc515
   m_SerializeEntries:
-  - m_GUID: 571f4897ddc8c174bb977b1d279e309c
-    m_Address: PlayerControllerSO
+  - m_GUID: 74bf622a6c6134f4a961de587782e31e
+    m_Address: TalkTest1
     m_ReadOnly: 0
-    m_SerializedLabels:
-    - PlayerControllerSO
+    m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 39aa4e765257c11479881bda90242ce2
-    m_Address: Dialogue
+  - m_GUID: 6f23825d4c7f4e24997144a44ded5ac5
+    m_Address: TalkTest2
     m_ReadOnly: 0
-    m_SerializedLabels:
-    - LuaScriptContainer
-    - Dialogue
+    m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   m_ReadOnly: 0
   m_Settings: {fileID: 11400000, guid: 170f3ccdb3bee544095a2f2b92d47c18, type: 2}
   m_SchemaSet:
     m_Schemas:
-    - {fileID: 11400000, guid: 44d49ef2fe616be4c95b0be2d23c4122, type: 2}
-    - {fileID: 11400000, guid: a45f4e3aa7ad4ec4690c960bd1e92ca7, type: 2}
+    - {fileID: 11400000, guid: 8f43eb00325ab3345b770fc609d18215, type: 2}
+    - {fileID: 11400000, guid: 1d7e03d501c2f5444ae8a84c905b6a9c, type: 2}

@@ -1726,6 +1726,7 @@ MonoBehaviour:
   _dontDestroyOnLoad: 1
   uiConfigKey: UIResourceConfig
   _firstDialogueFileName: TalkTest1
+  useLuaDialogue: 1
 --- !u!4 &2057357476
 Transform:
   m_ObjectHideFlags: 0
@@ -1809,10 +1810,6 @@ PrefabInstance:
     - target: {fileID: 205196108390907039, guid: c71c9a27785313c4ba216ea9fcd6ab5b, type: 3}
       propertyPath: m_Name
       value: Player
-      objectReference: {fileID: 0}
-    - target: {fileID: 2307368883916439832, guid: c71c9a27785313c4ba216ea9fcd6ab5b, type: 3}
-      propertyPath: configKey
-      value: Player_LuaBridge
       objectReference: {fileID: 0}
     - target: {fileID: 9202488525620810726, guid: c71c9a27785313c4ba216ea9fcd6ab5b, type: 3}
       propertyPath: m_LocalPosition.x

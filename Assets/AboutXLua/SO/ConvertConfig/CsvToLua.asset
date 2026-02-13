@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b4958d2ed6a72f74fa2d2cf256d6ed64, type: 3}
   m_Name: CsvToLua
   m_EditorClassIdentifier: 
-  inputFolder: E:/unity/project/xLYAF/Assets/AboutXLua/Test/ConvertTestAssets/Csv
-  outputFolder: E:/unity/project/xLYAF/Assets/AboutXLua/Test/ConvertTestAssets/Lua
+  inputFolder: E:/unity/project/XLuaHotfix/Assets/AboutXLua/Test/ConvertTestAssets/Csv
+  outputFolder: E:/unity/project/XLuaHotfix/Assets/AboutXLua/Test/ConvertTestAssets/Lua
   inputFormat: 0
   outputFormat: 1
