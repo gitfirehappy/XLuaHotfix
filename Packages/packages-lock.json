@@ -157,7 +157,7 @@
       }
     },
     "com.unity.ide.rider": {
-      "version": "3.0.24",
+      "version": "3.0.39",
       "depth": 0,
       "source": "registry",
       "dependencies": {
@@ -165,12 +165,21 @@
       },
       "url": "https://packages.unity.cn"
     },
+    "com.unity.ide.trae": {
+      "version": "https://github.com/MetaZhi/com.unity.ide.trae.git",
+      "depth": 0,
+      "source": "git",
+      "dependencies": {
+        "com.unity.test-framework": "1.1.9"
+      },
+      "hash": "c6359226593f397e10c3442a490099647c51ed47"
+    },
     "com.unity.ide.visualstudio": {
-      "version": "2.0.18",
+      "version": "2.0.27",
       "depth": 0,
       "source": "registry",
       "dependencies": {
-        "com.unity.test-framework": "1.1.9"
+        "com.unity.test-framework": "1.1.33"
       },
       "url": "https://packages.unity.cn"
     },
