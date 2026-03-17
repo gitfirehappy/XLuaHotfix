@@ -25,7 +25,7 @@ MonoBehaviour:
     - Player
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: d071648f3ea8bc140840e29184ba28ec
-    m_Address: Framework
+    m_Address: StateMachine
     m_ReadOnly: 0
     m_SerializedLabels:
     - LuaScriptContainer

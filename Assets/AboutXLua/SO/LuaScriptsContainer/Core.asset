@@ -18,3 +18,5 @@ MonoBehaviour:
   - Core
   luaAssets:
   - {fileID: 9027929339269108002, guid: 56efd63a62588a9419442418875c9312, type: 3}
+  - {fileID: 9027929339269108002, guid: 5a4c48f87981f4646bba3d940afaba68, type: 3}
+  - {fileID: 9027929339269108002, guid: 6ccaf450f87dac647818da5a6a45e871, type: 3}

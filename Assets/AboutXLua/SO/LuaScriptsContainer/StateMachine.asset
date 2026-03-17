@@ -10,13 +10,12 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d9722f324030fd146b77bba51912b692, type: 3}
-  m_Name: Framework
+  m_Name: StateMachine
   m_EditorClassIdentifier: 
   groupName: LuaScripts
   addressableLabels:
   - LuaScriptContainer
-  - Framework
+  - StateMachine
   luaAssets:
-  - {fileID: 9027929339269108002, guid: 7573012e67161e3438620963fef93e74, type: 3}
   - {fileID: 9027929339269108002, guid: ca7bcc84b721382418a91b3ab79cc87b, type: 3}
   - {fileID: 9027929339269108002, guid: b8deb2c1354c2394aad1ffb9d5b8ac33, type: 3}

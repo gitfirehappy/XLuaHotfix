@@ -10,12 +10,10 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d9722f324030fd146b77bba51912b692, type: 3}
-  m_Name: TestRemote
+  m_Name: EventCentre
   m_EditorClassIdentifier: 
-  groupName: Remote
+  groupName: EventCentre
   addressableLabels:
   - LuaScriptContainer
-  - Text
   luaAssets:
-  - {fileID: 9027929339269108002, guid: 4b2e4dda70994d944909a01ca0053baf, type: 3}
-  - {fileID: 9027929339269108002, guid: 3f8257ce259f86f4a9d1e0d4f17fb395, type: 3}
+  - {fileID: 9027929339269108002, guid: 7573012e67161e3438620963fef93e74, type: 3}
