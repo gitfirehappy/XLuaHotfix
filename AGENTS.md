@@ -101,6 +101,12 @@
 - 热更资源分组由 `DifferentialProcessor` 自动管理，**禁止手动修改 Hotfix 分组**
 - 跨语言事件注册/注销必须通过 `EventCentre`，禁止直接使用 C# delegate 跨 Lua 订阅
 
+### 重大决策确认规则（强制）
+- **涉及 AB 包替换、热更链路修改、Addressables 核心 API 替换等重大改动时，必须向开发者反复确认**
+- 接口分离（如 IAssetIndex、IPackageBackend）属于安全重构，可正常推进
+- 但任何会改变运行时加载行为、构建产物格式、热更分发链路的改动，**每一步都必须 ask_user 确认**
+- 宁可多问一次，不可自行决定涉及线上稳定性的技术方案
+
 ### 构建流程
 - `BuildFullPackage` → 大版本（Major+1），需还原所有资源分组后执行
 - `BuildHotfix` → 小版本（Patch+1），DifferentialProcessor 自动识别变更资源

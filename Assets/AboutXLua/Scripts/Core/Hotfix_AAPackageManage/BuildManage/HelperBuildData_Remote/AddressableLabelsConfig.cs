@@ -8,7 +8,7 @@ using UnityEngine.Serialization;
 /// <summary>
 /// 构建期导出的 AA 条目配置
 /// </summary>
-public class AddressableLabelsConfig : ScriptableObject
+public class AddressableLabelsConfig : ScriptableObject, IAssetIndex
 {
     public List<PackageEntry> allEntries = new();   // 作用：查询
     
@@ -50,6 +50,11 @@ public class AddressableLabelsConfig : ScriptableObject
     {
         if (_labelDict == null) BuildRuntimeDicts();
         return _labelDict?.Keys.ToList() ?? new List<string>();
+    }
+
+    public bool ContainsKey(string key)
+    {
+        return allEntries.Any(e => e.key == key);
     }
 
     /// <summary>

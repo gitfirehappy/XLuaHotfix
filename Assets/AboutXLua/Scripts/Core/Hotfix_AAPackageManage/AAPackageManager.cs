@@ -13,7 +13,7 @@ using UnityEngine.ResourceManagement.AsyncOperations;
 /// </summary>
 public class AAPackageManager : Singleton<AAPackageManager>
 {
-    private AddressableLabelsConfig _config;
+    private IAssetIndex _index;
 
     private bool _isInitialized = false;
     
@@ -37,21 +37,28 @@ public class AAPackageManager : Singleton<AAPackageManager>
         AsyncOperationHandle<AddressableLabelsConfig> handle =
             Addressables.LoadAssetAsync<AddressableLabelsConfig>(Constants.AA_LABELS_CONFIG);
 
-        _config = await handle.Task;
+        var config = await handle.Task;
 
-        if (handle.Status != AsyncOperationStatus.Succeeded || _config == null)
+        if (handle.Status != AsyncOperationStatus.Succeeded || config == null)
         {
             Debug.LogError($"[AAPackageManager] 关键配置加载失败: {Constants.AA_LABELS_CONFIG}。管理器无法初始化。");
             return;
         }
 
-        foreach (var label in _config.GetLabels())
+        _index = config;
+
+        foreach (var label in _index.GetLabels())
         {
-            _labelToKeys[label] = _config.GetKeysByLabel(label);
+            _labelToKeys[label] = _index.GetKeysByLabel(label);
         }
         
         _isInitialized = true;
-        Debug.Log($"[AAPackageManager] 初始化完成。Entries: {_config.allEntries.Count}");
+        Debug.Log($"[AAPackageManager] 初始化完成。Entries: {config.allEntries.Count}");
+    }
+
+    public void SetIndex(IAssetIndex index)
+    {
+        _index = index;
     }
 
     #region 查询接口
@@ -61,7 +68,7 @@ public class AAPackageManager : Singleton<AAPackageManager>
     /// </summary>
     public List<string> GetKeysByType(string type)
     {
-        return _isInitialized ? _config.GetKeysByType(type) : new List<string>();
+        return _isInitialized ? _index.GetKeysByType(type) : new List<string>();
     }
 
     /// <summary>
@@ -69,7 +76,7 @@ public class AAPackageManager : Singleton<AAPackageManager>
     /// </summary>
     public List<string> GetKeysByLabel(string label)
     {
-        return _isInitialized ? _config.GetKeysByLabel(label) : new List<string>();
+        return _isInitialized ? _index.GetKeysByLabel(label) : new List<string>();
     }
     
     /// <summary>
@@ -104,9 +111,9 @@ public class AAPackageManager : Singleton<AAPackageManager>
         if (!_isInitialized) return new List<string>();
         
         // 获取Type的所有Key
-        var typeKeys = _config.GetKeysByType(type);
+        var typeKeys = _index.GetKeysByType(type);
         // 获取Label的所有Key (利用HashSet优化交集查找)
-        var labelKeys = new HashSet<string>(_config.GetKeysByLabel(label));
+        var labelKeys = new HashSet<string>(_index.GetKeysByLabel(label));
         
         return typeKeys.Where(k => labelKeys.Contains(k)).ToList();
     }
@@ -116,7 +123,7 @@ public class AAPackageManager : Singleton<AAPackageManager>
     /// </summary>
     public bool ContainsKey(string key)
     {
-        return _isInitialized && _config.allEntries.Any(e => e.key == key);
+        return _isInitialized && _index.ContainsKey(key);
     }
 
     #endregion
