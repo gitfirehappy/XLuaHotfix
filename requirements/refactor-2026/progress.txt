@@ -31,3 +31,6 @@
 [decision] 2026-03-17 C3 自动标签确认等 Plan-B 完成后再做，不用 AA 临时实现
 [done] 2026-03-17 plan-C SIGNED OFF - C1+C2 完成（LuaAutoSyncConfig + LuaDirectoryScanner + CustomEditor + 菜单整理），C3 推迟到 Plan-B 后
 [next] 2026-03-17 开始执行 Plan-B1（IAssetIndex 资源索引层抽象）
+[done] 2026-03-17 B1 完成 - IAssetIndex 接口 + AddressableLabelsConfig 实现接口 + ABAssetIndex 空壳 + AAPackageManager 改用接口
+[done] 2026-03-17 plan-B1 SIGNED OFF - 运行时行为零变化，纯接口分离
+[next] 2026-03-17 下一步 Plan-B2（IPackageBackend 资源加载层接口化）

@@ -43,7 +43,7 @@
 |------|------|---------|------|
 | plan-C.md | Lua 脚本目录自动管理 | 第 1 个（风险最低） | DONE (C1+C2)，C3 待 Plan-B 后 |
 | plan-B.md | AB 包管理替换总览 | 第 2 个 | 已审批 |
-| plan-B1.md | B1: 资源索引层（IAssetIndex） | B 系第 1 步 | 已审批 |
+| plan-B1.md | B1: 资源索引层（IAssetIndex） | B 系第 1 步 | DONE |
 | plan-B2.md | B2: 资源加载层（IPackageBackend） | B 系第 2 步 | 已审批 |
 | plan-B3.md | B3: DialogueDataManager 双模式 | 可与 B1 并行 | 待审批 |
 | plan-B4.md | B4: Catalog 层（高风险，独立评估） | B1-B3 稳定后再议 | 概念阶段 |
