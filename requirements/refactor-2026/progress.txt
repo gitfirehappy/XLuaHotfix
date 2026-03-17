@@ -1,0 +1,33 @@
+# refactor-2026 进度记录
+# 格式：[类型] YYYY-MM-DD 描述
+# 类型: start(开始) / done(完成) / decision(决策) / blocked(阻塞) / next(下一步)
+# 签收格式: [done] YYYY-MM-DD plan-XX SIGNED OFF - {摘要}
+
+[start] 2026-03-16 创建需求，制定重构 plan（plan.md + plan-A/B1/B2/B3/B4/C.md）
+[next] 2026-03-16 等待开发者审批各子计划的审批清单后开始执行
+[decision] 2026-03-17 项目目录不需要整理，就地重构
+[decision] 2026-03-17 不强制单元测试，Plan-B 核心逻辑可选加测试，手动验收为主
+[decision] 2026-03-17 底层模块不引入 Log 系统，维持 Debug.Log 直接调用，保留现有 LogUtility 不动
+[decision] 2026-03-17 Plan-C 审批: 一对一映射 / 所有有容器的目录 / 方案2分离+配置映射 / 仅手动按钮
+[decision] 2026-03-17 Plan-A 审批: slideOffset 统一一个值 / 确认重命名 dynamicFormTemplates / 不扩展 DynamicGroup / A3 ViewModel 后续按需
+[decision] 2026-03-17 Plan-B1 审批: 四个方法足够 / ABManifest 格式 B4 再设计
+[decision] 2026-03-17 Plan-B2 审批: 热更目录优先+fallback StreamingAssets / GameLauncher 启动时配置 / 需要支持异步 LoadFromFileAsync
+[done] 2026-03-17 Plan-C/A/B1/B2 审批完成，plan 文件已更新为已审批状态
+[next] 2026-03-17 开始执行 Plan-C（Lua 脚本目录自动管理）— 风险最低，第一个执行
+[decision] 2026-03-17 Plan-C 增加前置步骤 C0（人工验证目录-容器映射）和后置 C3（自动标签集成，可开关）
+[next] 2026-03-17 等待开发者完成 C0 人工验证后开始 C1 编码
+[done] 2026-03-17 C0 人工验证完成 - 开发者确认文件夹-容器一对一对应关系正确
+[decision] 2026-03-17 C3 自动标签功能依赖 Plan-B（AB 包管理重构），在 B 完成后再实施
+[next] 2026-03-17 开始执行 C1（LuaAutoSyncConfig SO）+ C2（LuaDirectoryScanner）
+[done] 2026-03-17 C1 完成 - 创建 LuaAutoSyncConfig.cs (Assets/AboutXLua/Scripts/Utility/)
+[done] 2026-03-17 C2 完成 - 创建 LuaDirectoryScanner.cs + 集成扫描按钮到 LuaAddressableTagger
+[decision] 2026-03-17 Scanner 使用 union merge 策略，只添加不删除手动项
+[decision] 2026-03-17 Container 为空时根据 outputDirectory 自动创建
+[next] 2026-03-17 等待 Unity Editor 编译确认 + 功能验证（创建 config asset → 扫描 → 检查结果）
+[done] 2026-03-17 补充 LuaAutoSyncConfigEditor.cs - 路径字段加文件夹选择器 + SO内嵌扫描按钮
+[done] 2026-03-17 整理 XLua 菜单栏 - 分为 Lua 工具/ 和 调试/ 两个子菜单
+[next] 2026-03-17 等待 Unity 编译 + 功能测试 → Plan-C 签收
+[done] 2026-03-17 修复 LuaAutoSyncConfigEditor 的 EndLayoutGroup 布局错误（pendingDelete 延迟删除）
+[decision] 2026-03-17 C3 自动标签确认等 Plan-B 完成后再做，不用 AA 临时实现
+[done] 2026-03-17 plan-C SIGNED OFF - C1+C2 完成（LuaAutoSyncConfig + LuaDirectoryScanner + CustomEditor + 菜单整理），C3 推迟到 Plan-B 后
+[next] 2026-03-17 开始执行 Plan-B1（IAssetIndex 资源索引层抽象）
