@@ -13,7 +13,7 @@ public class LuaBatchConverterWindow : EditorWindow
     private Dictionary<LuaScriptContainer, Vector2> _containerScrolls = new Dictionary<LuaScriptContainer, Vector2>();
     private LuaScriptContainer _newContainer; // 用于添加新容器的临时字段
 
-    [MenuItem("XLua/Batch Convert By Container", false, 100)]
+    [MenuItem("XLua/Lua 工具/批量转换容器", false, 2)]
     public static void ShowWindow()
     {
         GetWindow<LuaBatchConverterWindow>(".lua <-> .lua.txt批量转换器");

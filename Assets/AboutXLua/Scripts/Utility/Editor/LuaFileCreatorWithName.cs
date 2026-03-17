@@ -13,7 +13,7 @@ public class LuaFileCreatorWindow : EditorWindow
     private string _selectedPath = "Assets";
     private Vector2 _scrollPos;
 
-    [MenuItem("XLua/Create Lua File", false, 99)]
+    [MenuItem("XLua/Lua 工具/创建 Lua 文件", false, 1)]
     public static void ShowWindow()
     {
         GetWindow<LuaFileCreatorWindow>("创建Lua文件");

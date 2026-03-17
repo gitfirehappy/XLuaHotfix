@@ -24,7 +24,7 @@ public class LogViewerWindow : EditorWindow
     private List<LogLevel> _logLevelValues;
     private List<LogLayer> _logLayerValues;
 
-    [MenuItem("XLua/Log Viewer")]
+    [MenuItem("XLua/调试/Log Viewer")]
     public static void ShowWindow()
     {
         GetWindow<LogViewerWindow>("Log Viewer");

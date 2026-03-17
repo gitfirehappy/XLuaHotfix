@@ -13,7 +13,7 @@ public class EventViewerWindow : EditorWindow
     private bool[] _portFilters;
     private List<EventCentre.EventPort> _portValues;
     
-    [MenuItem("XLua/Event Viewer")]
+    [MenuItem("XLua/调试/Event Viewer")]
     public static void ShowWindow()
     {
         GetWindow<EventViewerWindow>("Event Viewer");
