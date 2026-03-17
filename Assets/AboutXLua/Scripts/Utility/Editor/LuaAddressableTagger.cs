@@ -9,6 +9,7 @@ using UnityEngine;
 public class LuaAddressableTagger : EditorWindow
 {
     private LuaDataBase _luaDatabase;
+    private LuaAutoSyncConfig _syncConfig;
     private List<LuaScriptContainer> _additionalContainers = new List<LuaScriptContainer>();
     private Vector2 _scrollPos;
     private Dictionary<LuaScriptContainer, bool> _containerFoldouts = new Dictionary<LuaScriptContainer, bool>();
@@ -16,7 +17,7 @@ public class LuaAddressableTagger : EditorWindow
     private string _newLabel = "";
     private LuaScriptContainer _newContainer;
 
-    [MenuItem("XLua/Addressable标签管理器", false, 101)]
+    [MenuItem("XLua/Lua 工具/Addressable 标签管理器", false, 3)]
     public static void ShowWindow()
     {
         GetWindow<LuaAddressableTagger>("Lua标签管理器");
@@ -42,6 +43,29 @@ public class LuaAddressableTagger : EditorWindow
         }
 
         EditorGUILayout.EndHorizontal();
+
+        GUILayout.Space(10);
+
+        // 目录扫描
+        GUILayout.Label("目录扫描", EditorStyles.boldLabel);
+        _syncConfig = (LuaAutoSyncConfig)EditorGUILayout.ObjectField(
+            "同步配置",
+            _syncConfig,
+            typeof(LuaAutoSyncConfig),
+            false
+        );
+
+        if (_syncConfig != null)
+        {
+            if (GUILayout.Button("扫描目录", GUILayout.Height(30)))
+            {
+                LuaDirectoryScanner.ScanAndSync(_syncConfig);
+            }
+        }
+        else
+        {
+            EditorGUILayout.HelpBox("请先创建或指定 LuaAutoSyncConfig 资源（Assets > Create > XLua > Lua Auto Sync Config）", MessageType.Info);
+        }
 
         GUILayout.Space(15);
 
