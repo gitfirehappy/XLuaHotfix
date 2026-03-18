@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Serialization;
 
 [CreateAssetMenu(fileName = "UIResourceConfig", menuName = "UI/Resource Config")]
 public class UIResourceConfigSO : ScriptableObject
