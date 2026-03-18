@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using System;
 using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
 
@@ -74,6 +75,14 @@ public static class DialogueDataManager
         }
 
         return dialogueData;
+    }
+
+    /// <summary>
+    /// 加载指定CSV对话数据（通过 资管理AB包 加载）
+    /// </summary>
+    public static List<DialogueData> LoadDialogueDataIntegrated(string csvFileName)
+    {
+        throw new NotImplementedException($"[DialogueDataManager] 该功能暂未实现需等待planB4");
     }
 
     /// <summary>

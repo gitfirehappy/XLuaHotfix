@@ -41,3 +41,4 @@
 [next] 2026-03-18 下一个计划 Plan-A（UI框架优化）
 [done] 2026-03-18 A1 完成 - UIFormConfigSO 新增 fadeInDuration/fadeOutDuration/zoomScale/slideOffset 参数；UIFormBase 传入配置值调用动画；UIAnimation.ZoomIn/PopIn 添加 targetScale 参数
 [done] 2026-03-18 A2 完成 - additionalPreloadForms 重命名为 dynamicFormTemplates（字段加 FormerlySerializedAs 兼容）；UIManager 新增 GetDynamicFormCount(groupID)；UIFormBase 添加 DynamicGroup 设计语义注释
+[done] 2026-03-18 A 修复 - UIResourceConfigSO 添加 `using UnityEngine.Serialization;` 解决 FormerlySerializedAs 找不到的错误
