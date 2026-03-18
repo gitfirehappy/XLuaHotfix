@@ -3,24 +3,18 @@ using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
 
-/// <summary>
-/// 对话数据管理器（缓存CSV加载的对话数据）
-/// </summary>
 public static class DialogueDataManager
 {
-    /// <summary>
-    /// 缓存：CSV名称/Addressables key -> 对话数据列表
-    /// </summary>
+    public enum LoaderMode { Standalone, Integrated }
+
+    public static LoaderMode Mode = LoaderMode.Standalone;
+
     private static Dictionary<string, List<DialogueData>> _loadedDialogues = new();
 
-    /// <summary>
-    /// 缓存：CSV名称/Addressables key -> AsyncOperationHandle（用于释放）
-    /// </summary>
-    private static Dictionary<string, AsyncOperationHandle<TextAsset>> _loadedHandles = new();
+    private static Dictionary<string, AsyncOperationHandle<TextAsset>> _standaloneHandles = new();
 
-    /// <summary>
-    /// 通过文件名加载CSV对话数据（文件名即Addressables key）
-    /// </summary>
+    private static Dictionary<string, TextAsset> _integratedAssets = new();
+
     public static List<DialogueData> LoadDialogueData(string csvFileName)
     {
         if (string.IsNullOrEmpty(csvFileName))
@@ -29,12 +23,23 @@ public static class DialogueDataManager
             return null;
         }
 
-        if (_loadedDialogues.ContainsKey(csvFileName))
+        if (_loadedDialogues.TryGetValue(csvFileName, out var cached))
         {
-            return _loadedDialogues[csvFileName];
+            return cached;
         }
 
-        // 使用 Addressables 按 key 加载 TextAsset（同步等待完成）
+        if (Mode == LoaderMode.Standalone)
+        {
+            return LoadDialogueDataStandalone(csvFileName);
+        }
+        else
+        {
+            return LoadDialogueDataIntegrated(csvFileName);
+        }
+    }
+
+    private static List<DialogueData> LoadDialogueDataStandalone(string csvFileName)
+    {
         var handle = Addressables.LoadAssetAsync<TextAsset>(csvFileName);
         handle.WaitForCompletion();
 
@@ -45,28 +50,45 @@ public static class DialogueDataManager
         }
 
         var csvAsset = handle.Result;
-
-        // 解析CSV
         var dialogueData = DialogueCsvReader.ParseCsv(csvAsset);
+
         if (dialogueData != null && dialogueData.Count > 0)
         {
             _loadedDialogues.Add(csvFileName, dialogueData);
-            _loadedHandles.Add(csvFileName, handle);
+            _standaloneHandles.Add(csvFileName, handle);
             Debug.Log($"[DialogueDataManager] 成功通过 Addressables 加载CSV对话：{csvFileName}（{dialogueData.Count}条）");
         }
         else
         {
             Debug.LogError($"[DialogueDataManager] 解析CSV失败：{csvFileName}");
-            // 解析失败立即释放句柄
             Addressables.Release(handle);
         }
 
         return dialogueData;
     }
 
-    /// <summary>
-    /// 通过TextAsset加载CSV对话数据
-    /// </summary>
+    private static List<DialogueData> LoadDialogueDataIntegrated(string csvFileName)
+    {
+        var csvAsset = AAPackageManager.Instance.LoadAssetSync<TextAsset>(csvFileName);
+
+        if (csvAsset == null)
+        {
+            Debug.LogError($"[DialogueDataManager] 通过 AAPackageManager 加载失败: {csvFileName}");
+            return null;
+        }
+
+        var dialogueData = DialogueCsvReader.ParseCsv(csvAsset);
+
+        if (dialogueData != null && dialogueData.Count > 0)
+        {
+            _loadedDialogues.Add(csvFileName, dialogueData);
+            _integratedAssets.Add(csvFileName, csvAsset);
+            Debug.Log($"[DialogueDataManager] 成功通过 AAPackageManager 加载CSV对话：{csvFileName}（{dialogueData.Count}条）");
+        }
+
+        return dialogueData;
+    }
+
     public static List<DialogueData> LoadDialogueData(TextAsset csvAsset)
     {
         if (csvAsset == null)
@@ -78,23 +100,25 @@ public static class DialogueDataManager
         return DialogueCsvReader.ParseCsv(csvAsset);
     }
 
-    /// <summary>
-    /// 卸载指定CSV对话数据（释放对应的 Addressables 句柄）
-    /// </summary>
     public static void UnloadDialogue(string csvName)
     {
-        if (_loadedDialogues.ContainsKey(csvName))
+        if (!_loadedDialogues.Remove(csvName))
         {
-            _loadedDialogues.Remove(csvName);
-            Debug.Log($"[DialogueDataManager] 卸载CSV对话：{csvName}");
+            return;
         }
 
-        if (_loadedHandles.ContainsKey(csvName))
+        if (Mode == LoaderMode.Standalone && _standaloneHandles.TryGetValue(csvName, out var handle))
         {
-            var handle = _loadedHandles[csvName];
             Addressables.Release(handle);
-            _loadedHandles.Remove(csvName);
+            _standaloneHandles.Remove(csvName);
             Debug.Log($"[DialogueDataManager] 释放 Addressables 句柄：{csvName}");
         }
+        else if (Mode == LoaderMode.Integrated)
+        {
+            _integratedAssets.Remove(csvName);
+            Debug.Log($"[DialogueDataManager] 卸载 Integrated 资源：{csvName}");
+        }
+
+        Debug.Log($"[DialogueDataManager] 卸载CSV对话：{csvName}");
     }
 }

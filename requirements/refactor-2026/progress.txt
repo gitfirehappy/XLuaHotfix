@@ -37,3 +37,5 @@
 [done] 2026-03-18 B2 完成 - IPackageBackend + AddressablesBackend + ABPackageBackend空壳 + ABBundleLoader空壳 + AAPackageManager改用后端注入
 [next] 2026-03-18 等待 Unity 编译确认 → Plan-B2 签收
 [next] 2026-03-18 下一个计划 B3（DialogueDataManager 双模式）
+[done] 2026-03-18 B3 完成 - DialogueDataManager 添加 LoaderMode 枚举 + Standalone/Integrated 双模式支持
+[next] 2026-03-18 等待 Unity 编译确认 → Plan-B3 签收
