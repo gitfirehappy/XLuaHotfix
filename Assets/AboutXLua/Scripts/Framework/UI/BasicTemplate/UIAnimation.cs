@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using DG.Tweening;
 using UnityEngine;
@@ -51,19 +51,13 @@ public static class UIAnimation
 
     #region 缩放动画
 
-    /// <summary>
-    /// 缩放进入动画，结束时调用onComplete
-    /// </summary>
-    public static void ZoomIn(UIFormBase uIForm, Action onComplete = null, float duration = 0.5f)
+    public static void ZoomIn(UIFormBase uIForm, Action onComplete = null, float duration = 0.5f, float targetScale = 1f)
     {
         FormActiveByType(uIForm);
         uIForm.transform.localScale = Vector3.zero;
-        uIForm.transform.DOScale(1, duration).SetUpdate(true).OnComplete(() => onComplete?.Invoke());
+        uIForm.transform.DOScale(targetScale, duration).SetUpdate(true).OnComplete(() => onComplete?.Invoke());
     }
 
-    /// <summary>
-    /// 缩放关闭动画，附带完成回调
-    /// </summary>
     public static void ZoomOut(UIFormBase uIForm, Action onComplete = null, float duration = 0.5f)
     {
         uIForm.transform.DOScale(0, duration).SetUpdate(true).OnComplete(() =>
@@ -77,11 +71,11 @@ public static class UIAnimation
 
     #region 弹跳动画
 
-    public static void PopIn(UIFormBase uIForm, Action onComplete = null, float duration = 0.5f)
+    public static void PopIn(UIFormBase uIForm, Action onComplete = null, float duration = 0.5f, float targetScale = 1f)
     {
         FormActiveByType(uIForm);
         uIForm.transform.localScale = Vector3.zero;
-        uIForm.transform.DOScale(1f, duration).SetEase(Ease.OutBack).SetUpdate(true).OnComplete(() => onComplete?.Invoke());
+        uIForm.transform.DOScale(targetScale, duration).SetEase(Ease.OutBack).SetUpdate(true).OnComplete(() => onComplete?.Invoke());
     }
 
     public static void PopOut(UIFormBase uIForm, Action onComplete = null, float duration = 0.3f)

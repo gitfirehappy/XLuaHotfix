@@ -1,8 +1,8 @@
 # Sub-Plan A: UI 框架优化
 
-> **状态**: 已审批，可执行
+> **状态**: A1/A2 已完成，A3 不执行
 > **依赖**: 无（可独立执行）
-> **子任务**: A1 UIAnimation 参数化 | A2 DynamicGroup 职责扩展 | A3 UIViewModel（可选）
+> **子任务**: ~~A1 UIAnimation 参数化~~ ✅ | ~~A2 DynamicGroup 职责扩展~~ ✅ | A3 UIViewModel（可选，本次不执行）
 
 ---
 

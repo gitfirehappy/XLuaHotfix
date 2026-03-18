@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using UnityEngine;
@@ -74,11 +74,11 @@ public class UIManager : Singleton<UIManager>
 
                 // 为所有静态UI表单建立Canvas映射
                 MapFormsToCanvas(uiGroup.manualUIForms, targetCanvas);
-                MapFormsToCanvas(uiGroup.additionalPreloadForms, targetCanvas);
+                MapFormsToCanvas(uiGroup.dynamicFormTemplates, targetCanvas);
 
                 // 预加载资源
                 PreLoadForms(uiGroup.manualUIForms);
-                PreLoadForms(uiGroup.additionalPreloadForms);
+                PreLoadForms(uiGroup.dynamicFormTemplates);
             }
         }
     }
@@ -486,6 +486,18 @@ public class UIManager : Singleton<UIManager>
             return forms;
         }
         return new List<UIFormBase>();
+    }
+
+    /// <summary>
+    /// 获取动态面板组内的面板数量
+    /// </summary>
+    public int GetDynamicFormCount(string groupID)
+    {
+        if (dynamicFormGroups.TryGetValue(groupID, out var forms))
+        {
+            return forms.Count;
+        }
+        return 0;
     }
 
     /// <summary>

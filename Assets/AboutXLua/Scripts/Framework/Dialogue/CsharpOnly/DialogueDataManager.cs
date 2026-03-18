@@ -3,6 +3,9 @@ using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
 
+/// <summary>
+/// 对话数据管理器（缓存CSV加载的对话数据）
+/// </summary>
 public static class DialogueDataManager
 {
     public enum LoaderMode { Standalone, Integrated }
@@ -15,6 +18,9 @@ public static class DialogueDataManager
 
     private static Dictionary<string, TextAsset> _integratedAssets = new();
 
+    /// <summary>
+    /// 加载指定CSV对话数据（根据当前模式选择 Standalone 或 Integrated）
+    /// </summary>
     public static List<DialogueData> LoadDialogueData(string csvFileName)
     {
         if (string.IsNullOrEmpty(csvFileName))
@@ -38,6 +44,9 @@ public static class DialogueDataManager
         }
     }
 
+    /// <summary>
+    /// 加载指定CSV对话数据（通过 Addressables 加载）
+    /// </summary>
     private static List<DialogueData> LoadDialogueDataStandalone(string csvFileName)
     {
         var handle = Addressables.LoadAssetAsync<TextAsset>(csvFileName);
@@ -67,28 +76,9 @@ public static class DialogueDataManager
         return dialogueData;
     }
 
-    private static List<DialogueData> LoadDialogueDataIntegrated(string csvFileName)
-    {
-        var csvAsset = AAPackageManager.Instance.LoadAssetSync<TextAsset>(csvFileName);
-
-        if (csvAsset == null)
-        {
-            Debug.LogError($"[DialogueDataManager] 通过 AAPackageManager 加载失败: {csvFileName}");
-            return null;
-        }
-
-        var dialogueData = DialogueCsvReader.ParseCsv(csvAsset);
-
-        if (dialogueData != null && dialogueData.Count > 0)
-        {
-            _loadedDialogues.Add(csvFileName, dialogueData);
-            _integratedAssets.Add(csvFileName, csvAsset);
-            Debug.Log($"[DialogueDataManager] 成功通过 AAPackageManager 加载CSV对话：{csvFileName}（{dialogueData.Count}条）");
-        }
-
-        return dialogueData;
-    }
-
+    /// <summary>
+    /// 通过TextAsset加载CSV对话数据
+    /// </summary>
     public static List<DialogueData> LoadDialogueData(TextAsset csvAsset)
     {
         if (csvAsset == null)
@@ -100,6 +90,9 @@ public static class DialogueDataManager
         return DialogueCsvReader.ParseCsv(csvAsset);
     }
 
+    /// <summary>
+    /// 卸载指定CSV对话数据（释放对应的 Addressables 句柄）
+    /// </summary>
     public static void UnloadDialogue(string csvName)
     {
         if (!_loadedDialogues.Remove(csvName))

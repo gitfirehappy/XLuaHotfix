@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 
 [CreateAssetMenu(fileName = "UIResourceConfig", menuName = "UI/Resource Config")]
 public class UIResourceConfigSO : ScriptableObject
@@ -12,8 +12,9 @@ public class UIResourceConfigSO : ScriptableObject
         [Header("静态UI预制体")]
         public GameObject[] manualUIForms;
 
-        [Header("模版UI预制体（注册）")]
-        public GameObject[] additionalPreloadForms;
+        [Header("动态面板模板（实例化）")]
+        [FormerlySerializedAs("additionalPreloadForms")]
+        public GameObject[] dynamicFormTemplates;
     }
 
     [System.Serializable]
