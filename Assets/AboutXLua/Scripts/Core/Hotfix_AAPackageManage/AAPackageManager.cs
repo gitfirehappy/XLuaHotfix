@@ -196,4 +196,120 @@ public class AAPackageManager : Singleton<AAPackageManager>
     }
 
     #endregion
+
+    #region B5-2 新增：Resolve / Load API
+
+    /// <summary>
+    /// 通过 Address 异步加载资源，返回 AssetHandle。
+    /// 内部先 Resolve 得到唯一条目，再通过 backend 加载。
+    /// </summary>
+    public async Task<AssetHandle<T>> LoadByAddress<T>(string address) where T : UnityEngine.Object
+    {
+        if (!_isInitialized)
+            return new AssetHandle<T>(
+                AssetLoadError.LoadFailed("", "AAPackageManager 未初始化"), address);
+
+        var result = AssetResolver.ResolveByAddress<T>(_index, address);
+        if (!result.IsSuccess)
+            return new AssetHandle<T>(result.Error, address);
+
+        var entry = result.Entry;
+        T asset;
+        try
+        {
+            asset = await _backend.LoadAssetAsync<T>(entry.Address, entry.EntryId);
+        }
+        catch (Exception ex)
+        {
+            return new AssetHandle<T>(
+                AssetLoadError.LoadFailed(entry.EntryId, ex.Message), address);
+        }
+
+        if (asset == null)
+            return new AssetHandle<T>(
+                AssetLoadError.LoadFailed(entry.EntryId, "Backend 返回 null"), address);
+
+        return new AssetHandle<T>(asset, entry, id => _backend.UnloadByEntryId(id));
+    }
+
+    /// <summary>
+    /// 通过 Address 同步加载资源，返回 AssetHandle。
+    /// </summary>
+    public AssetHandle<T> LoadByAddressSync<T>(string address) where T : UnityEngine.Object
+    {
+        if (!_isInitialized)
+            return new AssetHandle<T>(
+                AssetLoadError.LoadFailed("", "AAPackageManager 未初始化"), address);
+
+        var result = AssetResolver.ResolveByAddress<T>(_index, address);
+        if (!result.IsSuccess)
+            return new AssetHandle<T>(result.Error, address);
+
+        var entry = result.Entry;
+        var asset = _backend.LoadAssetSync<T>(entry.Address, entry.EntryId);
+        if (asset == null)
+            return new AssetHandle<T>(
+                AssetLoadError.LoadFailed(entry.EntryId, "Backend 返回 null"), address);
+
+        return new AssetHandle<T>(asset, entry, id => _backend.UnloadByEntryId(id));
+    }
+
+    /// <summary>
+    /// 通过 TypeKey 异步加载资源，返回 AssetHandle。
+    /// 可选传入 Labels 进行消歧。
+    /// </summary>
+    public async Task<AssetHandle<T>> LoadByTypeKey<T>(
+        string key, IReadOnlyList<string> labels = null) where T : UnityEngine.Object
+    {
+        if (!_isInitialized)
+            return new AssetHandle<T>(
+                AssetLoadError.LoadFailed("", "AAPackageManager 未初始化"), key);
+
+        var result = AssetResolver.ResolveByTypeKey<T>(_index, key, labels);
+        if (!result.IsSuccess)
+            return new AssetHandle<T>(result.Error, key);
+
+        var entry = result.Entry;
+        T asset;
+        try
+        {
+            asset = await _backend.LoadAssetAsync<T>(entry.Address, entry.EntryId);
+        }
+        catch (Exception ex)
+        {
+            return new AssetHandle<T>(
+                AssetLoadError.LoadFailed(entry.EntryId, ex.Message), key);
+        }
+
+        if (asset == null)
+            return new AssetHandle<T>(
+                AssetLoadError.LoadFailed(entry.EntryId, "Backend 返回 null"), key);
+
+        return new AssetHandle<T>(asset, entry, id => _backend.UnloadByEntryId(id));
+    }
+
+    /// <summary>
+    /// 通过 TypeKey 同步加载资源，返回 AssetHandle。
+    /// </summary>
+    public AssetHandle<T> LoadByTypeKeySync<T>(
+        string key, IReadOnlyList<string> labels = null) where T : UnityEngine.Object
+    {
+        if (!_isInitialized)
+            return new AssetHandle<T>(
+                AssetLoadError.LoadFailed("", "AAPackageManager 未初始化"), key);
+
+        var result = AssetResolver.ResolveByTypeKey<T>(_index, key, labels);
+        if (!result.IsSuccess)
+            return new AssetHandle<T>(result.Error, key);
+
+        var entry = result.Entry;
+        var asset = _backend.LoadAssetSync<T>(entry.Address, entry.EntryId);
+        if (asset == null)
+            return new AssetHandle<T>(
+                AssetLoadError.LoadFailed(entry.EntryId, "Backend 返回 null"), key);
+
+        return new AssetHandle<T>(asset, entry, id => _backend.UnloadByEntryId(id));
+    }
+
+    #endregion
 }
