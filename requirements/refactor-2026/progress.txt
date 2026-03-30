@@ -66,3 +66,7 @@
 [done] 2026-03-30 B5-1 complete - Added RuntimeAssetEntry.cs (7 fields + label cache query) + extended IAssetIndex (4 default methods) + AssetAddressGenerator.cs (auto short name + type suffix upgrade) + AssetConflictRules.cs (4 conflict rule types)
 [done] 2026-03-30 plan-B5-1 SIGNED OFF - Runtime entry model definition complete, LINQ only for editor/build-time, runtime methods use for loops + cache
 [next] 2026-03-30 Begin executing B5-2 (Resolve/Load API + AssetHandle contract coding)
+[done] 2026-03-30 Translated all 14 requirements/ documents from Chinese to English (plan-A/B/B1-B4/B5/B5-1~4/C/D/INDEX.md)
+[done] 2026-03-30 B5-2 complete - Added AssetLoadError.cs (6 error codes + factory methods) + ResolveResult.cs (4 status + factory) + AssetHandle<T>.cs (Result+Release dual role, idempotent release, ThrowIfFailed) + AssetResolver.cs (ByAddress/ByTypeKey/Many/ByLabels, all for-loops no LINQ) + extended IPackageBackend (3 default methods with entryId) + extended AAPackageManager (4 new Load methods: LoadByAddress/LoadByAddressSync/LoadByTypeKey/LoadByTypeKeySync)
+[done] 2026-03-30 plan-B5-2 SIGNED OFF - Resolve/Load API + AssetHandle + structured error model, legacy API untouched
+[next] 2026-03-30 Next: B5-3 (manual scan, build validation, conflict diagnostic tools) or B5-4 (migration path)
