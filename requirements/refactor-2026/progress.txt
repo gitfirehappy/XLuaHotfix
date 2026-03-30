@@ -42,3 +42,28 @@
 [done] 2026-03-18 A1 完成 - UIFormConfigSO 新增 fadeInDuration/fadeOutDuration/zoomScale/slideOffset 参数；UIFormBase 传入配置值调用动画；UIAnimation.ZoomIn/PopIn 添加 targetScale 参数
 [done] 2026-03-18 A2 完成 - additionalPreloadForms 重命名为 dynamicFormTemplates（字段加 FormerlySerializedAs 兼容）；UIManager 新增 GetDynamicFormCount(groupID)；UIFormBase 添加 DynamicGroup 设计语义注释
 [done] 2026-03-18 A 修复 - UIResourceConfigSO 添加 `using UnityEngine.Serialization;` 解决 FormerlySerializedAs 找不到的错误
+[start] 2026-03-22 创建 Plan-D（模块化程序集拆分计划）
+[decision] 2026-03-22 Plan-D 调整：独立模块+静态胶水层形式，程序集之间无直接依赖
+[decision] 2026-03-22 执行策略：模块拆分与胶水层同步进行，每解耦一个模块即更新Facade
+
+[decision] 2026-03-29 Plan-B 讨论范围收敛：当前仅覆盖运行时加载层，继续沿用 refactor-2026；HotfixManager/CatalogUpdater/NetworkDownloader 只做设计讨论
+[decision] 2026-03-29 B5 索引模型方向：Address 允许重复，EntryId 内部唯一，Group 仅构建概念不参与运行时过滤
+[decision] 2026-03-29 B5 查询合同方向：双轨 API（ByAddress / ByTypeKey）、Handle-first、公开 Resolve API、旧 LoadAssetAsync 先映射到 LoadByAddress
+[decision] 2026-03-29 B5 类型与标签：V1 仅保留 PrimaryType；SO 使用具体类名；Labels 为无序唯一集合，匹配大小写不敏感
+[decision] 2026-03-29 B5 校验策略：手动扫描 + 构建硬拦；同一 Address+PrimaryType 靠 Labels 区分时允许但警告；名单冲突与 Address+PrimaryType+LabelSet 冲突阻断
+[done] 2026-03-29 新增 plan-B5 / plan-B5-1 / plan-B5-2 / plan-B5-3 / plan-B5-4 草案，记录本轮 ask 结论并拆分精细化审批入口
+[next] 2026-03-29 等待开发者审批 Plan-B5 各子计划清单，再进入执行顺序确认
+[decision] 2026-03-30 重构最终目标确认：全面自研替换 Addressables（运行时 + 构建期），参考 YooAsset 架构
+[decision] 2026-03-30 构建期改造范围：参考 YooAsset 全重写（收集器/分类器/打包规则/子目录收集器/忽略规则/依赖分析/构建管线）
+[decision] 2026-03-30 RawFile Bundle 纳入路线图；LRU/LFU 延后；AsyncOp 调度器待定；Plan-D 最后执行
+[done] 2026-03-30 完整路线图扩展为 Phase 1~10，写入 plan.md（从三系统重构升级为全面自研资源管理系统）
+[next] 2026-03-30 开始审批 Plan-B5 各子计划未决项
+[done] 2026-03-30 B5-1 审批完成 - EntryId 复用 Unity GUID；自动 Address 升级格式为 Filename_Type
+[done] 2026-03-30 B5-2 审批完成 - 错误模型 Result 风格为主(AssetHandle承担)；批量API两套分层保留；UnloadAsset 首批迁移后标 Obsolete
+[done] 2026-03-30 B5-3 审批完成 - 构建硬拦先独立 precheck(等主流程重构后接入)；建议Address首期仅候选列表；首期纳入一键定位+复制过滤条件
+[done] 2026-03-30 B5-4 审批完成 - 首批替换从 AAPackageManager 内部开始；旧批量API等B5-2实现后再迁；UnloadAsset同步B5-2决定
+[done] 2026-03-30 Plan-B5 全部子计划(B5-1/B5-2/B5-3/B5-4)审批完成
+[next] 2026-03-30 下一步：开始执行 B5-1（运行时条目模型编码）
+[done] 2026-03-30 B5-1 完成 - 新增 RuntimeAssetEntry.cs(7字段+标签缓存查询) + 扩展 IAssetIndex(4个默认方法) + AssetAddressGenerator.cs(自动短名+类型后缀升级) + AssetConflictRules.cs(4类冲突规则)
+[done] 2026-03-30 plan-B5-1 SIGNED OFF - 运行时条目模型定义完成，LINQ 仅用于编辑器/构建期，运行时方法用 for 循环+缓存
+[next] 2026-03-30 开始执行 B5-2（Resolve/Load API + AssetHandle 合同编码）

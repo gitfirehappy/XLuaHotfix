@@ -19,13 +19,13 @@
 
 ## 知识管理
 - 工作前先查看 `context/INDEX.md` 了解已有知识
-- 新发现的经验写入 `context/{主题}.md`
+- 新知识按主题写入对应分层目录（如 `context/architecture/`、`context/conventions/`、`context/experience/`）
 - 只记录已验证的知识，未确认的标注 [待确认]
 
 ## 需求工作流
 1. 创建 `requirements/{需求ID}/brief.md` 描述需求目标和背景
 2. 在 `requirements/{需求ID}/progress.txt` 记录关键进展（开始/完成/决策/阻塞/下一步）
-3. 遇到的问题和解决方案写入 `context/troubleshooting.md`
+3. 遇到的问题和解决方案写入 `context/experience/troubleshooting.md`
 4. 需求完成后将有价值的经验迁移到 `context/`
 
 ### 执行协议（强制）
@@ -97,7 +97,7 @@
 - 资源加载必须走 `AAPackageManager`，**不推荐**直接使用 Addressables 原生接口
   - 正在推进 `IPackageBackend` 接口化重构（见 requirements/refactor-2026/plan-B.md）
   - 新代码优先通过 `AAPackageManager`；已有直接调用 Addressables 的代码，重构时逐步迁移
-  - 底层热更流程（HotfixManager/NetworkDownloader）仍依赖 Addressables，待 B3 阶段处理
+  - 底层热更流程（HotfixManager/NetworkDownloader/CatalogUpdater）仍依赖 Addressables，待 B4 / 专项设计评审处理
 - 热更资源分组由 `DifferentialProcessor` 自动管理，**禁止手动修改 Hotfix 分组**
 - 跨语言事件注册/注销必须通过 `EventCentre`，禁止直接使用 C# delegate 跨 Lua 订阅
 
@@ -124,4 +124,5 @@
 | `Assets/StreamingAssets/` | 初始包内资源 |
 | `HotfixOutput/` | 热更包输出目录 |
 | `context/` | AI 协作知识库 |
+| `docs/` | 面向开发者的中文文档 |
 | `requirements/` | 需求追踪目录 |

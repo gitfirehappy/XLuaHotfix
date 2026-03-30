@@ -1,23 +1,27 @@
-# 知识索引
+# Knowledge Index
 
-> 本文件索引项目中所有已验证的知识文档
+Start here before any task.
 
-## 架构和技术栈
-- **文件**: `architecture.md`
-- **内容**: 技术选型、架构决策、核心模块说明、目录结构
-- **更新**: 2026-03-07
+## Architecture
+- `architecture/INDEX.md` - module structure, technical stack, runtime systems
+- `architecture/tech-stack.md` - verified project architecture and tech stack
+- `architecture/xlua-internals.md` - XLua runtime internals and bridge behavior
 
-## XLua 跨语言交互机制
-- **文件**: `xlua-internals.md`
-- **内容**: LuaEnv 初始化、ObjectTranslator、ObjectPool、Delegate Bridge、GC 协作、Hotfix 机制、性能关键路径
-- **更新**: 2026-03-07
+## Business
+- `business/INDEX.md` - domain-specific gameplay and business knowledge
 
-## 问题排查经验
-- **文件**: `troubleshooting.md`
-- **内容**: 常见问题、踩坑经验、解决方案
-- **更新**: 2026-03-07
+## Conventions
+- `conventions/INDEX.md` - coding, git, testing, and collaboration conventions
+- `conventions/collaboration.md` - project workflow and resource-management rules
 
-## 使用说明
-- 新增知识文档时，在本文件中添加对应条目
-- 每个主题一个 `.md` 文件，文件名使用英文小写+连字符
-- 只记录已验证的知识，未确认的标注 [待确认]
+## Dependencies
+- `dependencies/INDEX.md` - third-party and engine integration notes
+
+## Experience
+- `experience/INDEX.md` - verified pitfalls and troubleshooting notes
+- `experience/troubleshooting.md` - confirmed problems and solutions
+
+Rules:
+- Only store verified knowledge here.
+- Mark uncertain items as [UNVERIFIED].
+- Prefer English file names and stable topic grouping.
