@@ -1,107 +1,107 @@
-# Sub-Plan B5-4: 迁移路径与旧 API 淘汰策略
+# Sub-Plan B5-4: Migration Path & Legacy API Deprecation Strategy
 
-> **风险**: 中
-> **依赖**: B5-1 + B5-2 + B5-3 审批完成
-> **状态**: ✅ 审批完成
-
----
-
-## 目标
-
-把 B5 的落地顺序拆清楚：
-
-- 先加什么
-- 后改什么
-- 旧接口何时兼容、何时淘汰
-- 哪些模块作为首批迁移对象
-
-在不破坏现有运行时行为的前提下，逐步把 `AAPackageManager` 从「字符串 key 驱动」迁到「Resolve + AssetHandle 驱动」。
+> **Risk**: Medium
+> **Dependencies**: B5-1 + B5-2 + B5-3 approval completed
+> **Status**: Approved
 
 ---
 
-## 背景说明
+## Objective
 
-本项目已经完成 B1 / B2 / B3，说明：
+Clarify the B5 implementation order:
 
-- 抽象层已经分离到位
-- 但大多数运行时调用仍然停留在旧的 `LoadAssetAsync<T>(key)` / `UnloadAsset(key)` 心智
+- What to add first
+- What to change later
+- When legacy interfaces are compatibility-preserved, when deprecated
+- Which modules serve as first-batch migration targets
 
-如果直接一步切掉旧 API，风险较大；
-如果长期双轨并存，又会让调用面持续分裂。
-
-因此本子计划专门定义迁移节奏与淘汰条件。
-
----
-
-## 已确认规则
-
-1. 新 API 需要先跑通，再开始迁移旧 API
-2. 新 API 必须同时支持 Sync / Async
-3. 旧 `LoadAssetAsync<T>(key)` 先映射到 `LoadByAddress`
-4. `Handle-first` 是目标方向，不能回退到长期字符串卸载
-5. B4 不在本轮执行范围，迁移计划不得偷偷夹带热更核心链路改动
+Incrementally migrate `AAPackageManager` from 'string key driven' to 'Resolve + AssetHandle driven' without breaking existing runtime behavior.
 
 ---
 
-## 计划任务
+## Background
 
-### 任务 1: 规划新增阶段
+The project has completed B1 / B2 / B3, meaning:
 
-- 定义 `ResolvedEntry` / `AssetHandle<T>` / 新 Resolve / Load API 的引入顺序
-- 定义旧 API 包装层应该放在哪一层
-- 定义哪些接口先保留兼容外壳
+- Abstraction layers are already properly separated
+- But most runtime calls still use the old `LoadAssetAsync<T>(key)` / `UnloadAsset(key)` mental model
 
-### 任务 2: 规划替换阶段
+Cutting the old API in one shot carries high risk;
+long-term dual-track coexistence would cause continuous call-site fragmentation.
 
-- 定义首批迁移调用面
-- 定义何时迁移 `UnloadAsset(string key)` 相关调用
-- 定义批量 `ByLabel(s)` 接口与新批量 API 的衔接时机
-
-### 任务 3: 规划淘汰阶段
-
-- 定义旧 API 标记 `Obsolete` 的时机
-- 定义何时允许删除兼容外壳
-- 定义验证新 API 稳定的观察标准
+Therefore this sub-plan specifically defines migration cadence and deprecation conditions.
 
 ---
 
-## 保留项（必须通过）
+## Confirmed Rules
 
-- [x] 在新 API 未验证前，不删除旧 API
-- [x] 迁移阶段不同时推动 B4 高风险链路修改
-- [x] 兼容层行为必须透明，不能在失败时做过多隐式猜测
-- [x] 迁移计划必须明确"先验证，再替换"而不是直接全量切换
-
----
-
-## 验收标准
-
-- [ ] 新增、替换、淘汰三个阶段的边界清晰
-- [ ] 能说明哪些调用面先迁，哪些后迁，哪些必须等批量 API 定案后再动
-- [ ] `LoadAssetAsync<T>(key)`、`LoadAssetSync<T>(key)`、`UnloadAsset(string key)` 的去向明确
-- [ ] 迁移计划不把 B4、RawFile 或其他未定范围偷偷混进来
+1. New API must run successfully before migrating old API
+2. New API must support both Sync / Async from the start
+3. Legacy `LoadAssetAsync<T>(key)` first maps to `LoadByAddress`
+4. `Handle-first` is the target direction; cannot regress to long-term string-based unloading
+5. B4 is not in this round's execution scope; migration plan must not smuggle in hotfix core pipeline changes
 
 ---
 
-## 不在本次范围
+## Planned Tasks
 
-- 具体 `ABPackageBackend` / `ABAssetIndex` 实现
-- B4 的 catalog / locator 替换
-- RawFile API 迁移
+### Task 1: Plan Addition Phase
+
+- Define the introduction order for `ResolvedEntry` / `AssetHandle<T>` / new Resolve / Load APIs
+- Define which layer the old API wrapper should reside in
+- Define which interfaces initially preserve compatibility shells
+
+### Task 2: Plan Replacement Phase
+
+- Define first-batch migration call sites
+- Define when to migrate `UnloadAsset(string key)` related calls
+- Define the bridging timing between batch `ByLabel(s)` interfaces and new batch APIs
+
+### Task 3: Plan Deprecation Phase
+
+- Define the timing for marking legacy APIs `Obsolete`
+- Define when compatibility shells can be deleted
+- Define observation criteria for verifying new API stability
 
 ---
 
-## 审批清单
+## Preservation Requirements (Must Pass)
 
-- [x] 迁移是否坚持「新 API 跑通后再迁旧 API」？
-  **决定**：是。
-- [x] 新 API 是否一开始就同时支持 Sync / Async？
-  **决定**：是。
-- [x] 旧 `LoadAssetAsync<T>(key)` 是否先映射到 `LoadByAddress`？
-  **决定**：是。
-- [x] 第一批替换调用面，先从 `AAPackageManager` 外壳、`XLuaLoader`，还是其他模块开始？
-  **决定**：AAPackageManager 内部先行。它是所有调用方的统一入口，改内部实现外部无感知，是验证新 API 的最佳位置。
-- [x] 旧 `LoadAssetByLabel(s)` / `UnloadAssetByLabel(s)` 是否等 B5-2 批量 API 定案后再迁？
-  **决定**：是。首批迁移先做单资源路径（ByAddress / ByTypeKey），批量路径等 ResolveMany + LoadMany + LoadByLabels 实现后再迁。
-- [x] `UnloadAsset(string key)` 在哪一阶段标记为 `Obsolete`？
-  **决定**：同步 B5-2 决定 — 首批调用面迁移完成后标 Obsolete。
+- [x] Do not delete legacy API before new API is verified
+- [x] Migration phase must not simultaneously push B4 high-risk pipeline changes
+- [x] Compatibility layer behavior must be transparent; must not make excessive implicit guesses on failure
+- [x] Migration plan must clearly state 'verify first, then replace' rather than full cutover
+
+---
+
+## Acceptance Criteria
+
+- [ ] Addition, replacement, and deprecation — all three phase boundaries are clear
+- [ ] Can explain which call sites migrate first, which later, which must wait for batch API finalization
+- [ ] The destination for `LoadAssetAsync<T>(key)`, `LoadAssetSync<T>(key)`, `UnloadAsset(string key)` is clear
+- [ ] Migration plan does not smuggle in B4, RawFile, or other undefined scope items
+
+---
+
+## Out of Scope
+
+- Concrete `ABPackageBackend` / `ABAssetIndex` implementation
+- B4's catalog / locator replacement
+- RawFile API migration
+
+---
+
+## Approval Checklist
+
+- [x] Does migration insist on 'new API runs successfully before migrating old API'?
+  **Decision**: Yes.
+- [x] Does new API support Sync / Async from the start?
+  **Decision**: Yes.
+- [x] Does legacy `LoadAssetAsync<T>(key)` first map to `LoadByAddress`?
+  **Decision**: Yes.
+- [x] First batch replacement call sites: start from `AAPackageManager` shell, `XLuaLoader`, or other modules?
+  **Decision**: AAPackageManager internals first. It's the unified entry point for all callers; changing internal implementation is transparent to external code, making it the best position to verify the new API.
+- [x] Do legacy `LoadAssetByLabel(s)` / `UnloadAssetByLabel(s)` wait for B5-2 batch API finalization before migrating?
+  **Decision**: Yes. First batch migration does single-asset paths (ByAddress / ByTypeKey); batch paths wait for ResolveMany + LoadMany + LoadByLabels implementation.
+- [x] At which phase should `UnloadAsset(string key)` be marked `Obsolete`?
+  **Decision**: Synced with B5-2 decision — after the first batch of call sites is migrated.

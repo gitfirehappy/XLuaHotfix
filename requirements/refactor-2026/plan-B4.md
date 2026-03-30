@@ -1,72 +1,72 @@
-# Sub-Plan B4: Catalog 重定向层替换（高风险，独立评估）
+# Sub-Plan B4: Catalog Redirect Layer Replacement (High Risk, Independent Evaluation)
 
-> **风险**: 高（热更核心链路）
-> **依赖**: B1 + B2 完成并在真机稳定验证后
-> **状态**: 概念设计阶段，不在本次审批范围
+> **Risk**: High (hotfix core pipeline)
+> **Dependencies**: After B1 + B2 completed and verified stable on device
+> **Status**: Concept design stage, not in this round's approval scope
 
 ---
 
-## 背景说明
+## Background
 
-CatalogUpdater 使用了 Addressables 的深度 API，
-这套机制是热更生效的核心——替换它意味着重新实现整个热更分发链路。
+CatalogUpdater uses deep Addressables APIs.
+This mechanism is the core of how hotfixes take effect — replacing it means reimplementing the entire hotfix distribution pipeline.
 
-**开发者必须理解当前机制才能评估替换风险**：
+**Developer must understand the current mechanism to evaluate replacement risk**:
 
-### 当前 Catalog 机制工作原理
+### Current Catalog Mechanism Workflow
 
 ```
-启动 → Addressables.InitializeAsync()
-         ↓
-         加载 StreamingAssets 内置 Catalog（包体内的资源索引）
-         ↓
-热更检测 → 下载远程 Catalog 文件（HotfixManager → NetworkDownloader）
-         ↓
+Startup -> Addressables.InitializeAsync()
+           |
+           Load StreamingAssets built-in Catalog (package's asset index)
+           |
+Hotfix check -> Download remote Catalog file (HotfixManager -> NetworkDownloader)
+           |
 CatalogUpdater.LoadExternalCatalog()
-         ↓
-         用 Addressables.LoadContentCatalogAsync 加载外部 Catalog
-         ↓
-         用 Addressables.RemoveResourceLocator 移除内置旧索引
-         ↓
-         Addressables.ResourceManager.InternalIdTransformFunc
-         把远程 HTTP 路径 → 本地热更目录路径
-         ↓
-         此后所有资源加载自动走热更目录
+           |
+           Use Addressables.LoadContentCatalogAsync to load external Catalog
+           |
+           Use Addressables.RemoveResourceLocator to remove built-in old index
+           |
+           Addressables.ResourceManager.InternalIdTransformFunc
+           redirects remote HTTP paths -> local hotfix directory paths
+           |
+           All subsequent asset loading automatically uses hotfix directory
 ```
 
-**替换这套机制，等价于自己实现一套「资源索引管理 + 路径重定向」系统。**
+**Replacing this mechanism is equivalent to building a custom 'asset index management + path redirection' system.**
 
 ---
 
-## 自研等效设计（概念）
+## Custom Equivalent Design (Concept)
 
-| Addressables 能力 | 自研等效 |
-|-------------------|---------|
-| LoadContentCatalogAsync | 加载本地 ABManifest JSON |
-| ResourceLocators | ABResourceRegistry（Key -> BundlePath 映射表） |
+| Addressables Capability | Custom Equivalent |
+|------------------------|-------------------|
+| LoadContentCatalogAsync | Load local ABManifest JSON |
+| ResourceLocators | ABResourceRegistry (Key -> BundlePath mapping table) |
 | RemoveResourceLocator | ABResourceRegistry.SwitchToHotfixManifest() |
-| InternalIdTransformFunc | ABBundleLoader 内部路径解析（热更目录优先） |
+| InternalIdTransformFunc | ABBundleLoader internal path resolution (hotfix directory priority) |
 | Addressables.InitializeAsync | ABPackageBackend.InitializeAsync |
 
 ---
 
-## 关键设计决策（需要评审）
+## Key Design Decisions (Require Review)
 
-1. **ABManifest 格式**：参考 Addressable Catalog JSON 还是自定义格式？
-2. **构建侧同步**：构建 AB 时如何生成 ABManifest？（当前 HelperBuildDataExporter 生成 AddressableLabelsConfig，需要同时生成 ABManifest）
-3. **增量下载**：NetworkDownloader 当前使用 VersionState 的 bundle hash 比对，自研后如何维护？
-4. **回滚机制**：替换失败时如何回退到 Addressables？
-
----
-
-## 建议
-
-- B4 启动前需要召集专项设计评审
-- B1 + B2 完成后，先在真机上跑一段时间确认稳定
-- B4 可作为独立的长期迭代任务，不与 B1-B3 绑定
+1. **ABManifest format**: Reference Addressable Catalog JSON or custom format?
+2. **Build-side sync**: How to generate ABManifest when building AB? (Currently HelperBuildDataExporter generates AddressableLabelsConfig; needs to also generate ABManifest)
+3. **Incremental download**: NetworkDownloader currently uses VersionState bundle hash comparison; how to maintain this with custom system?
+4. **Rollback mechanism**: How to fall back to Addressables if replacement fails?
 
 ---
 
-## 本阶段无审批清单
+## Recommendations
 
-B4 处于概念设计阶段，评估是否执行在 B1-B3 完成后进行。
+- B4 requires a dedicated design review before starting
+- After B1 + B2 completion, run on device for a period to confirm stability
+- B4 can be treated as an independent long-term iteration task, not coupled with B1-B3
+
+---
+
+## No Approval Checklist for This Phase
+
+B4 is in concept design stage; evaluation of whether to execute happens after B1-B3 completion.

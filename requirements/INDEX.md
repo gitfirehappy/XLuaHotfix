@@ -1,24 +1,24 @@
-# Requirements 需求索引
+# Requirements Index
 
-| 需求 ID | 标题 | 状态 | 创建日期 | 说明 |
-|---------|------|------|---------|------|
-| refactor-2026 | 三系统重构（UI / AB 包管理 / Lua 目录） | 进行中 | 2026-03-16 | Plan-C/A/B1/B2/B3 已完成，B5 待审批，B4 仍为概念阶段 |
-
----
-
-## 恢复上次进度
-
-发送 `继续 {需求ID}` 即可，AI 会读取对应 progress.txt 并总结当前状态。
-
-示例：`继续 refactor-2026`
+| Requirement ID | Title | Status | Created | Notes |
+|---------------|-------|--------|---------|-------|
+| refactor-2026 | Three-System Refactoring (UI / AB Package Mgmt / Lua Directory) | In progress | 2026-03-16 | Plan-C/A/B1/B2/B3 completed, B5 approved, B4 still in concept stage |
 
 ---
 
-## 状态说明
+## Resuming Previous Progress
 
-| 状态 | 含义 |
-|------|------|
-| 草稿 | Plan 已写，等待开发者审批审批清单 |
-| 进行中 | 已批准，正在执行 |
-| 暂停 | 执行中遇到阻塞 |
-| 完成 | 所有子任务验收通过 |
+Send `continue {requirementID}` and the AI will read the corresponding progress.txt and summarize the current state.
+
+Example: `continue refactor-2026`
+
+---
+
+## Status Definitions
+
+| Status | Meaning |
+|--------|---------|
+| Draft | Plan written, awaiting developer approval of the approval checklist |
+| In Progress | Approved, currently executing |
+| Paused | Blocked during execution |
+| Completed | All sub-tasks passed acceptance |

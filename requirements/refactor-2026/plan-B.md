@@ -1,63 +1,63 @@
-# Sub-Plan B: AB 包管理替换 — 总览
+# Sub-Plan B: AB Package Management Replacement — Overview
 
-> **状态**: 进行中（B1/B2/B3 已完成，B5 待审批，B4 概念阶段）
-> **子文件**: plan-B1.md / plan-B2.md / plan-B3.md / plan-B5.md / plan-B4.md
-
----
-
-## 背景与目标
-
-将运行时 Addressable API 替换为自研 AB 包管理，保持 AAPackageManager 对外 API 不变。
-
-**本次不动**：构建侧 Editor 代码（BuildProjectManager / DifferentialProcessor / HelperBuildDataExporter / SOAddressableTagger / LuaAddressableTagger）仍使用 AddressableAssetSettings API。
+> **Status**: In progress (B1/B2/B3 completed, B5 pending execution, B4 concept stage)
+> **Sub-files**: plan-B1.md / plan-B2.md / plan-B3.md / plan-B5.md / plan-B4.md
 
 ---
 
-## 修改思路说明（供开发者理解）
+## Background & Objectives
 
-### 为什么现在拆成「已落地阶段 + 运行时合同阶段 + 高风险阶段」？
+Replace the runtime Addressable API with a custom AB package management system, keeping the AAPackageManager external API unchanged.
 
-Addressable 在项目中的使用，当前需要按 5 层理解，每层的替换风险不同：
+**Not touched this round**: Build-side Editor code (BuildProjectManager / DifferentialProcessor / HelperBuildDataExporter / SOAddressableTagger / LuaAddressableTagger) still uses AddressableAssetSettings API.
+
+---
+
+## Design Rationale (For Developer Understanding)
+
+### Why split into 'completed stage + runtime contract stage + high-risk stage'?
+
+The current use of Addressables in the project needs to be understood in 5 layers, each with different replacement risk:
 
 ```
-[B1] 数据层 — AddressableLabelsConfig 提供 Label/Type -> Key 映射
-     ↓ 依赖
-[B2] 加载层 — Addressables.LoadAssetAsync / Release（AAPackageManager 封装）
-     ↓ 依赖
-[B3] 模块层 — DialogueDataManager 直接调用（设计为可插拔独立模块，保留双模式）
-     ↓ 依赖
-[B5] 合同层 — Runtime Entry / Resolve / Load / Handle / Validation
-     ↓ 依赖
-[B4] 热更核心 — CatalogUpdater（Catalog 重定向 + Locator 替换）
-     最高风险，独立评估
+[B1] Data Layer — AddressableLabelsConfig provides Label/Type -> Key mapping
+     | depends on
+[B2] Loading Layer — Addressables.LoadAssetAsync / Release (wrapped by AAPackageManager)
+     | depends on
+[B3] Module Layer — DialogueDataManager direct calls (designed as pluggable independent module, dual-mode preserved)
+     | depends on
+[B5] Contract Layer — Runtime Entry / Resolve / Load / Handle / Validation
+     | depends on
+[B4] Hotfix Core — CatalogUpdater (Catalog redirect + Locator replacement)
+     Highest risk, evaluated independently
 ```
 
-B1 / B2 / B3 已经把“抽象层分离”做出来了，但还没把“运行时资源如何被唯一解析、加载、释放”定稳。
-因此 2026-03-29 新增 B5：先稳定运行时合同，再决定是否推进 B4。
+B1 / B2 / B3 have already established the 'abstraction layer separation', but haven't stabilized 'how runtime assets are uniquely resolved, loaded, and released'.
+Therefore B5 was added on 2026-03-29: stabilize the runtime contract first, then decide whether to proceed with B4.
 
 ---
 
-## 各阶段概览
+## Phase Overview
 
-| 阶段 | 文件 | 核心目标 | 风险 |
-|------|------|---------|------|
-| B1 | plan-B1.md | IAssetIndex 接口化资源索引层 | 低 |
-| B2 | plan-B2.md | IPackageBackend + ABPackageBackend 资源加载 | 中 |
-| B3 | plan-B3.md | DialogueDataManager 独立双模式（保留直接调用开关） | 低 |
-| B5 | plan-B5.md | 运行时资源索引 / Resolve/Load / Handle / 校验 / 迁移 | 中 |
-| B4 | plan-B4.md | Catalog 重定向层替换（高风险，独立评估） | 高 |
+| Phase | File | Core Objective | Risk |
+|-------|------|---------------|------|
+| B1 | plan-B1.md | IAssetIndex — interface-based asset index layer | Low |
+| B2 | plan-B2.md | IPackageBackend + ABPackageBackend asset loading | Medium |
+| B3 | plan-B3.md | DialogueDataManager independent dual-mode (preserving direct call toggle) | Low |
+| B5 | plan-B5.md | Runtime asset index / Resolve-Load / Handle / Validation / Migration | Medium |
+| B4 | plan-B4.md | Catalog redirect layer replacement (high risk, evaluated independently) | High |
 
 ---
 
-## 代码规范（所有阶段通用）
+## Code Standards (Applies to All Phases)
 
-- 新文件添加 `///` 文档注释，与现有代码风格一致
-- 使用 `#region` 分隔逻辑区块
-- 修改复杂逻辑时，在代码注释中说明修改思路和原理
+- Add `///` doc comments to new files, consistent with existing code style
+- Use `#region` to separate logical blocks
+- When modifying complex logic, explain the rationale in code comments
 
-## 执行协议
+## Execution Protocol
 
-每个子阶段执行完毕后：
-1. 请开发者确认收工（功能验证 + 代码审阅）
-2. 收工后询问是否推进下一阶段
-3. 开发者有疑问可随时提问，执行方负责讲解
+After each sub-phase is completed:
+1. Request developer sign-off (functional verification + code review)
+2. After sign-off, ask whether to proceed to the next phase
+3. Developer may ask questions at any time; the executor is responsible for explaining

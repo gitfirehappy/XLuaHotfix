@@ -1,107 +1,107 @@
-# Sub-Plan B5-3: 手动扫描、构建校验与冲突诊断工具
+# Sub-Plan B5-3: Manual Scan, Build Validation & Conflict Diagnostic Tools
 
-> **风险**: 中
-> **依赖**: B5-1 + B5-2 审批完成
-> **状态**: ✅ 审批完成
-
----
-
-## 目标
-
-定义 B5 对应的编辑器校验与诊断工具，明确：
-
-- 何时扫描 / 校验
-- 哪些情况警告，哪些情况构建阻断
-- 冲突报告要展示什么信息
-- 如何给出建议过滤条件与建议 Address
+> **Risk**: Medium
+> **Dependencies**: B5-1 + B5-2 approval completed
+> **Status**: Approved
 
 ---
 
-## 背景说明
+## Objective
 
-在 `Address` 允许重复、`Labels` 允许参与最终消歧的前提下，
-如果没有稳定的编辑器校验与报错报告，运行时冲突会非常难排查。
+Define the editor validation and diagnostic tools for B5, clarifying:
 
-因此本子计划不直接写运行时代码，而是先把**扫描入口、硬拦条件、冲突报表、建议输出**定死。
+- When to scan / validate
+- Which situations warn, which block the build
+- What information conflict reports should display
+- How to provide suggested filter conditions and suggested Addresses
 
 ---
 
-## 已确认规则
+## Background
 
-1. 校验触发方式：**手动扫描 + 构建硬拦**
-2. 同一 `Address + PrimaryType` 靠不同 `Labels` 区分时：**允许但警告**
-3. 需要检查「标签子集歧义」并给出警告
-4. 路径 alias 仅保留给编辑器显示 / 定位，不作为正式运行时查询入口
-5. 冲突报告至少展示：
+With `Address` allowing duplicates and `Labels` participating in final disambiguation,
+without stable editor validation and error reporting, runtime conflicts would be very difficult to debug.
+
+Therefore this sub-plan does not write runtime code directly, but first locks down **scan entry points, hard-block conditions, conflict reports, and suggestion outputs**.
+
+---
+
+## Confirmed Rules
+
+1. Validation trigger method: **manual scan + build hard-block**
+2. Same `Address + PrimaryType` distinguished by different `Labels`: **allowed but warned**
+3. Must check 'label subset ambiguity' and provide warnings
+4. Path alias is only for editor display / location; not a formal runtime query entry point
+5. Conflict report must at minimum display:
    - `EntryId`
    - `Address + PrimaryType`
-   - `Labels + Auto 状态`
+   - `Labels + Auto status`
    - `SourcePath + Group`
-6. 编辑器可给出建议 Address 候选，默认思路是：**先主 Type，再人工确认**
+6. Editor can provide suggested Address candidates; default approach: **primary Type first, then manual confirmation**
 
 ---
 
-## 计划任务
+## Planned Tasks
 
-### 任务 1: 定义扫描与校验入口
+### Task 1: Define Scan & Validation Entry Points
 
-- 定义手动扫描入口与输出摘要
-- 定义构建时必须执行的全量校验点
-- 定义扫描结果与构建校验结果的输出格式关系
+- Define manual scan entry point and output summary
+- Define full validation checkpoints that must execute during build
+- Define the relationship between scan results and build validation result output formats
 
-### 任务 2: 定义警告与阻断清单
+### Task 2: Define Warning & Blocking List
 
-- 明确哪些冲突仅警告
-- 明确哪些冲突必须阻断构建
-- 明确标签子集歧义的报告级别
+- Clarify which conflicts only warn
+- Clarify which conflicts must block the build
+- Clarify the report level for label subset ambiguity
 
-### 任务 3: 定义冲突报告与建议能力
+### Task 3: Define Conflict Report & Suggestion Capabilities
 
-- 定义候选列表与建议过滤条件的输出规则
-- 定义建议 Address 的生成原则
-- 定义编辑器定位 / 跳转 / 一键写回等辅助能力是否首期纳入
-
----
-
-## 保留项（必须通过）
-
-- [x] 手动扫描是日常主入口，不做强实时扫描依赖
-- [x] `Group` 只用于编辑器报表和构建语义，不进入运行时 API
-- [x] 校验工具不能偷偷替开发者自动选中一个运行时候选资源
-- [x] 报告内容必须能直接支持"定位冲突条目并修改规则"
+- Define output rules for candidate lists and suggested filter conditions
+- Define suggested Address generation principles
+- Define whether editor locate / jump / one-click write-back capabilities are included in the first phase
 
 ---
 
-## 验收标准
+## Preservation Requirements (Must Pass)
 
-- [ ] 开发者能在编辑器中主动发现重复簇、名单冲突、标签子集歧义等问题
-- [ ] 构建阶段能硬拦本轮定义的阻断类问题
-- [ ] 运行时 Resolve 冲突与编辑器扫描报告字段一致，便于对照排查
-- [ ] 建议 Address 与建议过滤条件足够支持人工修复，而不是只报一条模糊错误
-
----
-
-## 不在本次范围
-
-- `AssetHandle<T>` 与加载返回值实现
-- `HotfixManager` / `CatalogUpdater` / `NetworkDownloader` 的运行时改动
-- RawFile / 非 Unity 资源的专用诊断入口
+- [x] Manual scan is the daily primary entry point; no dependency on real-time scan
+- [x] `Group` used only for editor reports and build semantics, does not enter runtime API
+- [x] Validation tools must not secretly auto-select a runtime candidate asset for the developer
+- [x] Report content must directly support 'locate conflict entry and modify rules'
 
 ---
 
-## 审批清单
+## Acceptance Criteria
 
-- [x] 校验时机是否为「手动扫描 + 构建硬拦」？
-  **决定**：是。
-- [x] 同一 `Address + PrimaryType` 靠不同 `Labels` 区分时，是否允许但警告？
-  **决定**：是。
-- [x] 是否需要检查标签子集歧义并给出警告？
-  **决定**：是。
-- [x] 路径 alias 是否只保留给编辑器显示与定位？
-  **决定**：是。
-- [x] 构建硬拦入口，是接入 `BuildProjectManager` 主流程，还是先作为独立 precheck 步骤执行？
-  **决定**：先独立 precheck。BuildProjectManager 后续也要重构完善主流程（当前只是简化流程），等主流程骨架重构后再接入。校验逻辑先独立验证，Phase 6 构建管线重写时自然接入。
-- [x] 建议 Address 首期是仅给候选列表，还是允许一键写回当前条目？
-  **决定**：首期仅给候选列表。生成规则还在验证阶段，一键写回作为后续编辑器工具增强。
-- [x] 冲突报告首期是否就要提供一键定位资源 / 打开 Inspector / 复制建议过滤条件能力？
-  **决定**：首期纳入「一键定位资源 + 复制建议过滤条件」。实现成本低（PingObject + 字符串复制），效率提升大。打开 Inspector 随定位自动显示。
+- [ ] Developer can proactively discover duplicate clusters, manifest conflicts, label subset ambiguity in the editor
+- [ ] Build phase can hard-block issues defined as blocking in this round
+- [ ] Runtime Resolve conflict and editor scan report fields are consistent, facilitating cross-reference debugging
+- [ ] Suggested Addresses and suggested filter conditions are sufficient to support manual fixes, not just a vague error message
+
+---
+
+## Out of Scope
+
+- `AssetHandle<T>` and loading return value implementation
+- `HotfixManager` / `CatalogUpdater` / `NetworkDownloader` runtime modifications
+- RawFile / non-Unity asset dedicated diagnostic entry points
+
+---
+
+## Approval Checklist
+
+- [x] Is the validation timing 'manual scan + build hard-block'?
+  **Decision**: Yes.
+- [x] Same `Address + PrimaryType` distinguished by different `Labels` — allowed but warned?
+  **Decision**: Yes.
+- [x] Check label subset ambiguity and provide warnings?
+  **Decision**: Yes.
+- [x] Path alias only for editor display and location?
+  **Decision**: Yes.
+- [x] Build hard-block entry point: integrate into `BuildProjectManager` main flow, or standalone precheck step first?
+  **Decision**: Standalone precheck first. BuildProjectManager also needs main flow refactoring later (currently a simplified flow); integrate after main flow skeleton refactoring. Validation logic verified independently first, naturally integrated during Phase 6 build pipeline rewrite.
+- [x] Should first-phase suggested Address only provide candidate list, or allow one-click write-back to current entry?
+  **Decision**: First phase candidate list only. Generation rules still being validated; one-click write-back as future editor tool enhancement.
+- [x] Should first-phase conflict report include one-click asset location / open Inspector / copy suggested filter conditions?
+  **Decision**: First phase includes 'one-click asset location + copy suggested filter conditions'. Low implementation cost (PingObject + string copy), significant efficiency gain. Inspector opens automatically with asset location.
