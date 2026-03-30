@@ -70,3 +70,17 @@
 [done] 2026-03-30 B5-2 complete - Added AssetLoadError.cs (6 error codes + factory methods) + ResolveResult.cs (4 status + factory) + AssetHandle<T>.cs (Result+Release dual role, idempotent release, ThrowIfFailed) + AssetResolver.cs (ByAddress/ByTypeKey/Many/ByLabels, all for-loops no LINQ) + extended IPackageBackend (3 default methods with entryId) + extended AAPackageManager (4 new Load methods: LoadByAddress/LoadByAddressSync/LoadByTypeKey/LoadByTypeKeySync)
 [done] 2026-03-30 plan-B5-2 SIGNED OFF - Resolve/Load API + AssetHandle + structured error model, legacy API untouched
 [next] 2026-03-30 Next: B5-3 (manual scan, build validation, conflict diagnostic tools) or B5-4 (migration path)
+
+[decision] 2026-03-30 B5-3 and B5-4 deferred — requires real ABAssetIndex data source (RuntimeAssetEntry from manifest), which doesnt exist yet
+[decision] 2026-03-30 Skipped B4, jumped directly to Phase 3 discussion — ABManifest format is the central bottleneck for all downstream work
+[start] 2026-03-30 ABManifest format design — researched YooAsset PackageManifest/PackageBundle/PackageAsset source code + serialization approach
+[decision] 2026-03-30 ABManifest D1: JSON first (Phase 3), binary later (Phase 6) — fast iteration, consistent with existing VersionState style
+[decision] 2026-03-30 ABManifest D2: int index for Asset->Bundle referencing — compact, safe for build-once-read-only data
+[decision] 2026-03-30 ABManifest D3: Bundle-level dependencies only (no Asset-level) — runtime recursive resolution is lightweight, simpler data model
+[decision] 2026-03-30 ABManifest D4: EntryId stays string (Unity GUID) — consistent with RuntimeAssetEntry, no premature optimization
+[decision] 2026-03-30 ABManifest D5/D6: PrimaryType and Labels stored as direct strings — string table deferred to binary phase
+[decision] 2026-03-30 ABManifest D7: Reuse existing VersionNumber — already used by DifferentialProcessor
+[decision] 2026-03-30 ABManifest approval: ManifestAssetEntry fields sufficient; MD5 hash first; Bundle Tags kept but empty; filename includes version; SourcePath/Group kept with configurable strip
+[done] 2026-03-30 ABManifest specification complete — plan-B6-manifest.md APPROVED
+[done] 2026-03-30 ABManifest data layer implemented — ManifestAssetEntry.cs (88 lines, 8 fields + ToRuntimeEntry) + ManifestBundleEntry.cs (65 lines, 7 fields + ContentEquals) + ABManifest.cs (308 lines, 6-step Initialize + 4 asset queries + 3 bundle queries + JSON serialization)
+[next] 2026-03-30 Awaiting developer review of ABManifest data layer code, then sign-off
