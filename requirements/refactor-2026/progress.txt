@@ -1,69 +1,68 @@
-# refactor-2026 进度记录
-# 格式：[类型] YYYY-MM-DD 描述
-# 类型: start(开始) / done(完成) / decision(决策) / blocked(阻塞) / next(下一步)
-# 签收格式: [done] YYYY-MM-DD plan-XX SIGNED OFF - {摘要}
+# refactor-2026 Progress Log
+# Format: [type] YYYY-MM-DD description
+# Types: start / done / decision / blocked / next
+# Sign-off format: [done] YYYY-MM-DD plan-XX SIGNED OFF - {summary}
 
-[start] 2026-03-16 创建需求，制定重构 plan（plan.md + plan-A/B1/B2/B3/B4/C.md）
-[next] 2026-03-16 等待开发者审批各子计划的审批清单后开始执行
-[decision] 2026-03-17 项目目录不需要整理，就地重构
-[decision] 2026-03-17 不强制单元测试，Plan-B 核心逻辑可选加测试，手动验收为主
-[decision] 2026-03-17 底层模块不引入 Log 系统，维持 Debug.Log 直接调用，保留现有 LogUtility 不动
-[decision] 2026-03-17 Plan-C 审批: 一对一映射 / 所有有容器的目录 / 方案2分离+配置映射 / 仅手动按钮
-[decision] 2026-03-17 Plan-A 审批: slideOffset 统一一个值 / 确认重命名 dynamicFormTemplates / 不扩展 DynamicGroup / A3 ViewModel 后续按需
-[decision] 2026-03-17 Plan-B1 审批: 四个方法足够 / ABManifest 格式 B4 再设计
-[decision] 2026-03-17 Plan-B2 审批: 热更目录优先+fallback StreamingAssets / GameLauncher 启动时配置 / 需要支持异步 LoadFromFileAsync
-[done] 2026-03-17 Plan-C/A/B1/B2 审批完成，plan 文件已更新为已审批状态
-[next] 2026-03-17 开始执行 Plan-C（Lua 脚本目录自动管理）— 风险最低，第一个执行
-[decision] 2026-03-17 Plan-C 增加前置步骤 C0（人工验证目录-容器映射）和后置 C3（自动标签集成，可开关）
-[next] 2026-03-17 等待开发者完成 C0 人工验证后开始 C1 编码
-[done] 2026-03-17 C0 人工验证完成 - 开发者确认文件夹-容器一对一对应关系正确
-[decision] 2026-03-17 C3 自动标签功能依赖 Plan-B（AB 包管理重构），在 B 完成后再实施
-[next] 2026-03-17 开始执行 C1（LuaAutoSyncConfig SO）+ C2（LuaDirectoryScanner）
-[done] 2026-03-17 C1 完成 - 创建 LuaAutoSyncConfig.cs (Assets/AboutXLua/Scripts/Utility/)
-[done] 2026-03-17 C2 完成 - 创建 LuaDirectoryScanner.cs + 集成扫描按钮到 LuaAddressableTagger
-[decision] 2026-03-17 Scanner 使用 union merge 策略，只添加不删除手动项
-[decision] 2026-03-17 Container 为空时根据 outputDirectory 自动创建
-[next] 2026-03-17 等待 Unity Editor 编译确认 + 功能验证（创建 config asset → 扫描 → 检查结果）
-[done] 2026-03-17 补充 LuaAutoSyncConfigEditor.cs - 路径字段加文件夹选择器 + SO内嵌扫描按钮
-[done] 2026-03-17 整理 XLua 菜单栏 - 分为 Lua 工具/ 和 调试/ 两个子菜单
-[next] 2026-03-17 等待 Unity 编译 + 功能测试 → Plan-C 签收
-[done] 2026-03-17 修复 LuaAutoSyncConfigEditor 的 EndLayoutGroup 布局错误（pendingDelete 延迟删除）
-[decision] 2026-03-17 C3 自动标签确认等 Plan-B 完成后再做，不用 AA 临时实现
-[done] 2026-03-17 plan-C SIGNED OFF - C1+C2 完成（LuaAutoSyncConfig + LuaDirectoryScanner + CustomEditor + 菜单整理），C3 推迟到 Plan-B 后
-[next] 2026-03-17 开始执行 Plan-B1（IAssetIndex 资源索引层抽象）
-[done] 2026-03-17 B1 完成 - IAssetIndex 接口 + AddressableLabelsConfig 实现接口 + ABAssetIndex 空壳 + AAPackageManager 改用接口
-[done] 2026-03-17 plan-B1 SIGNED OFF - 运行时行为零变化，纯接口分离
-[next] 2026-03-17 下一步 Plan-B2（IPackageBackend 资源加载层接口化）
-[done] 2026-03-18 B2 完成 - IPackageBackend + AddressablesBackend + ABPackageBackend空壳 + ABBundleLoader空壳 + AAPackageManager改用后端注入
-[done] 2026-03-18 B3 完成 - DialogueDataManager 添加 LoaderMode 枚举 + Standalone/Integrated 双模式支持
+[start] 2026-03-16 Created requirement, drafted refactor plan (plan.md + plan-A/B1/B2/B3/B4/C.md)
+[next] 2026-03-16 Awaiting developer approval of sub-plan checklists before execution
+[decision] 2026-03-17 Project directory does not need reorganization; refactor in place
+[decision] 2026-03-17 Unit tests not mandatory; Plan-B core logic optionally tested; manual acceptance as primary
+[decision] 2026-03-17 Lower-level modules will not use Log system; keep Debug.Log direct calls; existing LogUtility untouched
+[decision] 2026-03-17 Plan-C approval: one-to-one mapping / all directories with containers / Option 2 separation + config mapping / manual button only
+[decision] 2026-03-17 Plan-A approval: slideOffset unified to one value / confirmed rename dynamicFormTemplates / no DynamicGroup expansion / A3 ViewModel deferred
+[decision] 2026-03-17 Plan-B1 approval: four methods sufficient / ABManifest format deferred to B4
+[decision] 2026-03-17 Plan-B2 approval: hotfix dir first + fallback StreamingAssets / GameLauncher configures at startup / must support async LoadFromFileAsync
+[done] 2026-03-17 Plan-C/A/B1/B2 approval completed, plan files updated to approved status
+[next] 2026-03-17 Begin executing Plan-C (Lua script directory auto-management) - lowest risk, first to execute
+[decision] 2026-03-17 Plan-C added pre-step C0 (manual directory-container mapping verification) and post-step C3 (auto-label integration, toggleable)
+[next] 2026-03-17 Awaiting developer completion of C0 manual verification before starting C1 coding
+[done] 2026-03-17 C0 manual verification complete - developer confirmed folder-container one-to-one mapping is correct
+[decision] 2026-03-17 C3 auto-label feature depends on Plan-B (AB package management refactor), implement after B completes
+[next] 2026-03-17 Begin executing C1 (LuaAutoSyncConfig SO) + C2 (LuaDirectoryScanner)
+[done] 2026-03-17 C1 complete - Created LuaAutoSyncConfig.cs (Assets/AboutXLua/Scripts/Utility/)
+[done] 2026-03-17 C2 complete - Created LuaDirectoryScanner.cs + integrated scan button into LuaAddressableTagger
+[decision] 2026-03-17 Scanner uses union merge strategy, only adds never removes manual items
+[decision] 2026-03-17 Container auto-created from outputDirectory when empty
+[next] 2026-03-17 Awaiting Unity Editor compilation + feature verification (create config asset -> scan -> check results)
+[done] 2026-03-17 Added LuaAutoSyncConfigEditor.cs - path field with folder picker + embedded scan button in SO
+[done] 2026-03-17 Reorganized XLua menu bar - split into Lua Tools/ and Debug/ sub-menus
+[next] 2026-03-17 Awaiting Unity compilation + functional testing -> Plan-C sign-off
+[done] 2026-03-17 Fixed LuaAutoSyncConfigEditor EndLayoutGroup layout error (pendingDelete deferred deletion)
+[decision] 2026-03-17 C3 auto-label confirmed to wait for Plan-B completion, no temporary AA implementation
+[done] 2026-03-17 plan-C SIGNED OFF - C1+C2 complete (LuaAutoSyncConfig + LuaDirectoryScanner + CustomEditor + menu reorganization), C3 deferred to after Plan-B
+[next] 2026-03-17 Begin executing Plan-B1 (IAssetIndex asset index layer abstraction)
+[done] 2026-03-17 B1 complete - IAssetIndex interface + AddressableLabelsConfig implements interface + ABAssetIndex stub + AAPackageManager switched to interface
+[done] 2026-03-17 plan-B1 SIGNED OFF - Zero runtime behavior change, pure interface separation
+[next] 2026-03-17 Next: Plan-B2 (IPackageBackend asset loading layer interface extraction)
+[done] 2026-03-18 B2 complete - IPackageBackend + AddressablesBackend + ABPackageBackend stub + ABBundleLoader stub + AAPackageManager switched to backend injection
+[done] 2026-03-18 B3 complete - DialogueDataManager added LoaderMode enum + Standalone/Integrated dual-mode support
 [done] 2026-03-18 plan-B2 SIGNED OFF
 [done] 2026-03-18 plan-B3 SIGNED OFF
-[next] 2026-03-18 下一个计划 Plan-A（UI框架优化）
-[done] 2026-03-18 A1 完成 - UIFormConfigSO 新增 fadeInDuration/fadeOutDuration/zoomScale/slideOffset 参数；UIFormBase 传入配置值调用动画；UIAnimation.ZoomIn/PopIn 添加 targetScale 参数
-[done] 2026-03-18 A2 完成 - additionalPreloadForms 重命名为 dynamicFormTemplates（字段加 FormerlySerializedAs 兼容）；UIManager 新增 GetDynamicFormCount(groupID)；UIFormBase 添加 DynamicGroup 设计语义注释
-[done] 2026-03-18 A 修复 - UIResourceConfigSO 添加 `using UnityEngine.Serialization;` 解决 FormerlySerializedAs 找不到的错误
-[start] 2026-03-22 创建 Plan-D（模块化程序集拆分计划）
-[decision] 2026-03-22 Plan-D 调整：独立模块+静态胶水层形式，程序集之间无直接依赖
-[decision] 2026-03-22 执行策略：模块拆分与胶水层同步进行，每解耦一个模块即更新Facade
+[next] 2026-03-18 Next plan: Plan-A (UI framework optimization)
+[done] 2026-03-18 A1 complete - UIFormConfigSO added fadeInDuration/fadeOutDuration/zoomScale/slideOffset params; UIFormBase passes config values to animation; UIAnimation.ZoomIn/PopIn added targetScale param
+[done] 2026-03-18 A2 complete - additionalPreloadForms renamed to dynamicFormTemplates (field has FormerlySerializedAs for compat); UIManager added GetDynamicFormCount(groupID); UIFormBase added DynamicGroup design semantic comments
+[done] 2026-03-18 A fix - UIResourceConfigSO added using UnityEngine.Serialization to resolve FormerlySerializedAs not found error
+[start] 2026-03-22 Created Plan-D (modular assembly splitting plan)
+[decision] 2026-03-22 Plan-D adjusted: independent modules + static glue layer, no direct inter-assembly dependencies
+[decision] 2026-03-22 Execution strategy: module splitting and glue layer proceed in parallel; update Facade as each module is decoupled
 
-[decision] 2026-03-29 Plan-B 讨论范围收敛：当前仅覆盖运行时加载层，继续沿用 refactor-2026；HotfixManager/CatalogUpdater/NetworkDownloader 只做设计讨论
-[decision] 2026-03-29 B5 索引模型方向：Address 允许重复，EntryId 内部唯一，Group 仅构建概念不参与运行时过滤
-[decision] 2026-03-29 B5 查询合同方向：双轨 API（ByAddress / ByTypeKey）、Handle-first、公开 Resolve API、旧 LoadAssetAsync 先映射到 LoadByAddress
-[decision] 2026-03-29 B5 类型与标签：V1 仅保留 PrimaryType；SO 使用具体类名；Labels 为无序唯一集合，匹配大小写不敏感
-[decision] 2026-03-29 B5 校验策略：手动扫描 + 构建硬拦；同一 Address+PrimaryType 靠 Labels 区分时允许但警告；名单冲突与 Address+PrimaryType+LabelSet 冲突阻断
-[done] 2026-03-29 新增 plan-B5 / plan-B5-1 / plan-B5-2 / plan-B5-3 / plan-B5-4 草案，记录本轮 ask 结论并拆分精细化审批入口
-[next] 2026-03-29 等待开发者审批 Plan-B5 各子计划清单，再进入执行顺序确认
-[decision] 2026-03-30 重构最终目标确认：全面自研替换 Addressables（运行时 + 构建期），参考 YooAsset 架构
-[decision] 2026-03-30 构建期改造范围：参考 YooAsset 全重写（收集器/分类器/打包规则/子目录收集器/忽略规则/依赖分析/构建管线）
-[decision] 2026-03-30 RawFile Bundle 纳入路线图；LRU/LFU 延后；AsyncOp 调度器待定；Plan-D 最后执行
-[done] 2026-03-30 完整路线图扩展为 Phase 1~10，写入 plan.md（从三系统重构升级为全面自研资源管理系统）
-[next] 2026-03-30 开始审批 Plan-B5 各子计划未决项
-[done] 2026-03-30 B5-1 审批完成 - EntryId 复用 Unity GUID；自动 Address 升级格式为 Filename_Type
-[done] 2026-03-30 B5-2 审批完成 - 错误模型 Result 风格为主(AssetHandle承担)；批量API两套分层保留；UnloadAsset 首批迁移后标 Obsolete
-[done] 2026-03-30 B5-3 审批完成 - 构建硬拦先独立 precheck(等主流程重构后接入)；建议Address首期仅候选列表；首期纳入一键定位+复制过滤条件
-[done] 2026-03-30 B5-4 审批完成 - 首批替换从 AAPackageManager 内部开始；旧批量API等B5-2实现后再迁；UnloadAsset同步B5-2决定
-[done] 2026-03-30 Plan-B5 全部子计划(B5-1/B5-2/B5-3/B5-4)审批完成
-[next] 2026-03-30 下一步：开始执行 B5-1（运行时条目模型编码）
-[done] 2026-03-30 B5-1 完成 - 新增 RuntimeAssetEntry.cs(7字段+标签缓存查询) + 扩展 IAssetIndex(4个默认方法) + AssetAddressGenerator.cs(自动短名+类型后缀升级) + AssetConflictRules.cs(4类冲突规则)
-[done] 2026-03-30 plan-B5-1 SIGNED OFF - 运行时条目模型定义完成，LINQ 仅用于编辑器/构建期，运行时方法用 for 循环+缓存
-[next] 2026-03-30 开始执行 B5-2（Resolve/Load API + AssetHandle 合同编码）
+[decision] 2026-03-29 Plan-B discussion scope converged: currently covers runtime loading layer only, continues under refactor-2026; HotfixManager/CatalogUpdater/NetworkDownloader design discussion only
+[decision] 2026-03-29 B5 index model direction: Address allows duplicates, EntryId internally unique, Group is build-only concept not used in runtime filtering
+[decision] 2026-03-29 B5 query contract direction: dual-track API (ByAddress / ByTypeKey), Handle-first, public Resolve API, legacy LoadAssetAsync maps to LoadByAddress first
+[decision] 2026-03-29 B5 type and labels: V1 retains PrimaryType only; SO uses concrete class name; Labels are unordered unique set, matching case-insensitive
+[decision] 2026-03-29 B5 validation strategy: manual scan + build hard-block; same Address+PrimaryType distinguished by Labels allowed but warned; blocklist conflicts and Address+PrimaryType+LabelSet conflicts block build
+[done] 2026-03-29 Created plan-B5 / plan-B5-1 / plan-B5-2 / plan-B5-3 / plan-B5-4 drafts, recorded ask conclusions and split into granular approval entries
+[next] 2026-03-29 Awaiting developer approval of Plan-B5 sub-plan checklists, then confirm execution order
+[decision] 2026-03-30 Ultimate refactoring goal confirmed: fully replace Addressables with custom solution (runtime + build-time), referencing YooAsset architecture
+[decision] 2026-03-30 Build-time overhaul scope: full rewrite referencing YooAsset (collector/classifier/packing rules/sub-directory collector/ignore rules/dependency analysis/build pipeline)
+[decision] 2026-03-30 RawFile Bundle added to roadmap; LRU/LFU deferred; AsyncOp scheduler TBD; Plan-D executed last
+[done] 2026-03-30 Full roadmap expanded to Phase 1-10, written to plan.md (upgraded from three-system refactoring to full custom resource management system)
+[next] 2026-03-30 Begin approving Plan-B5 sub-plan open items
+[done] 2026-03-30 B5-1 approved - EntryId reuses Unity GUID; auto Address upgrade format is Filename_Type
+[done] 2026-03-30 B5-2 approved - Error model Result-style (AssetHandle carries it); batch API two-tier layered; UnloadAsset marked Obsolete after first migration batch
+[done] 2026-03-30 B5-3 approved - Build hard-block as standalone precheck (integrate after main pipeline refactored); suggested Address first-phase candidate list only; first-phase includes one-click locate + copy filter condition
+[done] 2026-03-30 B5-4 approved - First replacement batch starts from AAPackageManager internals; legacy batch API waits for B5-2 implementation; UnloadAsset syncs B5-2 decision
+[done] 2026-03-30 Plan-B5 all sub-plans (B5-1/B5-2/B5-3/B5-4) approved
+[done] 2026-03-30 B5-1 complete - Added RuntimeAssetEntry.cs (7 fields + label cache query) + extended IAssetIndex (4 default methods) + AssetAddressGenerator.cs (auto short name + type suffix upgrade) + AssetConflictRules.cs (4 conflict rule types)
+[done] 2026-03-30 plan-B5-1 SIGNED OFF - Runtime entry model definition complete, LINQ only for editor/build-time, runtime methods use for loops + cache
+[next] 2026-03-30 Begin executing B5-2 (Resolve/Load API + AssetHandle contract coding)
