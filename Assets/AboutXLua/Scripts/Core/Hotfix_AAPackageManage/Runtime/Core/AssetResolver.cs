@@ -183,12 +183,10 @@ public static class AssetResolver
     #region 类型匹配
 
     /// <summary>
-    /// 基于字符串的简单类型匹配。
+    /// 字符串优先的热路径类型匹配。
     /// Exact：PrimaryType 必须等于 requestedType（不区分大小写）。
-    /// Assignable：PrimaryType 等于 requestedType，或 requestedType 为 "Object"（基类兜底）。
-    ///
-    /// 注意：完整继承检查需要 System.Type 解析，运行时开销较大。
-    /// V1 使用字符串比较；Phase 3 如有需要可升级为缓存 Type 查找。
+    /// 非 Exact（V1）：同名匹配，或 requestedType 为 "Object"。
+    /// 完整 assignable 判断需解析 System.Type；如后续需要，应在字符串快路径后追加缓存化 Type 匹配。
     /// </summary>
     private static bool IsTypeMatch(string primaryType, string requestedType, bool exactType)
     {

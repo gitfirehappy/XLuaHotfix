@@ -84,3 +84,22 @@
 [done] 2026-03-30 ABManifest specification complete — plan-B6-manifest.md APPROVED
 [done] 2026-03-30 ABManifest data layer implemented — ManifestAssetEntry.cs (88 lines, 8 fields + ToRuntimeEntry) + ManifestBundleEntry.cs (65 lines, 7 fields + ContentEquals) + ABManifest.cs (308 lines, 6-step Initialize + 4 asset queries + 3 bundle queries + JSON serialization)
 [next] 2026-03-30 Awaiting developer review of ABManifest data layer code, then sign-off
+[decision] 2026-03-30 B5-2 type match strategy: keep PrimaryType as string contract; V1 remains string-first (exact name + Object fallback); full assignable semantics deferred to a future cached System.Type enhancement
+[done] 2026-03-30 Recorded the B5-2 type-matching optimization note in requirements and clarified AssetResolver IsTypeMatch comments without changing runtime logic
+[decision] 2026-03-30 Resource-management LINQ rule: allow LINQ in editor/build and low-frequency runtime flows; avoid it in hot runtime query paths and public runtime APIs with uncertain call frequency
+[done] 2026-03-30 Documented the LINQ usage rule in context conventions and removed small LINQ usages from AAPackageManager query helpers
+[decision] 2026-03-30 B6 ask-flow scope fixed: replace only AAPackageManager index source with ABAssetIndex, use real hotfix manifest path, fixed local ABManifest.json name, internal constant switch, no provider abstraction, full IAssetIndex contract, hard-stop on AB-index init failure
+[done] 2026-03-30 Wrote plan-B6.md and updated master plan index for Claude/developer review alignment
+
+[done] 2026-04-01 YooAsset knowledge base: 5 module reference files (~1100 lines) written to context/dependencies/, INDEX updated, SIGNED OFF
+[done] 2026-04-01 B6 design review completed — 7 review points assessed against actual source code
+[decision] 2026-04-01 B6 review D1: ABAssetIndex self-builds indexes (Plan B) — iterates ABManifest.AssetEntries (public), builds own Dictionary<string, List<RuntimeAssetEntry>> etc. Does NOT access ABManifest private fields
+[decision] 2026-04-01 B6 review D2: Android StreamingAssets File.ReadAllText limitation noted — B6 first round uses File.ReadAllText only; multi-platform UnityWebRequest handling deferred to later unified discussion
+[decision] 2026-04-01 B6 review D3: ManifestLoader uses async Task<ABManifest> signature, consistent with AAPackageManager.Initialize() async pattern
+[decision] 2026-04-01 B6 review D4: GetEntriesByAddressAndType stays as Address-lookup + type-filter (no composite index needed, same-Address entries typically 1-3)
+[start] 2026-04-01 B6 coding execution begins — Task 1 (ABAssetIndex core), Task 2 (ManifestLoader), Task 3 (AAPackageManager integration)
+[done] 2026-04-01 B6 Task 1 complete — ABAssetIndex.cs rewritten from 10-line stub to 237-line full IAssetIndex impl (self-built indexes, pre-cached RuntimeAssetEntry[], 8 methods, all for-loops no LINQ)
+[done] 2026-04-01 B6 Task 2 complete — ManifestLoader.cs created (84 lines, async Task<ABManifest>, primary/fallback path, File.ReadAllText + Task.Run, Android deferred)
+[done] 2026-04-01 B6 Task 3 complete — AAPackageManager.Initialize refactored (const USE_AB_INDEX switch, AB/Legacy dual path, shared _labelToKeys build, 327→377 lines)
+[next] 2026-04-01 Awaiting developer Unity Editor compilation verification + B6 sign-off
+[done] 2026-04-01 plan-B6 SIGNED OFF - ABAssetIndex full impl + ManifestLoader + AAPackageManager dual-path integration, compilation verified

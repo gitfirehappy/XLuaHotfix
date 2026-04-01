@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
@@ -8,6 +7,16 @@ using UnityEngine.ResourceManagement.AsyncOperations;
 
 public class AAPackageManager : Singleton<AAPackageManager>
 {
+    #region B6: AB 索引开关（默认关闭，coexistence validation）
+
+    /// <summary>
+    /// AB 索引开关。true = 使用 ABManifest → ABAssetIndex；false = 使用 AddressableLabelsConfig（原有路径）。
+    /// B6 第一轮默认 false，验证时手动改为 true。
+    /// </summary>
+    private const bool USE_AB_INDEX = false;
+
+    #endregion
+
     private IAssetIndex _index;
     private IPackageBackend _backend = new AddressablesBackend();
     private bool _isInitialized = false;
@@ -15,6 +24,51 @@ public class AAPackageManager : Singleton<AAPackageManager>
     private readonly Dictionary<string, List<string>> _labelToKeys = new();
 
     public async Task Initialize()
+    {
+        if (USE_AB_INDEX)
+        {
+            await InitializeWithABIndex();
+        }
+        else
+        {
+            await InitializeWithLegacyIndex();
+        }
+
+        if (_index == null) return;
+
+        // 共用：从 _index 构建 _labelToKeys 缓存
+        var labels = _index.GetLabels();
+        for (int i = 0; i < labels.Count; i++)
+        {
+            _labelToKeys[labels[i]] = _index.GetKeysByLabel(labels[i]);
+        }
+
+        _isInitialized = true;
+    }
+
+    #region 初始化路径
+
+    /// <summary>
+    /// AB 索引路径：ManifestLoader → ABManifest → ABAssetIndex。
+    /// 加载失败视为致命错误，不回退到 Legacy。
+    /// </summary>
+    private async Task InitializeWithABIndex()
+    {
+        var manifest = await ManifestLoader.LoadAsync();
+        if (manifest == null)
+        {
+            Debug.LogError("[AAPackageManager] ABManifest 加载失败，管理器无法初始化。");
+            return;
+        }
+
+        _index = new ABAssetIndex(manifest);
+        Debug.Log($"[AAPackageManager] AB 索引初始化完成。Assets: {manifest.AssetCount}, Bundles: {manifest.BundleCount}");
+    }
+
+    /// <summary>
+    /// Legacy 索引路径：通过 Addressables 加载 AddressableLabelsConfig（原有流程，不做任何修改）。
+    /// </summary>
+    private async Task InitializeWithLegacyIndex()
     {
         AsyncOperationHandle<AddressableLabelsConfig> handle =
             Addressables.LoadAssetAsync<AddressableLabelsConfig>(Constants.AA_LABELS_CONFIG);
@@ -28,15 +82,10 @@ public class AAPackageManager : Singleton<AAPackageManager>
         }
 
         _index = config;
-
-        foreach (var label in _index.GetLabels())
-        {
-            _labelToKeys[label] = _index.GetKeysByLabel(label);
-        }
-
-        _isInitialized = true;
-        Debug.Log($"[AAPackageManager] 初始化完成。Entries: {config.allEntries.Count}");
+        Debug.Log($"[AAPackageManager] Legacy 索引初始化完成。Entries: {config.allEntries.Count}");
     }
+
+    #endregion
 
     public void SetIndex(IAssetIndex index)
     {
@@ -76,7 +125,12 @@ public class AAPackageManager : Singleton<AAPackageManager>
             keys.IntersectWith(currentKeys);
         }
 
-        return keys.ToList();
+        var result = new List<string>(keys.Count);
+        foreach (var key in keys)
+        {
+            result.Add(key);
+        }
+        return result;
     }
 
     public List<string> GetKeysByTypeAndLabel(string type, string label)
@@ -86,7 +140,15 @@ public class AAPackageManager : Singleton<AAPackageManager>
         var typeKeys = _index.GetKeysByType(type);
         var labelKeys = new HashSet<string>(_index.GetKeysByLabel(label));
 
-        return typeKeys.Where(k => labelKeys.Contains(k)).ToList();
+        var result = new List<string>(typeKeys.Count);
+        for (int i = 0; i < typeKeys.Count; i++)
+        {
+            var key = typeKeys[i];
+            if (!labelKeys.Contains(key))
+                continue;
+            result.Add(key);
+        }
+        return result;
     }
 
     public bool ContainsKey(string key)

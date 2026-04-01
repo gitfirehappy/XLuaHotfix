@@ -1,9 +1,9 @@
 # Refactor Plan: XLuaHotfix Full Resource Management System Overhaul — Master Plan
 
-> **Status**: In progress (Phase 1 completed, Phase 2 approved)
+> **Status**: In progress (Phase 1 completed, Phase 2 B5-1/B5-2 done, Phase 3 B6 done)
 > **Ultimate Goal**: Fully replace Addressables with custom runtime + build-time resource management system (referencing YooAsset architecture)
 > **Created**: 2026-03-16
-> **Updated**: 2026-03-30 — Expanded to full roadmap covering runtime + build-time + toolchain
+> **Updated**: 2026-04-01 — B6 ABAssetIndex coded + ManifestLoader + AAPackageManager integration
 
 ---
 
@@ -47,11 +47,11 @@
 Phase 1: Runtime Abstraction Layer (completed)
   B1 IAssetIndex -> B2 IPackageBackend -> B3 DialogueDataManager
 
-Phase 2: Runtime Contract Layer <- current focus
+Phase 2: Runtime Contract Layer (B5-1/B5-2 done, B5-3/B5-4 deferred)
   B5-1 Entry Model -> B5-2 Resolve/Load/Handle -> B5-3 Validation/Diagnostics -> B5-4 Migration Strategy
 
-Phase 3: Runtime Implementation Layer
-  B6 ABAssetIndex impl -> B7 ABPackageBackend impl -> B8 AssetHandle + ref-count pool
+Phase 3: Runtime Implementation Layer <- current focus
+  B6 ABAssetIndex impl (DONE) -> B7 ABPackageBackend impl -> B8 AssetHandle + ref-count pool
 
 Phase 4: Hotfix Core Pipeline
   B4 Catalog/Locator replacement -> B9 ABManifest format + incremental download adaptation
@@ -111,21 +111,22 @@ Phase 4 and Phase 6 must be coordinated (ABManifest runtime consumption + build-
 | plan-B2.md | B2: IPackageBackend asset loading layer | DONE |
 | plan-B3.md | B3: DialogueDataManager dual mode | DONE |
 
-### Phase 2: Runtime Contract Layer (current focus)
+### Phase 2: Runtime Contract Layer (B5-1/B5-2 done, B5-3/B5-4 deferred)
 
 | File | Content | Status |
 |------|---------|--------|
 | plan-B5.md | B5 Overview | Approved |
-| plan-B5-1.md | B5-1: Runtime entry model | Approved |
-| plan-B5-2.md | B5-2: Resolve/Load API + AssetHandle | Approved |
-| plan-B5-3.md | B5-3: Validation/diagnostics tools | Approved |
-| plan-B5-4.md | B5-4: Migration path & legacy API deprecation | Approved |
+| plan-B5-1.md | B5-1: Runtime entry model | DONE |
+| plan-B5-2.md | B5-2: Resolve/Load API + AssetHandle | DONE |
+| plan-B5-3.md | B5-3: Validation/diagnostics tools | Approved (deferred, needs B6 data) |
+| plan-B5-4.md | B5-4: Migration path & legacy API deprecation | Approved (deferred, needs B6 data) |
 
 ### Phase 3: Runtime Implementation Layer
 
 | ID | Content | Status |
 |----|---------|--------|
-| B6 | ABAssetIndex implementation (custom index replacing AddressableLabelsConfig runtime role) | To be planned |
+| plan-B6.md | B6: ABAssetIndex implementation (custom index replacing AddressableLabelsConfig runtime role) | DONE |
+| plan-B6-manifest.md | ABManifest data layer specification | DONE |
 | B7 | ABPackageBackend implementation (AB bundle loading backend replacing AddressablesBackend) | To be planned |
 | B8 | AssetHandle + reference counting pool (Handle-first release, double-release warning) | To be planned |
 
@@ -208,3 +209,4 @@ Phase 4 and Phase 6 must be coordinated (ABManifest runtime consumption + build-
 | 2026-03-17 | Plan-C addendum: adopted Option 2 (SO separation + config mapping), LuaAutoSyncConfig added outputDirectory field |
 | 2026-03-29 | New Plan-B5: stabilize runtime entry model, Resolve/Load contract, Handle, validation & migration strategy before B4 |
 | 2026-03-30 | **Roadmap expansion**: Upgraded from three-system refactoring to full custom resource management system. Added Phase 3-10 covering runtime impl, build-time overhaul (ref. YooAsset), RawFile, editor tools, advanced runtime, assembly splitting. Plan-D moved to last. LRU/LFU deferred, AsyncOp scheduler TBD |
+| 2026-04-01 | YooAsset knowledge base (5 module files) written to context/dependencies/. B6 design review completed (7 review points). B6 coded: ABAssetIndex 237 lines + ManifestLoader 84 lines + AAPackageManager integration |

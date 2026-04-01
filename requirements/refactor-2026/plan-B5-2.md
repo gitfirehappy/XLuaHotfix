@@ -40,11 +40,21 @@ Therefore this sub-plan needs to change the runtime contract to:
    - `ByTypeKey`
 2. `LoadByAddress<T>` defaults to `ResolveByAddress<T>` then Load
 3. `ResolveByTypeKey<T>` default contract: `Type + Key`, `Labels` optional; without `Labels`, multiple hits directly error
-4. Type filtering defaults to Addressables convention: **assignable**; `Exact` only available in `Resolve API`
+4. Type filtering targets Addressables-like **assignable** semantics, but the Phase 3 initial implementation may ship with a string-first hot-path subset (`PrimaryType == requestedType` + `UnityEngine.Object` fallback) before adding cached `System.Type` fallback; `Exact` only available in `Resolve API`
 5. `LoadByAddressSync<T>` / `LoadByTypeKeySync<T>` maintain **fully consistent** resolve / error contract with async versions
 6. Core return model is `AssetHandle<T>`
 7. `AssetHandle<T>.Release()` contract: **idempotent + warn on second call**
 8. Legacy `LoadAssetAsync<T>(key)` first maps to `LoadByAddress`
+
+---
+
+## Follow-Up Optimization Note (2026-03-30): Type Matching Strategy
+
+- `PrimaryType` remains a string contract in `RuntimeAssetEntry` and `ManifestAssetEntry`; no manifest schema change is required for the first enhancement.
+- V1 runtime matching stays string-first for hot-path stability. Non-exact matching currently means exact type-name match plus `UnityEngine.Object` fallback, not full inheritance/interface resolution.
+- If broader assignable semantics become necessary, keep the string fast path and add cached CLR `Type` resolution as a fallback layer instead of per-call reflection.
+- Internal resolver evolution should pass the requested CLR `Type` (`typeof(T)`) through the hot path, then use cache-owned type lookup / match results rather than reparsing requested type names repeatedly.
+- If simple type-name collisions appear later, revisit the long-term `PrimaryType` identifier strategy separately; do not expand the manifest contract prematurely.
 
 ---
 

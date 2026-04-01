@@ -16,6 +16,9 @@
 - Prefer `AAPackageManager` over direct Addressables usage in new runtime code.
 - Current runtime abstractions include `IAssetIndex` and `IPackageBackend`.
 - Hotfix core flow (`HotfixManager`, `NetworkDownloader`, `CatalogUpdater`) remains high-risk and must be explicitly approved before modification.
+- LINQ is allowed in editor/build code and in low-frequency runtime flows such as startup, hotfix checks, catalog switching, and maintenance operations.
+- LINQ must not be used in gameplay-sensitive hot paths, repeated runtime query loops, asset resolve/filter core paths, or public runtime APIs whose call frequency is uncertain.
+- If a method may be used both during startup and gameplay, default to loop-based implementations (`for`, `foreach`, `Dictionary`, `HashSet`, cached lookups) instead of LINQ.
 
 ## Git Rules
 - Commit types: `feat`, `fix`, `refactor`, `docs`, `chore`.

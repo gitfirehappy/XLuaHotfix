@@ -16,6 +16,11 @@ Start here before any task.
 
 ## Dependencies
 - `dependencies/INDEX.md` - third-party and engine integration notes
+- `dependencies/yooasset-collector-packing.md` - YooAsset collector framework & packing rules (Phase 5 ref)
+- `dependencies/yooasset-build-pipeline.md` - YooAsset build pipeline & dependency analysis (Phase 6 ref)
+- `dependencies/yooasset-manifest-model.md` - YooAsset manifest data model & serialization (Phase 3-4 ref)
+- `dependencies/yooasset-runtime-loading.md` - YooAsset runtime loading flow & comparison with our design
+- `dependencies/yooasset-filesystem.md` - YooAsset filesystem abstraction & cache internals
 
 ## Experience
 - `experience/INDEX.md` - verified pitfalls and troubleshooting notes
