@@ -29,6 +29,18 @@ public class AssetLoadError
 
         /// <summary> 索引不支持条目级查询（旧版 AddressableLabelsConfig） </summary>
         IndexNotSupported,
+
+        /// <summary> Bundle 文件在磁盘上不存在（热更目录 + StreamingAssets 均未找到） </summary>
+        BundleNotFound,
+
+        /// <summary> AssetBundle.LoadFromFile 返回 null（文件损坏、加密异常等） </summary>
+        BundleLoadFailed,
+
+        /// <summary> 依赖 Bundle 加载失败（级联失败） </summary>
+        DependencyFailed,
+
+        /// <summary> 从 Bundle 中提取 Asset 失败（SourcePath 不正确或类型不匹配） </summary>
+        AssetExtractionFailed,
     }
 
     #endregion
@@ -78,6 +90,35 @@ public class AssetLoadError
         {
             ErrorCode = Code.IndexNotSupported,
             Message = string.Concat("索引 ", indexType, " 不支持条目级查询，请使用基于 RuntimeAssetEntry 的索引实现。")
+        };
+
+    public static AssetLoadError BundleNotFound(string bundleName)
+        => new()
+        {
+            ErrorCode = Code.BundleNotFound,
+            Message = string.Concat("Bundle 文件未找到: ", bundleName, "（热更目录 + StreamingAssets 均不存在）")
+        };
+
+    public static AssetLoadError BundleLoadFailed(string bundleName, string path)
+        => new()
+        {
+            ErrorCode = Code.BundleLoadFailed,
+            Message = string.Concat("AssetBundle.LoadFromFile 失败: ", bundleName, ", 路径=", path)
+        };
+
+    public static AssetLoadError DependencyFailed(string bundleName, string depBundleName)
+        => new()
+        {
+            ErrorCode = Code.DependencyFailed,
+            Message = string.Concat("依赖 Bundle 加载失败: ", depBundleName, " (被 ", bundleName, " 依赖)")
+        };
+
+    public static AssetLoadError AssetExtractionFailed(string entryId, string sourcePath, string bundleName)
+        => new()
+        {
+            ErrorCode = Code.AssetExtractionFailed,
+            Message = string.Concat("从 Bundle 提取 Asset 失败: SourcePath=", sourcePath,
+                ", Bundle=", bundleName, ", EntryId=", entryId)
         };
 
     #endregion

@@ -276,35 +276,52 @@ public class AAPackageManager : Singleton<AAPackageManager>
 
     /// <summary>
     /// 通过 Address 异步加载资源，返回 AssetHandle。
-    /// 内部先 Resolve 得到唯一条目，再通过 backend 加载。
+    /// 内部先 Resolve 得到唯一条目，再通过 backend 加载，通过 HandleRegistry 分配句柄。
     /// </summary>
     public async Task<AssetHandle<T>> LoadByAddress<T>(string address) where T : UnityEngine.Object
     {
         if (!_isInitialized)
             return new AssetHandle<T>(
-                AssetLoadError.LoadFailed("", "AAPackageManager 未初始化"), address);
+                AssetLoadError.LoadFailed("", "AAPackageManager 未初始化"));
 
         var result = AssetResolver.ResolveByAddress<T>(_index, address);
         if (!result.IsSuccess)
-            return new AssetHandle<T>(result.Error, address);
+            return new AssetHandle<T>(result.Error);
 
         var entry = result.Entry;
-        T asset;
+
+        // AB 路径：调元组 API 获取 bundleName
+        var abBackend = _backend as ABPackageBackend;
+        if (abBackend != null)
+        {
+            var (asset, bundleName, loadErr) = await abBackend.LoadAssetTupleAsync<T>(entry.Address, entry.EntryId);
+            if (loadErr != null)
+                return new AssetHandle<T>(loadErr);
+
+            var (hid, gen) = HandleRegistry.Alloc(entry.EntryId, bundleName ?? "", null,
+                id => abBackend.UnloadByEntryId(id));
+            return new AssetHandle<T>(hid, gen, asset);
+        }
+
+        // Legacy 路径：走 IPackageBackend 接口 + HandleRegistry
+        T legacyAsset;
         try
         {
-            asset = await _backend.LoadAssetAsync<T>(entry.Address, entry.EntryId);
+            legacyAsset = await _backend.LoadAssetAsync<T>(entry.Address, entry.EntryId);
         }
         catch (Exception ex)
         {
             return new AssetHandle<T>(
-                AssetLoadError.LoadFailed(entry.EntryId, ex.Message), address);
+                AssetLoadError.LoadFailed(entry.EntryId, ex.Message));
         }
 
-        if (asset == null)
+        if (legacyAsset == null)
             return new AssetHandle<T>(
-                AssetLoadError.LoadFailed(entry.EntryId, "Backend 返回 null"), address);
+                AssetLoadError.LoadFailed(entry.EntryId, "Backend 返回 null"));
 
-        return new AssetHandle<T>(asset, entry, id => _backend.UnloadByEntryId(id));
+        var (hid2, gen2) = HandleRegistry.Alloc(entry.EntryId, "", null,
+            id => _backend.UnloadByEntryId(id));
+        return new AssetHandle<T>(hid2, gen2, legacyAsset);
     }
 
     /// <summary>
@@ -314,19 +331,36 @@ public class AAPackageManager : Singleton<AAPackageManager>
     {
         if (!_isInitialized)
             return new AssetHandle<T>(
-                AssetLoadError.LoadFailed("", "AAPackageManager 未初始化"), address);
+                AssetLoadError.LoadFailed("", "AAPackageManager 未初始化"));
 
         var result = AssetResolver.ResolveByAddress<T>(_index, address);
         if (!result.IsSuccess)
-            return new AssetHandle<T>(result.Error, address);
+            return new AssetHandle<T>(result.Error);
 
         var entry = result.Entry;
-        var asset = _backend.LoadAssetSync<T>(entry.Address, entry.EntryId);
-        if (asset == null)
-            return new AssetHandle<T>(
-                AssetLoadError.LoadFailed(entry.EntryId, "Backend 返回 null"), address);
 
-        return new AssetHandle<T>(asset, entry, id => _backend.UnloadByEntryId(id));
+        // AB 路径
+        var abBackend = _backend as ABPackageBackend;
+        if (abBackend != null)
+        {
+            var (asset, bundleName, loadErr) = abBackend.LoadAssetTupleSync<T>(entry.Address, entry.EntryId);
+            if (loadErr != null)
+                return new AssetHandle<T>(loadErr);
+
+            var (hid, gen) = HandleRegistry.Alloc(entry.EntryId, bundleName ?? "", null,
+                id => abBackend.UnloadByEntryId(id));
+            return new AssetHandle<T>(hid, gen, asset);
+        }
+
+        // Legacy 路径
+        var legacyAsset = _backend.LoadAssetSync<T>(entry.Address, entry.EntryId);
+        if (legacyAsset == null)
+            return new AssetHandle<T>(
+                AssetLoadError.LoadFailed(entry.EntryId, "Backend 返回 null"));
+
+        var (hid2, gen2) = HandleRegistry.Alloc(entry.EntryId, "", null,
+            id => _backend.UnloadByEntryId(id));
+        return new AssetHandle<T>(hid2, gen2, legacyAsset);
     }
 
     /// <summary>
@@ -338,29 +372,46 @@ public class AAPackageManager : Singleton<AAPackageManager>
     {
         if (!_isInitialized)
             return new AssetHandle<T>(
-                AssetLoadError.LoadFailed("", "AAPackageManager 未初始化"), key);
+                AssetLoadError.LoadFailed("", "AAPackageManager 未初始化"));
 
         var result = AssetResolver.ResolveByTypeKey<T>(_index, key, labels);
         if (!result.IsSuccess)
-            return new AssetHandle<T>(result.Error, key);
+            return new AssetHandle<T>(result.Error);
 
         var entry = result.Entry;
-        T asset;
+
+        // AB 路径
+        var abBackend = _backend as ABPackageBackend;
+        if (abBackend != null)
+        {
+            var (asset, bundleName, loadErr) = await abBackend.LoadAssetTupleAsync<T>(entry.Address, entry.EntryId);
+            if (loadErr != null)
+                return new AssetHandle<T>(loadErr);
+
+            var (hid, gen) = HandleRegistry.Alloc(entry.EntryId, bundleName ?? "", null,
+                id => abBackend.UnloadByEntryId(id));
+            return new AssetHandle<T>(hid, gen, asset);
+        }
+
+        // Legacy 路径
+        T legacyAsset;
         try
         {
-            asset = await _backend.LoadAssetAsync<T>(entry.Address, entry.EntryId);
+            legacyAsset = await _backend.LoadAssetAsync<T>(entry.Address, entry.EntryId);
         }
         catch (Exception ex)
         {
             return new AssetHandle<T>(
-                AssetLoadError.LoadFailed(entry.EntryId, ex.Message), key);
+                AssetLoadError.LoadFailed(entry.EntryId, ex.Message));
         }
 
-        if (asset == null)
+        if (legacyAsset == null)
             return new AssetHandle<T>(
-                AssetLoadError.LoadFailed(entry.EntryId, "Backend 返回 null"), key);
+                AssetLoadError.LoadFailed(entry.EntryId, "Backend 返回 null"));
 
-        return new AssetHandle<T>(asset, entry, id => _backend.UnloadByEntryId(id));
+        var (hid2, gen2) = HandleRegistry.Alloc(entry.EntryId, "", null,
+            id => _backend.UnloadByEntryId(id));
+        return new AssetHandle<T>(hid2, gen2, legacyAsset);
     }
 
     /// <summary>
@@ -371,19 +422,36 @@ public class AAPackageManager : Singleton<AAPackageManager>
     {
         if (!_isInitialized)
             return new AssetHandle<T>(
-                AssetLoadError.LoadFailed("", "AAPackageManager 未初始化"), key);
+                AssetLoadError.LoadFailed("", "AAPackageManager 未初始化"));
 
         var result = AssetResolver.ResolveByTypeKey<T>(_index, key, labels);
         if (!result.IsSuccess)
-            return new AssetHandle<T>(result.Error, key);
+            return new AssetHandle<T>(result.Error);
 
         var entry = result.Entry;
-        var asset = _backend.LoadAssetSync<T>(entry.Address, entry.EntryId);
-        if (asset == null)
-            return new AssetHandle<T>(
-                AssetLoadError.LoadFailed(entry.EntryId, "Backend 返回 null"), key);
 
-        return new AssetHandle<T>(asset, entry, id => _backend.UnloadByEntryId(id));
+        // AB 路径
+        var abBackend = _backend as ABPackageBackend;
+        if (abBackend != null)
+        {
+            var (asset, bundleName, loadErr) = abBackend.LoadAssetTupleSync<T>(entry.Address, entry.EntryId);
+            if (loadErr != null)
+                return new AssetHandle<T>(loadErr);
+
+            var (hid, gen) = HandleRegistry.Alloc(entry.EntryId, bundleName ?? "", null,
+                id => abBackend.UnloadByEntryId(id));
+            return new AssetHandle<T>(hid, gen, asset);
+        }
+
+        // Legacy 路径
+        var legacyAsset = _backend.LoadAssetSync<T>(entry.Address, entry.EntryId);
+        if (legacyAsset == null)
+            return new AssetHandle<T>(
+                AssetLoadError.LoadFailed(entry.EntryId, "Backend 返回 null"));
+
+        var (hid2, gen2) = HandleRegistry.Alloc(entry.EntryId, "", null,
+            id => _backend.UnloadByEntryId(id));
+        return new AssetHandle<T>(hid2, gen2, legacyAsset);
     }
 
     #endregion

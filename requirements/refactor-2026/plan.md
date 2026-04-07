@@ -1,9 +1,9 @@
 # Refactor Plan: XLuaHotfix Full Resource Management System Overhaul — Master Plan
 
-> **Status**: In progress (Phase 1 completed, Phase 2 B5-1/B5-2 done, Phase 3 B6 done, B7 drafted)
+> **Status**: In progress (Phase 1 completed, Phase 2 B5-1/B5-2 done, Phase 3 B6/B7/B8 done)
 > **Ultimate Goal**: Fully replace Addressables with custom runtime + build-time resource management system (referencing YooAsset architecture)
 > **Created**: 2026-03-16
-> **Updated**: 2026-04-07 — B7 plan drafted (B7-1 ABBundleLoader + B7-2 ABPackageBackend), awaiting approval
+> **Updated**: 2026-04-07 — Phase 3 complete (B6+B7+B8), next: Phase 4
 
 ---
 
@@ -50,10 +50,10 @@ Phase 1: Runtime Abstraction Layer (completed)
 Phase 2: Runtime Contract Layer (B5-1/B5-2 done, B5-3 cancelled, B5-4 deferred)
   B5-1 Entry Model -> B5-2 Resolve/Load/Handle -> B5-3 CANCELLED -> B5-4 Deferred
 
-Phase 3: Runtime Implementation Layer <- current focus
-  B6 ABAssetIndex impl (DONE) -> B7 ABPackageBackend impl -> B8 AssetHandle + ref-count pool
+Phase 3: Runtime Implementation Layer <- Phase 3 COMPLETE
+  B6 ABAssetIndex impl (DONE) -> B7 ABPackageBackend impl (DONE) -> B8 AssetHandle + ref-count pool (DONE)
 
-Phase 4: Hotfix Core Pipeline
+Phase 4: Hotfix Core Pipeline <- current focus
   B4 Catalog/Locator replacement -> B9 ABManifest format + incremental download adaptation
 
 Phase 5: Build-Time - Asset Collection & Indexing (ref. YooAsset)
@@ -127,10 +127,10 @@ Phase 4 and Phase 6 must be coordinated (ABManifest runtime consumption + build-
 |----|---------|--------|
 | plan-B6.md | B6: ABAssetIndex implementation (custom index replacing AddressableLabelsConfig runtime role) | DONE |
 | plan-B6-manifest.md | ABManifest data layer specification | DONE |
-| plan-B7.md | B7: ABPackageBackend overview (custom AB runtime loading backend replacing AddressablesBackend) | Approved |
-| plan-B7-1.md | B7-1: ABBundleLoader — Bundle file I/O + dependency resolution + bundle cache | Approved |
-| plan-B7-2.md | B7-2: ABPackageBackend — IPackageBackend impl + asset cache + AAPackageManager integration | Approved |
-| B8 | AssetHandle<T> struct redesign + error propagation unification: (1) AssetHandle<T> changed from class to **struct** (value semantic, 0 GC) with version number + HandleRegistry pattern (ref. Addressables AsyncOperationHandle). (2) AssetLoadError.Code expansion (BundleNotFound, BundleLoadFailed, DependencyFailed, AssetExtractionFailed). (3) ABBundleLoader returns `(AssetBundle, AssetLoadError)` tuple (internal API). (4) ABPackageBackend unified to return AssetHandle<T> for both sync/async (external API, no throw + no return null). (5) Handle-first release with double-release warning via version check. **Requires pre-approval research**: study Addressables AsyncOperationHandle.cs (local PackageCache) + YooAsset OperationHandleBase (GitHub) before implementation | To be planned — pending research |
+| plan-B7.md | B7: ABPackageBackend overview (custom AB runtime loading backend replacing AddressablesBackend) | DONE |
+| plan-B7-1.md | B7-1: ABBundleLoader — Bundle file I/O + dependency resolution + bundle cache | DONE |
+| plan-B7-2.md | B7-2: ABPackageBackend — IPackageBackend impl + asset cache + AAPackageManager integration | DONE |
+| B8 | AssetHandle<T> struct redesign + HandleRegistry + error propagation unification: (1) AssetHandle<T> changed from class to **struct** (value semantic, 0 GC) with HandleId+Generation + HandleRegistry pattern. (2) AssetLoadError.Code expansion (BundleNotFound, BundleLoadFailed, DependencyFailed, AssetExtractionFailed). (3) ABBundleLoader returns `(AssetBundle, AssetLoadError)` tuple (internal API). (4) ABPackageBackend internal tuple API `LoadAssetTupleAsync/Sync`. (5) AAPackageManager 4 LoadByXxx methods integrated with HandleRegistry.Alloc. IPackageBackend/AddressablesBackend unchanged | DONE |
 
 ### Phase 4: Hotfix Core Pipeline
 

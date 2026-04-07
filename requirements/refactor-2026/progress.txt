@@ -151,3 +151,15 @@
 [decision] 2026-04-07 B8 internal/external API design convention: External API returns AssetHandle<T> (struct); Internal API uses ValueTuple (T result, AssetLoadError error). ResolveResult unchanged. Framework positioning = universal framework, API design uniformity enforced
 [decision] 2026-04-07 B8 research required before implementation: (1) Addressables AsyncOperationHandle.cs (local PackageCache), (2) YooAsset OperationHandleBase (GitHub), (3) .NET ObjectPool<T> for future Pool consideration
 [done] 2026-04-07 plan.md B8 description updated with struct redesign + research prerequisite
+
+[done] 2026-04-07 B7 plan.md + plan-B7-1.md + plan-B7-2.md + B7-1/B7-2 impl + manifest field extension — all SIGNED OFF
+[start] 2026-04-07 B8 implementation begins — AssetHandle struct + HandleRegistry + error propagation unification
+[done] 2026-04-07 B8 Task 1 — AssetHandle<T> rewritten from class to struct (HandleId+Generation, zero GC, internal constructors, Retain/Release via HandleRegistry)
+[done] 2026-04-07 B8 Task 2 — HandleRegistry.cs created (internal static, Slot array + FreeList + Generation-based validation, O(1) alloc/release, Retain/Release/IsValid/GetError/Reset/ActiveCount)
+[done] 2026-04-07 B8 Task 3 — AssetLoadError.Code expanded: BundleNotFound, BundleLoadFailed, DependencyFailed, AssetExtractionFailed + 4 factory methods
+[done] 2026-04-07 B8 Task 4 — ABBundleLoader LoadBundle/LoadBundleAsync return type changed to (AssetBundle, AssetLoadError) tuple. All failure paths return structured errors. LoadDependenciesSync/Async adapted
+[done] 2026-04-07 B8 Task 5 — ABPackageBackend internal LoadAssetInternal methods changed to return (T, string bundleName, AssetLoadError) tuple. New internal LoadAssetTupleAsync/Sync API for AAPackageManager Handle construction. IPackageBackend interface unchanged
+[done] 2026-04-07 B8 Task 6 — AAPackageManager 4 LoadByXxx methods rewritten: AB path uses ABPackageBackend tuple API + HandleRegistry.Alloc, Legacy path uses IPackageBackend + HandleRegistry.Alloc. All AssetHandle instances now constructed via (handleId, generation, asset) or (error)
+[done] 2026-04-07 B8 verification — grep confirmed: zero old AssetHandle constructor signatures, zero old property accesses, HandleRegistry.Alloc called in all 4 Load methods (8 total: AB+Legacy per method), IPackageBackend and AddressablesBackend untouched
+[done] 2026-04-07 plan-B8 SIGNED OFF — AssetHandle struct + HandleRegistry + error propagation + internal tuple API + AAPackageManager HandleRegistry integration. Phase 3 complete
+[next] 2026-04-07 Phase 4: B4 (Catalog/Locator replacement) + B9 (incremental download adaptation)

@@ -2,97 +2,145 @@ using System;
 using UnityEngine;
 
 /// <summary>
-/// 泛型资源句柄 — Load 操作的主要返回类型。
+/// 泛型资源句柄 — Load 操作的主要返回类型（值类型，零 GC）。
+///
+/// 设计说明：
+/// - struct 语义：赋值即拷贝，不产生堆分配。
+/// - 生命周期由 HandleRegistry 集中管理（类似 C++ shared_ptr 控制块模式）。
+/// - 每个 Handle 持有 (HandleId, Generation) 元组，通过 Generation 校验判断有效性。
+/// - Release() 递减引用计数，归零时通过 HandleRegistry 回调释放底层资源。
+/// - 拷贝体的 Release 会被 Generation 拦截为空操作（安全网）。
+/// - 显式 Retain() 支持共享所有权（类似 shared_ptr 拷贝构造增加引用计数）。
 ///
 /// 双重职责：
 /// 1. Result 容器（IsValid + Error 用于 Result 风格错误处理）
-/// 2. Release 身份（Release() 通过 backend 递减引用计数）
+/// 2. Release 身份（Release() 通过 HandleRegistry 递减引用计数）
 ///
-/// 设计合同：
-/// - Release() 幂等；二次调用输出 Debug.LogWarning 但不抛异常
-/// - Release() 后 Asset 返回 null，IsValid 返回 false
-/// - 加载失败时返回 IsValid=false、Error 已填充的句柄
+/// 使用合同：
+/// - 默认单 Owner：Load 返回 Handle(refCount=1)，Release 归零释放。
+/// - 共享所有权：显式调用 Retain() 增加引用计数，每个 Owner 各自 Release。
+/// - 拷贝体不调 Retain 时 Release = 空操作 + Warning。
+/// - 加载失败时返回 IsValid=false、Error 已填充的句柄（HandleId=-1，不占用 Registry 槽位）。
 /// </summary>
-public class AssetHandle<T> where T : UnityEngine.Object
+public struct AssetHandle<T> where T : UnityEngine.Object
 {
     #region 内部状态
 
-    private T _asset;
-    private bool _released;
-    private readonly Action<string> _releaseCallback; // entryId -> backend 卸载
+    /// <summary>HandleRegistry 中的槽位索引。失败句柄为 -1。</summary>
+    internal int HandleId;
+
+    /// <summary>创建时的 Generation 快照。与 HandleRegistry 的 Slot.Generation 比较判断有效性。</summary>
+    internal int Generation;
+
+    /// <summary>
+    /// 缓存的资源引用（热路径优化：读 .Asset 时直接返回，避免查 Registry）。
+    /// Release 后通过 Generation 失效保护，不需要置 null。
+    /// </summary>
+    private T _cachedAsset;
+
+    /// <summary>
+    /// 失败句柄的内联错误（HandleId=-1 时使用，不通过 Registry 存储）。
+    /// 成功句柄的 Error 从 Registry 获取。
+    /// </summary>
+    private AssetLoadError _inlineError;
+
+    #endregion
+
+    #region 构造函数（internal — 仅由 AAPackageManager / 加载方法创建）
+
+    /// <summary>
+    /// 成功构造：关联 HandleRegistry 槽位。
+    /// </summary>
+    internal AssetHandle(int handleId, int generation, T asset)
+    {
+        HandleId = handleId;
+        Generation = generation;
+        _cachedAsset = asset;
+        _inlineError = null;
+    }
+
+    /// <summary>
+    /// 失败构造：不占用 Registry 槽位，错误信息内联存储。
+    /// </summary>
+    internal AssetHandle(AssetLoadError error)
+    {
+        HandleId = -1;
+        Generation = -1;
+        _cachedAsset = null;
+        _inlineError = error;
+    }
 
     #endregion
 
     #region 公开属性
 
-    /// <summary> 已加载的资源。加载失败或句柄已释放时为 null。 </summary>
-    public T Asset => _released ? null : _asset;
-
-    /// <summary> 加载成功且句柄未释放时为 true。 </summary>
-    public bool IsValid => _asset != null && !_released;
-
-    /// <summary> EntryId（Unity GUID）— 稳定身份标识，用于诊断和缓存。 </summary>
-    public string EntryId { get; }
-
-    /// <summary> 加载此资源时使用的 Address。 </summary>
-    public string Address { get; }
-
-    /// <summary> 来自 RuntimeAssetEntry 的 PrimaryType 字符串。 </summary>
-    public string PrimaryType { get; }
-
-    /// <summary> 结构化错误信息。成功时为 null。 </summary>
-    public AssetLoadError Error { get; }
-
-    #endregion
-
-    #region 构造函数（internal — 仅由加载方法创建）
-
-    /// <summary> 成功构造 </summary>
-    internal AssetHandle(T asset, RuntimeAssetEntry entry, Action<string> releaseCallback)
+    /// <summary>
+    /// 已加载的资源。Handle 无效（释放/过期/失败）时返回 null。
+    /// </summary>
+    public T Asset
     {
-        _asset = asset;
-        EntryId = entry.EntryId;
-        Address = entry.Address;
-        PrimaryType = entry.PrimaryType;
-        _releaseCallback = releaseCallback;
+        get
+        {
+            if (HandleId < 0) return null;
+            if (!HandleRegistry.IsValid(HandleId, Generation)) return null;
+            return _cachedAsset;
+        }
     }
-
-    /// <summary> 失败构造 </summary>
-    internal AssetHandle(AssetLoadError error, string address = null)
-    {
-        _asset = null;
-        Error = error;
-        Address = address;
-        EntryId = null;
-        PrimaryType = null;
-        _releaseCallback = null;
-    }
-
-    #endregion
-
-    #region 释放
 
     /// <summary>
-    /// 释放此句柄，通过 backend 递减引用计数。
-    /// 幂等：二次调用输出警告但不抛异常。
+    /// Handle 是否有效（资源存在 + Registry 确认未释放/未过期）。
+    /// </summary>
+    public bool IsValid
+    {
+        get
+        {
+            if (HandleId < 0 || _cachedAsset == null) return false;
+            return HandleRegistry.IsValid(HandleId, Generation);
+        }
+    }
+
+    /// <summary>
+    /// 结构化错误信息。
+    /// 失败句柄：返回内联错误。
+    /// 成功句柄：返回 Registry 中存储的错误（通常为 null）。
+    /// </summary>
+    public AssetLoadError Error
+    {
+        get
+        {
+            if (HandleId < 0) return _inlineError;
+            return HandleRegistry.GetError(HandleId, Generation);
+        }
+    }
+
+    #endregion
+
+    #region 引用计数操作
+
+    /// <summary>
+    /// 增加引用计数（显式共享所有权）。
+    /// 返回自身，支持链式赋值：var shared = handle.Retain();
+    /// Handle 过期时调用无效果。
+    /// </summary>
+    public AssetHandle<T> Retain()
+    {
+        if (HandleId >= 0)
+        {
+            HandleRegistry.Retain(HandleId, Generation);
+        }
+        return this;
+    }
+
+    /// <summary>
+    /// 释放此句柄的引用。引用计数 -1，归零时通过 HandleRegistry 回调释放底层资源。
+    /// 拷贝体或已释放的 Handle 调用时为安全的空操作（Generation 校验拦截）。
     /// </summary>
     public void Release()
     {
-        if (_released)
+        if (HandleId >= 0)
         {
-            Debug.LogWarning(string.Concat(
-                "[AssetHandle] Release 被重复调用: Address='", Address, "', EntryId='", EntryId, "'。已忽略。"));
-            return;
+            HandleRegistry.Release(HandleId, Generation);
         }
-
-        _released = true;
-
-        if (_asset != null && _releaseCallback != null)
-        {
-            _releaseCallback(EntryId);
-        }
-
-        _asset = null;
     }
 
     #endregion
@@ -107,7 +155,8 @@ public class AssetHandle<T> where T : UnityEngine.Object
     {
         if (!IsValid && Error != null)
         {
-            throw new InvalidOperationException(string.Concat("资源加载失败: ", Error.ToString()));
+            throw new InvalidOperationException(
+                string.Concat("资源加载失败: ", Error.ToString()));
         }
         return this;
     }
@@ -115,10 +164,12 @@ public class AssetHandle<T> where T : UnityEngine.Object
     public override string ToString()
     {
         if (IsValid)
-            return string.Concat("[Handle OK] ", Address, " (", PrimaryType, ") EntryId=", EntryId);
-        if (_released)
-            return string.Concat("[Handle Released] ", Address);
-        return string.Concat("[Handle Failed] ", Error != null ? Error.ToString() : "unknown");
+            return string.Concat("[Handle OK] id=", HandleId.ToString(),
+                " gen=", Generation.ToString());
+        if (HandleId < 0 && _inlineError != null)
+            return string.Concat("[Handle Failed] ", _inlineError.ToString());
+        return string.Concat("[Handle Invalid] id=", HandleId.ToString(),
+            " gen=", Generation.ToString());
     }
 
     #endregion

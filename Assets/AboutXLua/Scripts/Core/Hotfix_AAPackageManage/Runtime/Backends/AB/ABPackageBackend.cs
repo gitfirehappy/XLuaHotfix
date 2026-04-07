@@ -111,9 +111,13 @@ public class ABPackageBackend : IPackageBackend
         // 解析 Asset → Bundle
         var assetEntry = ResolveAssetEntryByAddress(key);
         if (assetEntry == null)
-            throw new Exception($"[ABPackageBackend] Asset not found in manifest: {key}");
+            throw new Exception(string.Concat("[ABPackageBackend] Asset not found in manifest: ", key));
 
-        return await LoadAssetInternalAsync<T>(key, assetEntry);
+        var (asset, bundleName, error) = await LoadAssetInternalAsync<T>(key, assetEntry);
+        if (error != null)
+            throw new Exception(string.Concat("[ABPackageBackend] ", error.ToString()));
+
+        return asset;
     }
 
     /// <summary>
@@ -146,9 +150,13 @@ public class ABPackageBackend : IPackageBackend
         }
 
         if (assetEntry == null)
-            throw new Exception($"[ABPackageBackend] Asset not found: key={key}, entryId={entryId}");
+            throw new Exception(string.Concat("[ABPackageBackend] Asset not found: key=", key, ", entryId=", entryId));
 
-        return await LoadAssetInternalAsync<T>(key, assetEntry);
+        var (asset, bundleName, error) = await LoadAssetInternalAsync<T>(key, assetEntry);
+        if (error != null)
+            throw new Exception(string.Concat("[ABPackageBackend] ", error.ToString()));
+
+        return asset;
     }
 
     #endregion
@@ -177,11 +185,18 @@ public class ABPackageBackend : IPackageBackend
         var assetEntry = ResolveAssetEntryByAddress(key);
         if (assetEntry == null)
         {
-            Debug.LogError($"[ABPackageBackend] Asset not found in manifest: {key}");
+            Debug.LogError(string.Concat("[ABPackageBackend] Asset not found in manifest: ", key));
             return null;
         }
 
-        return LoadAssetInternalSync<T>(key, assetEntry);
+        var (asset, bundleName, error) = LoadAssetInternalSync<T>(key, assetEntry);
+        if (error != null)
+        {
+            Debug.LogError(string.Concat("[ABPackageBackend] ", error.ToString()));
+            return null;
+        }
+
+        return asset;
     }
 
     /// <summary>
@@ -216,11 +231,18 @@ public class ABPackageBackend : IPackageBackend
 
         if (assetEntry == null)
         {
-            Debug.LogError($"[ABPackageBackend] Asset not found: key={key}, entryId={entryId}");
+            Debug.LogError(string.Concat("[ABPackageBackend] Asset not found: key=", key, ", entryId=", entryId));
             return null;
         }
 
-        return LoadAssetInternalSync<T>(key, assetEntry);
+        var (asset, bundleName, error) = LoadAssetInternalSync<T>(key, assetEntry);
+        if (error != null)
+        {
+            Debug.LogError(string.Concat("[ABPackageBackend] ", error.ToString()));
+            return null;
+        }
+
+        return asset;
     }
 
     #endregion
@@ -293,26 +315,108 @@ public class ABPackageBackend : IPackageBackend
         return null;
     }
 
+    #endregion
+
+    #region 内部元组 API（供 AAPackageManager Handle 构建路径使用）
+
+    /// <summary>
+    /// 异步加载资产，返回 (asset, bundleName, error) 元组。
+    /// AAPackageManager 通过此方法获取 bundleName 以分配 HandleRegistry 槽位。
+    /// </summary>
+    internal async Task<(T asset, string bundleName, AssetLoadError error)> LoadAssetTupleAsync<T>(
+        string key, string entryId) where T : UnityEngine.Object
+    {
+        // 缓存命中
+        if (_assetCache.TryGetValue(key, out var cached))
+        {
+            cached.RefCount++;
+            return (cached.Asset as T, cached.BundleName, null);
+        }
+
+        // 优先按 EntryId 精确查找
+        ManifestAssetEntry assetEntry = null;
+        if (!string.IsNullOrEmpty(entryId))
+        {
+            _manifest.TryGetAssetByEntryId(entryId, out assetEntry);
+        }
+
+        // 回退到 address 查找
+        if (assetEntry == null)
+        {
+            assetEntry = ResolveAssetEntryByAddress(key);
+        }
+
+        if (assetEntry == null)
+        {
+            return (null, null, AssetLoadError.NotFound(
+                string.Concat("key=", key, ", entryId=", entryId ?? "")));
+        }
+
+        return await LoadAssetInternalAsync<T>(key, assetEntry);
+    }
+
+    /// <summary>
+    /// 同步加载资产，返回 (asset, bundleName, error) 元组。
+    /// AAPackageManager 通过此方法获取 bundleName 以分配 HandleRegistry 槽位。
+    /// </summary>
+    internal (T asset, string bundleName, AssetLoadError error) LoadAssetTupleSync<T>(
+        string key, string entryId) where T : UnityEngine.Object
+    {
+        // 缓存命中
+        if (_assetCache.TryGetValue(key, out var cached))
+        {
+            cached.RefCount++;
+            return (cached.Asset as T, cached.BundleName, null);
+        }
+
+        // 优先按 EntryId 精确查找
+        ManifestAssetEntry assetEntry = null;
+        if (!string.IsNullOrEmpty(entryId))
+        {
+            _manifest.TryGetAssetByEntryId(entryId, out assetEntry);
+        }
+
+        if (assetEntry == null)
+        {
+            assetEntry = ResolveAssetEntryByAddress(key);
+        }
+
+        if (assetEntry == null)
+        {
+            return (null, null, AssetLoadError.NotFound(
+                string.Concat("key=", key, ", entryId=", entryId ?? "")));
+        }
+
+        return LoadAssetInternalSync<T>(key, assetEntry);
+    }
+
+    #endregion
+
+    #region 内部实现（元组 API，不抛异常）
+
     /// <summary>
     /// 异步加载资产的内部实现（已确认 assetEntry 有效）。
+    /// 返回 (asset, bundleName, error) 元组 — 内部 API，不抛异常。
     /// </summary>
-    private async Task<T> LoadAssetInternalAsync<T>(string cacheKey, ManifestAssetEntry assetEntry)
-        where T : UnityEngine.Object
+    private async Task<(T asset, string bundleName, AssetLoadError error)> LoadAssetInternalAsync<T>(
+        string cacheKey, ManifestAssetEntry assetEntry) where T : UnityEngine.Object
     {
         // 获取 Bundle 信息
         var bundleEntry = _manifest.GetBundleForAsset(assetEntry);
         if (bundleEntry == null)
         {
-            throw new Exception(
-                $"[ABPackageBackend] Bundle not found for asset: {assetEntry.Address} (EntryId={assetEntry.EntryId})");
+            return (null, null,
+                AssetLoadError.BundleNotFound(
+                    string.Concat("(asset: ", assetEntry.Address, ", EntryId=", assetEntry.EntryId, ")")));
         }
 
+        string bundleName = bundleEntry.BundleName;
+
         // 加载 Bundle（含依赖）
-        AssetBundle bundle = await _bundleLoader.LoadBundleAsync(bundleEntry.BundleName);
-        if (bundle == null)
+        var (bundle, bundleError) = await _bundleLoader.LoadBundleAsync(bundleName);
+        if (bundleError != null)
         {
-            throw new Exception(
-                $"[ABPackageBackend] Bundle load failed: {bundleEntry.BundleName} for asset {assetEntry.Address}");
+            return (null, bundleName, bundleError);
         }
 
         // 从 Bundle 中异步提取资产
@@ -325,63 +429,60 @@ public class ABPackageBackend : IPackageBackend
         }
         catch (Exception ex)
         {
-            Debug.LogError(
-                $"[ABPackageBackend] LoadAssetAsync from bundle failed: {assetEntry.SourcePath}\n{ex.Message}");
-            _bundleLoader.UnloadBundle(bundleEntry.BundleName);
-            throw;
+            _bundleLoader.UnloadBundle(bundleName);
+            return (null, bundleName,
+                AssetLoadError.AssetExtractionFailed(assetEntry.EntryId, assetEntry.SourcePath, bundleName));
         }
 
         if (asset == null)
         {
-            Debug.LogError(
-                $"[ABPackageBackend] Asset extracted but null: {assetEntry.SourcePath} from {bundleEntry.BundleName}");
-            _bundleLoader.UnloadBundle(bundleEntry.BundleName);
-            throw new Exception(
-                $"[ABPackageBackend] Asset extraction returned null: {assetEntry.SourcePath}");
+            _bundleLoader.UnloadBundle(bundleName);
+            return (null, bundleName,
+                AssetLoadError.AssetExtractionFailed(assetEntry.EntryId, assetEntry.SourcePath, bundleName));
         }
 
         // 加入 Asset 缓存
-        AddToAssetCache(cacheKey, asset, bundleEntry.BundleName, assetEntry.EntryId);
-        return asset;
+        AddToAssetCache(cacheKey, asset, bundleName, assetEntry.EntryId);
+        return (asset, bundleName, null);
     }
 
     /// <summary>
     /// 同步加载资产的内部实现（已确认 assetEntry 有效）。
+    /// 返回 (asset, bundleName, error) 元组 — 内部 API，不抛异常。
     /// </summary>
-    private T LoadAssetInternalSync<T>(string cacheKey, ManifestAssetEntry assetEntry)
-        where T : UnityEngine.Object
+    private (T asset, string bundleName, AssetLoadError error) LoadAssetInternalSync<T>(
+        string cacheKey, ManifestAssetEntry assetEntry) where T : UnityEngine.Object
     {
         // 获取 Bundle 信息
         var bundleEntry = _manifest.GetBundleForAsset(assetEntry);
         if (bundleEntry == null)
         {
-            Debug.LogError(
-                $"[ABPackageBackend] Bundle not found for asset: {assetEntry.Address} (EntryId={assetEntry.EntryId})");
-            return null;
+            return (null, null,
+                AssetLoadError.BundleNotFound(
+                    string.Concat("(asset: ", assetEntry.Address, ", EntryId=", assetEntry.EntryId, ")")));
         }
 
+        string bundleName = bundleEntry.BundleName;
+
         // 加载 Bundle（含依赖）
-        AssetBundle bundle = _bundleLoader.LoadBundle(bundleEntry.BundleName);
-        if (bundle == null)
+        var (bundle, bundleError) = _bundleLoader.LoadBundle(bundleName);
+        if (bundleError != null)
         {
-            Debug.LogError(
-                $"[ABPackageBackend] Bundle load failed: {bundleEntry.BundleName} for asset {assetEntry.Address}");
-            return null;
+            return (null, bundleName, bundleError);
         }
 
         // 从 Bundle 中同步提取资产
         T asset = bundle.LoadAsset<T>(assetEntry.SourcePath);
         if (asset == null)
         {
-            Debug.LogError(
-                $"[ABPackageBackend] Asset extracted but null: {assetEntry.SourcePath} from {bundleEntry.BundleName}");
-            _bundleLoader.UnloadBundle(bundleEntry.BundleName);
-            return null;
+            _bundleLoader.UnloadBundle(bundleName);
+            return (null, bundleName,
+                AssetLoadError.AssetExtractionFailed(assetEntry.EntryId, assetEntry.SourcePath, bundleName));
         }
 
         // 加入 Asset 缓存
-        AddToAssetCache(cacheKey, asset, bundleEntry.BundleName, assetEntry.EntryId);
-        return asset;
+        AddToAssetCache(cacheKey, asset, bundleName, assetEntry.EntryId);
+        return (asset, bundleName, null);
     }
 
     /// <summary>
