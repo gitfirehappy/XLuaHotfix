@@ -30,7 +30,7 @@ public interface IPackageBackend
 
     #endregion
 
-    #region B5-2 新增：带 EntryId 的重载（default method，不破坏现有实现）
+    #region 带 EntryId 的重载（default method，不破坏现有实现）
 
     /// <summary>
     /// 异步加载资源，附带 EntryId 用于句柄追踪。

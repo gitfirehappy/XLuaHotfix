@@ -7,11 +7,13 @@ using UnityEngine.ResourceManagement.AsyncOperations;
 
 public class AAPackageManager : Singleton<AAPackageManager>
 {
-    #region B6: AB 索引开关（默认关闭，coexistence validation）
+    #region AB 索引 + 后端开关（默认关闭，coexistence validation）
 
     /// <summary>
-    /// AB 索引开关。true = 使用 ABManifest → ABAssetIndex；false = 使用 AddressableLabelsConfig（原有路径）。
-    /// B6 第一轮默认 false，验证时手动改为 true。
+    /// AB 索引 + 后端开关。
+    /// true = 使用 ABManifest → ABAssetIndex → ABBundleLoader → ABPackageBackend（自研 AB 全链路）；
+    /// false = 使用 AddressableLabelsConfig + AddressablesBackend（原有 Addressables 路径）。
+    /// 一个开关同时控制索引源和加载后端，不存在 "AB 索引 + Addressables 后端" 的组合。
     /// </summary>
     private const bool USE_AB_INDEX = false;
 
@@ -49,7 +51,8 @@ public class AAPackageManager : Singleton<AAPackageManager>
     #region 初始化路径
 
     /// <summary>
-    /// AB 索引路径：ManifestLoader → ABManifest → ABAssetIndex。
+    /// AB 索引路径：ManifestLoader → ABManifest → ABAssetIndex + ABBundleLoader + ABPackageBackend。
+    /// 同时初始化索引和加载后端，一个开关控制两个维度。
     /// 加载失败视为致命错误，不回退到 Legacy。
     /// </summary>
     private async Task InitializeWithABIndex()
@@ -61,8 +64,18 @@ public class AAPackageManager : Singleton<AAPackageManager>
             return;
         }
 
+        // 初始化 AB 索引
         _index = new ABAssetIndex(manifest);
-        Debug.Log($"[AAPackageManager] AB 索引初始化完成。Assets: {manifest.AssetCount}, Bundles: {manifest.BundleCount}");
+
+        // 初始化 AB 加载后端
+        var bundleLoader = new ABBundleLoader(manifest);
+        var abBackend = new ABPackageBackend(manifest, bundleLoader);
+        _backend = abBackend;
+
+        Debug.Log(
+            $"[AAPackageManager] AB 全链路初始化完成。" +
+            $"Assets: {manifest.AssetCount}, Bundles: {manifest.BundleCount}, " +
+            $"Index: ABAssetIndex, Backend: ABPackageBackend");
     }
 
     /// <summary>
@@ -259,7 +272,7 @@ public class AAPackageManager : Singleton<AAPackageManager>
 
     #endregion
 
-    #region B5-2 新增：Resolve / Load API
+    #region Resolve / Load API（基于条目解析的加载接口）
 
     /// <summary>
     /// 通过 Address 异步加载资源，返回 AssetHandle。

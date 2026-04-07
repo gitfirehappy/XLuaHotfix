@@ -9,7 +9,7 @@ using System.Collections.Generic;
 /// - 作为 ABManifest 的核心数据结构，直接参与 JSON 序列化；运行时通过 ABAssetIndex 转换为 RuntimeAssetEntry 使用
 /// - 反序列化后由 ABAssetIndex 转换为 RuntimeAssetEntry + Bundle 映射
 /// - BundleIndex 表示所属 Bundle 在 ABManifest.BundleEntries 数组中的索引
-/// - Phase 3 使用 JsonUtility 序列化；后续可升级为 Protobuf 等二进制格式
+/// - 当前使用 JsonUtility 序列化；后续可升级为 Protobuf 等二进制格式
 /// </summary>
 [Serializable]
 public class ManifestAssetEntry

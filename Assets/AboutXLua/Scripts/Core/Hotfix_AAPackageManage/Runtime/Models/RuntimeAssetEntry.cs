@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 
 /// <summary>
-/// 运行时资源条目 — B5-1 定义的最小字段集。
+/// 运行时资源条目 — 最小字段集。
 /// 
 /// 设计思路：
 /// - EntryId（Unity GUID）承担内部唯一身份，用于缓存键、诊断、句柄归属

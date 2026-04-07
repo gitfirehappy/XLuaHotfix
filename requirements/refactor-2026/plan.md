@@ -1,9 +1,9 @@
 # Refactor Plan: XLuaHotfix Full Resource Management System Overhaul — Master Plan
 
-> **Status**: In progress (Phase 1 completed, Phase 2 B5-1/B5-2 done, Phase 3 B6 done)
+> **Status**: In progress (Phase 1 completed, Phase 2 B5-1/B5-2 done, Phase 3 B6 done, B7 drafted)
 > **Ultimate Goal**: Fully replace Addressables with custom runtime + build-time resource management system (referencing YooAsset architecture)
 > **Created**: 2026-03-16
-> **Updated**: 2026-04-01 — B6 ABAssetIndex coded + ManifestLoader + AAPackageManager integration
+> **Updated**: 2026-04-07 — B7 plan drafted (B7-1 ABBundleLoader + B7-2 ABPackageBackend), awaiting approval
 
 ---
 
@@ -47,8 +47,8 @@
 Phase 1: Runtime Abstraction Layer (completed)
   B1 IAssetIndex -> B2 IPackageBackend -> B3 DialogueDataManager
 
-Phase 2: Runtime Contract Layer (B5-1/B5-2 done, B5-3/B5-4 deferred)
-  B5-1 Entry Model -> B5-2 Resolve/Load/Handle -> B5-3 Validation/Diagnostics -> B5-4 Migration Strategy
+Phase 2: Runtime Contract Layer (B5-1/B5-2 done, B5-3 cancelled, B5-4 deferred)
+  B5-1 Entry Model -> B5-2 Resolve/Load/Handle -> B5-3 CANCELLED -> B5-4 Deferred
 
 Phase 3: Runtime Implementation Layer <- current focus
   B6 ABAssetIndex impl (DONE) -> B7 ABPackageBackend impl -> B8 AssetHandle + ref-count pool
@@ -111,15 +111,15 @@ Phase 4 and Phase 6 must be coordinated (ABManifest runtime consumption + build-
 | plan-B2.md | B2: IPackageBackend asset loading layer | DONE |
 | plan-B3.md | B3: DialogueDataManager dual mode | DONE |
 
-### Phase 2: Runtime Contract Layer (B5-1/B5-2 done, B5-3/B5-4 deferred)
+### Phase 2: Runtime Contract Layer (B5-1/B5-2 done, B5-3 cancelled, B5-4 deferred)
 
 | File | Content | Status |
 |------|---------|--------|
 | plan-B5.md | B5 Overview | Approved |
 | plan-B5-1.md | B5-1: Runtime entry model | DONE |
 | plan-B5-2.md | B5-2: Resolve/Load API + AssetHandle | DONE |
-| plan-B5-3.md | B5-3: Validation/diagnostics tools | Approved (deferred, needs B6 data) |
-| plan-B5-4.md | B5-4: Migration path & legacy API deprecation | Approved (deferred, needs B6 data) |
+| plan-B5-3.md | B5-3: Validation/diagnostics tools | CANCELLED (belongs to Phase 6 build pipeline) |
+| plan-B5-4.md | B5-4: Migration path & legacy API deprecation | Deferred (evolves naturally with implementation) |
 
 ### Phase 3: Runtime Implementation Layer
 
@@ -127,21 +127,23 @@ Phase 4 and Phase 6 must be coordinated (ABManifest runtime consumption + build-
 |----|---------|--------|
 | plan-B6.md | B6: ABAssetIndex implementation (custom index replacing AddressableLabelsConfig runtime role) | DONE |
 | plan-B6-manifest.md | ABManifest data layer specification | DONE |
-| B7 | ABPackageBackend implementation (AB bundle loading backend replacing AddressablesBackend) | To be planned |
-| B8 | AssetHandle + reference counting pool (Handle-first release, double-release warning) | To be planned |
+| plan-B7.md | B7: ABPackageBackend overview (custom AB runtime loading backend replacing AddressablesBackend) | Approved |
+| plan-B7-1.md | B7-1: ABBundleLoader — Bundle file I/O + dependency resolution + bundle cache | Approved |
+| plan-B7-2.md | B7-2: ABPackageBackend — IPackageBackend impl + asset cache + AAPackageManager integration | Approved |
+| B8 | AssetHandle<T> struct redesign + error propagation unification: (1) AssetHandle<T> changed from class to **struct** (value semantic, 0 GC) with version number + HandleRegistry pattern (ref. Addressables AsyncOperationHandle). (2) AssetLoadError.Code expansion (BundleNotFound, BundleLoadFailed, DependencyFailed, AssetExtractionFailed). (3) ABBundleLoader returns `(AssetBundle, AssetLoadError)` tuple (internal API). (4) ABPackageBackend unified to return AssetHandle<T> for both sync/async (external API, no throw + no return null). (5) Handle-first release with double-release warning via version check. **Requires pre-approval research**: study Addressables AsyncOperationHandle.cs (local PackageCache) + YooAsset OperationHandleBase (GitHub) before implementation | To be planned — pending research |
 
 ### Phase 4: Hotfix Core Pipeline
 
 | File | Content | Status |
 |------|---------|--------|
 | plan-B4.md | B4: Catalog/Locator replacement | Concept stage |
-| B9 | ABManifest format + incremental download adaptation | To be planned |
+| B9 | ABManifest format + incremental download adaptation + download retry strategy (retry at HotfixManager/download layer, not at BundleLoader layer) | To be planned |
 
 ### Phase 5: Build-Time - Asset Collection & Indexing
 
 | ID | Content | Reference | Status |
 |----|---------|-----------|--------|
-| E1 | Collector framework (Collector: Main/Static/Depend + Classifier) | YooAsset | To be planned |
+| E1 | Collector framework (Collector: Main/Static/Depend + Classifier) + **IsImplicitDependency** field on ManifestAssetEntry (distinguish entry assets from implicit dependencies pulled in by reference) | YooAsset | To be planned |
 | E2 | Packing rules (Collect/GroupBy/Pack three-rule separation) | YooAsset | To be planned |
 | E3 | Sub-directory collector + ignore rules (gitignore style) | YooAsset + initial ideas | To be planned |
 
@@ -174,7 +176,7 @@ Phase 4 and Phase 6 must be coordinated (ABManifest runtime consumption + build-
 
 | ID | Content | Status |
 |----|---------|--------|
-| H1 | AsyncOperation priority scheduler | TBD |
+| H1 | AsyncOperation priority scheduler + CancellationToken support (load cancellation for scene switch/timeout/lifecycle) + IProgress<float> progress callbacks. Note: Unity AssetBundle.LoadFromFileAsync doesn't support native cancellation — "cancel" means "stop caring about result", bundle still loads then discards. CancellationToken + refcount rollback interaction is the main complexity source | TBD |
 | H2 | LRU/LFU cache strategy | Deferred |
 
 ### Phase 10: Assembly Splitting
@@ -210,3 +212,8 @@ Phase 4 and Phase 6 must be coordinated (ABManifest runtime consumption + build-
 | 2026-03-29 | New Plan-B5: stabilize runtime entry model, Resolve/Load contract, Handle, validation & migration strategy before B4 |
 | 2026-03-30 | **Roadmap expansion**: Upgraded from three-system refactoring to full custom resource management system. Added Phase 3-10 covering runtime impl, build-time overhaul (ref. YooAsset), RawFile, editor tools, advanced runtime, assembly splitting. Plan-D moved to last. LRU/LFU deferred, AsyncOp scheduler TBD |
 | 2026-04-01 | YooAsset knowledge base (5 module files) written to context/dependencies/. B6 design review completed (7 review points). B6 coded: ABAssetIndex 237 lines + ManifestLoader 84 lines + AAPackageManager integration |
+| 2026-04-07 | B7 plan drafted: split into B7-1 (ABBundleLoader: bundle I/O + deps + cache) + B7-2 (ABPackageBackend: IPackageBackend impl + asset cache + integration). Old-vs-new architecture comparison completed. 8 design decisions documented. Awaiting approval |
+| 2026-04-07 | ManifestBundleEntry field extension decisions: BundleType (reserved serialized field, default 0, assigned by Phase 6 build pipeline) + ReferencedByBundleIndices (runtime-only, built in Initialize() step 7). Tags semantics clarified as bundle-level download strategy tags. IsImplicitDependency deferred to Phase 5 E1 Collector framework. E1 description updated to include IsImplicitDependency |
+| 2026-04-07 | FormatVersion field removed from ABManifest — no consumer in single-project context (Manifest format tied to APP version). Constants.MANIFEST_FORMAT_VERSION also removed |
+| 2026-04-07 | Error handling & load state decisions: (1) B8 scope expanded to include error propagation unification (AssetLoadError.Code expansion + ABBundleLoader structured errors + ABPackageBackend returns AssetHandle<T> for sync/async). (2) CancellationToken/cancellation deferred to H1 (AsyncOp scheduler, Phase 9) — Unity ABLoadFromFileAsync not natively cancellable + refcount rollback complexity. (3) Retry strategy placed in B9 at HotfixManager/download layer. (4) Load progress callbacks in H1 |
+| 2026-04-07 | B8 AssetHandle struct redesign confirmed: AssetHandle<T> from class to struct (value semantic, 0 GC, ref. Addressables pattern). struct Handle (version + operationId) + HandleRegistry. No Pool for struct itself. Internal API convention: ValueTuple. External API convention: AssetHandle<T> struct. Research prerequisite: Addressables AsyncOperationHandle.cs (local) + YooAsset OperationHandleBase (GitHub) |

@@ -103,3 +103,51 @@
 [done] 2026-04-01 B6 Task 3 complete — AAPackageManager.Initialize refactored (const USE_AB_INDEX switch, AB/Legacy dual path, shared _labelToKeys build, 327→377 lines)
 [next] 2026-04-01 Awaiting developer Unity Editor compilation verification + B6 sign-off
 [done] 2026-04-01 plan-B6 SIGNED OFF - ABAssetIndex full impl + ManifestLoader + AAPackageManager dual-path integration, compilation verified
+
+[start] 2026-04-07 B7 design discussion — full Addressables-vs-AB architecture comparison, 8 design decision points
+[decision] 2026-04-07 B7 split into B7-1 (ABBundleLoader: bundle I/O + dependency resolution + bundle cache) + B7-2 (ABPackageBackend: IPackageBackend impl + asset cache + integration)
+[decision] 2026-04-07 B7-D1: Asset→Bundle resolution via ABManifest (BundleIndex field), ABPackageBackend holds ABManifest reference
+[decision] 2026-04-07 B7-D2: Bundle path strategy matches ManifestLoader (CurrentGUIDRoot primary, StreamingAssets fallback)
+[decision] 2026-04-07 B7-D3: bundle.LoadAsset uses ManifestAssetEntry.SourcePath as internal asset name (first round)
+[decision] 2026-04-07 B7-D4: Dual-layer refcount (Bundle-level in ABBundleLoader, Asset-level in ABPackageBackend)
+[decision] 2026-04-07 B7-D5: AssetBundle.Unload(true) when bundle refcount reaches 0
+[decision] 2026-04-07 B7-D6: USE_AB_INDEX const controls both index and backend switching (one switch, two dimensions)
+[decision] 2026-04-07 B7-D7: ABPackageBackend dependencies = ABManifest + ABBundleLoader + PathManager
+[decision] 2026-04-07 B8 (AssetHandle ref-count pool) confirmed as independent module, not part of B7
+[decision] 2026-04-07 CatalogUpdater replacement excluded from B7, deferred to B4
+[done] 2026-04-07 plan-B7.md (overview) + plan-B7-1.md (ABBundleLoader) + plan-B7-2.md (ABPackageBackend) drafted
+[next] 2026-04-07 Awaiting developer approval of B7 plan, then execute B7-1 → B7-2
+[decision] 2026-04-07 B5-3 (editor validation/diagnostics) CANCELLED — belongs to Phase 6 build pipeline, premature as standalone precheck
+[decision] 2026-04-07 B5-4 (migration path) deferred indefinitely — migration plan evolves naturally with implementation, no dedicated document needed
+[decision] 2026-04-07 Execution order confirmed: B7-1 → B7-2 → Phase 4 (B4+B9), then Phase 5-6 (build pipeline)
+[done] 2026-04-07 plan-B7.md + plan-B7-1.md + plan-B7-2.md all APPROVED — 8 design decisions confirmed
+[start] 2026-04-07 B7-1 coding execution begins — ABBundleLoader full implementation
+[done] 2026-04-07 B7-1 complete — ABBundleLoader.cs rewritten from 2-method stub to ~300-line full impl (BundleCacheEntry, dual sync/async paths, recursive dependency loading with HashSet cycle prevention, refcount management, ResolveBundlePath with primary/fallback, UnloadAllBundles lifecycle, AssetBundleCreateRequest→Task wrapper)
+[start] 2026-04-07 B7-2 coding execution begins — ABPackageBackend full implementation
+[done] 2026-04-07 B7-2 complete — ABPackageBackend.cs rewritten from stub to ~350-line full IPackageBackend impl (AssetCacheEntry, dual sync/async paths, address+entryId resolution via ABManifest, B5-2 overloads with entryId, UnloadByEntryId via reverse mapping, asset-level refcount linked to bundle-level refcount via ABBundleLoader)
+[done] 2026-04-07 B7-2 Task 3 — AAPackageManager.InitializeWithABIndex() expanded: creates ABBundleLoader + ABPackageBackend + sets _backend, USE_AB_INDEX const comments updated to reflect B7 dual-dimension switch
+[next] 2026-04-07 Awaiting developer Unity Editor compilation verification + B7 sign-off
+[done] 2026-04-07 Code comment cleanup — removed all plan references (B5-2/B6/B7/Phase N) from 9 .cs files, code comments now describe functionality only
+
+[decision] 2026-04-07 ManifestBundleEntry field extension — 5 candidate fields evaluated against current data model and downstream Phase consumers:
+[decision] 2026-04-07 BundleType: reserved int field added to ManifestBundleEntry (serialized, default 0=Unknown). Auto-inferred by Phase 6 E5/E6 build pipeline. Enum values: Unknown/Script/Scene/Prefab/Texture/Shader/Audio/Config/Mixed (>80% single type = that type, else Mixed)
+[decision] 2026-04-07 ReferencedByBundleIndices: runtime-only field added to ManifestBundleEntry (NonSerialized). Built in Initialize() step 7 by inverting DependBundleIndices. O(N) cost. Consumers: unload safety, impact analysis, G2 dependency graph
+[decision] 2026-04-07 Tags semantics clarified: bundle-level download strategy tags (e.g. "必装","DLC-1"), NOT aggregation of Asset Labels. Tag assignment rules deferred to B9 (incremental download) / E6 (build export)
+[decision] 2026-04-07 MainLoadableAsset rejected as Bundle-level field — should be ManifestAssetEntry.IsImplicitDependency bool instead (entry asset = !IsImplicitDependency). Deferred to Phase 5 E1 (Collector framework): no runtime consumer in Phase 3-4, data source requires build-time dependency analysis
+[decision] 2026-04-07 DependencyType (hard/soft/optional) deferred to Phase 6 E4 — Unity BuildPipeline outputs flat dependencies, need custom dependency analysis to auto-infer; manual annotation would rot
+[done] 2026-04-07 plan-B6-manifest.md updated: BundleType field + ReferencedByBundleIndices runtime field + Initialize step 7 + JSON example updated + Tags semantics clarified + 3 new approval checklist items
+[done] 2026-04-07 plan.md updated: E1 description expanded to include IsImplicitDependency + Change Log entry for field extension decisions
+[next] 2026-04-07 BundleType + ReferencedByBundleIndices code implementation (small change to ManifestBundleEntry.cs + ABManifest.Initialize())
+[done] 2026-04-07 ManifestBundleEntry field extension coded — EBundleType enum (9 values) + BundleType int field + ReferencedByBundleIndices runtime field + Initialize() step 7 reverse-dependency construction. FormatVersion hardcode fixed (→ Constants.MANIFEST_FORMAT_VERSION = "1.1"). Files changed: ManifestBundleEntry.cs, ABManifest.cs, Constants.cs
+[next] 2026-04-07 Awaiting Unity Editor compilation verification
+[decision] 2026-04-07 FormatVersion field REMOVED — no consumer in single-project context (Manifest format tied to APP version, not independently versioned). Constants.MANIFEST_FORMAT_VERSION also removed. Spec doc, JSON example, and VersionState comparison table updated accordingly
+[decision] 2026-04-07 Error handling architecture review — identified 3 gaps: (G1) ABBundleLoader returns null+log not structured errors, (G2) Sync/Async error propagation inconsistent (throw vs null), (G3) ABPackageBackend doesn't use AssetHandle as return type
+[decision] 2026-04-07 Error handling unification merged into B8 scope: AssetLoadError.Code expansion (BundleNotFound/BundleLoadFailed/DependencyFailed/AssetExtractionFailed) + ABBundleLoader structured error returns + ABPackageBackend unified to return AssetHandle<T> for both sync/async
+[decision] 2026-04-07 CancellationToken / load cancellation deferred to Phase 9 H1 (AsyncOp priority scheduler). Reasons: (1) Unity AssetBundle.LoadFromFileAsync not natively cancellable — cancel only means "stop caring", (2) CancellationToken + refcount rollback = high bug risk, (3) no urgent consumer in Phase 3-4
+[decision] 2026-04-07 Retry strategy placed in B9 at HotfixManager/download layer, not at BundleLoader layer. Load progress (IProgress<float>) in H1
+[done] 2026-04-07 plan.md updated: B8 description expanded, H1 expanded with cancellation+progress, B9 expanded with retry, Change Log updated with 3 new entries
+[decision] 2026-04-07 B8 design discussion — AssetHandle<T> confirmed to be redesigned as struct (value semantic, 0 GC). Pattern: struct Handle (version + operationId) + HandleRegistry (centralized state management). Reference: Addressables AsyncOperationHandle<T> struct + version + InternalOp pattern
+[decision] 2026-04-07 B8 AssetHandle Pool: not doing Pool for Handle itself (struct is stack-allocated). Future V2 (Phase 9): if needed, Pool the internal state (HandleState), not the struct
+[decision] 2026-04-07 B8 internal/external API design convention: External API returns AssetHandle<T> (struct); Internal API uses ValueTuple (T result, AssetLoadError error). ResolveResult unchanged. Framework positioning = universal framework, API design uniformity enforced
+[decision] 2026-04-07 B8 research required before implementation: (1) Addressables AsyncOperationHandle.cs (local PackageCache), (2) YooAsset OperationHandleBase (GitHub), (3) .NET ObjectPool<T> for future Pool consideration
+[done] 2026-04-07 plan.md B8 description updated with struct redesign + research prerequisite

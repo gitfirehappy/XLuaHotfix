@@ -4,7 +4,7 @@ using System.Collections.Generic;
 /// <summary>
 /// AB 资源索引 — 基于 ABManifest 的完整 IAssetIndex 实现。
 ///
-/// 设计要点（B6 审视确认 2026-04-01）：
+/// 设计要点：
 /// - 持有 ABManifest 引用，但不访问其 private 索引字典
 /// - Initialize 时遍历 ABManifest.AssetEntries，调用 ToRuntimeEntry() 预转换为缓存数组
 /// - 自建 4 个索引字典，所有查询方法返回缓存的 RuntimeAssetEntry 引用（零分配热路径）
@@ -178,7 +178,7 @@ public class ABAssetIndex : IAssetIndex
 
     #endregion
 
-    #region IAssetIndex — B5-1 新增：条目级查询
+    #region IAssetIndex — 条目级查询
 
     /// <summary>
     /// 通过 EntryId 获取条目（精确匹配）。返回 null 表示未找到。

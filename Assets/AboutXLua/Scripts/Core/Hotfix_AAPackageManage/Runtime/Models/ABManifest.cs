@@ -6,7 +6,7 @@ using UnityEngine;
 /// AB 资源清单 — 完整描述一次构建产出的所有资源与 Bundle 的映射关系。
 /// 
 /// 设计参考 YooAsset PackageManifest，简化为 Bundle 级依赖。
-/// Phase 3 使用 JsonUtility 序列化；后续 Phase 6 可升级为 Protobuf 等二进制格式。
+/// 当前使用 JsonUtility 序列化；后续可升级为 Protobuf 等二进制格式。
 /// 
 /// 使用流程：
 /// 1. DeserializeFromJson() 反序列化得到实例
@@ -18,13 +18,10 @@ public class ABManifest
 {
     #region 序列化字段
 
-    /// <summary>清单格式版本号（如 "1.0"），用于前向兼容检查</summary>
-    public string FormatVersion = "1.0";
-
     /// <summary>包裹标识（如 "MainPackage"）</summary>
     public string PackageName;
 
-    /// <summary>包裹版本号（复用现有 VersionNumber 类）</summary>
+    /// <summary>包裹版本号</summary>
     public VersionNumber PackageVersion;
 
     /// <summary>构建时间戳（ISO 8601 格式，调试用）</summary>
@@ -143,13 +140,30 @@ public class ABManifest
 
         // 6. 填充 IncludeAssets 反向映射
         for (int i = 0; i < bundleCount; i++)
+        {
             BundleEntries[i].IncludeAssets = new List<ManifestAssetEntry>();
+            BundleEntries[i].ReferencedByBundleIndices = new List<int>();
+        }
 
         for (int i = 0; i < assetCount; i++)
         {
             int bundleIdx = AssetEntries[i].BundleIndex;
             if (bundleIdx >= 0 && bundleIdx < bundleCount)
                 BundleEntries[bundleIdx].IncludeAssets.Add(AssetEntries[i]);
+        }
+
+        // 7. 构建反向依赖索引：遍历每个 Bundle 的 DependBundleIndices，
+        //    将当前 Bundle 索引添加到被依赖 Bundle 的 ReferencedByBundleIndices 中
+        for (int i = 0; i < bundleCount; i++)
+        {
+            var deps = BundleEntries[i].DependBundleIndices;
+            if (deps == null) continue;
+            for (int j = 0; j < deps.Length; j++)
+            {
+                int depIdx = deps[j];
+                if (depIdx >= 0 && depIdx < bundleCount)
+                    BundleEntries[depIdx].ReferencedByBundleIndices.Add(i);
+            }
         }
 
         _initialized = true;

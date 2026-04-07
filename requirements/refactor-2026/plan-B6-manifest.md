@@ -1,6 +1,6 @@
 # ABManifest Format Specification
 
-> **Status**: APPROVED - All design decisions confirmed 2026-03-30
+> **Status**: APPROVED - Initial design 2026-03-30, field extension (BundleType + ReferencedBy + IsImplicitDependency deferred) approved 2026-04-07
 > **Phase**: 3 (Runtime Implementation Layer)
 > **Created**: 2026-03-30
 > **Dependencies**: B5-1 (RuntimeAssetEntry), B5-2 (Resolve/Load API)
@@ -43,7 +43,6 @@ The root object representing a complete resource manifest for one build.
 
 | Field | Type | Description |
 |-------|------|-------------|
-| FormatVersion | string | Manifest format version (e.g. "1.0"). Used for forward compatibility |
 | PackageName | string | Package identifier (e.g. "MainPackage") |
 | PackageVersion | VersionNumber | Semantic version from existing VersionNumber class |
 | BuildTimestamp | string | ISO 8601 build time for debugging |
@@ -84,14 +83,16 @@ Maps directly to RuntimeAssetEntry after deserialization, with added Bundle bind
 | FileCRC | uint | Yes | CRC32 checksum for quick verification |
 | FileSize | long | Yes | File size in bytes, used for download progress |
 | Encrypted | bool | Yes | Whether bundle is encrypted |
-| Tags | string[] | Yes | Classification tags (for selective download by tag) |
+| Tags | string[] | Yes | Classification tags (for selective download by tag). Semantics: **bundle-level download strategy tags** (e.g. "必装", "DLC-1"), NOT an aggregation of Asset Labels. Tag assignment rules to be defined in B9/E6 |
 | DependBundleIndices | int[] | Yes | Indices into ABManifest.BundleEntries[] for direct dependencies |
+| BundleType | int | Yes | Bundle content type enum (default 0 = Unknown). **Reserved field — assigned by build pipeline in Phase 6 E5/E6.** Values: 0=Unknown, 1=Script, 2=Scene, 3=Prefab, 4=Texture, 5=Shader, 6=Audio, 7=Config, 8=Mixed. Auto-inferred at build time: if >80% assets share a single type, use that type; otherwise Mixed |
 
 **Runtime-only fields** (built on Initialize()):
 
 | Field | Type | Purpose |
 |-------|------|---------|
 | IncludeAssets | List<ManifestAssetEntry> | Assets contained in this bundle (reverse lookup) |
+| ReferencedByBundleIndices | List<int> | Reverse dependency: indices of BundleEntries that depend on this bundle. Built by inverting DependBundleIndices during Initialize(). Used for: unload safety analysis, impact analysis (which bundles are affected when this bundle changes), dependency graph visualization (Phase 8 G2) |
 
 ---
 
@@ -106,6 +107,8 @@ After deserialization, `ABManifest.Initialize()` builds runtime lookup structure
 4. Build _labelIndex:      for each AssetEntry, for each Label, map Label -> list of indices
 5. Build _bundleNameIndex: for each BundleEntry, map BundleName -> index
 6. Build IncludeAssets:    for each AssetEntry, add to BundleEntries[BundleIndex].IncludeAssets
+7. Build ReferencedByBundleIndices: for each BundleEntry, for each depIndex in DependBundleIndices,
+   add current bundle's index to BundleEntries[depIndex].ReferencedByBundleIndices
 ```
 
 All lookups use for-loops (no LINQ) to avoid runtime GC pressure.
@@ -175,7 +178,6 @@ Example JSON structure:
 
 ```json
 {
-  "FormatVersion": "1.0",
   "PackageName": "MainPackage",
   "PackageVersion": { "Major": 1, "Minor": 0, "Patch": 3 },
   "BuildTimestamp": "2026-03-30T14:30:00Z",
@@ -199,7 +201,8 @@ Example JSON structure:
       "FileSize": 1048576,
       "Encrypted": false,
       "Tags": ["Character"],
-      "DependBundleIndices": [1, 2]
+      "DependBundleIndices": [1, 2],
+      "BundleType": 0
     }
   ]
 }
@@ -233,6 +236,7 @@ ManifestAssetEntry -> RuntimeAssetEntry:
 | - | Encrypted (new) |
 | - | Tags (new) |
 | - | DependBundleIndices (new) |
+| - | BundleType (new, reserved — assigned by Phase 6 build pipeline) |
 
 ### 7.3 ABManifest vs VersionState (existing)
 
@@ -245,7 +249,6 @@ ManifestAssetEntry -> RuntimeAssetEntry:
 | totalSize | (computed from sum of BundleEntry.FileSize) |
 | bundles[] | BundleEntries[] |
 | - | AssetEntries[] (new: full asset index) |
-| - | FormatVersion (new) |
 | - | BuildTimestamp (new) |
 
 ---
@@ -284,6 +287,9 @@ ManifestAssetEntry -> RuntimeAssetEntry:
 
 - [x] ManifestAssetEntry fields: **current fields sufficient** (RuntimeAssetEntry + BundleIndex)
 - [x] ManifestBundleEntry.FileHash: **MD5 first** (consistent with existing HashGenerator); easy to swap to SHA256 later via interface
-- [x] ManifestBundleEntry.Tags: **keep field but leave empty** for now; reserved for future selective download by tag
+- [x] ManifestBundleEntry.Tags: **keep field but leave empty** for now; reserved for future selective download by tag. **Clarified 2026-04-07**: Tags are **bundle-level download strategy tags**, NOT aggregation of Asset Labels. Assignment rules deferred to B9/E6
 - [x] File naming: **include version** — `ABManifest_1.0.3.json` for CDN cache compatibility
 - [x] SourcePath/Group: **keep + configurable strip** — default include, optional `StripEditorFields` build flag
+- [x] ManifestBundleEntry.BundleType: **reserved int field** (default 0 = Unknown). Auto-inferred by build pipeline in Phase 6 E5/E6. Enum: Unknown/Script/Scene/Prefab/Texture/Shader/Audio/Config/Mixed. Approved 2026-04-07
+- [x] ManifestBundleEntry.ReferencedByBundleIndices: **runtime-only field** (NonSerialized), built in Initialize() step 7 by inverting DependBundleIndices. O(N) cost, no serialization overhead. Approved 2026-04-07
+- [x] ManifestAssetEntry.IsImplicitDependency: **deferred to Phase 5 E1** (Collector framework). No runtime consumer in Phase 3-4; data source requires build-time dependency analysis. Recorded as E1 TODO. Approved 2026-04-07

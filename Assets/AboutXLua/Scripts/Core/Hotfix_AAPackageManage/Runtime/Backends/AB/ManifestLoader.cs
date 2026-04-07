@@ -5,7 +5,7 @@ using UnityEngine;
 /// <summary>
 /// 最小化清单加载器 — 负责从磁盘读取 ABManifest.json 并反序列化。
 ///
-/// 路径策略（B6 审视确认）：
+/// 路径策略：
 /// 1. Primary: PathManager.CurrentGUIDRoot/ABManifest.json（热更目录）
 /// 2. Fallback: Application.streamingAssetsPath/ABManifest.json（包内初始资源）
 ///
@@ -15,7 +15,7 @@ using UnityEngine;
 public static class ManifestLoader
 {
     /// <summary>清单文件固定名称</summary>
-    private const string ManifestFileName = "ABManifest.json";
+    private const string ManifestFileName = Constants.MANIFEST_FILE_NAME;
 
     /// <summary>
     /// 异步加载 ABManifest。

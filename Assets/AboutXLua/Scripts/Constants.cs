@@ -4,6 +4,7 @@ using UnityEngine;
 
 /// <summary>
 /// 所有 string 常量
+/// TODO: 当前字段较为分散，后续需要重构整理，或采取导表等更成熟的方案管理常量
 /// </summary>
 public static class Constants
 {
@@ -42,4 +43,9 @@ public static class Constants
     
     /// <summary> BuildIndex Json 文件的编辑器存储路径（仅用于查看） </summary>
     public const string BUILD_INDEX_JSON_PROJECT_PATH = "Assets/Build/LocalStaticData/BuildIndex.json";
+    
+    
+    // ------------------重构计划涉及字段-----------------------//
+
+    public const string MANIFEST_FILE_NAME = "ABManifest.json";
 }

@@ -5,10 +5,10 @@ using System.Collections.Generic;
 /// 资源索引接口。
 /// 
 /// V1 保留原有字符串查询方法（向后兼容 AddressableLabelsConfig）；
-/// B5-1 新增条目级查询方法，供 B5-2 Resolve/Load 使用。
-/// 
+/// 新增条目级查询方法，供 Resolve/Load 使用。
+///
 /// 旧实现（AddressableLabelsConfig）通过默认方法抛 NotSupportedException，
-/// 新实现（ABAssetIndex）将在 Phase 3 (B6) 中基于 RuntimeAssetEntry 完整实现。
+/// 新实现（ABAssetIndex）基于 RuntimeAssetEntry 完整实现。
 /// </summary>
 public interface IAssetIndex
 {
@@ -21,7 +21,7 @@ public interface IAssetIndex
 
     #endregion
 
-    #region B5-1 新增：条目级查询
+    #region 条目级查询
 
     /// <summary>
     /// 通过 EntryId 获取条目（精确匹配）。
