@@ -13,7 +13,7 @@
 4. After sign-off, migrate verified lessons into `context/`.
 
 ## Resource-Management Rules
-- Prefer `AAPackageManager` over direct Addressables usage in new runtime code.
+- Prefer `AssetPackageManager` over direct Addressables usage in new runtime code.
 - Current runtime abstractions include `IAssetIndex` and `IPackageBackend`.
 - Hotfix core flow (`HotfixManager`, `NetworkDownloader`, `CatalogUpdater`) remains high-risk and must be explicitly approved before modification.
 - LINQ is allowed in editor/build code and in low-frequency runtime flows such as startup, hotfix checks, catalog switching, and maintenance operations.

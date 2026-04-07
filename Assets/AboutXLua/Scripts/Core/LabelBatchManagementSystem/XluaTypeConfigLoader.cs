@@ -42,7 +42,7 @@ public static class XluaTypeConfigLoader
         CSharpCallLuaMembers = new List<MemberInfo>();
 
         // 2. 使用Addressables加载所有 TypeListSO
-        IList<TypeMemberListSO> allConfigs = await AAPackageManager.Instance.LoadAssetByLabelAsync<TypeMemberListSO>(configLabel);
+        IList<TypeMemberListSO> allConfigs = await AssetPackageManager.Instance.LoadAssetByLabelAsync<TypeMemberListSO>(configLabel);
 
         if (allConfigs == null || allConfigs.Count == 0)
         {

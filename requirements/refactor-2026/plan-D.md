@@ -128,10 +128,10 @@ Glue.UIFacade.ShowPanel('SettingsPanel')
 
 ### D1: Hotfix.Build (Hotfix Build Module)
 
-**Path**: `Assets/AboutXLua/Scripts/Core/Hotfix_AAPackageManage/`
+**Path**: `Assets/AboutXLua/Scripts/Core/Hotfix_AssetPackageManage/`
 
 **Included files** (~25):
-- AAPackageManager.cs
+- AssetPackageManager.cs
 - ABAssetIndex.cs
 - ABBundleLoader.cs
 - ABPackageBackend.cs
@@ -266,7 +266,7 @@ Module splitting synchronized with glue layer
 
 ### D1: Hotfix.Build Assembly Creation
 - [ ] Create `Hotfix.Build.asmdef`
-- [ ] Move all .cs under Hotfix_AAPackageManage/ into new assembly
+- [ ] Move all .cs under Hotfix_AssetPackageManage/ into new assembly
 - [ ] Place Editor scripts in `Hotfix.Build.Editor/` subdirectory
 
 ### D2: Framework.UI Assembly Creation

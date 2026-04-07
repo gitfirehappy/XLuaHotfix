@@ -19,8 +19,8 @@ using UnityEngine;
 /// Unload → AssetCache[key].RefCount-- → 归零时移除 → BundleLoader.UnloadBundle(bundleName).RefCount--
 ///
 /// 使用方式：
-/// 1. AAPackageManager.Initialize() 创建 ABBundleLoader + ABPackageBackend
-/// 2. AAPackageManager.SetBackend(abBackend) 替换 AddressablesBackend
+/// 1. AssetPackageManager.Initialize() 创建 ABBundleLoader + ABPackageBackend
+/// 2. AssetPackageManager.SetBackend(abBackend) 替换 AddressablesBackend
 /// 3. 所有 LoadAssetAsync/Sync/Unload 调用自动路由到此 Backend
 /// </summary>
 public class ABPackageBackend : IPackageBackend
@@ -317,11 +317,11 @@ public class ABPackageBackend : IPackageBackend
 
     #endregion
 
-    #region 内部元组 API（供 AAPackageManager Handle 构建路径使用）
+    #region 内部元组 API（供 AssetPackageManager Handle 构建路径使用）
 
     /// <summary>
     /// 异步加载资产，返回 (asset, bundleName, error) 元组。
-    /// AAPackageManager 通过此方法获取 bundleName 以分配 HandleRegistry 槽位。
+    /// AssetPackageManager 通过此方法获取 bundleName 以分配 HandleRegistry 槽位。
     /// </summary>
     internal async Task<(T asset, string bundleName, AssetLoadError error)> LoadAssetTupleAsync<T>(
         string key, string entryId) where T : UnityEngine.Object
@@ -357,7 +357,7 @@ public class ABPackageBackend : IPackageBackend
 
     /// <summary>
     /// 同步加载资产，返回 (asset, bundleName, error) 元组。
-    /// AAPackageManager 通过此方法获取 bundleName 以分配 HandleRegistry 槽位。
+    /// AssetPackageManager 通过此方法获取 bundleName 以分配 HandleRegistry 槽位。
     /// </summary>
     internal (T asset, string bundleName, AssetLoadError error) LoadAssetTupleSync<T>(
         string key, string entryId) where T : UnityEngine.Object

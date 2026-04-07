@@ -65,7 +65,7 @@ public class GameUIManager : SingletonMono<GameUIManager>
             return;
         }
 
-        _uiResourceConfig = await AAPackageManager.Instance.LoadAssetAsync<UIResourceConfigSO>(uiConfigKey);
+        _uiResourceConfig = await AssetPackageManager.Instance.LoadAssetAsync<UIResourceConfigSO>(uiConfigKey);
 
         if (_uiResourceConfig != null)
         {

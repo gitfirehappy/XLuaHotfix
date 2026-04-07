@@ -33,7 +33,7 @@
 
 ### 1.4 运行时资源管理
 
-- **AAPackageManager**:
+- **AssetPackageManager**:
   - 资源索引：通过 `IAssetIndex` 接口支持双数据源（Legacy: AddressableLabelsConfig / AB: ABAssetIndex + ABManifest）
   - 资源池：引用计数管理，支持按标签/类型加载/卸载
   - B5-2 新增 Resolve/Load API：`LoadByAddress<T>` / `LoadByTypeKey<T>` 返回 `AssetHandle<T>`

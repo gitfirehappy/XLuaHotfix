@@ -98,7 +98,7 @@ Both paths implemented:
 
 ### Class: ABBundleLoader
 
-Location: `Assets/AboutXLua/Scripts/Core/Hotfix_AAPackageManage/Runtime/Backends/AB/ABBundleLoader.cs`
+Location: `Assets/AboutXLua/Scripts/Core/Hotfix_AssetPackageManage/Runtime/Backends/AB/ABBundleLoader.cs`
 
 ```
 ABBundleLoader (non-static, instance class)

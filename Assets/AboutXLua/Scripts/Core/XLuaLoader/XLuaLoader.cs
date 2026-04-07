@@ -134,7 +134,7 @@ public static class XLuaLoader
         if (string.IsNullOrEmpty(label)) return;
 
         // 获取该 Label 对应的所有 Container Key
-        List<string> aaKeys = AAPackageManager.Instance.GetKeysByLabel(label);
+        List<string> aaKeys = AssetPackageManager.Instance.GetKeysByLabel(label);
 
         if (aaKeys.Count == 0) return;
         
@@ -196,7 +196,7 @@ public static class XLuaLoader
     {
         try
         {
-            var indexSO = await AAPackageManager.Instance.LoadAssetAsync<LuaScriptsIndex>(Constants.LUA_SCRIPTS_INDEX);
+            var indexSO = await AssetPackageManager.Instance.LoadAssetAsync<LuaScriptsIndex>(Constants.LUA_SCRIPTS_INDEX);
 
             if (indexSO != null)
             {
@@ -224,7 +224,7 @@ public static class XLuaLoader
         byte[] result = null;
 
         // 同步加载容器
-        var container = AAPackageManager.Instance.LoadAssetSync<LuaScriptContainer>(aaKey);
+        var container = AssetPackageManager.Instance.LoadAssetSync<LuaScriptContainer>(aaKey);
 
         if (container != null)
         {
@@ -237,7 +237,7 @@ public static class XLuaLoader
             }
 
             // 立即卸载容器，只保留bytes
-            AAPackageManager.Instance.UnloadAsset(aaKey);
+            AssetPackageManager.Instance.UnloadAsset(aaKey);
         }
 
         return result;

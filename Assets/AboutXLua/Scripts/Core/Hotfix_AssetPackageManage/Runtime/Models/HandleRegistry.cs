@@ -18,7 +18,7 @@ using UnityEngine;
 /// - V1 仅在主线程操作（Unity API 限制：AssetBundle 加载必须主线程）。
 /// - 如 Phase 9 H1 引入多线程调度，在 Alloc/Retain/Release 加 Interlocked 原子操作即可。
 ///
-/// 访问级别：internal — 不暴露给框架消费者，仅 AssetHandle&lt;T&gt; 和 AAPackageManager 使用。
+/// 访问级别：internal — 不暴露给框架消费者，仅 AssetHandle&lt;T&gt; 和 AssetPackageManager 使用。
 /// </summary>
 internal static class HandleRegistry
 {

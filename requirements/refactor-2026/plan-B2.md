@@ -9,13 +9,13 @@
 
 ## Design Rationale (Why This Step Is Needed)
 
-AAPackageManager currently calls Addressables.LoadAssetAsync / Release directly,
+AssetPackageManager currently calls Addressables.LoadAssetAsync / Release directly,
 tightly coupling loading logic to Addressables.
 
 **Approach**: Extract an IPackageBackend interface,
 encapsulate Addressables calls inside AddressablesBackend,
 and add ABPackageBackend implementing custom AB loading.
-AAPackageManager calls through the interface only, enabling runtime backend switching.
+AssetPackageManager calls through the interface only, enabling runtime backend switching.
 
 This step does not affect the hotfix pipeline (CatalogUpdater / HotfixManager) â€” only the asset loading portion is replaced.
 
@@ -26,10 +26,10 @@ This step does not affect the hotfix pipeline (CatalogUpdater / HotfixManager) â
 | File | Change Type | Description |
 |------|------------|-------------|
 | New: IPackageBackend.cs | New | Asset loading backend interface |
-| New: AddressablesBackend.cs | New | Extracted existing Addressables implementation from AAPackageManager (including ref-count cache) |
+| New: AddressablesBackend.cs | New | Extracted existing Addressables implementation from AssetPackageManager (including ref-count cache) |
 | New: ABPackageBackend.cs | New | Custom AB loading: dependency tree + ref counting |
 | New: ABBundleLoader.cs | New | AB dependency chain loading core logic |
-| AAPackageManager.cs | Modified | Internal loading changed to IPackageBackend, added SetBackend() |
+| AssetPackageManager.cs | Modified | Internal loading changed to IPackageBackend, added SetBackend() |
 
 ---
 
@@ -38,7 +38,7 @@ This step does not affect the hotfix pipeline (CatalogUpdater / HotfixManager) â
 ```csharp
 /// <summary>
 /// Asset package loading backend interface
-/// Isolates Addressables or custom AB underlying implementation; AAPackageManager loads/unloads assets through this interface
+/// Isolates Addressables or custom AB underlying implementation; AssetPackageManager loads/unloads assets through this interface
 /// </summary>
 public interface IPackageBackend
 {
@@ -77,7 +77,7 @@ public interface IPackageBackend
 
 ---
 
-## AAPackageManager Modification Notes
+## AssetPackageManager Modification Notes
 
 **Core change**: Internal load/unload calls changed to go through IPackageBackend; external API remains completely unchanged.
 
@@ -96,7 +96,7 @@ _backend.UnloadAsset(key);
 ```
 
 **Reference counting**: Existing ResourceEntry + ReferenceCount logic moved into AddressablesBackend internally.
-ABPackageBackend implements its own reference counting. AAPackageManager no longer directly holds _resourceCache.
+ABPackageBackend implements its own reference counting. AssetPackageManager no longer directly holds _resourceCache.
 
 ---
 
@@ -150,7 +150,7 @@ string ResolveBundlePath(string bundleName)
 
 ## Preservation Requirements (Must Pass)
 
-- [ ] All AAPackageManager public method signatures unchanged
+- [ ] All AssetPackageManager public method signatures unchanged
 - [ ] HotfixManager / XLuaLoader / NetworkDownloader require no modifications
 - [ ] Default backend is AddressablesBackend; behavior identical to pre-refactoring without SetBackend
 

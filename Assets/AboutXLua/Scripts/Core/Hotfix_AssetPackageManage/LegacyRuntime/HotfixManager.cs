@@ -411,7 +411,7 @@ public static class HotfixManager
 
     private static async Task FinishHotfix()
     {
-        await AAPackageManager.Instance.Initialize();
+        await AssetPackageManager.Instance.Initialize();
     }
     
     /// <summary>

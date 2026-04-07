@@ -129,8 +129,8 @@ Phase 4 and Phase 6 must be coordinated (ABManifest runtime consumption + build-
 | plan-B6-manifest.md | ABManifest data layer specification | DONE |
 | plan-B7.md | B7: ABPackageBackend overview (custom AB runtime loading backend replacing AddressablesBackend) | DONE |
 | plan-B7-1.md | B7-1: ABBundleLoader — Bundle file I/O + dependency resolution + bundle cache | DONE |
-| plan-B7-2.md | B7-2: ABPackageBackend — IPackageBackend impl + asset cache + AAPackageManager integration | DONE |
-| B8 | AssetHandle<T> struct redesign + HandleRegistry + error propagation unification: (1) AssetHandle<T> changed from class to **struct** (value semantic, 0 GC) with HandleId+Generation + HandleRegistry pattern. (2) AssetLoadError.Code expansion (BundleNotFound, BundleLoadFailed, DependencyFailed, AssetExtractionFailed). (3) ABBundleLoader returns `(AssetBundle, AssetLoadError)` tuple (internal API). (4) ABPackageBackend internal tuple API `LoadAssetTupleAsync/Sync`. (5) AAPackageManager 4 LoadByXxx methods integrated with HandleRegistry.Alloc. IPackageBackend/AddressablesBackend unchanged | DONE |
+| plan-B7-2.md | B7-2: ABPackageBackend — IPackageBackend impl + asset cache + AssetPackageManager integration | DONE |
+| B8 | AssetHandle<T> struct redesign + HandleRegistry + error propagation unification: (1) AssetHandle<T> changed from class to **struct** (value semantic, 0 GC) with HandleId+Generation + HandleRegistry pattern. (2) AssetLoadError.Code expansion (BundleNotFound, BundleLoadFailed, DependencyFailed, AssetExtractionFailed). (3) ABBundleLoader returns `(AssetBundle, AssetLoadError)` tuple (internal API). (4) ABPackageBackend internal tuple API `LoadAssetTupleAsync/Sync`. (5) AssetPackageManager 4 LoadByXxx methods integrated with HandleRegistry.Alloc. IPackageBackend/AddressablesBackend unchanged | DONE |
 
 ### Phase 4: Hotfix Core Pipeline
 
@@ -211,7 +211,7 @@ Phase 4 and Phase 6 must be coordinated (ABManifest runtime consumption + build-
 | 2026-03-17 | Plan-C addendum: adopted Option 2 (SO separation + config mapping), LuaAutoSyncConfig added outputDirectory field |
 | 2026-03-29 | New Plan-B5: stabilize runtime entry model, Resolve/Load contract, Handle, validation & migration strategy before B4 |
 | 2026-03-30 | **Roadmap expansion**: Upgraded from three-system refactoring to full custom resource management system. Added Phase 3-10 covering runtime impl, build-time overhaul (ref. YooAsset), RawFile, editor tools, advanced runtime, assembly splitting. Plan-D moved to last. LRU/LFU deferred, AsyncOp scheduler TBD |
-| 2026-04-01 | YooAsset knowledge base (5 module files) written to context/dependencies/. B6 design review completed (7 review points). B6 coded: ABAssetIndex 237 lines + ManifestLoader 84 lines + AAPackageManager integration |
+| 2026-04-01 | YooAsset knowledge base (5 module files) written to context/dependencies/. B6 design review completed (7 review points). B6 coded: ABAssetIndex 237 lines + ManifestLoader 84 lines + AssetPackageManager integration |
 | 2026-04-07 | B7 plan drafted: split into B7-1 (ABBundleLoader: bundle I/O + deps + cache) + B7-2 (ABPackageBackend: IPackageBackend impl + asset cache + integration). Old-vs-new architecture comparison completed. 8 design decisions documented. Awaiting approval |
 | 2026-04-07 | ManifestBundleEntry field extension decisions: BundleType (reserved serialized field, default 0, assigned by Phase 6 build pipeline) + ReferencedByBundleIndices (runtime-only, built in Initialize() step 7). Tags semantics clarified as bundle-level download strategy tags. IsImplicitDependency deferred to Phase 5 E1 Collector framework. E1 description updated to include IsImplicitDependency |
 | 2026-04-07 | FormatVersion field removed from ABManifest — no consumer in single-project context (Manifest format tied to APP version). Constants.MANIFEST_FORMAT_VERSION also removed |

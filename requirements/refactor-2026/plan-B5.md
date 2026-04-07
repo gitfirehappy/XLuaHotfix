@@ -83,7 +83,7 @@ B4 addresses catalog / locator / hotfix core pipeline replacement — high risk.
 
 B5 first defines how the runtime identifies an asset, resolves queries, loads and releases.
 This way, whether the underlying layer continues with AddressablesBackend or switches to ABPackageBackend in the future,
-the AAPackageManager upper-level contract will not keep oscillating.
+the AssetPackageManager upper-level contract will not keep oscillating.
 
 ---
 
@@ -95,5 +95,5 @@ the AAPackageManager upper-level contract will not keep oscillating.
 - Editor suggested Address: first phase generates candidate list only, one-click write-back as future enhancement
 - EntryId: reuses Unity GUID
 - Build hard-block: standalone precheck first, integrate into main pipeline after build pipeline refactoring
-- First migration batch: AAPackageManager internals
+- First migration batch: AssetPackageManager internals
 - UnloadAsset Obsolete timing: after first batch of call sites migrated

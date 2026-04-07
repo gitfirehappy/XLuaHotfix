@@ -18,7 +18,7 @@ without depending on Unity Addressables at runtime.
 ### Old Architecture (Addressables)
 
 ```
-User → AAPackageManager.LoadAssetAsync<T>(key)
+User → AssetPackageManager.LoadAssetAsync<T>(key)
   → AddressablesBackend._resourceCache check
     → HIT:  refcount++, return cached
     → MISS: Addressables.LoadAssetAsync<T>(key)
@@ -30,7 +30,7 @@ User → AAPackageManager.LoadAssetAsync<T>(key)
 ### New Architecture (B7 target)
 
 ```
-User → AAPackageManager.LoadAssetAsync<T>(key)
+User → AssetPackageManager.LoadAssetAsync<T>(key)
   → ABPackageBackend._assetCache check
     → HIT:  refcount++, return cached
     → MISS: Query ABManifest: entry → BundleEntry → BundleName
@@ -59,7 +59,7 @@ User → AAPackageManager.LoadAssetAsync<T>(key)
 
 - ABBundleLoader: AssetBundle file loading/unloading with dependency resolution and bundle-level caching
 - ABPackageBackend: Full IPackageBackend implementation with asset-level caching, delegating to ABBundleLoader
-- Integration with AAPackageManager via USE_AB_INDEX const switch (index + backend switch together)
+- Integration with AssetPackageManager via USE_AB_INDEX const switch (index + backend switch together)
 - Both sync and async loading paths
 - Dual-layer reference counting (Bundle-level in B7-1, Asset-level in B7-2)
 
@@ -79,7 +79,7 @@ User → AAPackageManager.LoadAssetAsync<T>(key)
 | File | Content | Dependency |
 |------|---------|------------|
 | plan-B7-1.md | B7-1: ABBundleLoader — Bundle file I/O + dependency resolution + bundle cache | B6 (ABManifest) |
-| plan-B7-2.md | B7-2: ABPackageBackend — IPackageBackend impl + asset cache + AAPackageManager integration | B7-1 |
+| plan-B7-2.md | B7-2: ABPackageBackend — IPackageBackend impl + asset cache + AssetPackageManager integration | B7-1 |
 
 ### Execution Order
 
@@ -100,7 +100,7 @@ ABPackageBackend resolves an address/entryId to a bundle via ABManifest:
 2. `ABManifest.GetBundleForAsset(entry)` → `ManifestBundleEntry`
 3. `ManifestBundleEntry.BundleName` → physical bundle filename
 
-ABPackageBackend holds a reference to ABManifest (passed in from AAPackageManager, reusing the B6-loaded instance).
+ABPackageBackend holds a reference to ABManifest (passed in from AssetPackageManager, reusing the B6-loaded instance).
 
 ### D2. Bundle Path Strategy
 
@@ -133,7 +133,7 @@ Reference counting correctness guarantees safety.
 
 ### D6. Integration Switch
 
-Expand existing `USE_AB_INDEX` const in AAPackageManager:
+Expand existing `USE_AB_INDEX` const in AssetPackageManager:
 - When `USE_AB_INDEX == true`: use ABAssetIndex (B6) **AND** ABPackageBackend (B7)
 - When `USE_AB_INDEX == false`: use AddressableLabelsConfig + AddressablesBackend (legacy)
 
@@ -141,7 +141,7 @@ One switch controls both dimensions — there is no valid "AB index + Addressabl
 
 ### D7. ABPackageBackend Dependencies
 
-- `ABManifest` — for Asset→Bundle resolution (passed from AAPackageManager)
+- `ABManifest` — for Asset→Bundle resolution (passed from AssetPackageManager)
 - `ABBundleLoader` — for Bundle file loading/unloading (created internally)
 - `PathManager` — for bundle file path resolution (static access)
 - Does NOT directly depend on ABAssetIndex (uses ABManifest for bundle queries)

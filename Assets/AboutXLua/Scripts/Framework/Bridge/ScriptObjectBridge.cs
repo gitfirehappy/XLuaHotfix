@@ -30,7 +30,7 @@ public class ScriptObjectBridge : MonoBehaviour,IBridge
             return;
         }
 
-        _config = await AAPackageManager.Instance.LoadAssetAsync<ScriptObjectBridgeConfig>(configKey);
+        _config = await AssetPackageManager.Instance.LoadAssetAsync<ScriptObjectBridgeConfig>(configKey);
 
         if (_config == null)
         {
@@ -43,7 +43,7 @@ public class ScriptObjectBridge : MonoBehaviour,IBridge
         
             try
             {
-                var so = await AAPackageManager.Instance.LoadAssetAsync<ScriptableObject>(entry.assetKey);
+                var so = await AssetPackageManager.Instance.LoadAssetAsync<ScriptableObject>(entry.assetKey);
                 if (so != null)
                     _soCache[entry.luaKey] = so;
                 else

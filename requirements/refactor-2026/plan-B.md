@@ -7,7 +7,7 @@
 
 ## Background & Objectives
 
-Replace the runtime Addressable API with a custom AB package management system, keeping the AAPackageManager external API unchanged.
+Replace the runtime Addressable API with a custom AB package management system, keeping the AssetPackageManager external API unchanged.
 
 **Not touched this round**: Build-side Editor code (BuildProjectManager / DifferentialProcessor / HelperBuildDataExporter / SOAddressableTagger / LuaAddressableTagger) still uses AddressableAssetSettings API.
 
@@ -22,7 +22,7 @@ The current use of Addressables in the project needs to be understood in 5 layer
 ```
 [B1] Data Layer — AddressableLabelsConfig provides Label/Type -> Key mapping
      | depends on
-[B2] Loading Layer — Addressables.LoadAssetAsync / Release (wrapped by AAPackageManager)
+[B2] Loading Layer — Addressables.LoadAssetAsync / Release (wrapped by AssetPackageManager)
      | depends on
 [B3] Module Layer — DialogueDataManager direct calls (designed as pluggable independent module, dual-mode preserved)
      | depends on

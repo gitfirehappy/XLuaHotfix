@@ -10,7 +10,7 @@
 
 Implement `ABAssetIndex` as the first real runtime `IAssetIndex` backed by `ABManifest`, so that:
 
-- `AAPackageManager` can build runtime query state from `ABManifest` instead of `AddressableLabelsConfig`
+- `AssetPackageManager` can build runtime query state from `ABManifest` instead of `AddressableLabelsConfig`
 - `AssetResolver` can run against real manifest-derived entries
 - B5-3 / B5-4 can proceed using a real runtime data source instead of a placeholder index
 
@@ -29,7 +29,7 @@ The project has already completed:
 Previously, B5-3 and B5-4 were deferred because there was no real runtime index source for `RuntimeAssetEntry`.
 Now that the manifest data layer exists, B6 becomes the missing bridge:
 
-`ABManifest.json -> ABManifest -> ABAssetIndex -> AssetResolver -> AAPackageManager`
+`ABManifest.json -> ABManifest -> ABAssetIndex -> AssetResolver -> AssetPackageManager`
 
 The first B6 round is intentionally scoped as a relatively independent phase:
 
@@ -42,11 +42,11 @@ The first B6 round is intentionally scoped as a relatively independent phase:
 ## Confirmed Scope Boundaries
 
 1. B6 only replaces the runtime **index source**, not the runtime backend
-2. `AAPackageManager` remains the integration point; B6 does not change external loading API shape
+2. `AssetPackageManager` remains the integration point; B6 does not change external loading API shape
 3. B6 uses the **real hotfix runtime path** for manifest selection
 4. B6 first-round verification is **coexistence validation**, not immediate full cutover
 5. B6 does not introduce B4-style hotfix-core replacement or B7 bundle-loading behavior
-6. B6 does not change `AAPackageManager.Initialize()` into a Result-style contract in this round
+6. B6 does not change `AssetPackageManager.Initialize()` into a Result-style contract in this round
 
 ---
 
@@ -54,8 +54,8 @@ The first B6 round is intentionally scoped as a relatively independent phase:
 
 ### A. Integration Strategy
 
-1. `ABAssetIndex` is used through an **explicit code constant switch** inside `AAPackageManager.Initialize()`
-2. The switch is internal to `AAPackageManager`, not exposed as a debug menu or external provider framework
+1. `ABAssetIndex` is used through an **explicit code constant switch** inside `AssetPackageManager.Initialize()`
+2. The switch is internal to `AssetPackageManager`, not exposed as a debug menu or external provider framework
 3. If AB-index initialization fails, the manager **logs an error and stops initialization**
 4. This first round does **not** auto-fallback to the legacy index after a selected AB path fails
 
@@ -164,7 +164,7 @@ This is required so that both legacy query helpers and B5 resolver-based paths c
 - **Note**: PathManager path integration is provisional; future build modules may change conventions
 - Avoid provider interfaces and broader lifecycle management
 
-### Task 3: Integrate with AAPackageManager Initialize Path
+### Task 3: Integrate with AssetPackageManager Initialize Path
 
 - Add an internal constant switch: `const bool USE_AB_INDEX = false;` (default off)
 - When `USE_AB_INDEX == true`:
@@ -183,7 +183,7 @@ This is required so that both legacy query helpers and B5 resolver-based paths c
 - [ ] Do not change runtime backend selection in this phase; backend remains `AddressablesBackend`
 - [ ] Do not smuggle B4 hotfix-core replacement into B6
 - [ ] Do not introduce unnecessary provider abstractions or lifecycle systems
-- [ ] Do not change `AAPackageManager.Initialize()` return contract in this phase
+- [ ] Do not change `AssetPackageManager.Initialize()` return contract in this phase
 - [ ] Keep coexistence validation explicit via internal switch; no silent global cutover
 
 ---
@@ -191,7 +191,7 @@ This is required so that both legacy query helpers and B5 resolver-based paths c
 ## Acceptance Criteria
 
 - [ ] `ABAssetIndex` fully implements the current `IAssetIndex` contract
-- [ ] `AAPackageManager` can build runtime query state from `ABManifest` when the internal switch is enabled
+- [ ] `AssetPackageManager` can build runtime query state from `ABManifest` when the internal switch is enabled
 - [ ] The phase remains independent from backend replacement and bundle loading handoff
 - [ ] Manifest loading path follows the approved real-runtime strategy without over-expanding into provider architecture
 - [ ] Failure behavior is explicit: critical AB-index initialization failure logs and stops manager initialization
@@ -206,7 +206,7 @@ This is required so that both legacy query helpers and B5 resolver-based paths c
 - Ref-count pool / handle pool
 - Build-side ABManifest generation changes
 - B4 catalog / locator replacement
-- Result-style initialization contract for `AAPackageManager.Initialize()`
+- Result-style initialization contract for `AssetPackageManager.Initialize()`
 - Rich debug diff tooling between old index and AB index
 - ABManifest export / generation tools (deferred to Phase 5-6)
 - New-vs-old query comparison validation tools (deferred)
@@ -228,11 +228,11 @@ B6 verification is **deferred** to when build-time tools exist (Phase 5-6). Rati
 ### Original Approvals (2026-03-30)
 
 - [x] Should B6 replace only the index source/query construction logic, without changing backend behavior?
-  **Decision**: Yes. B6 only replaces `AAPackageManager` index/query construction logic.
+  **Decision**: Yes. B6 only replaces `AssetPackageManager` index/query construction logic.
 - [x] Should B6 use real hotfix runtime paths rather than an offline-only manifest path?
   **Decision**: Yes.
 - [x] Should coexistence validation use an explicit internal switch rather than immediate cutover?
-  **Decision**: Yes. Use an internal code constant switch inside `AAPackageManager`.
+  **Decision**: Yes. Use an internal code constant switch inside `AssetPackageManager`.
 - [x] Should `ABAssetIndex` hold `ABManifest` directly?
   **Decision**: Yes.
 - [x] Should B6 introduce `IManifestProvider` / provider abstraction in this round?
@@ -243,7 +243,7 @@ B6 verification is **deferred** to when build-time tools exist (Phase 5-6). Rati
   **Decision**: Full `IAssetIndex` contract.
 - [x] If AB-index initialization fails, should the manager auto-fallback to the legacy index?
   **Decision**: No. Log error and stop initialization.
-- [x] Should B6 also upgrade `AAPackageManager.Initialize()` to a structured Result-style return contract?
+- [x] Should B6 also upgrade `AssetPackageManager.Initialize()` to a structured Result-style return contract?
   **Decision**: No. Leave that for a later phase.
 - [x] Should B6 add richer debug diff tooling or just necessary error logs?
   **Decision**: Necessary error logs only.

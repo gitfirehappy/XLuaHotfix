@@ -34,7 +34,7 @@ ConfirmRelease    →  快照转正 (Staged → Head)，正式发布后调用
 ResetGroupsToOriginal → 还原热更组资源到原始组（整包发布前必须执行）
 ```
 
-#### 运行时资源管理（AAPackageManager）
+#### 运行时资源管理（AssetPackageManager）
 - 资源索引：加载 AddressableLabelsConfig，构建 Type/Label → Keys 映射
 - 引用计数池：安全管理异步加载 Handle，支持按标签/类型批量加载/卸载
 - **PathManager**: 热更路径统一管理，包体 GUID 隔离

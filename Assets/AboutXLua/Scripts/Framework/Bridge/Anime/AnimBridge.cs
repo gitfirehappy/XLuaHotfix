@@ -23,7 +23,7 @@ public class AnimBridge : MonoBehaviour,IBridge
     {
         if (!string.IsNullOrEmpty(configKey))
         {
-            _animationConfig = await AAPackageManager.Instance.LoadAssetAsync<StateAnimationConfigSO>(configKey);
+            _animationConfig = await AssetPackageManager.Instance.LoadAssetAsync<StateAnimationConfigSO>(configKey);
         }
         else
         {

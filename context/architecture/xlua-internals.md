@@ -497,7 +497,7 @@ require("PlayerController")
     └─ XLuaLoader.CustomLoader(moduleName)
             ├─ 检查 contentCache（字节流缓存）→ 命中直接返回
             ├─ 未命中 → 查 LuaScriptsIndex → 得到 AddressableKey
-            └─ AAPackageManager.Load<TextAsset>(key)
+            └─ AssetPackageManager.Load<TextAsset>(key)
                     → bytes → 写入 contentCache → 返回给 Lua 执行
 ```
 

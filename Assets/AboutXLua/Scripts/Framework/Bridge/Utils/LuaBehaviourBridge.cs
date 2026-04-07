@@ -122,7 +122,7 @@ public class LuaBehaviourBridge : MonoBehaviour
             return;
         }
 
-        _multiScriptConfig = await AAPackageManager.Instance.LoadAssetAsync<LuaBehaviourConfigSO>(configKey);
+        _multiScriptConfig = await AssetPackageManager.Instance.LoadAssetAsync<LuaBehaviourConfigSO>(configKey);
         
         // 1. 检查 SO 配置
         if (_multiScriptConfig == null || _multiScriptConfig.scriptsToLoad.Count == 0)

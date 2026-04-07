@@ -9,10 +9,10 @@
 ## Background (Developer Must-Read)
 
 DialogueDataManager is an independent module of the dialogue system, designed to be 'copy-and-use':
-other projects can copy just the dialogue system without depending on the full AAPackageManager.
+other projects can copy just the dialogue system without depending on the full AssetPackageManager.
 
-Therefore, it is not recommended to force DialogueDataManager to load through AAPackageManager.
-Instead, preserve the ability to call Addressables directly while providing an optional 'integrate with AAPackageManager' mode.
+Therefore, it is not recommended to force DialogueDataManager to load through AssetPackageManager.
+Instead, preserve the ability to call Addressables directly while providing an optional 'integrate with AssetPackageManager' mode.
 
 ---
 
@@ -22,9 +22,9 @@ Through compile switches (#if) or runtime configuration (DialogueLoaderMode), le
 work in two modes:
 
 **Mode A (default, preserves current behavior)**: Directly calls Addressables.LoadAssetAsync
-- Suitable for: standalone dialogue system usage, no AAPackageManager needed
+- Suitable for: standalone dialogue system usage, no AssetPackageManager needed
 
-**Mode B (optional, integrated mode)**: Loads through AAPackageManager
+**Mode B (optional, integrated mode)**: Loads through AssetPackageManager
 - Suitable for: project has full AB management system, wants unified resource entry point
 
 ---
@@ -45,7 +45,7 @@ public static class DialogueDataManager
     /// <summary>
     /// Asset loading mode
     /// Standalone: uses Addressables directly (module independently usable)
-    /// Integrated: through AAPackageManager (project unified entry point)
+    /// Integrated: through AssetPackageManager (project unified entry point)
     /// </summary>
     public enum LoaderMode { Standalone, Integrated }
 
@@ -62,7 +62,7 @@ public static class DialogueDataManager
         }
         else
         {
-            // Integrated logic: AAPackageManager.Instance.LoadAssetSync<TextAsset>
+            // Integrated logic: AssetPackageManager.Instance.LoadAssetSync<TextAsset>
         }
     }
 }
@@ -81,7 +81,7 @@ public static class DialogueDataManager
 ## Acceptance Criteria
 
 - [ ] Standalone mode: behavior identical to pre-refactoring
-- [ ] Integrated mode: loads through AAPackageManager, resources returned correctly
+- [ ] Integrated mode: loads through AssetPackageManager, resources returned correctly
 - [ ] Switching Mode does not affect already-cached dialogue data
 
 ---

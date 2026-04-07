@@ -15,7 +15,7 @@ Clarify the B5 implementation order:
 - When legacy interfaces are compatibility-preserved, when deprecated
 - Which modules serve as first-batch migration targets
 
-Incrementally migrate `AAPackageManager` from 'string key driven' to 'Resolve + AssetHandle driven' without breaking existing runtime behavior.
+Incrementally migrate `AssetPackageManager` from 'string key driven' to 'Resolve + AssetHandle driven' without breaking existing runtime behavior.
 
 ---
 
@@ -99,8 +99,8 @@ Therefore this sub-plan specifically defines migration cadence and deprecation c
   **Decision**: Yes.
 - [x] Does legacy `LoadAssetAsync<T>(key)` first map to `LoadByAddress`?
   **Decision**: Yes.
-- [x] First batch replacement call sites: start from `AAPackageManager` shell, `XLuaLoader`, or other modules?
-  **Decision**: AAPackageManager internals first. It's the unified entry point for all callers; changing internal implementation is transparent to external code, making it the best position to verify the new API.
+- [x] First batch replacement call sites: start from `AssetPackageManager` shell, `XLuaLoader`, or other modules?
+  **Decision**: AssetPackageManager internals first. It's the unified entry point for all callers; changing internal implementation is transparent to external code, making it the best position to verify the new API.
 - [x] Do legacy `LoadAssetByLabel(s)` / `UnloadAssetByLabel(s)` wait for B5-2 batch API finalization before migrating?
   **Decision**: Yes. First batch migration does single-asset paths (ByAddress / ByTypeKey); batch paths wait for ResolveMany + LoadMany + LoadByLabels implementation.
 - [x] At which phase should `UnloadAsset(string key)` be marked `Obsolete`?

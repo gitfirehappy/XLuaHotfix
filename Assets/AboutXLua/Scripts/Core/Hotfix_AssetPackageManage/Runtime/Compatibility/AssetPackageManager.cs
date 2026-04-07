@@ -5,7 +5,7 @@ using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
 
-public class AAPackageManager : Singleton<AAPackageManager>
+public class AssetPackageManager : Singleton<AssetPackageManager>
 {
     #region AB 索引 + 后端开关（默认关闭，coexistence validation）
 
@@ -60,7 +60,7 @@ public class AAPackageManager : Singleton<AAPackageManager>
         var manifest = await ManifestLoader.LoadAsync();
         if (manifest == null)
         {
-            Debug.LogError("[AAPackageManager] ABManifest 加载失败，管理器无法初始化。");
+            Debug.LogError("[AssetPackageManager] ABManifest 加载失败，管理器无法初始化。");
             return;
         }
 
@@ -73,7 +73,7 @@ public class AAPackageManager : Singleton<AAPackageManager>
         _backend = abBackend;
 
         Debug.Log(
-            $"[AAPackageManager] AB 全链路初始化完成。" +
+            $"[AssetPackageManager] AB 全链路初始化完成。" +
             $"Assets: {manifest.AssetCount}, Bundles: {manifest.BundleCount}, " +
             $"Index: ABAssetIndex, Backend: ABPackageBackend");
     }
@@ -90,12 +90,12 @@ public class AAPackageManager : Singleton<AAPackageManager>
 
         if (handle.Status != AsyncOperationStatus.Succeeded || config == null)
         {
-            Debug.LogError($"[AAPackageManager] 关键配置加载失败: {Constants.AA_LABELS_CONFIG}。管理器无法初始化。");
+            Debug.LogError($"[AssetPackageManager] 关键配置加载失败: {Constants.AA_LABELS_CONFIG}。管理器无法初始化。");
             return;
         }
 
         _index = config;
-        Debug.Log($"[AAPackageManager] Legacy 索引初始化完成。Entries: {config.allEntries.Count}");
+        Debug.Log($"[AssetPackageManager] Legacy 索引初始化完成。Entries: {config.allEntries.Count}");
     }
 
     #endregion
@@ -175,7 +175,7 @@ public class AAPackageManager : Singleton<AAPackageManager>
 
     public async Task<T> LoadAssetAsync<T>(string key) where T : UnityEngine.Object
     {
-        if (!_isInitialized) Debug.LogError("AAPackageManager 未初始化");
+        if (!_isInitialized) Debug.LogError("AssetPackageManager 未初始化");
 
         return await _backend.LoadAssetAsync<T>(key);
     }
@@ -184,14 +184,14 @@ public class AAPackageManager : Singleton<AAPackageManager>
     {
         if (!_isInitialized)
         {
-            Debug.LogError("AAPackageManager 未初始化");
+            Debug.LogError("AssetPackageManager 未初始化");
             return new List<T>();
         }
 
         var keys = GetKeysByLabel(label);
         if (keys.Count == 0)
         {
-            Debug.LogError($"[AAPackageManager] 找不到标签: {label}");
+            Debug.LogError($"[AssetPackageManager] 找不到标签: {label}");
             return new List<T>();
         }
 
@@ -210,14 +210,14 @@ public class AAPackageManager : Singleton<AAPackageManager>
     {
         if (!_isInitialized)
         {
-            Debug.LogError("AAPackageManager 未初始化");
+            Debug.LogError("AssetPackageManager 未初始化");
             return new List<T>();
         }
 
         var keys = GetKeysByLabels(labels);
         if (keys.Count == 0)
         {
-            Debug.LogWarning($"[AAPackageManager] 未找到标签组合 '{string.Join(",", labels)}' 的资源");
+            Debug.LogWarning($"[AssetPackageManager] 未找到标签组合 '{string.Join(",", labels)}' 的资源");
             return new List<T>();
         }
 
@@ -263,7 +263,7 @@ public class AAPackageManager : Singleton<AAPackageManager>
     {
         if (!_isInitialized)
         {
-            Debug.LogError("AAPackageManager 未初始化");
+            Debug.LogError("AssetPackageManager 未初始化");
             return null;
         }
 
@@ -282,7 +282,7 @@ public class AAPackageManager : Singleton<AAPackageManager>
     {
         if (!_isInitialized)
             return new AssetHandle<T>(
-                AssetLoadError.LoadFailed("", "AAPackageManager 未初始化"));
+                AssetLoadError.LoadFailed("", "AssetPackageManager 未初始化"));
 
         var result = AssetResolver.ResolveByAddress<T>(_index, address);
         if (!result.IsSuccess)
@@ -331,7 +331,7 @@ public class AAPackageManager : Singleton<AAPackageManager>
     {
         if (!_isInitialized)
             return new AssetHandle<T>(
-                AssetLoadError.LoadFailed("", "AAPackageManager 未初始化"));
+                AssetLoadError.LoadFailed("", "AssetPackageManager 未初始化"));
 
         var result = AssetResolver.ResolveByAddress<T>(_index, address);
         if (!result.IsSuccess)
@@ -372,7 +372,7 @@ public class AAPackageManager : Singleton<AAPackageManager>
     {
         if (!_isInitialized)
             return new AssetHandle<T>(
-                AssetLoadError.LoadFailed("", "AAPackageManager 未初始化"));
+                AssetLoadError.LoadFailed("", "AssetPackageManager 未初始化"));
 
         var result = AssetResolver.ResolveByTypeKey<T>(_index, key, labels);
         if (!result.IsSuccess)
@@ -422,7 +422,7 @@ public class AAPackageManager : Singleton<AAPackageManager>
     {
         if (!_isInitialized)
             return new AssetHandle<T>(
-                AssetLoadError.LoadFailed("", "AAPackageManager 未初始化"));
+                AssetLoadError.LoadFailed("", "AssetPackageManager 未初始化"));
 
         var result = AssetResolver.ResolveByTypeKey<T>(_index, key, labels);
         if (!result.IsSuccess)

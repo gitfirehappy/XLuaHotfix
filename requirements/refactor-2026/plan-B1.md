@@ -9,11 +9,11 @@
 
 ## Design Rationale (Why This Step Is Needed)
 
-AAPackageManager.Initialize() directly stores AddressableLabelsConfig as a private field _config,
+AssetPackageManager.Initialize() directly stores AddressableLabelsConfig as a private field _config,
 and all GetKeysByLabel / GetKeysByType queries go through it. This hardcodes 'where the index data comes from'
-inside AAPackageManager, making it impossible to swap data sources when switching to custom AB.
+inside AssetPackageManager, making it impossible to swap data sources when switching to custom AB.
 
-**Approach**: Extract an IAssetIndex interface so AAPackageManager depends only on the interface.
+**Approach**: Extract an IAssetIndex interface so AssetPackageManager depends only on the interface.
 Whether the underlying implementation is AddressableLabelsConfig or custom ABManifest, the upper-layer code remains unchanged.
 
 ---
@@ -25,7 +25,7 @@ Whether the underlying implementation is AddressableLabelsConfig or custom ABMan
 | New: IAssetIndex.cs | New | Query interface definition |
 | AddressableLabelsConfig.cs | Modified | Implements IAssetIndex (adds interface, no structural changes) |
 | New: ABAssetIndex.cs | New | Reads index from custom ABManifest (used in B4 phase; B1 creates skeleton only). **In B1, methods throw NotImplementedException; ABManifest format and parsing logic designed in B4.** |
-| AAPackageManager.cs | Modified | _config type changed to IAssetIndex, Initialize accepts IAssetIndex |
+| AssetPackageManager.cs | Modified | _config type changed to IAssetIndex, Initialize accepts IAssetIndex |
 
 ---
 
@@ -60,7 +60,7 @@ ABAssetIndex in B1 is a skeleton class only (methods throw NotImplementedExcepti
 
 ---
 
-## AAPackageManager Modification Notes
+## AssetPackageManager Modification Notes
 
 **Before** (hardcoded):
 ```csharp
@@ -91,14 +91,14 @@ public void SetIndex(IAssetIndex index) { _index = index; }
 ```
 
 All original `_config.GetKeysByLabel(...)` calls changed to `_index.GetKeysByLabel(...)`,
-**AAPackageManager external API remains completely unchanged**.
+**AssetPackageManager external API remains completely unchanged**.
 
 ---
 
 ## Preservation Requirements (Must Pass)
 
 - [ ] AddressableLabelsConfig existing serialization format unchanged (Unity .asset file compatibility)
-- [ ] AAPackageManager.GetKeysByLabel / GetKeysByType and other public methods unchanged
+- [ ] AssetPackageManager.GetKeysByLabel / GetKeysByType and other public methods unchanged
 - [ ] Without calling SetIndex, defaults to original AddressableLabelsConfig initialization logic
 
 ---
@@ -106,7 +106,7 @@ All original `_config.GetKeysByLabel(...)` calls changed to `_index.GetKeysByLab
 ## Acceptance Criteria
 
 - [ ] Compiles without CS errors
-- [ ] After AAPackageManager.Initialize(), GetKeysByLabel returns same results as before refactoring
+- [ ] After AssetPackageManager.Initialize(), GetKeysByLabel returns same results as before refactoring
 - [ ] Device testing: asset loading works normally (test with a scene containing multiple label types)
 
 ---

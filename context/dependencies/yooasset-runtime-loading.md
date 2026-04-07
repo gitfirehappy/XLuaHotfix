@@ -1,7 +1,7 @@
 # YooAsset Runtime Loading Reference
 
 > Source: YooAsset source code analysis (Runtime/ResourceManager/, Runtime/ResourcePackage/)
-> Purpose: Comparison reference for XLuaHotfix B5-2 AssetHandle / AssetResolver / AAPackageManager design
+> Purpose: Comparison reference for XLuaHotfix B5-2 AssetHandle / AssetResolver / AssetPackageManager design
 > Note: Our runtime design may be refactored; use this as architectural inspiration, not as a strict template
 > Language: English (AI consumption)
 
@@ -205,7 +205,7 @@ Time Slicing:
 
 | YooAsset Concept | XLuaHotfix Equivalent | Status |
 |-----------------|----------------------|--------|
-| ResourcePackage | AAPackageManager | Existing |
+| ResourcePackage | AssetPackageManager | Existing |
 | PackageManifest | ABManifest | Implemented (B6-manifest) |
 | PackageAsset | RuntimeAssetEntry / ManifestAssetEntry | Implemented (B5-1) |
 | PackageBundle | ManifestBundleEntry | Implemented (B6-manifest) |
@@ -213,7 +213,7 @@ Time Slicing:
 | ProviderOperation | (not yet) | Future: B7/B8 |
 | LoadBundleFileOperation | ABBundleLoader (stub) | Future: B7 |
 | IFileSystem | (not yet) | Future: consider for B7 |
-| ResourceManager.ProviderDic | AAPackageManager._pool | Existing (ref-count pool) |
+| ResourceManager.ProviderDic | AssetPackageManager._pool | Existing (ref-count pool) |
 | PlayModeImpl / IBundleQuery | IPackageBackend | Implemented (B2) |
 | OperationSystem | (not yet) | Future: Phase 9 (H1) |
 | ManifestTools | AssetResolver | Implemented (B5-2) |
@@ -222,10 +222,10 @@ Time Slicing:
 ### Key Architectural Differences
 
 1. **Our AssetHandle is generic**: `AssetHandle<T>` carries type info and Result-style error; YooAsset's AssetHandle uses runtime casting
-2. **Our resolve is separate from load**: AssetResolver resolves entries, then AAPackageManager loads; YooAsset combines both in ManifestTools + ProviderOperation
+2. **Our resolve is separate from load**: AssetResolver resolves entries, then AssetPackageManager loads; YooAsset combines both in ManifestTools + ProviderOperation
 3. **Our dependency model is bundle-level**: No per-asset DependBundleIDs at runtime (D3 decision); YooAsset tracks asset-level deps
 4. **No OperationSystem yet**: Our async operations use Unity coroutines / async directly; time-slicing scheduler deferred to Phase 9
-5. **No provider caching layer yet**: Our pool is at the asset level (ref-counting in AAPackageManager._pool); YooAsset has an explicit Provider layer
+5. **No provider caching layer yet**: Our pool is at the asset level (ref-counting in AssetPackageManager._pool); YooAsset has an explicit Provider layer
 6. **IPackageBackend is our IFileSystem equivalent**: But less granular - it doesn't split download/cache/buildin concerns
 
 ### Adoption Recommendations (future phases)

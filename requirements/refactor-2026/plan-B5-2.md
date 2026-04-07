@@ -121,4 +121,4 @@ Therefore this sub-plan needs to change the runtime contract to:
 - [x] Should batch `Labels` query provide both `ResolveMany + LoadMany` and direct `LoadByLabels` two-layer API?
   **Decision**: Both preserved (layered). ResolveMany + LoadMany is the lower-level capability (for validation tools and advanced scenarios); LoadByLabels is the everyday convenience wrapper (internally calls the lower level).
 - [x] At which phase should legacy `UnloadAsset(string key)` be marked `Obsolete`?
-  **Decision**: After the first batch of call sites is migrated. Mark Obsolete after new API is verified through first batch of call sites (e.g., AAPackageManager internals) — stable and with compiler warnings.
+  **Decision**: After the first batch of call sites is migrated. Mark Obsolete after new API is verified through first batch of call sites (e.g., AssetPackageManager internals) — stable and with compiler warnings.

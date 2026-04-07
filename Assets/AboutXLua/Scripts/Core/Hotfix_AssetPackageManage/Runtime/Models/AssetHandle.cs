@@ -46,7 +46,7 @@ public struct AssetHandle<T> where T : UnityEngine.Object
 
     #endregion
 
-    #region 构造函数（internal — 仅由 AAPackageManager / 加载方法创建）
+    #region 构造函数（internal — 仅由 AssetPackageManager / 加载方法创建）
 
     /// <summary>
     /// 成功构造：关联 HandleRegistry 槽位。

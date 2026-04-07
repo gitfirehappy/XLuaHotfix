@@ -1,4 +1,4 @@
-# Sub-Plan B7-2: ABPackageBackend — IPackageBackend Implementation & AAPackageManager Integration
+# Sub-Plan B7-2: ABPackageBackend — IPackageBackend Implementation & AssetPackageManager Integration
 
 > **Risk**: Medium
 > **Dependencies**: B7-1 (ABBundleLoader) + B6 (ABAssetIndex + ABManifest)
@@ -14,7 +14,7 @@ Implement `ABPackageBackend` as a full `IPackageBackend` replacement for `Addres
 - Delegate Bundle file operations to ABBundleLoader (B7-1)
 - Extract assets from loaded bundles via `AssetBundle.LoadAsset<T>()`
 - Maintain asset-level cache with reference counting
-- Integrate with AAPackageManager via the existing USE_AB_INDEX const switch
+- Integrate with AssetPackageManager via the existing USE_AB_INDEX const switch
 
 This is the **direct equivalent** of `AddressablesBackend` — same external behavior, zero Addressables dependency.
 
@@ -118,9 +118,9 @@ Note: `AssetBundleRequest` is not `Task`-based; needs a utility wrapper (`AssetB
 - Asset extraction fails (null result from bundle.LoadAsset) → return null + log error
 - Consistent with AddressablesBackend: async throws on failure, sync returns null
 
-### F. Integration with AAPackageManager
+### F. Integration with AssetPackageManager
 
-Expand the `USE_AB_INDEX` switch in `AAPackageManager.Initialize()`:
+Expand the `USE_AB_INDEX` switch in `AssetPackageManager.Initialize()`:
 
 ```
 When USE_AB_INDEX == true:
@@ -138,7 +138,7 @@ When USE_AB_INDEX == true:
 
 ### Class: ABPackageBackend
 
-Location: `Assets/AboutXLua/Scripts/Core/Hotfix_AAPackageManage/Runtime/Backends/AB/ABPackageBackend.cs`
+Location: `Assets/AboutXLua/Scripts/Core/Hotfix_AssetPackageManage/Runtime/Backends/AB/ABPackageBackend.cs`
 
 ```
 ABPackageBackend : IPackageBackend
@@ -229,7 +229,7 @@ private static Task<T> AssetBundleRequestToTask<T>(AssetBundleRequest request) w
 - [ ] ABPackageBackend does NOT import any Addressables namespace
 - [ ] All IPackageBackend methods are implemented (including B5-2 default overloads)
 - [ ] External behavior matches AddressablesBackend: same cache-hit returns, same refcount semantics
-- [ ] AAPackageManager integration uses the same USE_AB_INDEX const (no new switches)
+- [ ] AssetPackageManager integration uses the same USE_AB_INDEX const (no new switches)
 - [ ] Legacy code path (USE_AB_INDEX == false) remains completely unchanged
 - [ ] ABPackageBackend does not directly call AssetBundle.LoadFromFile — delegates to ABBundleLoader
 
@@ -243,7 +243,7 @@ private static Task<T> AssetBundleRequestToTask<T>(AssetBundleRequest request) w
 - [ ] Asset-level refcount cache works correctly (load increments, unload decrements)
 - [ ] UnloadByEntryId correctly maps to address-based unload
 - [ ] ContainsKey checks asset cache presence
-- [ ] AAPackageManager.Initialize() creates ABBundleLoader + ABPackageBackend when USE_AB_INDEX == true
+- [ ] AssetPackageManager.Initialize() creates ABBundleLoader + ABPackageBackend when USE_AB_INDEX == true
 - [ ] No Addressables dependency in any import or call
 - [ ] Compilation passes
 

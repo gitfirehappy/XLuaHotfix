@@ -94,9 +94,9 @@
 
 ### 架构约束
 - Lua 脚本支持 Class（面向对象实例化）和 Module（静态）两种模式，新脚本需明确选择
-- 资源加载必须走 `AAPackageManager`，**不推荐**直接使用 Addressables 原生接口
+- 资源加载必须走 `AssetPackageManager`，**不推荐**直接使用 Addressables 原生接口
   - 正在推进 `IPackageBackend` 接口化重构（见 requirements/refactor-2026/plan-B.md）
-  - 新代码优先通过 `AAPackageManager`；已有直接调用 Addressables 的代码，重构时逐步迁移
+  - 新代码优先通过 `AssetPackageManager`；已有直接调用 Addressables 的代码，重构时逐步迁移
   - 底层热更流程（HotfixManager/NetworkDownloader/CatalogUpdater）仍依赖 Addressables，待 B4 / 专项设计评审处理
 - 热更资源分组由 `DifferentialProcessor` 自动管理，**禁止手动修改 Hotfix 分组**
 - 跨语言事件注册/注销必须通过 `EventCentre`，禁止直接使用 C# delegate 跨 Lua 订阅
