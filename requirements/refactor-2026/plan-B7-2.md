@@ -2,7 +2,7 @@
 
 > **Risk**: Medium
 > **Dependencies**: B7-1 (ABBundleLoader) + B6 (ABAssetIndex + ABManifest)
-> **Status**: Approved — 2026-04-07
+> **Status**: DONE — signed off 2026-04-07
 
 ---
 

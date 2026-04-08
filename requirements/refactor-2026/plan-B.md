@@ -1,7 +1,7 @@
 # Sub-Plan B: AB Package Management Replacement — Overview
 
-> **Status**: In progress (B1/B2/B3 completed, B5 pending execution, B4 concept stage)
-> **Sub-files**: plan-B1.md / plan-B2.md / plan-B3.md / plan-B5.md / plan-B4.md
+> **Status**: In progress (B1/B2/B3/B5/B6/B7/B8 completed; B4 concept stage, B9 pending planning)
+> **Sub-files**: plan-B1.md / plan-B2.md / plan-B3.md / plan-B5.md / plan-B6.md / plan-B6-manifest.md / plan-B7.md / plan-B7-1.md / plan-B7-2.md / plan-B8.md / plan-B4.md
 
 ---
 
@@ -39,13 +39,16 @@ Therefore B5 was added on 2026-03-29: stabilize the runtime contract first, then
 
 ## Phase Overview
 
-| Phase | File | Core Objective | Risk |
-|-------|------|---------------|------|
-| B1 | plan-B1.md | IAssetIndex — interface-based asset index layer | Low |
-| B2 | plan-B2.md | IPackageBackend + ABPackageBackend asset loading | Medium |
-| B3 | plan-B3.md | DialogueDataManager independent dual-mode (preserving direct call toggle) | Low |
-| B5 | plan-B5.md | Runtime asset index / Resolve-Load / Handle / Validation / Migration | Medium |
-| B4 | plan-B4.md | Catalog redirect layer replacement (high risk, evaluated independently) | High |
+| Phase | File | Core Objective | Risk | Status |
+|-------|------|---------------|------|--------|
+| B1 | plan-B1.md | IAssetIndex — interface-based asset index layer | Low | DONE |
+| B2 | plan-B2.md | IPackageBackend + ABPackageBackend asset loading | Medium | DONE |
+| B3 | plan-B3.md | DialogueDataManager independent dual-mode (preserving direct call toggle) | Low | DONE |
+| B5 | plan-B5.md | Runtime asset index / Resolve-Load / Handle / Validation / Migration | Medium | DONE (B5-1/B5-2 done, B5-3 cancelled, B5-4 deferred) |
+| B6 | plan-B6.md / plan-B6-manifest.md | ABAssetIndex + ABManifest data layer and initialization path | Medium | DONE |
+| B7 | plan-B7.md / plan-B7-1.md / plan-B7-2.md | ABBundleLoader + ABPackageBackend runtime loading backend | Medium | DONE |
+| B8 | plan-B8.md | AssetHandle struct + HandleRegistry + error propagation unification | Medium | DONE |
+| B4 | plan-B4.md | Catalog redirect layer replacement (high risk, evaluated independently) | High | Concept stage |
 
 ---
 

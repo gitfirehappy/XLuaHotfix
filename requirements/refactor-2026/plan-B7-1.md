@@ -2,7 +2,7 @@
 
 > **Risk**: Medium
 > **Dependencies**: B6 (ABManifest data layer with BundleEntries + dependency indices)
-> **Status**: Approved — 2026-04-07
+> **Status**: DONE — signed off 2026-04-07
 
 ---
 

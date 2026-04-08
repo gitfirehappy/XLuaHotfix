@@ -2,7 +2,7 @@
 
 > **Risk**: Medium
 > **Dependencies**: B5-1 approval completed
-> **Status**: Approved
+> **Status**: DONE — signed off 2026-03-30
 
 ---
 

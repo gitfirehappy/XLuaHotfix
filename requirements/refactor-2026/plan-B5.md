@@ -1,6 +1,6 @@
 # Sub-Plan B5: Runtime Asset Index & Resolve/Load Contract Refactoring
 
-> **Status**: All sub-plans approved, pending execution
+> **Status**: Execution completed (B5-1/B5-2 done, B5-3 cancelled, B5-4 deferred)
 > **Dependencies**: B1 + B2 + B3 completed; B4 not in this round's scope
 > **Scope**: Runtime loading layer only (Index / Resolve / Load / Handle / Validation)
 > **Sub-files**: plan-B5-1.md / plan-B5-2.md / plan-B5-3.md / plan-B5-4.md
@@ -62,10 +62,10 @@ to define the **runtime entry model, Resolve/Load contract, Handle model, editor
 
 | Sub-Plan | File | Objective | Risk | Status |
 |----------|------|-----------|------|--------|
-| B5-1 | plan-B5-1.md | Define runtime entry model, Address/Type/Label/EntryId rules | Medium | Approved |
-| B5-2 | plan-B5-2.md | Define Resolve/Load API, AssetHandle, error model & compat layer | Medium | Approved |
-| B5-3 | plan-B5-3.md | Define manual scan, build validation, conflict reports & suggested Address tools | Medium | Approved |
-| B5-4 | plan-B5-4.md | Define migration path, legacy API deprecation conditions & rollout sequence | Medium | Approved |
+| B5-1 | plan-B5-1.md | Define runtime entry model, Address/Type/Label/EntryId rules | Medium | DONE |
+| B5-2 | plan-B5-2.md | Define Resolve/Load API, AssetHandle, error model & compat layer | Medium | DONE |
+| B5-3 | plan-B5-3.md | Define manual scan, build validation, conflict reports & suggested Address tools | Medium | CANCELLED (moved to Phase 6 build pipeline) |
+| B5-4 | plan-B5-4.md | Define migration path, legacy API deprecation conditions & rollout sequence | Medium | Deferred (evolves with implementation) |
 
 ---
 

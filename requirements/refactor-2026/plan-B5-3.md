@@ -2,7 +2,7 @@
 
 > **Risk**: Medium
 > **Dependencies**: B5-1 + B5-2 approval completed
-> **Status**: Approved
+> **Status**: CANCELLED — moved to Phase 6 build pipeline (decision: 2026-04-07)
 
 ---
 

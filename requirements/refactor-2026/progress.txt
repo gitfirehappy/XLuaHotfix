@@ -163,3 +163,4 @@
 [done] 2026-04-07 B8 verification — grep confirmed: zero old AssetHandle constructor signatures, zero old property accesses, HandleRegistry.Alloc called in all 4 Load methods (8 total: AB+Legacy per method), IPackageBackend and AddressablesBackend untouched
 [done] 2026-04-07 plan-B8 SIGNED OFF — AssetHandle struct + HandleRegistry + error propagation + internal tuple API + AssetPackageManager HandleRegistry integration. Phase 3 complete
 [next] 2026-04-07 Phase 4: B4 (Catalog/Locator replacement) + B9 (incremental download adaptation)
+[done] 2026-04-08 Plan document sync complete — aligned plan-B / plan-B5* / plan-B7* status with actual execution, added plan-B8.md archive entry

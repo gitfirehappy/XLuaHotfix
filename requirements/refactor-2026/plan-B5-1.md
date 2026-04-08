@@ -2,7 +2,7 @@
 
 > **Risk**: Medium
 > **Dependencies**: B1 + B2 completed
-> **Status**: Approved
+> **Status**: DONE — signed off 2026-03-30
 
 ---
 

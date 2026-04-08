@@ -1,6 +1,6 @@
 # Sub-Plan B7: ABPackageBackend — Custom AB Runtime Loading Backend
 
-> **Status**: Approved — 2026-04-07, all 8 design decisions confirmed
+> **Status**: DONE — signed off 2026-04-07 (B7-1 + B7-2 completed)
 > **Dependencies**: B6 (ABAssetIndex + ManifestLoader) completed; B5-2 (IPackageBackend contract) completed
 > **Scope**: Runtime AB loading backend only — replaces AddressablesBackend with direct AssetBundle loading
 > **Sub-files**: plan-B7-1.md / plan-B7-2.md
