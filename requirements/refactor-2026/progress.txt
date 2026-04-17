@@ -164,3 +164,238 @@
 [done] 2026-04-07 plan-B8 SIGNED OFF — AssetHandle struct + HandleRegistry + error propagation + internal tuple API + AssetPackageManager HandleRegistry integration. Phase 3 complete
 [next] 2026-04-07 Phase 4: B4 (Catalog/Locator replacement) + B9 (incremental download adaptation)
 [done] 2026-04-08 Plan document sync complete — aligned plan-B / plan-B5* / plan-B7* status with actual execution, added plan-B8.md archive entry
+[decision] 2026-04-09 Plan-E discussion mode updated: capture decisions while discussing; this round is draft-scope convergence, not final design sign-off
+[decision] 2026-04-09 Planning focus aligned to build pipeline (E-series); avoid switching to standalone B9/B4 execution planning in this round
+[decision] 2026-04-09 Prioritize under-discussed items first: E7 -> E6 -> E5 -> E8; E1/E4 collect references only for now
+[next] 2026-04-09 Continue E7 draft discussion: define DifferentialProcessor migration boundary and minimum closed loop
+[decision] 2026-04-09 Build pipeline refactor adopts interface-backend separation (like AssetPackageManager) for safe old/new replacement
+[decision] 2026-04-09 New build backend direction: ABManifest as primary data source; VersionState removed from core path and kept only as migration compatibility artifact
+[decision] 2026-04-09 Build pipeline architecture unified as Interface -> Task -> Backend; legacy sequential flow will be modeled as explicit task chain for readability and maintainability
+[decision] 2026-04-09 Switch control granularity confirmed at backend level (Addressable backend vs AB backend), not at single artifact level (e.g., VersionState toggle)
+[decision] 2026-04-09 BackendMode configuration confirmed: ScriptableObject default + build-parameter override
+[decision] 2026-04-09 BackendMode lock policy confirmed: no mid-build switching within a single task pipeline run
+[decision] 2026-04-09 VersionState positioning clarified: legacy-backend artifact kept as-is; excluded from AB-backend migration scope
+[decision] 2026-04-09 AB-backend runtime update index confirmed: direct ABManifest usage, no extra intermediate index model
+[decision] 2026-04-09 E6 vs E7 responsibility boundary left open in this round (intentionally not frozen)
+[decision] 2026-04-09 Differential snapshot pipeline aligns with Interface -> Task -> Backend structure, same as main build pipeline
+[decision] 2026-04-09 DiffResult output shape confirmed as dual-track (AssetDelta + BundleDelta) to support legacy and AB backends
+[decision] 2026-04-09 Snapshot diff stays as a task stage within BuildProjectManager pipeline; backend handles internal diff steps
+[decision] 2026-04-09 BundleDelta.ChangedBundles field granularity left open in this round (intentionally not frozen)
+[decision] 2026-04-09 Snapshot extension direction confirmed: BundleDigestList (name/hash/size) is mandatory; placement and extra fields remain open
+[decision] 2026-04-09 DeleteList strategy confirmed as dual-track transition (asset-level retained + bundle-level added)
+[decision] 2026-04-09 Terminology correction: E6 is a planning workstream item, not a build pipeline phase name
+[decision] 2026-04-09 E6/E7 convergence updated: single scan per build batch, with separate tasks producing ABManifest and diff outputs to avoid duplicate scanning
+[decision] 2026-04-09 BundleDelta.ChangedBundles granularity remains open for now (explicitly deferred)
+[decision] 2026-04-09 E5 error strategy converged to task-specific handling with a unified error envelope for cross-task consistency
+[decision] 2026-04-09 E8 Android boundary frozen: StreamingAssets reads must go through filesystem adapter layer
+[done] 2026-04-09 plan-E-draft convergence update written back (E5/E6/E7/E8 + next-discussion focus)
+[next] 2026-04-09 Continue convergence on E7 BundleDigestList placement and E6 version-source mapping
+[decision] 2026-04-09 E1 boundary discussion resumed: recorded A/B/C options for Classifier vs GroupRule responsibilities
+[decision] 2026-04-09 Current direction leans to option C (Classifier outputs asset identity + bundle intent; GroupRule keeps grouping-only responsibility)
+[decision] 2026-04-09 Unclassified asset policy confirmed as dual-mode: Dev warn+skip; CI/Release blocks only when unclassified asset is referenced
+[done] 2026-04-09 Wrote E1 Classifier/GroupRule comparison and pending-convergence items back to plan-E-draft
+[next] 2026-04-09 Converge or adjust option C data contract fields (assetRole/payloadKind/bundleIntent/source/reason)
+[decision] 2026-04-09 Approval follow-up: option C kept as leaning direction, not finalized yet
+[decision] 2026-04-09 Approval follow-up: option C minimal data-contract fields remain open for later discussion
+[decision] 2026-04-09 Approval follow-up: dependency-stage authority currently leans to “append IsImplicitDependency only, no override”, still not finalized
+[done] 2026-04-09 Synced latest approval status into plan-E-draft E1 discussion record
+[next] 2026-04-09 Next focus: finalize option C contract fields and converge dependency-stage authority boundary
+[decision] 2026-04-09 E3 direction updated: support sub-directory collectors, do not support object-type-based collection
+[decision] 2026-04-09 E3 dedup rule direction: parent collector auto-excludes child collector paths; ownership uses deepest-path priority
+[decision] 2026-04-09 E3 rationale confirmed: keep bundle partition close to directory structure for easier maintenance and rule extension
+[done] 2026-04-09 Wrote E3 discussion record into plan-E-draft and updated next-discussion focus
+[next] 2026-04-09 Continue E3 boundary convergence: same-group definition, conflict severity policy, IgnoreRule execution order
+[decision] 2026-04-09 E3 refinement request: prioritize functional definition of sub-directory collector before freezing policy details
+[decision] 2026-04-09 E3 order confirmed: ownership-path exclusion runs before IgnoreRule
+[done] 2026-04-09 Added E3 functional definition + conflict scenarios into plan-E-draft
+[next] 2026-04-09 Continue E3 convergence: clarify same-group boundary and Dev/CI conflict severity split
+[decision] 2026-04-09 Discussion focus switched to E3-E4 linkage boundary (ownership vs shared extraction)
+[decision] 2026-04-09 E3-E4 candidate boundary: E3 keeps unique ownership; E4 only extracts shared bundles from implicit dependencies
+[done] 2026-04-09 Added E3-E4 linkage boundary draft into plan-E-draft under E4 section
+[next] 2026-04-09 Validate E3-E4 boundary with threshold policy (minReferenceCount) and exception list design
+[decision] 2026-04-09 E4 shared extraction should not be decided by a single numeric threshold only; switch to multi-factor policy framework
+[decision] 2026-04-09 Exception mechanism is needed and should be placed in share-policy layer, not IgnoreRule layer
+[done] 2026-04-09 Added E4 shared-policy draft (ForceShare/NoShare/AutoShare + rule-order concept) into plan-E-draft
+[next] 2026-04-09 Continue E4 convergence: policy placement level and ForceShare/NoShare conflict resolution
+[decision] 2026-04-10 E5 scheduling direction updated: move from fixed sequence to dependency-driven task graph (behavior-tree-like orchestration)
+[decision] 2026-04-10 E5 parallelization direction: dependency-free sibling tasks can execute in parallel; keep deterministic outputs and sequential fallback mode
+[decision] 2026-04-10 Editor scope expanded for E5: task-graph visualization, dependency validation, and pre-execution topology preview
+[done] 2026-04-10 Synced E5 scheduling and editor-orchestration draft into plan-E-draft
+[next] 2026-04-10 Continue E5 convergence: node granularity, conflict model, and behavior-tree subset boundary
+[decision] 2026-04-10 Discussion strategy adjusted: prioritize high-level direction convergence over implementation details
+[done] 2026-04-10 Added direction-level convergence board (G1-G6) into plan-E-draft and rewrote next-discussion focus by strategic themes
+[next] 2026-04-10 Continue with G1/G3/G4 directional convergence before drilling into field-level design
+[decision] 2026-04-10 Communication style adjusted per developer request: use plain language and process-first discussion
+[done] 2026-04-10 Added G1+G3 plain-language convergence flow into plan-E-draft (boundary first, scheduling second, linkage check third)
+[next] 2026-04-10 Start G1 directional convergence discussion with one-sentence role boundaries and RawFile strategic position
+[decision] 2026-04-10 Developer feedback: avoid re-discussing converged G1 topics; prioritize truly under-discussed strategic areas
+[decision] 2026-04-10 RawFile direction clarified: treat as special asset-type handling concern (same category as Sprite/Texture special handling), not an independent pipeline
+[decision] 2026-04-10 G3 target clarified: fixed base task-tree + dependency-safe pluggable task nodes (blueprint-like orchestration)
+[done] 2026-04-10 Reordered next-discussion focus to G4/G6/G2/E2 first, moved G3 to plugin-contract direction only
+[next] 2026-04-10 Continue high-level convergence on G4 data-consistency boundary (ABManifest version source + ConfirmRelease snapshot-solidification)
+[done] 2026-04-10 Added G4 plain-language convergence flow and 3-item decision card into plan-E-draft
+[next] 2026-04-10 Ask developer to pick G4 direction on version-source authority, ConfirmRelease digest solidification, and legacy export policy
+[decision] 2026-04-10 G4 version-source approved: BuildContext unified version field is the single source of truth
+[decision] 2026-04-10 G4 ConfirmRelease direction: keep snapshot solidification semantics and enhance with commit/rollback-like traceability
+[decision] 2026-04-10 version_state boundary reaffirmed: legacy backend only; new backend never exports or depends on it
+[done] 2026-04-10 Synced G4 direction outcomes into plan-E-draft and updated direction board status
+[next] 2026-04-10 Continue with G6 directional convergence (filesystem minimal interface set + Android adapter closure)
+[decision] 2026-04-10 G6 accepted direction: minimal filesystem interface starts with five categories and expands only by proven need
+[decision] 2026-04-10 G6 async direction approved: unified Task async semantics across build/editor workflows
+[blocked] 2026-04-10 G6 Android boundary pending decision: developer requested more context before choosing strict adapter-only policy
+[done] 2026-04-10 Synced G6 partial convergence (2 decided + 1 pending) into plan-E-draft
+[next] 2026-04-10 Resolve G6 Android StreamingAssets boundary, then move to G2 share-policy placement
+[decision] 2026-04-10 Developer chose to defer G6 Android boundary in this round and switch focus to G2
+[next] 2026-04-10 Start G2 directional convergence: share-policy placement, priority rules, and explicit-asset autoshare boundary
+[blocked] 2026-04-10 G2 directional Q&A paused: terminology unclear to developer in current round
+[done] 2026-04-10 Added concise G2 terminology snapshot (SharePolicyRule / ForceShare-NoShare / AutoShare) into plan-E-draft
+[next] 2026-04-10 Switch to another strategic theme (E2 or G5), return to G2 after developer digestion
+[decision] 2026-04-10 Focus switched to E2 by developer choice (PackRule capability boundary)
+[done] 2026-04-10 Added E2 plain-language convergence flow and 3-item decision card into plan-E-draft
+[next] 2026-04-10 Ask developer to pick E2 directions: rule relation, naming semantic priority, RawFile strategy
+[decision] 2026-04-10 E2 rule-relation direction deferred by developer; keep open for later deep discussion
+[decision] 2026-04-10 E2 naming direction has temporary leaning: include as much semantics as possible in bundle name (not finalized)
+[decision] 2026-04-10 E2 RawFile strategy deferred to dedicated special-asset discussion
+[done] 2026-04-10 Synced E2 current round outcomes (deferred + temporary leaning) into plan-E-draft
+[next] 2026-04-10 Move to next strategic theme (G5 or G3) while keeping E2 open
+[decision] 2026-04-10 Focus switched to G5 by developer choice (legacy-exit criteria)
+[done] 2026-04-10 Added G5 plain-language convergence flow and 3-item decision card into plan-E-draft
+[next] 2026-04-10 Ask developer to choose G5 direction: closure metric, observation-window metric, and exit strategy
+[decision] 2026-04-10 Developer correction: no forced legacy-exit planning needed now; backend separation already allows natural replacement
+[decision] 2026-04-10 G5 priority downgraded to non-priority topic; keep legacy backend parked without interfering new backend
+[done] 2026-04-10 Synced G5 correction into plan-E-draft and reordered next-discussion queue
+[next] 2026-04-10 Continue with G3 or G2 strategic convergence
+[decision] 2026-04-10 Focus switched to G3 by developer choice (pluggable task-node minimal contract)
+[done] 2026-04-10 Added G3 minimal-contract plain-language flow and 3-item decision card into plan-E-draft
+[next] 2026-04-10 Ask developer to pick G3 direction on slot policy, conflict policy, and minimal field set
+[decision] 2026-04-10 G3 core direction confirmed: keep base pipeline fixed; extensions are for custom build-data export nodes
+[decision] 2026-04-10 Example extension scope noted: LuaIndex / JS metadata / game data / shader-related export nodes
+[blocked] 2026-04-10 G3 conflict policy and minimal-field set remain pending for later technical deep dive
+[done] 2026-04-10 Synced G3 partial convergence into plan-E-draft
+[next] 2026-04-10 Continue G3 with one boundary question on extension-slot placement range
+[decision] 2026-04-10 G3 slot-range direction confirmed: dependency-driven placement allowed; connection valid when dependencies are satisfied
+[decision] 2026-04-10 G3 guardrail confirmed: fixed backbone nodes remain strong dependencies and cannot be bypassed by extension nodes
+[next] 2026-04-10 Continue G3 by defining the minimum strong-dependency node set
+[decision] 2026-04-10 G3 conflict handling direction converged: reject conflict connections at graph-validation/link stage instead of runtime conflict handling
+[done] 2026-04-10 Synced G3 conflict-prevention rule into plan-E-draft
+[next] 2026-04-10 Continue G3 unresolved item: minimal node contract field set
+[decision] 2026-04-10 G3 minimal field set freeze deferred by developer to Task-level detailed design
+[done] 2026-04-10 Synced G3 field-freeze deferral into plan-E-draft
+[next] 2026-04-10 Continue with another unresolved block (E1 or E6/E7)
+[done] 2026-04-10 Backfilled E6 decided item: version-source checkbox marked done with BuildContext single-source note
+[next] 2026-04-10 Continue E6/E7 unresolved items only (field alignment boundary + snapshot digest placement/granularity)
+[decision] 2026-04-10 E7 changed-bundle granularity direction: start from legacy minimal field set, expand later by demand
+[done] 2026-04-10 Synced E7 changed-bundle granularity direction into plan-E-draft
+[next] 2026-04-10 Re-ask E6/E7 remaining two unclear concepts in plain language
+[decision] 2026-04-10 E6 boundary clarified by developer: ABManifest is runtime-facing only, not a build-metadata container
+[decision] 2026-04-10 E7 digest placement direction approved: BundleDigestList belongs to snapshot file side (not ABManifest)
+[done] 2026-04-10 Marked E6 field-alignment checklist as done in plan-E-draft
+[next] 2026-04-10 Continue E7 unresolved items (ConfirmRelease solidification detail + diff-logic migration boundary)
+[decision] 2026-04-10 E7 ConfirmRelease solidification aligned to legacy design: snapshot + BundleDigest + release pointer
+[done] 2026-04-10 Synced E7 ConfirmRelease solidification decision into plan-E-draft
+[next] 2026-04-10 Continue E7 unresolved item: diff-logic migration boundary
+[decision] 2026-04-10 E7 migration boundary confirmed by developer: keep interface + old/new backend separation model, avoid one-shot rewrite cutover
+[done] 2026-04-10 Synced E7 migration-boundary decision into plan-E-draft
+[next] 2026-04-10 Move to remaining unresolved blocks (E1 or E3) or run a direction-level recap
+[done] 2026-04-10 Added direction-level recap snapshot into plan-E-draft (resolved/partial/deferred)
+[next] 2026-04-10 Choose next unresolved block after recap alignment (E1 or E3 preferred)
+[decision] 2026-04-10 Focus switched to E1 by developer choice
+[done] 2026-04-10 Added E1 convergence order (CollectorType -> tag inheritance -> editor scope) into plan-E-draft
+[next] 2026-04-10 Start E1 with ECollectorType boundary question
+[decision] 2026-04-10 ECollectorType boundary deferred in this round; keep open for joint discussion with payloadKind
+[next] 2026-04-10 Continue E1 with tag-inheritance mechanism decision
+[decision] 2026-04-10 E1 tag inheritance decided: default no-inheritance, explicit tagging preferred
+[done] 2026-04-10 Synced E1 tag-inheritance decision into plan-E-draft
+[next] 2026-04-10 Continue E1 with CollectorSettingEditor scope boundary
+[decision] 2026-04-10 E1 editor direction clarified: pipeline should be automation-first; human role is review/inspect/tune, detailed UX deferred to editor-focused track
+[done] 2026-04-10 Synced E1 editor-direction statement into plan-E-draft
+[next] 2026-04-10 Decide whether to continue E1 (CollectorType+payloadKind) or switch to E3
+[done] 2026-04-10 Refactored plan-E-draft wording to concise format (decision-focused board + compact conclusions + deferred pool)
+[done] 2026-04-10 Performed decision-retention audit and restored weakened key statements (version_state boundary, G6 temporary leaning, E2 naming temporary leaning)
+[decision] 2026-04-10 G3 topology correction from developer: model is convergence DAG (diamond-like), not a tree
+[decision] 2026-04-10 G3 strong-dependency partial closure: entry and terminal nodes are mandatory; middle strong-dependency tasks remain to be refined
+[done] 2026-04-10 Synced G3 topology correction and dependency-boundary update into plan-E-draft
+[next] 2026-04-10 Continue G3 by deciding whether to introduce mandatory mid-stage anchor gates
+[decision] 2026-04-10 G3 mid-stage anchor gates deferred by developer to Task-level dedicated discussion
+[next] 2026-04-10 Continue convergence with another strategic theme while keeping G3 pending items tracked
+[decision] 2026-04-10 G6 Android direction has temporary leaning: unified access path is preferred, but final decision pending due Android-domain confidence gap
+[done] 2026-04-10 Added G6 terminology clarification for "legacy code" and migration exemption meaning into plan-E-draft
+[next] 2026-04-10 Re-ask G6 Android boundary with clarified terminology
+[decision] 2026-04-10 G6 governance principle deferred by developer: wait for Android-focused discussion before finalizing
+[done] 2026-04-10 Synced G6 deferral decision into plan-E-draft
+[next] 2026-04-10 Continue convergence on another strategic area (prefer G2)
+[decision] 2026-04-10 Developer chose not to touch G2 in this round
+[done] 2026-04-10 Added deferred-topic pool and switched next-step queue to specialized discussion entries
+[next] 2026-04-10 Start one specialized track from G3/E2/G2/G6 based on developer choice
+[done] 2026-04-10 Completed one full-draft unresolved-item scan (direction board + unchecked checklist) for convergence status check
+[done] 2026-04-15 Simple-item convergence round complete: E2 Bundle naming (Labels all-in, Hash configurable), E5 node granularity (Task-level), E5 conflict detection (declarative read/write sets + link-stage reject), E5 schedule config (SO unified). Updated plan-E-draft.md
+[next] 2026-04-15 Resume with specialized discussions: (1) Collector & Rules, (2) Resource Sharing, (3) Task Node Design, (4) Special Assets, (5) Editor Architecture
+
+[start] 2026-04-17 Urgent tools planning — 5 independent Editor tools planned in parallel with E-series pipeline refactor
+[decision] 2026-04-17 Execution order by complexity ascending: T1 (suffix converter) → T3 (CI/CD CLI) → T2 (import pipeline) → T4 (missing ref checker) → T5 (association search)
+[decision] 2026-04-17 T1: Upgrade LuaBatchConverterWindow to general suffix tool — add ConvertMode enum (ContainerMode/DirectoryMode), user-editable source/target extensions, preset buttons
+[decision] 2026-04-17 T3: New BuildCommandLine.cs (-executeMethod entry) + BuildProjectManager batchmode compat (skip DisplayDialog/RevealInFinder/ExecuteMenuItem when Application.isBatchMode)
+[decision] 2026-04-17 T2: New AssetImportPipeline framework — IAssetImportRule interface + AssetImportPipelineProcessor (AssetPostprocessor with reflection-based rule discovery) + UITextureImportRule example
+[decision] 2026-04-17 T4: New MissingReferenceFinderWindow — scan Prefab/Scene for Missing Component (null Component) and Missing Reference (ObjectReference with null value but non-zero instanceID)
+[decision] 2026-04-17 T5: New AssetAssociationSearchWindow — two modes: ReverseReference (AssetDatabase.GetDependencies reverse lookup) + BridgeKeySearch (scan configKey strings on LuaBehaviourBridge/ScriptObjectBridge/AnimBridge, associate to SO by filename)
+[decision] 2026-04-17 All 5 tools are independent, no cross-dependencies, no dependency on E-series pipeline refactor
+[done] 2026-04-17 plan-urgent-tools.md written — all 5 tool plans with full class structures, method signatures, file paths, design decisions, acceptance criteria
+[next] 2026-04-17 Awaiting developer approval of plan-urgent-tools.md, then begin T1 execution
+[start] 2026-04-17 E-series specialized discussions begin — 5 tracks by dependency order: Collector+Rules → Sharing → Task nodes → Special assets → Editor
+[decision] 2026-04-17 E1 ECollectorType and payloadKind are orthogonal dimensions — ECollectorType (user config intent: Main/Static/Depend) stays on Collector, PayloadKind (auto-inferred: Serialized/RawFile/Scene) stays on Classifier output
+[decision] 2026-04-17 E1 Option C core contract simplified to 2 fields: AssetClassification = { AssetRole, PayloadKind }. BundleIntent removed — PackRule reads PayloadKind directly. Debug info (Source/Reason) is optional, not in core contract
+[decision] 2026-04-17 E1 dependency analysis authority finalized: can create ImplicitDependency entries (prevent missing assets) + mark IsImplicitDependency flag (feed E4 sharing decisions); cannot downgrade Main/Static or override explicit PayloadKind
+[decision] 2026-04-17 E1 dependency analysis module ownership: E4 TaskAnalyzeDependencies, runs after TaskCollectAssets and before TaskBuildBundles
+[decision] 2026-04-17 E2 PackRule relationship finalized: parallel selectable (3 built-in + custom via interface). Special cases (large file split, RawFile separation) solved by sub-directory collectors (E3), not by PackRule layering
+[decision] 2026-04-17 E2 "V1/V2" language removed from all decisions — no deferred escape hatch
+[done] 2026-04-17 G1 direction fully converged: ECollectorType + PayloadKind orthogonal, 2-field contract, PackRule parallel + extensible, dependency rights defined. Updated plan-E-draft.md
+[next] 2026-04-17 Continue to specialized track 2: resource sharing logic (E4 — SharePolicy placement, conflict priority, AutoShare boundary)
+[done] 2026-04-17 Urgent tools execution started by developer instruction — proceed directly with T1 -> T3 -> T2 -> T4 -> T5
+[done] 2026-04-17 T1 complete — LuaBatchConverterWindow upgraded to general suffix converter (ContainerMode/DirectoryMode, custom source/target ext, preset buttons, dynamic button text, directory scan conversion)
+[done] 2026-04-17 T3 complete — BuildCommandLine.cs added for Unity -executeMethod CI entry; BuildProjectManager batchmode compatibility added (skip ExecuteMenuItem/RevealInFinder in batchmode, oversized package throws in batchmode)
+[done] 2026-04-17 T2 complete — AssetImportPipeline framework added (IAssetImportRule + AssetImportRuleBase, AssetImportPipelineProcessor reflection auto-discovery with rule cache refresh menu, UITextureImportRule example)
+[done] 2026-04-17 T4 complete — MissingReferenceFinderWindow added (Prefab/Scene scan, Missing Component + Missing Reference detection, filter + locate + progress bar)
+[done] 2026-04-17 T5 complete — AssetAssociationSearchWindow added (ReverseReference + BridgeKeySearch modes, Bridge configKey scan for LuaBehaviourBridge/ScriptObjectBridge/AnimBridge, SO association lookup, progress + locate)
+[decision] 2026-04-17 Oracle review collected for urgent tools; hardening fixes applied: Addressables settings null-guard, safer reflection instantiation filters, scene ownership-safe open/close logic, recursive dependency search for reverse reference mode, SerializedObject scan try/catch guards
+[done] 2026-04-17 Verification complete — dotnet build XLuaHotfix.sln passed with 0 errors (warnings are pre-existing/unrelated framework warnings)
+[next] 2026-04-17 Awaiting developer sign-off for plan-urgent-tools execution batch
+[decision] 2026-04-17 Directory organization follow-up — urgent tools were reviewed for standalone folder placement
+[done] 2026-04-17 Organized standalone urgent tools into Utility/Editor/UrgentTools: LuaBatchConverterWindow.cs, MissingReferenceFinderWindow.cs, AssetAssociationSearchWindow.cs (+ meta retained)
+[decision] 2026-04-17 AssetImportPipeline files were temporarily moved but reverted to original AssetImportPipeline path due Assembly-CSharp-Editor.csproj explicit source include constraints
+[done] 2026-04-17 Re-verified after directory organization: dotnet build XLuaHotfix.sln passed with 0 errors
+[done] 2026-04-17 Merged LuaAssetImporter into AssetImportPipeline directory: moved LuaAssetImporter.cs to Utility/Editor/AssetImportPipeline/
+[done] 2026-04-17 Added importer backend abstraction for Lua importer: ILuaImportBackend + LuaTextAssetImportBackend + LuaImportBackendRegistry, and wired LuaAssetImporter to use backend interface
+[done] 2026-04-17 Updated Assembly-CSharp-Editor.csproj include path for LuaAssetImporter to new AssetImportPipeline location
+[done] 2026-04-17 Verification after importer merge/backend adaptation: dotnet build XLuaHotfix.sln passed with 0 errors
+[decision] 2026-04-17 Naming cleanup by developer request: deprecated "UrgentTools" naming, switched to normal "Tools" folder naming
+[done] 2026-04-17 Moved tool windows from Utility/Editor/UrgentTools to Utility/Editor/Tools (LuaBatchConverterWindow, MissingReferenceFinderWindow, AssetAssociationSearchWindow)
+[done] 2026-04-17 Moved AssetImportPipeline under Utility/Editor/Tools/AssetImportPipeline to align with Tools placement requirement
+[done] 2026-04-17 Renamed LuaAssetImporter to LuaImporterRule and moved into Utility/Editor/Tools/AssetImportPipeline/Rules
+[done] 2026-04-17 Updated Assembly-CSharp-Editor.csproj compile includes to new Tools/AssetImportPipeline paths (including Rules/LuaImporterRule.cs)
+[done] 2026-04-17 Verification after naming and folder normalization: dotnet build XLuaHotfix.sln passed with 0 errors
+[decision] 2026-04-17 E5 scheduling primitives finalized: only Sequence + Parallel. DAG scheduler auto-determines execution order and parallel batches. No Selector/Fallback/Decorator (behavior tree semantics rejected)
+[decision] 2026-04-17 E5 IBuildTask interface 4-field contract: TaskName (unique ID), DependsOn (prerequisite list), ReadKeys/WriteKeys (BuildContext data access declaration), Execute(BuildContext) → BuildTaskResult. No BackendMode/IsBackbone/Priority/RetryCount fields
+[decision] 2026-04-17 E5 backbone nodes (6, non-skippable): TaskPrepareContext → TaskCollectAssets → TaskAnalyzeDependencies → TaskBuildBundles → TaskGenerateManifest → TaskOrganizeOutput
+[decision] 2026-04-17 E5 extension nodes (pluggable via DependsOn): TaskGenerateSnapshot (Full only), TaskPrepareDiff (Hotfix only), TaskExportRuntimeIndex (legacy compat), custom nodes (Lua export, game config, shader variants)
+[decision] 2026-04-17 E5 HelperBuildData eliminated: was AA architecture limitation product (SO-only data passing to AA packages). New architecture controls build flow directly, generalized as custom extension nodes
+[done] 2026-04-17 G3 (E5) fully converged: DAG scheduler + 4-field contract + 6 backbone + extension nodes. Updated plan-E-draft.md
+[next] 2026-04-17 Continue to specialized track 4: special asset handling (F-series)
+[decision] 2026-04-17 F-series unified pattern: all assets go through same pipeline, no "special asset pipeline". Differences handled via 5 standard extension points (IAssetImportRule, Classifier/PayloadKind, PackRule, custom IBuildTask, IPackageBackend)
+[decision] 2026-04-17 PayloadKind is pipeline routing signal (Serialized/RawFile/Scene); BundleType is descriptive label for visualization only, does not affect routing
+[decision] 2026-04-17 PackRule interface unchanged for special assets; implementation naturally reads AssetInfo.PayloadKind + PrimaryType for differentiation
+[decision] 2026-04-17 F1 RawFile needs 3 extensions: Build Backend file-copy path, IPackageBackend.LoadRawFile API, Manifest PayloadKind field
+[decision] 2026-04-17 F2 SpriteAtlas covered by standard dependency analysis (E4); special needs addressed via custom Task nodes
+[decision] 2026-04-17 F3 platform compression handled by AssetImportPipeline (IAssetImportRule), no build pipeline core changes needed
+[decision] 2026-04-17 Design principle: when encountering new special asset needs, analyze existing 5 extension points first — do not create new pipeline branches
+[done] 2026-04-17 F-series fully converged: unified pipeline + 5 extension points. Updated plan-E-draft.md
+[next] 2026-04-17 Continue to specialized track 5: editor architecture design
+[decision] 2026-04-17 Editor organization: single BuildPipelineWindow with sidebar buttons to switch between 5 functional areas
+[decision] 2026-04-17 Editor sidebar order: Collector → Pipeline → Builder → Inspector → Settings
+[decision] 2026-04-17 Collector area: Package/Group/Collector tree editing + property panel + config validation
+[decision] 2026-04-17 Pipeline area: Task DAG list with dependency info + extension node enable/disable + topology preview + conflict detection
+[decision] 2026-04-17 Builder area: build mode (Full/Hotfix) + BackendMode + platform + progress + log + history
+[decision] 2026-04-17 Inspector area: Bundle table (name/size/assets/deps/type) + asset-to-bundle search
+[decision] 2026-04-17 Settings area: CollectorSetting SO global parameters (output path, Hash length, SharePolicy, BackendMode default)
+[decision] 2026-04-17 Editor design principles: unified SO data source, display+config only (no build logic), diagnostic tools stay independent, incremental development (Collector first)
+[done] 2026-04-17 Editor architecture direction converged: BuildPipelineWindow + 5 areas + design principles. Updated plan-E-draft.md
+[done] 2026-04-17 All 5 specialized topics complete: (1) Collector+Rules, (2) SharePolicy, (3) DAG+Task, (4) Special Assets, (5) Editor Architecture
