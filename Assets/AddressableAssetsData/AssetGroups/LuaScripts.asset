@@ -45,6 +45,13 @@ MonoBehaviour:
     - LuaScriptContainer
     - Text
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 39aa4e765257c11479881bda90242ce2
+    m_Address: Dialogue
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - LuaScriptContainer
+    - Dialogue
+    FlaggedDuringContentUpdateRestriction: 0
   m_ReadOnly: 0
   m_Settings: {fileID: 11400000, guid: 170f3ccdb3bee544095a2f2b92d47c18, type: 2}
   m_SchemaSet:

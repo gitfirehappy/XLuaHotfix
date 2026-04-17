@@ -277,6 +277,7 @@ public class AssetPackageManager : Singleton<AssetPackageManager>
     /// <summary>
     /// 通过 Address 异步加载资源，返回 AssetHandle。
     /// 内部先 Resolve 得到唯一条目，再通过 backend 加载，通过 HandleRegistry 分配句柄。
+    /// TODO: 不能将Legacy路径混进来，要独立，最终是完全替换掉 Legacy 后端，相关代码将废弃。
     /// </summary>
     public async Task<AssetHandle<T>> LoadByAddress<T>(string address) where T : UnityEngine.Object
     {

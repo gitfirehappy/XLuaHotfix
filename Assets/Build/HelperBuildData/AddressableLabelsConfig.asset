@@ -39,7 +39,7 @@ MonoBehaviour:
     Labels:
     - LuaScriptContainer
     - Player
-  - key: Framework
+  - key: StateMachine
     Type: LuaScriptContainer
     Labels:
     - LuaScriptContainer
@@ -112,7 +112,7 @@ MonoBehaviour:
   - Type: LuaScriptContainer
     Keys:
     - Player
-    - Framework
+    - StateMachine
     - Core
     - LuaText
     - Dialogue
@@ -158,7 +158,7 @@ MonoBehaviour:
   - Label: LuaScriptContainer
     Keys:
     - Player
-    - Framework
+    - StateMachine
     - Core
     - LuaText
     - Dialogue
@@ -167,7 +167,7 @@ MonoBehaviour:
     - Player
   - Label: Framework
     Keys:
-    - Framework
+    - StateMachine
   - Label: Core
     Keys:
     - Core

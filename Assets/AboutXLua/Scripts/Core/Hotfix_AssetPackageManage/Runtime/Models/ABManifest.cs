@@ -36,6 +36,7 @@ public class ABManifest
     #endregion
 
     #region 运行时索引（不序列化，由 Initialize 构建）
+    // TODO: 明确哪些唯一映射，哪些允许重复映射。
 
     /// <summary>Address -> AssetEntry 索引列表（支持重复 Address）</summary>
     [NonSerialized] private Dictionary<string, List<int>> _addressIndex;

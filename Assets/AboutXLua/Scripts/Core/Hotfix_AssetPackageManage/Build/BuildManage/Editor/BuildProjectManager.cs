@@ -15,6 +15,8 @@ using UnityEngine;
 
 public static class BuildProjectManager
 {
+    public static bool LastBuildSuccess { get; private set; } = true;
+
     // 热更包输出根目录
     private static string OutputRoot => Path.Combine(Directory.GetParent(Application.dataPath).FullName, "HotfixOutput");
     
@@ -35,18 +37,26 @@ public static class BuildProjectManager
     [MenuItem("Tools/Build/Build Full Package",false, 1)]
     public static void BuildFullPackage()
     {
+        LastBuildSuccess = true;
         VersionDataBase versionData = LoadVersionDataBase();
-        if (versionData == null) return;
+        if (versionData == null)
+        {
+            LastBuildSuccess = false;
+            return;
+        }
         
         // 大版本更新，增加Major版本
         versionData.IncrementVersion(true);
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
         
-        ExecuteBuildFlow(versionData.CurrentVersion, BuildType.Full);
-        
-        EditorApplication.ExecuteMenuItem("File/Build Settings...");
-        Debug.Log("[BuildProjectManager] 请在弹出的Build Settings中选择目标平台和场景，点Build按钮后自动导出包体！");
+        LastBuildSuccess = ExecuteBuildFlow(versionData.CurrentVersion, BuildType.Full);
+
+        if (!Application.isBatchMode)
+        {
+            EditorApplication.ExecuteMenuItem("File/Build Settings...");
+            Debug.Log("[BuildProjectManager] 请在弹出的Build Settings中选择目标平台和场景，点Build按钮后自动导出包体！");
+        }
     }
     
     /// <summary>
@@ -55,15 +65,20 @@ public static class BuildProjectManager
     [MenuItem("Tools/Build/Build Hotfix Package",false, 2)]
     public static void BuildHotfix()
     {
+        LastBuildSuccess = true;
         VersionDataBase versionData = LoadVersionDataBase();
-        if (versionData == null) return;
+        if (versionData == null)
+        {
+            LastBuildSuccess = false;
+            return;
+        }
         
         // 小版本更新，增加Patch版本
         versionData.IncrementVersion();
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
         
-        ExecuteBuildFlow(versionData.CurrentVersion, BuildType.Hotfix);
+        LastBuildSuccess = ExecuteBuildFlow(versionData.CurrentVersion, BuildType.Hotfix);
     }
     
     /// <summary>
@@ -93,11 +108,16 @@ public static class BuildProjectManager
         }
     }
     
-    private static void ExecuteBuildFlow(VersionNumber version, BuildType buildType)
+    private static bool ExecuteBuildFlow(VersionNumber version, BuildType buildType)
     { 
         Debug.Log($"[BuildProjectManager] 开始构建热更包 Version: {version}");
         
         var settings = AddressableAssetSettingsDefaultObject.Settings;
+        if (settings == null)
+        {
+            Debug.LogError("[BuildProjectManager] AddressableAssetSettings 为空，无法继续构建。");
+            return false;
+        }
         
         // 1. 生成HelperBuildData并进行基础设置
         HelperBuildDataExporter.ExportData();
@@ -126,7 +146,7 @@ public static class BuildProjectManager
             if (!string.IsNullOrEmpty(result.Error))
             {
                 Debug.LogError($"[BuildProjectManager] 构建失败: {result.Error}");
-                return;
+                return false;
             }
 
             // 5. BuildPathCustomizer 整理Remote包目录, 删除不必要的文件
@@ -162,11 +182,17 @@ public static class BuildProjectManager
             }
 
             Debug.Log($"[BuildProjectManager] 包体构建完毕: {hotfixOutputDir}");
-            EditorUtility.RevealInFinder(hotfixOutputDir);
+            if (!Application.isBatchMode)
+            {
+                EditorUtility.RevealInFinder(hotfixOutputDir);
+            }
+
+            return true;
         }
         catch(Exception ex)
         {
             Debug.LogError($"[BuildProjectManager] 构建过程中出现异常: {ex}");
+            return false;
         }
     }
 
@@ -288,6 +314,13 @@ public static class BuildProjectManager
         if (versionState.totalSize >= MaxHotfixSizeBytes)
         {
             Debug.LogError($"[BuildProjectManager] 热更包大小过大，需缩减大小: {versionState.totalSize} >= {MaxHotfixSizeBytes}");
+
+            if (Application.isBatchMode)
+            {
+                Debug.LogError("[BuildProjectManager] BatchMode 下已阻断构建：热更包大小超过阈值。请缩减资源后重试。");
+                throw new Exception("热更包大小超过阈值");
+            }
+
             EditorUtility.DisplayDialog("热更包过大", $"热更包大小 ({versionState.totalSize / (1024 * 1024)} MB) 已超过阈值 ({MaxHotfixSizeBytes / (1024 * 1024)} MB)。请缩减资源大小。", "OK");
             return;
         }

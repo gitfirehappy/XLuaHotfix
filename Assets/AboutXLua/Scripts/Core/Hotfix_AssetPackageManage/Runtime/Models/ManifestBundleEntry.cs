@@ -5,6 +5,7 @@ using System.Collections.Generic;
 /// Bundle 内容类型枚举 — 由构建管线根据包内资源类型自动推断。
 /// 规则：如果 >80% 的资源属于同一类型，标为该类型；否则标为 Mixed。
 /// 当前为预留字段，Phase 6 E5/E6 构建管线实现时赋值。
+/// TODO: 纯枚举是否方便？
 /// </summary>
 public enum EBundleType
 {
@@ -50,6 +51,7 @@ public class ManifestBundleEntry
     /// <summary>
     /// Bundle 内容类型（预留，由 Phase 6 构建管线自动推断赋值，默认 Unknown）。
     /// 用途：差异化加载策略、压缩算法选择、下载优先级排序、可视化分组。
+    /// TODO：是否需要纯枚举？int 还是 EBundleType？
     /// </summary>
     public int BundleType;
 

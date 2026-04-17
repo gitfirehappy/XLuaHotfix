@@ -16,6 +16,8 @@ MonoBehaviour:
   - containerAddress: Core
     scriptNames:
     - ModuleRegistry
+    - coroutineBridge
+    - LogUtility
   - containerAddress: Dialogue
     scriptNames:
     - DialogueController
@@ -25,11 +27,6 @@ MonoBehaviour:
     - StringUtil
     - DialogueFuncRegistry
     - DemoDialogueFunctions
-  - containerAddress: Framework
-    scriptNames:
-    - EventCentre
-    - BaseStateMachine
-    - BaseState
   - containerAddress: LuaText
     scriptNames:
     - TalkTest1
@@ -46,3 +43,7 @@ MonoBehaviour:
     - PlayerRunState
     - PlayerJumpState
     - PlayerFallState
+  - containerAddress: StateMachine
+    scriptNames:
+    - BaseStateMachine
+    - BaseState
