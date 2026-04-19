@@ -327,5 +327,16 @@ public class ABManifest
         return SerializationUtility.SerializeToJson(this, prettyPrint);
     }
 
+    /// <summary>
+    /// 从文件路径反序列化并自动初始化运行时索引。
+    /// 自动探测格式（.bin 二进制 或 .json JSON）。
+    /// </summary>
+    public static ABManifest DeserializeFromFile(string path)
+    {
+        var manifest = SerializationUtility.ReadFromFile<ABManifest>(path);
+        manifest.Initialize();
+        return manifest;
+    }
+
     #endregion
 }

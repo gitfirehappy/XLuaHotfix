@@ -505,3 +505,12 @@
 [done] 2026-04-19 S3-T7 complete — Round-trip test passed: Serialize → Deserialize → field-by-field compare
 [done] 2026-04-19 plan-S3 SIGNED OFF — All 7 tasks completed, round-trip verified, compilation passed
 [next] 2026-04-19 Next: S4 (Runtime Integration — ManifestLoader .bin/.json search order + build-side dual export)
+
+[start] 2026-04-19 S4 execution — Runtime integration + build-side dual export
+[done] 2026-04-19 S4-T1 complete — Constants.cs: added MANIFEST_FILE_NAME_BIN = "ABManifest.bin"
+[done] 2026-04-19 S4-T2 complete — ManifestLoader.cs: added .bin/.json search order (primary .bin → fallback .json per directory)
+[done] 2026-04-19 S4-T3 complete — LocalStatusExporter.cs: added ABManifest export with dual format (.json + .bin), controlled by ExportBinaryManifest flag
+[done] 2026-04-19 S4-T4 complete — ABManifest.cs: added DeserializeFromFile(path) convenience method
+[done] 2026-04-19 S4-T5 complete — Compilation verified: dotnet build passed with 0 errors
+[done] 2026-04-19 plan-S4 SIGNED OFF — All 5 tasks completed, S plan closed loop achieved
+[next] 2026-04-19 Phase S complete. Next: Phase 4 (B4+B9) or Phase 5 (E-series build pipeline)

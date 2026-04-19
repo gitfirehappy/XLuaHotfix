@@ -48,4 +48,5 @@ public static class Constants
     // ------------------重构计划涉及字段-----------------------//
 
     public const string MANIFEST_FILE_NAME = "ABManifest.json";
+    public const string MANIFEST_FILE_NAME_BIN = "ABManifest.bin";
 }

@@ -1,9 +1,9 @@
 # Refactor Plan: XLuaHotfix Full Resource Management System Overhaul — Master Plan
 
-> **Status**: In progress (Phase 1 completed, Phase 2 B5-1/B5-2 done, Phase 3 B6/B7/B8 done)
+> **Status**: In progress (Phase 1-3 completed, Phase S completed, next: Phase 4)
 > **Ultimate Goal**: Fully replace Addressables with custom runtime + build-time resource management system (referencing YooAsset architecture)
 > **Created**: 2026-03-16
-> **Updated**: 2026-04-07 — Phase 3 complete (B6+B7+B8), next: Phase 4
+> **Updated**: 2026-04-19 — Phase S complete (S1+S2+S3+S4), serialization infrastructure operational
 
 ---
 
@@ -53,8 +53,8 @@ Phase 2: Runtime Contract Layer (B5-1/B5-2 done, B5-3 cancelled, B5-4 deferred)
 Phase 3: Runtime Implementation Layer <- Phase 3 COMPLETE
   B6 ABAssetIndex impl (DONE) -> B7 ABPackageBackend impl (DONE) -> B8 AssetHandle + ref-count pool (DONE)
 
-Phase S: Serialization Infrastructure (cross-cutting, before Phase 4) <- current focus
-  S1 Interface + JsonCodec -> S2 BinaryCodec + code generator -> S3 ABManifest binary -> S4 Runtime integration
+Phase S: Serialization Infrastructure (cross-cutting, before Phase 4) <- Phase S COMPLETE
+  S1 Interface + JsonCodec (DONE) -> S2 BinaryCodec + code generator (DONE) -> S3 ABManifest binary (DONE) -> S4 Runtime integration (DONE)
 
 Phase 4: Hotfix Core Pipeline (B4+B9 merged)
   IHotfixPipeline interface + ABHotfixBackend + LegacyHotfixBackend + orchestrator refactor
@@ -147,9 +147,9 @@ Phase 4 and Phase 6 must be coordinated (ABManifest runtime consumption + build-
 | File | Content | Status |
 |------|---------|--------|
 | plan-serialization.md | Serialization master plan (overview + 4-phase roadmap) | Draft |
-| plan-S1.md | S1: ISerializationCodec + JsonCodec + SerializationUtility + replace 10 call sites | Approved |
-| plan-S2.md | S2: BinaryCodec infrastructure: [BinarySerializable]/[BinaryField] attributes + BinaryHeader read/write + Editor code generator | Approved |
-| plan-S3S4.md | S3: ABManifest data class annotation + code generation + Magic registration; S4: ManifestLoader .bin/.json auto-detect + build-side dual export | Approved |
+| plan-S1.md | S1: ISerializationCodec + JsonCodec + SerializationUtility + replace 10 call sites | DONE |
+| plan-S2.md | S2: BinaryCodec infrastructure: [BinarySerializable]/[BinaryField] attributes + BinaryHeader read/write + Editor code generator | DONE |
+| plan-S3S4.md | S3: ABManifest data class annotation + code generation + Magic registration; S4: ManifestLoader .bin/.json auto-detect + build-side dual export | DONE |
 
 ### Phase 5: Build-Time - Asset Collection & Indexing
 
@@ -235,4 +235,5 @@ Phase 4 and Phase 6 must be coordinated (ABManifest runtime consumption + build-
 | 2026-04-08 | Plan synchronization update: aligned plan-B / plan-B5* / plan-B7* execution status with progress log and added plan-B8.md to sub-plan index |
 | 2026-04-18 | **Serialization infrastructure added**: New Phase S (cross-cutting, before Phase 4). Technical route: zero-dependency custom binary + editor code generator. S1 (interface + JsonCodec) plan written. Key decisions: lightweight binary header (Magic 4B + SchemaVersion 2B + Flags 2B), auto format detection (Magic → binary, else → JSON fallback), per-type independent Magic values, old backend artifacts (version_state/BuildIndex) not binary-ized — natural retirement |
 | 2026-04-18 | **Phase 4 B4+B9 merged**: IHotfixPipeline interface separation + AB/Legacy dual backend. Key decisions: (1) Interface+backend pattern matching AssetPackageManager. (2) 5-method fine-grained interface (InitBackend/LoadLocalVersion/FetchRemoteVersion/GetBundleDownloadList/PostDownload). (3) HotfixManager stays static, refactored to orchestrator. (4) Constants.USE_AB_BACKEND global switch replaces per-class USE_AB_INDEX. (5) VersionState retires with Legacy backend. (6) NetworkDownloader relocated to Helpers/. (7) AB backend downloads ABManifest.bin/json instead of version_state+catalog (1 fewer network request) |
-| 2026-04-18 | **E1-3 plan written**: CollectionScanner static utility + Package-scoped deepest-path ownership + IgnorePatterns simplified gitignore subset (*.ext/dirname//*keyword*) + GlobMatcher + ScanResult error reporting (7 conditions). Key decisions: (1) AssetDatabase.FindAssets for discovery. (2) Cross-Package overlap = error, Package-internal deepest-path dedup. (3) IgnorePatterns as List\<string\> on Collector (not interface). (4) Execution order: FindAssets→exclude sub-paths→FilterRule→IgnorePatterns→Classify/Address/Pack/Tags. (5) Full scan each time, no incremental cache |
+| 2026-04-18 | **E1-3 plan written**: CollectionScanner static utility + Package-scoped deepest-path ownership + IgnorePatterns simplified gitignore subset (*.ext/dirname//*keyword*) + GlobMatcher + ScanResult error reporting (7 conditions). Key decisions: (1) AssetDatabase.FindAssets for discovery. (2) Cross-Package overlap = error, Package-internal deepest-path dedup. (3) IgnorePatterns as List\<string\> on Collector (not interface). (4) Execution order: FindAssets→exclude sub-paths→FilterRule→IgnorePatterns→Classify/Address/Pack/Tags. (5) Full scan each time, no incremental cache
+| 2026-04-19 | **Phase S complete**: Serialization infrastructure operational. S1 (ISerializationCodec + JsonCodec + SerializationUtility) → S2 (BinaryCodec + code generator + attributes) → S3 (ABManifest binary annotation + 4 serializers generated + Magic registration) → S4 (ManifestLoader .bin/.json auto-detect + LocalStatusExporter dual export + ABManifest.DeserializeFromFile). Key deliverables: zero-dependency binary serialization, auto format detection, round-trip verified |
