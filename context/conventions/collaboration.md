@@ -12,6 +12,7 @@
 3. Keep sub-plans in `requirements/{id}/plan*.md`.
 4. After sign-off, migrate verified lessons into `context/`.
 
+
 ## Resource-Management Rules
 - Prefer `AssetPackageManager` over direct Addressables usage in new runtime code.
 - Current runtime abstractions include `IAssetIndex` and `IPackageBackend`.

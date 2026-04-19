@@ -14,23 +14,29 @@ using UnityEngine;
 /// 3. 通过 TryGetAssets* / GetBundle* 方法查询资源和 Bundle 信息
 /// </summary>
 [Serializable]
+[BinarySerializable(Magic = 0x41424D46, SchemaVersion = 1)]
 public class ABManifest
 {
     #region 序列化字段
 
     /// <summary>包裹标识（如 "MainPackage"）</summary>
+    [BinaryField(0)]
     public string PackageName;
 
     /// <summary>包裹版本号</summary>
+    [BinaryField(1)]
     public VersionNumber PackageVersion;
 
     /// <summary>构建时间戳（ISO 8601 格式，调试用）</summary>
+    [BinaryField(2)]
     public string BuildTimestamp;
 
     /// <summary>所有资源条目</summary>
+    [BinaryField(3)]
     public List<ManifestAssetEntry> AssetEntries = new();
 
     /// <summary>所有 Bundle 条目</summary>
+    [BinaryField(4)]
     public List<ManifestBundleEntry> BundleEntries = new();
 
     #endregion

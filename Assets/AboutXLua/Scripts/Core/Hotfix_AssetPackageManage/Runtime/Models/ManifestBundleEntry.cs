@@ -25,23 +25,29 @@ public enum EBundleType
 /// 包含完整性校验信息（Hash/CRC/Size）、依赖关系（int 索引）、分类标签。
 /// </summary>
 [Serializable]
+[BinarySerializable]
 public class ManifestBundleEntry
 {
     #region 标识与校验
 
     /// <summary>Bundle 文件名（唯一标识，如 "characters_assets_all_abc123.bundle"）</summary>
+    [BinaryField(0)]
     public string BundleName;
 
     /// <summary>文件内容哈希（MD5），用于完整性校验和增量更新比较</summary>
+    [BinaryField(1)]
     public string FileHash;
 
     /// <summary>文件 CRC32 校验码，用于快速校验</summary>
+    [BinaryField(2)]
     public uint FileCRC;
 
     /// <summary>文件大小（字节），用于下载进度估算</summary>
+    [BinaryField(3)]
     public long FileSize;
 
     /// <summary>是否加密</summary>
+    [BinaryField(4)]
     public bool Encrypted;
 
     #endregion
@@ -53,6 +59,7 @@ public class ManifestBundleEntry
     /// 用途：差异化加载策略、压缩算法选择、下载优先级排序、可视化分组。
     /// TODO：是否需要纯枚举？int 还是 EBundleType？
     /// </summary>
+    [BinaryField(5)]
     public int BundleType;
 
     /// <summary>
@@ -60,6 +67,7 @@ public class ManifestBundleEntry
     /// 语义：Bundle 级下载策略标签（如 "必装", "DLC-1"），不是 Asset Labels 的聚合。
     /// 赋值规则在 B9（增量下载适配）/ E6（构建导出）时定义。
     /// </summary>
+    [BinaryField(6)]
     public List<string> Tags = new();
 
     /// <summary>
@@ -67,6 +75,7 @@ public class ManifestBundleEntry
     /// 数据来源：Unity BuildPipeline 输出的直接依赖关系。
     /// 递归展开由运行时 ABBundleLoader 负责。
     /// </summary>
+    [BinaryField(7)]
     public int[] DependBundleIndices = new int[0];
 
     #endregion

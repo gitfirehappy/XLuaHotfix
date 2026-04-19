@@ -58,11 +58,12 @@ public class VersionDataBase : ScriptableObject
 /// 版本号数据类型，整个项目统一使用
 /// </summary>
 [Serializable]
+[BinarySerializable]
 public class VersionNumber
 {
-    public int Major;
-    public int Minor;
-    public int Patch;
+    [BinaryField(0)] public int Major;
+    [BinaryField(1)] public int Minor;
+    [BinaryField(2)] public int Patch;
     
     public string GetVersionString() => $"{Major}.{Minor}.{Patch}";
     
