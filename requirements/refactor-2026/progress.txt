@@ -399,3 +399,98 @@
 [decision] 2026-04-17 Editor design principles: unified SO data source, display+config only (no build logic), diagnostic tools stay independent, incremental development (Collector first)
 [done] 2026-04-17 Editor architecture direction converged: BuildPipelineWindow + 5 areas + design principles. Updated plan-E-draft.md
 [done] 2026-04-17 All 5 specialized topics complete: (1) Collector+Rules, (2) SharePolicy, (3) DAG+Task, (4) Special Assets, (5) Editor Architecture
+
+[start] 2026-04-18 Serialization infrastructure planning — Phase S added as cross-cutting layer before Phase 4
+[decision] 2026-04-18 Serialization priority confirmed by developer: serialization tool layer first (before Phase 4), as foundational infrastructure for manifest read/write
+[decision] 2026-04-18 Project context: technical accumulation project, binary codec is engineering discipline need not performance bottleneck
+[decision] 2026-04-18 YooAsset serialization fact-check: YooAsset uses custom binary stream (ManifestTools.SerializeToBinary), NOT MessagePack. FileSign+FileVersion header, count-prefixed entries. JSON via JsonUtility for debug only
+[decision] 2026-04-18 Binary codec technical route: zero-dependency custom binary + editor code generator. [BinarySerializable]/[BinaryField(n)] attributes on data classes, editor tool scans and generates Serializer classes. Eliminates "change field = change two places" maintenance cost while keeping zero external dependencies
+[decision] 2026-04-18 Rejected alternatives: (1) MessagePack — developer prefers zero dependency. (2) MemoryPack — Unity 2022.3 Source Generator compatibility risk. (3) Pure handwritten binary (YooAsset-style) — high maintenance cost during manifest evolution phase
+[decision] 2026-04-18 Binary header design: lightweight 8-byte fixed header (Magic uint32 + SchemaVersion uint16 + Flags uint16). Per-type independent Magic values (ABManifest='ABMF', etc). Codec determined by file extension (.json/.bin), header for format self-identification and version validation
+[decision] 2026-04-18 Schema evolution rules: new fields append at end with incrementing BinaryField number; deleted fields marked [Obsolete] keeping number slot; SchemaVersion increments for field set changes; incompatible changes require major version jump + migration tool
+[decision] 2026-04-18 Auto format detection: SerializationUtility.Deserialize<T>(byte[]) checks first 4 bytes against registered Magic → binary codec; no match → JSON fallback. Enables new client reading old JSON files seamlessly
+[decision] 2026-04-18 Old backend artifacts (version_state.json, BuildIndex.json) not binary-ized — natural retirement with legacy backend. Only need version mismatch detection to block incompatible reads
+[decision] 2026-04-18 BuildIndex.json correction: enters runtime via StreamingAssets (not editor-only), but still not binary-ized as legacy backend artifact
+[decision] 2026-04-18 Serialization 4-phase roadmap: S1 (interface+JsonCodec) → S2 (BinaryCodec+code generator) → S3 (ABManifest binary) → S4 (runtime integration+compat layer)
+[decision] 2026-04-18 S1 file placement: Utility/Serialization/ as general-purpose infrastructure (same level as HashGenerator/PathManager)
+[decision] 2026-04-18 S1 replacement strategy: all 10 JsonUtility call sites replaced in one batch (ABManifest.cs, ManifestLoader.cs, HotfixManager.cs, BuildProjectManager.cs, LocalStatusExporter.cs)
+[decision] 2026-04-18 S1 interface design confirmed: ISerializationCodec (byte[]<->T only), JsonCodec (wraps JsonUtility), SerializationUtility (facade: codec registry + format detection + sync/async file I/O), BinaryHeader (Magic registry + HasValidMagic, inactive in S1)
+[decision] 2026-04-18 Developer noted HotfixManager should be refactored to new/old backend split (like AssetPackageManager) — separate plan, can be done before or after S1
+[done] 2026-04-18 plan-S1.md written — 8 tasks, 4 new files, 5 modified files, 5 invariants, approval checklist
+[done] 2026-04-18 plan.md updated — Phase S added to roadmap, dependency graph, sub-plan index, change log
+[next] 2026-04-18 Awaiting developer approval of plan-S1.md, then begin S1-T1 execution
+[done] 2026-04-18 plan-S1.md APPROVED by developer — execution by developer, not AI
+[start] 2026-04-18 S2 sub-plan discussion — BinaryCodec infrastructure + editor code generator
+[decision] 2026-04-18 S2 field type support: unified recursive handling via [BinarySerializable] for all custom types (including VersionNumber struct). No special-case handling
+[decision] 2026-04-18 S2 generator trigger: dual mode — manual Editor menu + IPreprocessBuildWithReport staleness check. Future: E5 pipeline Task node for same validation
+[decision] 2026-04-18 S2 generated code location: Utility/Serialization/Generated/ — committed to git for CI compatibility
+[decision] 2026-04-18 S2 header ownership: top-level file types only (Magic+SchemaVersion on attribute). Nested types inline without own header — version managed by parent's SchemaVersion
+[decision] 2026-04-18 S2 null handling: string null→flag 0x00; array/list null→count -1; class null→flag 0x00; struct always present
+[decision] 2026-04-18 S2 staleness detection: hash of (field names + types + orders + SchemaVersion) embedded in generated file header, compared at pre-build
+[done] 2026-04-18 plan-S2.md written — 9 tasks, 5 new files, 2 modified files, 7 invariants, 7 approval checklist items
+[done] 2026-04-18 plan-S2.md APPROVED by developer — removed E5 Task node reference per developer feedback (keep architecture simple)
+[decision] 2026-04-18 S2 List<T> type support corrected: List<T> where T is primitive, string, or [BinarySerializable] (not just [BinarySerializable]). Needed for ManifestAssetEntry.Labels and ManifestBundleEntry.Tags (both List<string>)
+[start] 2026-04-18 S3+S4 sub-plan discussion — ABManifest binary annotation + runtime integration
+[decision] 2026-04-18 S3 field order assignments: ABManifest (5 fields, 0-4), ManifestAssetEntry (8 fields, 0-7), ManifestBundleEntry (8 fields, 0-7), VersionNumber (3 fields, 0-2)
+[decision] 2026-04-18 S3 ABManifest Magic = 0x41424D46 ('ABMF'), SchemaVersion = 1
+[decision] 2026-04-18 S3 [NonSerialized] fields (IncludeAssets, ReferencedByBundleIndices) not annotated — generator skips automatically
+[decision] 2026-04-18 S3 EBundleType enum not annotated — BundleType field is int, handled natively
+[decision] 2026-04-18 S3 existing [Serializable] attribute kept on all classes (JsonUtility compat during transition)
+[decision] 2026-04-18 S4 ManifestLoader search order: per directory, .bin first → .json fallback
+[decision] 2026-04-18 S4 build-side dual export: .json + .bin side by side during transition, controlled by simple bool flag
+[decision] 2026-04-18 S4 ABManifest gains DeserializeFromFile(path) convenience method (auto-detect + Initialize)
+[decision] 2026-04-18 S4 file naming: ABManifest.bin (binary), ABManifest.json (existing)
+[done] 2026-04-18 plan-S3S4.md written — 12 tasks (S3: 7, S4: 5), 7 modified files, 8 invariants, 5 approval checklist items
+[done] 2026-04-18 plan.md updated — S1 status→Approved, S2 status→Approved, S3S4 added to index
+[next] 2026-04-18 Awaiting developer approval of plan-S3S4.md
+[done] 2026-04-18 plan-S3S4.md APPROVED by developer — field order kept as-is (no diagnostic field reorder), all 5 checklist items passed
+[decision] 2026-04-18 ManifestAssetEntry diagnostic fields (SourcePath/Group/AutoAddress) keep current order [4][5][6] — reordering is trivial if needed later (change annotation number + re-run generator)
+[done] 2026-04-18 Serialization full series closed: S1 (Approved) → S2 (Approved) → S3+S4 (Approved). All 4 sub-plans ready for developer execution
+[next] 2026-04-18 Developer executes S1→S2→S3→S4 independently. Next planning direction: Phase 4 (B4+B9) or E-series precise sub-plans
+
+[start] 2026-04-18 Phase 4 (B4+B9) design discussion — hotfix pipeline interface separation + AB backend
+[decision] 2026-04-18 B4+B9 merged into single sub-plan — "use ABManifest to replace catalog+version_state" and "use ABManifest for incremental download" are two sides of the same coin
+[decision] 2026-04-18 D1 architecture: Interface+Backend separation (IHotfixPipeline + LegacyHotfixBackend / ABHotfixBackend), matching AssetPackageManager pattern. Developer chose this over conditional branching for engineering discipline
+[decision] 2026-04-18 D2 VersionState retirement: AB backend does NOT use version_state.json. ABManifest.PackageVersion + BundleEntries fully covers VersionState. Retires naturally with Legacy backend
+[decision] 2026-04-18 D5 NetworkDownloader relocation: move from LegacyRuntime/ to Helpers/Helper/ as shared infrastructure. Future Utility/ consolidation deferred (cross-project concern)
+[decision] 2026-04-18 D7 interface granularity: fine-grained hooks (5 methods), orchestrator controls shared step sequencing. Developer note: "keep it simple, don't over-complicate"
+[decision] 2026-04-18 D10 global switch: Constants.USE_AB_BACKEND replaces per-class USE_AB_INDEX. Single const controls entire chain (hotfix + index + loading backend)
+[decision] 2026-04-18 D11 HotfixManager stays static class. IHotfixPipeline instance created inside InitializeAsync(), no lifecycle management needed
+[decision] 2026-04-18 D12 Addressables cache cleanup: both backends clean com.unity.addressables directory (one-time migration safety for Legacy→AB switch)
+[decision] 2026-04-18 D13 LoadLocalVersionAsync added as 5th interface method — local version data source is also backend-specific (Legacy: version_state.json / AB: ABManifest)
+[decision] 2026-04-18 D17 HotfixVersionInfo includes Bundles list directly — straightforward data adaptation, not over-wrapped. Developer note: "don't over-package intermediate data structures"
+[decision] 2026-04-18 IHotfixPipeline 5 methods: InitializeBackendAsync / LoadLocalVersionAsync / FetchRemoteVersionAsync / GetBundleDownloadList / PostDownloadAsync
+[decision] 2026-04-18 Orchestrator flow: 13 steps total (8 shared + 5 backend). Shared: BuildIndex, manifest pointer, version compare, bundle download, apply update, APM init. Backend: init, local version, remote version, bundle list, post-download
+[done] 2026-04-18 plan-B4B9.md written — 8 tasks, 3 new files, 4 modified files, 8 invariants, 8 approval checklist items
+[done] 2026-04-18 plan.md updated — Phase 4 index updated (B4 superseded, B4B9 added), phase overview updated, change log entry added
+[done] 2026-04-18 plan-B4B9.md APPROVED by developer — all 8 checklist items passed. Ready for execution after Phase S
+[start] 2026-04-18 E-series sub-plan breakdown — E1 Collector Framework split into E1-1/E1-2/E1-3/E1-4 by dependency layer
+[decision] 2026-04-18 E1 split into 4 sub-plans: E1-1 (data model+enums+interfaces) → E1-2 (Classifier+default rules) → E1-3 (scan engine+dedup+IgnoreRule) → E1-4 (Editor UI)
+[decision] 2026-04-18 E1-1 Q1: CollectorSetting is global singleton SO (one SO contains all Packages), stored at Assets/Build/CollectorSetting.asset
+[decision] 2026-04-18 E1-1 Q2: Rule reference via string class name + RuleResolver reflection. All built-in rule class name strings in Constants.cs under Collector Rules region
+[decision] 2026-04-18 E1-1 Q4: No default rule implementations in E1-1 — pure interfaces and data. Developer prefers code clarity over immediate runnability. All defaults deferred to E1-2/E2
+[decision] 2026-04-18 E1-1 Q5: Tags merge = Group.Tags ∪ Collector.Tags (union, deduplicated). Collector appends, does not override
+[decision] 2026-04-18 E1-1 Q7: Assembly split — data classes (SO+enums+struct) in Runtime assembly, rule interfaces+CollectedAssetInfo+RuleResolver in Editor assembly. String class names bridge the gap
+[done] 2026-04-18 plan-E1-1.md written — 8 tasks, 8 new files, 1 modified file, 6 invariants, 10 approval checklist items
+[done] 2026-04-18 plan.md updated — Phase 5 index expanded (E1 split into E1-1/E1-2/E1-3/E1-4, E2/E3 descriptions updated)
+[done] 2026-04-18 plan-E1-1.md APPROVED by developer — all 10 checklist items passed
+[next] 2026-04-18 E1-2 Classifier + default rule implementations
+[decision] 2026-04-18 E1-2 RawFile strategy: Classifier never auto-infers RawFile (only Scene vs Serialized). RawFile requires explicit ForcePayloadKind on Collector. Safest approach for ambiguous extensions (.bytes etc.)
+[decision] 2026-04-18 E1-2 EForcePayloadKind: independent enum (Auto/Serialized/RawFile/Scene), semantically different from EPayloadKind (result vs config intent). Added to Collector data class as ForcePayloadKind field
+[decision] 2026-04-18 E1-2 AddressByFileName reuses AssetAddressGenerator.GenerateShortAddress from B5-1 — no duplication
+[decision] 2026-04-18 E1-2 AssetClassifier is static utility class, not interface — only one classification algorithm
+[done] 2026-04-18 plan-E1-2.md written — 7 tasks, 4 new files, 3 modified files, 7 invariants, 7 approval checklist items
+[done] 2026-04-18 plan-E1-2.md APPROVED by developer
+[start] 2026-04-18 E1-3 Collection scan engine design discussion
+[decision] 2026-04-18 E1-3 IgnoreRule mechanism: simplified gitignore subset (*.ext, dirname/, *keyword*) as List<string> IgnorePatterns on Collector. Not interface — pattern list is simpler and covers 95% use cases
+[decision] 2026-04-18 E1-3 ownership resolution: Package-scoped deepest-path. Cross-Package path overlap = configuration error, abort. Within Package: deeper collectPath wins, same-depth same-path = conflict error
+[decision] 2026-04-18 E1-3 scan engine: static utility class CollectionScanner (like AssetClassifier). No instance state
+[decision] 2026-04-18 E1-3 asset discovery: AssetDatabase.FindAssets — Unity standard Editor API, auto-skips .meta, provides GUID and Type
+[decision] 2026-04-18 E1-3 performance: full scan each time, no incremental/cache. Thousand-level assets = millisecond-level scan. AssetDatabase.FindAssets scopes by directory, FilterRule coarse-filters by extension, IgnorePatterns string-matches — all trivial cost
+[decision] 2026-04-18 E1-3 execution order: FindAssets → exclude sub-paths (deepest-path) → FilterRule → IgnorePatterns → Classify/Address/Pack/Tags
+[decision] 2026-04-18 E1-3 error reporting: ScanResult return type (List<CollectedAssetInfo> + List<ScanMessage>). 7 conditions: CROSS_PACKAGE_OVERLAP, SAME_PATH_CONFLICT, DUPLICATE_GUID, EMPTY_COLLECT_PATH (Error); PATH_NOT_FOUND, RULE_NOT_FOUND, EMPTY_COLLECTOR (Warning/Error)
+[done] 2026-04-18 plan-E1-3.md written — 8 tasks, 3 new files, 1 modified file, 10 invariants, 10 approval checklist items
+[done] 2026-04-18 plan.md updated — E1-2 status→Approved, E1-3 added to index with full description, change log entry added
+[next] 2026-04-18 Awaiting developer approval of plan-E1-3.md
+[done] 2026-04-18 plan-E1-3.md APPROVED by developer
+[next] 2026-04-18 Next planning target: E1-4 (Editor UI — CollectorSetting inspector + tree editing)

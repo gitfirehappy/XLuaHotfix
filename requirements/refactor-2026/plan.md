@@ -53,8 +53,11 @@ Phase 2: Runtime Contract Layer (B5-1/B5-2 done, B5-3 cancelled, B5-4 deferred)
 Phase 3: Runtime Implementation Layer <- Phase 3 COMPLETE
   B6 ABAssetIndex impl (DONE) -> B7 ABPackageBackend impl (DONE) -> B8 AssetHandle + ref-count pool (DONE)
 
-Phase 4: Hotfix Core Pipeline <- current focus
-  B4 Catalog/Locator replacement -> B9 ABManifest format + incremental download adaptation
+Phase S: Serialization Infrastructure (cross-cutting, before Phase 4) <- current focus
+  S1 Interface + JsonCodec -> S2 BinaryCodec + code generator -> S3 ABManifest binary -> S4 Runtime integration
+
+Phase 4: Hotfix Core Pipeline (B4+B9 merged)
+  IHotfixPipeline interface + ABHotfixBackend + LegacyHotfixBackend + orchestrator refactor
 
 Phase 5: Build-Time - Asset Collection & Indexing (ref. YooAsset)
   E1 Collector framework -> E2 Packing rules -> E3 Sub-directory collector + ignore rules
@@ -78,13 +81,13 @@ Phase 10: Assembly Splitting (last)
 ### Key Dependencies
 
 ```
-Phase 1 --> Phase 2 --> Phase 3 --> Phase 4
-  (abstraction) (contract)  (impl)    (hotfix core)
-                 |                      |
-                 | entry model format   | ABManifest format
-                 v                      v
-              Phase 5 --> Phase 6 --> Phase 7
-              (build collect) (build pipeline) (special assets)
+Phase 1 --> Phase 2 --> Phase 3 --> Phase S --> Phase 4
+  (abstraction) (contract)  (impl)  (serialization) (hotfix core)
+                 |                      |               |
+                 | entry model format   | unified I/O   | ABManifest format
+                 v                      v               v
+              Phase 5 --> Phase 6 --------------------------> Phase 7
+              (build collect) (build pipeline, uses S2/S3)   (special assets)
                               |
                               v
                           Phase 8 (editor tools)
@@ -136,16 +139,28 @@ Phase 4 and Phase 6 must be coordinated (ABManifest runtime consumption + build-
 
 | File | Content | Status |
 |------|---------|--------|
-| plan-B4.md | B4: Catalog/Locator replacement | Concept stage |
-| B9 | ABManifest format + incremental download adaptation + download retry strategy (retry at HotfixManager/download layer, not at BundleLoader layer) | To be planned |
+| plan-B4.md | B4: Catalog/Locator replacement (original concept doc, superseded by plan-B4B9.md) | Superseded |
+| plan-B4B9.md | B4+B9 merged: IHotfixPipeline interface separation + ABHotfixBackend + LegacyHotfixBackend + orchestrator refactor + NetworkDownloader relocation. Constants.USE_AB_BACKEND global switch | Approved |
+
+### Phase S: Serialization Infrastructure (cross-cutting)
+
+| File | Content | Status |
+|------|---------|--------|
+| plan-serialization.md | Serialization master plan (overview + 4-phase roadmap) | Draft |
+| plan-S1.md | S1: ISerializationCodec + JsonCodec + SerializationUtility + replace 10 call sites | Approved |
+| plan-S2.md | S2: BinaryCodec infrastructure: [BinarySerializable]/[BinaryField] attributes + BinaryHeader read/write + Editor code generator | Approved |
+| plan-S3S4.md | S3: ABManifest data class annotation + code generation + Magic registration; S4: ManifestLoader .bin/.json auto-detect + build-side dual export | Approved |
 
 ### Phase 5: Build-Time - Asset Collection & Indexing
 
 | ID | Content | Reference | Status |
 |----|---------|-----------|--------|
-| E1 | Collector framework (Collector: Main/Static/Depend + Classifier) + **IsImplicitDependency** field on ManifestAssetEntry (distinguish entry assets from implicit dependencies pulled in by reference) | YooAsset | To be planned |
-| E2 | Packing rules (Collect/GroupBy/Pack three-rule separation) | YooAsset | To be planned |
-| E3 | Sub-directory collector + ignore rules (gitignore style) | YooAsset + initial ideas | To be planned |
+| plan-E1-1.md | E1-1: Collector data model — CollectorSetting SO hierarchy (Setting→Package→Group→Collector) + enums (ECollectorType/EPayloadKind/EAssetRole) + AssetClassification struct + rule interfaces (IAddressRule/IPackRule/IFilterRule) + CollectedAssetInfo + RuleResolver. Runtime/Editor assembly split | YooAsset | Approved |
+| plan-E1-2.md | E1-2: Classifier (PayloadKind auto-inference + AssetRole mapping) + default rules (AddressByFileName, CollectAll, PackByCollectPath) + EForcePayloadKind enum | YooAsset | Approved |
+| plan-E1-3.md | E1-3: Collection scan engine — CollectionScanner static utility (AssetDatabase.FindAssets), Package-scoped deepest-path ownership dedup, IgnorePatterns (simplified gitignore subset: *.ext/dirname//*keyword*), FilterRule→IgnorePatterns execution order, GlobMatcher utility, ScanResult error reporting (7 conditions), Tags merge, GUID uniqueness validation | YooAsset | Awaiting approval |
+| E1-4 | E1-4: Editor UI — CollectorSetting inspector + Package/Group/Collector tree editing + property panel + config validation | YooAsset | To be planned |
+| E2 | Packing rules (PackSeparately/PackByDirectory/PackByLabel + IPackRule extensibility + bundle naming) | YooAsset | To be planned |
+| E3 | Sub-directory collector + ignore rules (deepest-path priority + IgnoreRule execution order) | YooAsset + initial ideas | To be planned |
 
 ### Phase 6: Build-Time - Build Pipeline
 
@@ -218,3 +233,6 @@ Phase 4 and Phase 6 must be coordinated (ABManifest runtime consumption + build-
 | 2026-04-07 | Error handling & load state decisions: (1) B8 scope expanded to include error propagation unification (AssetLoadError.Code expansion + ABBundleLoader structured errors + ABPackageBackend returns AssetHandle<T> for sync/async). (2) CancellationToken/cancellation deferred to H1 (AsyncOp scheduler, Phase 9) — Unity ABLoadFromFileAsync not natively cancellable + refcount rollback complexity. (3) Retry strategy placed in B9 at HotfixManager/download layer. (4) Load progress callbacks in H1 |
 | 2026-04-07 | B8 AssetHandle struct redesign confirmed: AssetHandle<T> from class to struct (value semantic, 0 GC, ref. Addressables pattern). struct Handle (version + operationId) + HandleRegistry. No Pool for struct itself. Internal API convention: ValueTuple. External API convention: AssetHandle<T> struct. Research prerequisite: Addressables AsyncOperationHandle.cs (local) + YooAsset OperationHandleBase (GitHub) |
 | 2026-04-08 | Plan synchronization update: aligned plan-B / plan-B5* / plan-B7* execution status with progress log and added plan-B8.md to sub-plan index |
+| 2026-04-18 | **Serialization infrastructure added**: New Phase S (cross-cutting, before Phase 4). Technical route: zero-dependency custom binary + editor code generator. S1 (interface + JsonCodec) plan written. Key decisions: lightweight binary header (Magic 4B + SchemaVersion 2B + Flags 2B), auto format detection (Magic → binary, else → JSON fallback), per-type independent Magic values, old backend artifacts (version_state/BuildIndex) not binary-ized — natural retirement |
+| 2026-04-18 | **Phase 4 B4+B9 merged**: IHotfixPipeline interface separation + AB/Legacy dual backend. Key decisions: (1) Interface+backend pattern matching AssetPackageManager. (2) 5-method fine-grained interface (InitBackend/LoadLocalVersion/FetchRemoteVersion/GetBundleDownloadList/PostDownload). (3) HotfixManager stays static, refactored to orchestrator. (4) Constants.USE_AB_BACKEND global switch replaces per-class USE_AB_INDEX. (5) VersionState retires with Legacy backend. (6) NetworkDownloader relocated to Helpers/. (7) AB backend downloads ABManifest.bin/json instead of version_state+catalog (1 fewer network request) |
+| 2026-04-18 | **E1-3 plan written**: CollectionScanner static utility + Package-scoped deepest-path ownership + IgnorePatterns simplified gitignore subset (*.ext/dirname//*keyword*) + GlobMatcher + ScanResult error reporting (7 conditions). Key decisions: (1) AssetDatabase.FindAssets for discovery. (2) Cross-Package overlap = error, Package-internal deepest-path dedup. (3) IgnorePatterns as List\<string\> on Collector (not interface). (4) Execution order: FindAssets→exclude sub-paths→FilterRule→IgnorePatterns→Classify/Address/Pack/Tags. (5) Full scan each time, no incremental cache |
