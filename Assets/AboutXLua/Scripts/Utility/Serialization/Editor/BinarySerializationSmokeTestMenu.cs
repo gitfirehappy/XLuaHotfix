@@ -11,7 +11,7 @@ public static class BinarySerializationSmokeTestMenu
 {
     [BinarySerializable(Magic = 0x54455354, SchemaVersion = 1)]
     [Serializable]
-    private class S2SmokeModel
+    public class S2SmokeModel
     {
         [BinaryField(0)] public int Id;
         [BinaryField(1)] public string Name;

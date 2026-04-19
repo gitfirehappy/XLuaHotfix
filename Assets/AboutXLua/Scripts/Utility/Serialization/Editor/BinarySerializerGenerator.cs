@@ -5,6 +5,7 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using UnityEditor;
+using UnityEngine;
 
 /// <summary>
 /// S2: Binary serializer code generator.
@@ -29,6 +30,8 @@ public static class BinarySerializerGenerator
         {
             Directory.CreateDirectory(GeneratedDir);
         }
+
+        CleanupGeneratedFiles();
 
         var types = GetSerializableTypes();
         for (int i = 0; i < types.Count; i++)
@@ -78,6 +81,13 @@ public static class BinarySerializerGenerator
         var assemblies = AppDomain.CurrentDomain.GetAssemblies();
         for (int i = 0; i < assemblies.Length; i++)
         {
+            string assemblyName = assemblies[i].GetName().Name ?? string.Empty;
+            if (assemblyName.Contains("Editor", StringComparison.OrdinalIgnoreCase) ||
+                assemblyName.StartsWith("UnityEditor", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
             Type[] types;
             try
             {
@@ -110,7 +120,8 @@ public static class BinarySerializerGenerator
 
     private static string BuildCode(Type type, string hash)
     {
-        string typeName = type.FullName;
+        string typeName = GetCodeTypeName(type);
+        string aqn = type.AssemblyQualifiedName?.Replace("\\", "\\\\").Replace("\"", "\\\"") ?? string.Empty;
         string serializerName = $"{type.Name}_BinarySerializer";
 
         var sb = new StringBuilder();
@@ -119,31 +130,41 @@ public static class BinarySerializerGenerator
         sb.AppendLine($"{HashPrefix} {hash}");
         sb.AppendLine($"// Source: {typeName}");
         sb.AppendLine("// </auto-generated>");
+        sb.AppendLine("using System;");
         sb.AppendLine("using System.IO;");
         sb.AppendLine();
         sb.AppendLine($"public static class {serializerName}");
         sb.AppendLine("{");
-        sb.AppendLine($"    public static void Write(BinaryWriter writer, {typeName} obj)");
+        sb.AppendLine($"    private const string TargetTypeAqn = \"{aqn}\";");
+        sb.AppendLine();
+        sb.AppendLine("    private static Type GetTargetType()");
         sb.AppendLine("    {");
-        sb.AppendLine($"        BinaryReflectionSerializer.WriteObject(writer, typeof({typeName}), obj);");
+        sb.AppendLine("        var t = Type.GetType(TargetTypeAqn);");
+        sb.AppendLine("        if (t == null) throw new InvalidOperationException(\"Target type not found for generated serializer\");");
+        sb.AppendLine("        return t;");
         sb.AppendLine("    }");
         sb.AppendLine();
-        sb.AppendLine($"    public static {typeName} Read(BinaryReader reader)");
+        sb.AppendLine("    public static void Write(BinaryWriter writer, object obj)");
         sb.AppendLine("    {");
-        sb.AppendLine($"        return ({typeName})BinaryReflectionSerializer.ReadObject(reader, typeof({typeName}));");
+        sb.AppendLine("        BinaryReflectionSerializer.WriteObject(writer, GetTargetType(), obj);");
+        sb.AppendLine("    }");
+        sb.AppendLine();
+        sb.AppendLine("    public static object Read(BinaryReader reader)");
+        sb.AppendLine("    {");
+        sb.AppendLine("        return BinaryReflectionSerializer.ReadObject(reader, GetTargetType());");
         sb.AppendLine("    }");
 
         var attr = type.GetCustomAttribute<BinarySerializableAttribute>();
         if (attr != null && attr.Magic != 0)
         {
             sb.AppendLine();
-            sb.AppendLine($"    public static void WriteWithHeader(BinaryWriter writer, {typeName} obj)");
+            sb.AppendLine("    public static void WriteWithHeader(BinaryWriter writer, object obj)");
             sb.AppendLine("    {");
             sb.AppendLine($"        BinaryHeader.WriteHeader(writer, {attr.Magic}u, {attr.SchemaVersion}, 0);");
             sb.AppendLine("        Write(writer, obj);");
             sb.AppendLine("    }");
             sb.AppendLine();
-            sb.AppendLine($"    public static {typeName} ReadWithHeader(BinaryReader reader)");
+            sb.AppendLine("    public static object ReadWithHeader(BinaryReader reader)");
             sb.AppendLine("    {");
             sb.AppendLine("        var header = BinaryHeader.ReadHeader(reader);");
             sb.AppendLine($"        if (header.Magic != {attr.Magic}u) throw new InvalidDataException(\"Magic mismatch\");");
@@ -159,5 +180,48 @@ public static class BinarySerializerGenerator
     private static string GetGeneratedFilePath(Type type)
     {
         return Path.Combine(GeneratedDir, $"{type.Name}_BinarySerializer.cs");
+    }
+
+    private static void CleanupGeneratedFiles()
+    {
+        if (!Directory.Exists(GeneratedDir))
+        {
+            return;
+        }
+
+        string[] files = Directory.GetFiles(GeneratedDir, "*_BinarySerializer.cs", SearchOption.TopDirectoryOnly);
+        for (int i = 0; i < files.Length; i++)
+        {
+            File.Delete(files[i]);
+            string meta = files[i] + ".meta";
+            if (File.Exists(meta))
+            {
+                File.Delete(meta);
+            }
+        }
+    }
+
+    private static string GetCodeTypeName(Type type)
+    {
+        if (type == null)
+        {
+            throw new ArgumentNullException(nameof(type));
+        }
+
+        if (type.IsGenericType)
+        {
+            string genericTypeName = type.GetGenericTypeDefinition().FullName;
+            int tick = genericTypeName.IndexOf('`');
+            if (tick >= 0)
+            {
+                genericTypeName = genericTypeName.Substring(0, tick);
+            }
+
+            genericTypeName = genericTypeName.Replace('+', '.');
+            string args = string.Join(", ", type.GetGenericArguments().Select(GetCodeTypeName));
+            return $"{genericTypeName}<{args}>";
+        }
+
+        return (type.FullName ?? type.Name).Replace('+', '.');
     }
 }
