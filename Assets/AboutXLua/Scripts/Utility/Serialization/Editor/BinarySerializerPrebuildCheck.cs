@@ -5,7 +5,7 @@ using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
 
 /// <summary>
-/// S2-T8: 构建前检查生成文件是否过期。
+/// 构建前检查生成文件是否过期。
 /// </summary>
 public sealed class BinarySerializerPrebuildCheck : IPreprocessBuildWithReport
 {

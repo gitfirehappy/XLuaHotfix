@@ -8,7 +8,7 @@ using UnityEditor;
 using UnityEngine;
 
 /// <summary>
-/// S2: Binary serializer code generator.
+/// 二进制序列化器代码生成器。
 /// 扫描 [BinarySerializable] 类型并生成 {TypeName}_BinarySerializer.cs。
 /// </summary>
 public static class BinarySerializerGenerator

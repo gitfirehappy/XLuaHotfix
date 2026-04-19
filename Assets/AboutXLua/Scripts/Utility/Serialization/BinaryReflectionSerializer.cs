@@ -7,7 +7,7 @@ using System.Reflection;
 
 /// <summary>
 /// 二进制反射序列化器：按 [BinaryField] 顺序递归读写。
-/// S2 用作生成器输出的底层通用实现，避免手写每种类型。
+/// 用作生成器输出的底层通用实现，避免手写每种类型。
 /// </summary>
 public static class BinaryReflectionSerializer
 {

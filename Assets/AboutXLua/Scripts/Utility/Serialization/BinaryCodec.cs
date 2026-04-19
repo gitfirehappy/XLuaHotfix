@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 
 /// <summary>
-/// 二进制编解码器（S2 首批：基础注册与头部路由能力）。
+/// 二进制编解码器：提供基础注册与头部路由能力。
 /// </summary>
 public sealed class BinaryCodec : ISerializationCodec
 {

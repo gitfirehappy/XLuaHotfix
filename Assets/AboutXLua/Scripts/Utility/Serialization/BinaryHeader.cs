@@ -24,7 +24,6 @@ public readonly struct BinaryHeaderInfo
 
 /// <summary>
 /// 二进制头部格式探测工具。
-/// S1 阶段仅提供基础设施，不注册任何 Magic。
 /// </summary>
 public static class BinaryHeader
 {
@@ -32,7 +31,7 @@ public static class BinaryHeader
 
     private static readonly HashSet<uint> _registeredMagics = new HashSet<uint>();
 
-    /// <summary>注册二进制 Magic（S2/S3 使用）。</summary>
+    /// <summary>注册二进制 Magic。</summary>
     public static void RegisterMagic(uint magic)
     {
         if (magic == 0)
