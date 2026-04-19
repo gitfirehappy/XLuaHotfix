@@ -329,10 +329,8 @@ public static class BuildProjectManager
         // GeneratePackageHash 会遍历目录下所有文件（除了 version_state.json）
         versionState.hash = HashGenerator.GeneratePackageHash(outputDir);
 
-        // 序列化并写入
-        string json = JsonUtility.ToJson(versionState, true);
         string savePath = Path.Combine(outputDir, "version_state.json");
-        File.WriteAllText(savePath, json);
+        SerializationUtility.WriteToFile(savePath, versionState);
         
         Debug.Log($"[BuildProjectManager] version_state.json 生成完毕。Hash: {versionState.hash} BundleSize: {versionState.totalSize}");
     }
@@ -362,9 +360,7 @@ public static class BuildProjectManager
         };
         
         // 生成 manifest内容（包含最新包体名）
-        string manifestJson = JsonUtility.ToJson(data, true);
-    
-        File.WriteAllText(manifestPath, manifestJson);
+        SerializationUtility.WriteToFile(manifestPath, data);
         Debug.Log($"[BuildProjectManager] 更新 manifest.json 包体名: {packageName}，版本: {version.GetVersionString()}");
     }
 }

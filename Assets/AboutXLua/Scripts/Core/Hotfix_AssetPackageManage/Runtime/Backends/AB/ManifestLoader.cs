@@ -9,7 +9,7 @@ using UnityEngine;
 /// 1. Primary: PathManager.CurrentGUIDRoot/ABManifest.json（热更目录）
 /// 2. Fallback: Application.streamingAssetsPath/ABManifest.json（包内初始资源）
 ///
-/// 当前实现使用 File.ReadAllText（同步 I/O + Task.Run 包装）。
+/// 当前实现使用 File.ReadAllBytes（同步 I/O + Task.Run 包装），并通过 SerializationUtility 自动探测格式。
 /// Android StreamingAssets 路径需要 UnityWebRequest，已记录为后续多平台统一处理项。
 /// </summary>
 public static class ManifestLoader
@@ -64,15 +64,16 @@ public static class ManifestLoader
         try
         {
             // 文件 I/O 放入线程池避免阻塞主线程
-            string json = await Task.Run(() => File.ReadAllText(path));
+            byte[] data = await Task.Run(() => File.ReadAllBytes(path));
 
-            if (string.IsNullOrEmpty(json))
+            if (data == null || data.Length == 0)
             {
                 Debug.LogWarning($"[ManifestLoader] 文件内容为空: {path}");
                 return null;
             }
 
-            var manifest = ABManifest.DeserializeFromJson(json);
+            var manifest = SerializationUtility.Deserialize<ABManifest>(data);
+            manifest.Initialize();
             return manifest;
         }
         catch (System.Exception ex)

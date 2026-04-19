@@ -308,7 +308,7 @@ public class ABManifest
     /// </summary>
     public static ABManifest DeserializeFromJson(string json)
     {
-        var manifest = JsonUtility.FromJson<ABManifest>(json);
+        var manifest = SerializationUtility.DeserializeJson<ABManifest>(json);
         manifest.Initialize();
         return manifest;
     }
@@ -318,7 +318,7 @@ public class ABManifest
     /// </summary>
     public string SerializeToJson(bool prettyPrint = false)
     {
-        return JsonUtility.ToJson(this, prettyPrint);
+        return SerializationUtility.SerializeToJson(this, prettyPrint);
     }
 
     #endregion

@@ -59,11 +59,8 @@ public static class LocalStatusExporter
             Version = version
         };
 
-        // 序列化为 JSON
-        string json = JsonUtility.ToJson(buildIndexData, true);
-        
         // 写入 StreamingAssets
-        File.WriteAllText(BuildIndexStreamingPath, json);
+        SerializationUtility.WriteToFile(BuildIndexStreamingPath, buildIndexData);
         
         // 额外写入一份到编辑器 LocalStaticData 目录（便于查看，不做运行时读取）
         string projectPath = Constants.BUILD_INDEX_JSON_PROJECT_PATH;
@@ -72,7 +69,7 @@ public static class LocalStatusExporter
         {
             Directory.CreateDirectory(projectDir);
         }
-        File.WriteAllText(projectPath, json);
+        SerializationUtility.WriteToFile(projectPath, buildIndexData);
         
         Debug.Log($"[LocalStatusExporter] BuildIndex 已写入: {BuildIndexStreamingPath}");
         Debug.Log($"[LocalStatusExporter] BuildIndex 副本已写入: {projectPath}");

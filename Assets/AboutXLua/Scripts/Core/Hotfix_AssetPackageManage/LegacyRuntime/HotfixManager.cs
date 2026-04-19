@@ -131,16 +131,21 @@ public static class HotfixManager
         string localManifestPath = Path.Combine(PathManager.HotfixRoot, "manifest.json");
         if (File.Exists(localManifestPath))
         {
-            if (ParseJson<Manifest>(File.ReadAllText(localManifestPath), out var localManifest))
+            try
             {
+                var localManifest = SerializationUtility.ReadFromFile<Manifest>(localManifestPath);
                 if (!string.IsNullOrEmpty(localManifest.latestPackage))
                 {
                     Debug.Log($"[HotfixManager] 发现本地热更记录，重定向至: {localManifest.latestPackage}");
                     buildIndex.BuildGUID = localManifest.latestPackage;
-                    
+
                     // 第二次初始化：应用新的 BuildGUID，将 CurrentGUIDRoot 修正为热更包目录
                     PathManager.Initialize(buildIndex);
                 }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[HotfixManager] 本地 manifest 读取失败: {ex.Message}");
             }
         }
 
@@ -184,7 +189,7 @@ public static class HotfixManager
             CompleteStep();
             return false;
         }
-        Manifest manifest = JsonUtility.FromJson<Manifest>(manifestJson);
+        Manifest manifest = SerializationUtility.DeserializeJson<Manifest>(manifestJson);
         if (string.IsNullOrEmpty(manifest.latestPackage))
         {
             ReportError("[HotfixManager] manifest.json 无效，使用本地资源运行。");
@@ -212,9 +217,15 @@ public static class HotfixManager
         VersionState localVersionState = null;
         if (File.Exists(localVersionStatePath))
         {
-            ParseJson<VersionState>(File.ReadAllText(localVersionStatePath), out var localstate);
-            localVersionState = localstate;
-            Debug.Log($"[HotfixManager] 本地版本: {localVersionState?.version.GetVersionString()}, Hash: {localVersionState?.hash}");
+            try
+            {
+                localVersionState = SerializationUtility.ReadFromFile<VersionState>(localVersionStatePath);
+                Debug.Log($"[HotfixManager] 本地版本: {localVersionState?.version.GetVersionString()}, Hash: {localVersionState?.hash}");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[HotfixManager] 本地 version_state 读取失败: {ex.Message}");
+            }
         }
 
         // 5. 下载远端 version_state.json
@@ -357,7 +368,8 @@ public static class HotfixManager
             return false;
         }
         // 写入 version_state.json 到新目录下
-        File.WriteAllText(Path.Combine(targetGUIDRoot, "version_state.json"), remoteVersionJson);
+        SerializationUtility.WriteToFile(Path.Combine(targetGUIDRoot, "version_state.json"),
+            SerializationUtility.DeserializeJson<VersionState>(remoteVersionJson));
         CompleteStep();
         return true;
     }
@@ -377,7 +389,7 @@ public static class HotfixManager
             latestversion = remoteVersionState.version
         };
         
-        File.WriteAllText(manifestPath, JsonUtility.ToJson(manifest, true));
+        SerializationUtility.WriteToFile(manifestPath, manifest);
         Debug.Log($"[HotfixManager] 更新 Manifest 指针 -> {_targetPackageName}");
         
         // 关键：立即切换 PathManager 到新目录，确保后续 InternalIdTransformFunc 能找到正确的 bundles
@@ -504,7 +516,7 @@ public static class HotfixManager
                 if (request.result == UnityWebRequest.Result.Success)
                 {
                     string json = request.downloadHandler.text;
-                    return JsonUtility.FromJson<BuildIndexData>(json);
+                    return SerializationUtility.DeserializeJson<BuildIndexData>(json);
                 }
                 else
                 {
@@ -516,8 +528,7 @@ public static class HotfixManager
             // 其他平台可直接读取文件
             if (File.Exists(path))
             {
-                string json = File.ReadAllText(path);
-                return JsonUtility.FromJson<BuildIndexData>(json);
+                return SerializationUtility.ReadFromFile<BuildIndexData>(path);
             }
             else
             {
@@ -542,7 +553,7 @@ public static class HotfixManager
         if (string.IsNullOrEmpty(json)) return false;
         try
         {
-            result = JsonUtility.FromJson<T>(json);
+            result = SerializationUtility.DeserializeJson<T>(json);
             return true;
         }
         catch (Exception e)
