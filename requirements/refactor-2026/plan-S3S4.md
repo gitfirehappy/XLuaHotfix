@@ -2,7 +2,7 @@
 
 > **Risk**: Low-Medium (S3 is mechanical annotation + generation; S4 touches ManifestLoader load path)
 > **Dependencies**: S1 (SerializationUtility) + S2 (BinaryCodec + code generator) completed
-> **Status**: Awaiting approval
+> **Status**: S3 DONE, S4 TODO
 
 ---
 
