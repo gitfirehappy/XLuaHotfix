@@ -14,16 +14,21 @@ public sealed class BinaryCodec : ISerializationCodec
     private readonly Dictionary<Type, BinaryTypeHandler> _typeHandlers = new();
     private readonly Dictionary<uint, BinaryTypeHandler> _magicHandlers = new();
 
-    public void Register<T>(uint magic, ushort schemaVersion, Action<BinaryWriter, T> writePayload, Func<BinaryReader, T> readPayload)
+    public void Register<T>(uint magic, Action<BinaryWriter, T> writeWithHeader, Func<BinaryReader, T> readWithHeader)
     {
-        if (writePayload == null)
+        Register(magic, schemaVersion: 1, writeWithHeader, readWithHeader);
+    }
+
+    public void Register<T>(uint magic, ushort schemaVersion, Action<BinaryWriter, T> writeWithHeader, Func<BinaryReader, T> readWithHeader)
+    {
+        if (writeWithHeader == null)
         {
-            throw new ArgumentNullException(nameof(writePayload));
+            throw new ArgumentNullException(nameof(writeWithHeader));
         }
 
-        if (readPayload == null)
+        if (readWithHeader == null)
         {
-            throw new ArgumentNullException(nameof(readPayload));
+            throw new ArgumentNullException(nameof(readWithHeader));
         }
 
         BinaryHeader.RegisterMagic(magic);
@@ -35,8 +40,7 @@ public sealed class BinaryCodec : ISerializationCodec
             {
                 using var ms = new MemoryStream();
                 using var writer = new BinaryWriter(ms);
-                BinaryHeader.WriteHeader(writer, magic, schemaVersion);
-                writePayload(writer, (T)t);
+                writeWithHeader(writer, (T)t);
                 return ms.ToArray();
             },
             data =>
@@ -54,7 +58,9 @@ public sealed class BinaryCodec : ISerializationCodec
                     throw new InvalidDataException($"SchemaVersion 不兼容，当前: {schemaVersion}, 文件: {header.SchemaVersion}");
                 }
 
-                return readPayload(reader);
+                ms.Position = 0;
+                using var reader2 = new BinaryReader(ms);
+                return readWithHeader(reader2);
             });
 
         _typeHandlers[typeof(T)] = handler;

@@ -2,10 +2,16 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 
+/// <summary>
+/// 二进制头部信息
+/// </summary>
 public readonly struct BinaryHeaderInfo
 {
+    /// <summary>魔数，用于标识二进制数据格式类型。</summary>
     public readonly uint Magic;
+    /// <summary>模式版本，用于数据格式兼容性检查。</summary>
     public readonly ushort SchemaVersion;
+    /// <summary>标志位，预留用于扩展功能。</summary>
     public readonly ushort Flags;
 
     public BinaryHeaderInfo(uint magic, ushort schemaVersion, ushort flags)

@@ -10,11 +10,15 @@ using System.Threading.Tasks;
 public static class SerializationUtility
 {
     private static readonly Dictionary<string, ISerializationCodec> _codecs = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly BinaryCodec _binaryCodec = new();
 
     static SerializationUtility()
     {
         RegisterCodec(new JsonCodec());
+        RegisterCodec(_binaryCodec);
     }
+
+    public static BinaryCodec GetBinaryCodec() => _binaryCodec;
 
     /// <summary>注册或覆盖编解码器。</summary>
     public static void RegisterCodec(ISerializationCodec codec)
