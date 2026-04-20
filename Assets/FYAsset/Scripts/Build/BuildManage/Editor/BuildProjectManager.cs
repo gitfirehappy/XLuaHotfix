@@ -325,11 +325,18 @@ public static class BuildProjectManager
             return;
         }
 
-        // 计算整个包的 Hash
-        // GeneratePackageHash 会遍历目录下所有文件（除了 version_state.json）
-        versionState.hash = HashGenerator.GeneratePackageHash(outputDir);
-
         string savePath = Path.Combine(outputDir, "version_state.json");
+        string tempVersionStatePath = savePath + ".tmp";
+
+        if (File.Exists(tempVersionStatePath))
+        {
+            File.Delete(tempVersionStatePath);
+        }
+
+        SerializationUtility.WriteToFile(tempVersionStatePath, versionState);
+        versionState.hash = HashGenerator.GenerateFileHash(tempVersionStatePath);
+        File.Delete(tempVersionStatePath);
+
         SerializationUtility.WriteToFile(savePath, versionState);
         
         Debug.Log($"[BuildProjectManager] version_state.json 生成完毕。Hash: {versionState.hash} BundleSize: {versionState.totalSize}");

@@ -9,3 +9,7 @@ Recommended structure:
 - `requirements/{id}/notes.md` - optional supporting notes
 
 Use `requirements/INDEX.md` as the top-level navigation entry.
+
+Current active examples:
+- `refactor-2026` - large-scale runtime/build pipeline refactor
+- `tools-docs-hash-20260420` - docs polish and common tool organization cleanup

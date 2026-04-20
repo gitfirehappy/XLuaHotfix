@@ -54,6 +54,7 @@ sysinfo.txt
 # Visual Studio and Gradle
 .vs/
 .gradle/
+.vsconfig/
 
 # Addressables
 /[Aa]ssets/[Aa]ddressable[Aa]ssets[Dd]ata/*/*.bin*
