@@ -320,8 +320,9 @@ public class AssetPackageManager : Singleton<AssetPackageManager>
             return new AssetHandle<T>(
                 AssetLoadError.LoadFailed(entry.EntryId, "Backend 返回 null"));
 
+        var releaseAddress = entry.Address;
         var (hid2, gen2) = HandleRegistry.Alloc(entry.EntryId, "", null,
-            id => _backend.UnloadByEntryId(id));
+            _ => _backend.UnloadAsset(releaseAddress));
         return new AssetHandle<T>(hid2, gen2, legacyAsset);
     }
 
@@ -359,8 +360,9 @@ public class AssetPackageManager : Singleton<AssetPackageManager>
             return new AssetHandle<T>(
                 AssetLoadError.LoadFailed(entry.EntryId, "Backend 返回 null"));
 
+        var releaseAddress = entry.Address;
         var (hid2, gen2) = HandleRegistry.Alloc(entry.EntryId, "", null,
-            id => _backend.UnloadByEntryId(id));
+            _ => _backend.UnloadAsset(releaseAddress));
         return new AssetHandle<T>(hid2, gen2, legacyAsset);
     }
 
@@ -410,8 +412,9 @@ public class AssetPackageManager : Singleton<AssetPackageManager>
             return new AssetHandle<T>(
                 AssetLoadError.LoadFailed(entry.EntryId, "Backend 返回 null"));
 
+        var releaseAddress = entry.Address;
         var (hid2, gen2) = HandleRegistry.Alloc(entry.EntryId, "", null,
-            id => _backend.UnloadByEntryId(id));
+            _ => _backend.UnloadAsset(releaseAddress));
         return new AssetHandle<T>(hid2, gen2, legacyAsset);
     }
 
@@ -450,8 +453,9 @@ public class AssetPackageManager : Singleton<AssetPackageManager>
             return new AssetHandle<T>(
                 AssetLoadError.LoadFailed(entry.EntryId, "Backend 返回 null"));
 
+        var releaseAddress = entry.Address;
         var (hid2, gen2) = HandleRegistry.Alloc(entry.EntryId, "", null,
-            id => _backend.UnloadByEntryId(id));
+            _ => _backend.UnloadAsset(releaseAddress));
         return new AssetHandle<T>(hid2, gen2, legacyAsset);
     }
 

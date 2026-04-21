@@ -53,3 +53,9 @@
 - **原因**: 摘要字段本身参与了被摘要内容，导致输入和输出相互影响
 - **解决**: 业务层先写一个不含最终哈希的临时文件，对临时文件算哈希，再把结果回写到正式 `version_state.json`
 - **预防**: 通用哈希工具保持纯粹；凡是涉及版本描述文件、自描述清单等场景，摘要边界由业务调用方明确控制
+
+### AB 运行时路径与身份模型不一致导致加载异常
+- **现象**: 启用 AB backend 后，Bundle 文件明明已下载到热更目录，但运行时仍报 BundleNotFound；或 duplicate Address 场景下加载到错误资源 / 释放错资源
+- **原因**: 运行时加载器如果直接在 `CurrentGUIDRoot/` 查 bundle，而现有热更链路实际将 bundle 落在 `CurrentGUIDRoot/bundles/`；同时如果 backend 继续以 Address 作为缓存唯一键，会违背 B5 允许 duplicate Address 的运行时契约
+- **解决**: Bundle 查找必须与当前落盘结构保持一致，优先走 `CurrentGUIDRoot/bundles/` 与 `StreamingAssets/bundles/`；AB backend 内部缓存与释放统一使用 `EntryId` 作为唯一身份，Address 仅保留为查询输入
+- **预防**: 运行时路径策略必须和 HotfixManager/BuildProjectManager 的真实输出目录一起审查；涉及 duplicate Address 的设计一旦落地，后续缓存/句柄/释放链路都要检查是否仍在偷偷依赖 Address 唯一性

@@ -514,3 +514,7 @@
 [done] 2026-04-19 S4-T5 complete — Compilation verified: dotnet build passed with 0 errors
 [done] 2026-04-19 plan-S4 SIGNED OFF — All 5 tasks completed, S plan closed loop achieved
 [next] 2026-04-19 Phase S complete. Next: Phase 4 (B4+B9) or Phase 5 (E-series build pipeline)
+[start] 2026-04-21 review-fix-01 started — repair 4 runtime findings from code review (bundle path, duplicate Address cache identity, legacy handle release callback, dependency cycle propagation)
+[decision] 2026-04-21 review-fix-01 approved by developer — bundle lookup follows current `bundles/` layout only; AB backend uses EntryId as unique identity; legacy handle release follows pre-interface strategy (release by resolved address); manifest dependency cycles fail fast
+[done] 2026-04-21 review-fix-01 completed — updated ABBundleLoader/ABPackageBackend/AssetPackageManager; README and troubleshooting synced; escalated dotnet build reached project compile and surfaced pre-existing Editor csproj missing file `Assets/FYAsset/Scripts/Helpers/Helper/Editor/HashGenerator.cs`
+[done] 2026-04-21 review-fix-01 SIGNED OFF - runtime review fixes verified in Unity: bundle path aligned to bundles/, AB cache identity switched to EntryId, legacy handle release restored, dependency cycles fail fast
