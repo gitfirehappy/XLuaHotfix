@@ -275,7 +275,6 @@ public class AssetPackageManager : Singleton<AssetPackageManager>
     /// <summary>
     /// 通过 Address 异步加载资源，返回 AssetHandle。
     /// 内部先 Resolve 得到唯一条目，再通过 backend 加载，通过 HandleRegistry 分配句柄。
-    /// TODO: 不能将Legacy路径混进来，要独立，最终是完全替换掉 Legacy 后端，相关代码将废弃。
     /// </summary>
     public async Task<AssetHandle<T>> LoadByAddress<T>(string address) where T : UnityEngine.Object
     {
@@ -287,41 +286,7 @@ public class AssetPackageManager : Singleton<AssetPackageManager>
         if (!result.IsSuccess)
             return new AssetHandle<T>(result.Error);
 
-        var entry = result.Entry;
-
-        // AB 路径：调元组 API 获取 bundleName
-        var abBackend = _backend as ABPackageBackend;
-        if (abBackend != null)
-        {
-            var (asset, bundleName, loadErr) = await abBackend.LoadAssetTupleAsync<T>(entry.Address, entry.EntryId);
-            if (loadErr != null)
-                return new AssetHandle<T>(loadErr);
-
-            var (hid, gen) = HandleRegistry.Alloc(entry.EntryId, bundleName ?? "", null,
-                id => abBackend.UnloadByEntryId(id));
-            return new AssetHandle<T>(hid, gen, asset);
-        }
-
-        // Legacy 路径：走 IPackageBackend 接口 + HandleRegistry
-        T legacyAsset;
-        try
-        {
-            legacyAsset = await _backend.LoadAssetAsync<T>(entry.Address, entry.EntryId);
-        }
-        catch (Exception ex)
-        {
-            return new AssetHandle<T>(
-                AssetLoadError.LoadFailed(entry.EntryId, ex.Message));
-        }
-
-        if (legacyAsset == null)
-            return new AssetHandle<T>(
-                AssetLoadError.LoadFailed(entry.EntryId, "Backend 返回 null"));
-
-        var releaseAddress = entry.Address;
-        var (hid2, gen2) = HandleRegistry.Alloc(entry.EntryId, "", null,
-            _ => _backend.UnloadAsset(releaseAddress));
-        return new AssetHandle<T>(hid2, gen2, legacyAsset);
+        return await LoadResolvedAsync<T>(result.Entry);
     }
 
     /// <summary>
@@ -337,31 +302,7 @@ public class AssetPackageManager : Singleton<AssetPackageManager>
         if (!result.IsSuccess)
             return new AssetHandle<T>(result.Error);
 
-        var entry = result.Entry;
-
-        // AB 路径
-        var abBackend = _backend as ABPackageBackend;
-        if (abBackend != null)
-        {
-            var (asset, bundleName, loadErr) = abBackend.LoadAssetTupleSync<T>(entry.Address, entry.EntryId);
-            if (loadErr != null)
-                return new AssetHandle<T>(loadErr);
-
-            var (hid, gen) = HandleRegistry.Alloc(entry.EntryId, bundleName ?? "", null,
-                id => abBackend.UnloadByEntryId(id));
-            return new AssetHandle<T>(hid, gen, asset);
-        }
-
-        // Legacy 路径
-        var legacyAsset = _backend.LoadAssetSync<T>(entry.Address, entry.EntryId);
-        if (legacyAsset == null)
-            return new AssetHandle<T>(
-                AssetLoadError.LoadFailed(entry.EntryId, "Backend 返回 null"));
-
-        var releaseAddress = entry.Address;
-        var (hid2, gen2) = HandleRegistry.Alloc(entry.EntryId, "", null,
-            _ => _backend.UnloadAsset(releaseAddress));
-        return new AssetHandle<T>(hid2, gen2, legacyAsset);
+        return LoadResolvedSync<T>(result.Entry);
     }
 
     /// <summary>
@@ -379,41 +320,7 @@ public class AssetPackageManager : Singleton<AssetPackageManager>
         if (!result.IsSuccess)
             return new AssetHandle<T>(result.Error);
 
-        var entry = result.Entry;
-
-        // AB 路径
-        var abBackend = _backend as ABPackageBackend;
-        if (abBackend != null)
-        {
-            var (asset, bundleName, loadErr) = await abBackend.LoadAssetTupleAsync<T>(entry.Address, entry.EntryId);
-            if (loadErr != null)
-                return new AssetHandle<T>(loadErr);
-
-            var (hid, gen) = HandleRegistry.Alloc(entry.EntryId, bundleName ?? "", null,
-                id => abBackend.UnloadByEntryId(id));
-            return new AssetHandle<T>(hid, gen, asset);
-        }
-
-        // Legacy 路径
-        T legacyAsset;
-        try
-        {
-            legacyAsset = await _backend.LoadAssetAsync<T>(entry.Address, entry.EntryId);
-        }
-        catch (Exception ex)
-        {
-            return new AssetHandle<T>(
-                AssetLoadError.LoadFailed(entry.EntryId, ex.Message));
-        }
-
-        if (legacyAsset == null)
-            return new AssetHandle<T>(
-                AssetLoadError.LoadFailed(entry.EntryId, "Backend 返回 null"));
-
-        var releaseAddress = entry.Address;
-        var (hid2, gen2) = HandleRegistry.Alloc(entry.EntryId, "", null,
-            _ => _backend.UnloadAsset(releaseAddress));
-        return new AssetHandle<T>(hid2, gen2, legacyAsset);
+        return await LoadResolvedAsync<T>(result.Entry);
     }
 
     /// <summary>
@@ -430,31 +337,108 @@ public class AssetPackageManager : Singleton<AssetPackageManager>
         if (!result.IsSuccess)
             return new AssetHandle<T>(result.Error);
 
-        var entry = result.Entry;
+        return LoadResolvedSync<T>(result.Entry);
+    }
 
-        // AB 路径
+    #endregion
+
+    #region Resolve / Load Helpers
+
+    private async Task<AssetHandle<T>> LoadResolvedAsync<T>(RuntimeAssetEntry entry) where T : UnityEngine.Object
+    {
         var abBackend = _backend as ABPackageBackend;
         if (abBackend != null)
-        {
-            var (asset, bundleName, loadErr) = abBackend.LoadAssetTupleSync<T>(entry.Address, entry.EntryId);
-            if (loadErr != null)
-                return new AssetHandle<T>(loadErr);
+            return await LoadResolvedWithABAsync<T>(abBackend, entry);
 
-            var (hid, gen) = HandleRegistry.Alloc(entry.EntryId, bundleName ?? "", null,
-                id => abBackend.UnloadByEntryId(id));
-            return new AssetHandle<T>(hid, gen, asset);
+        return await LoadResolvedWithLegacyAsync<T>(entry);
+    }
+
+    private AssetHandle<T> LoadResolvedSync<T>(RuntimeAssetEntry entry) where T : UnityEngine.Object
+    {
+        var abBackend = _backend as ABPackageBackend;
+        if (abBackend != null)
+            return LoadResolvedWithABSync<T>(abBackend, entry);
+
+        return LoadResolvedWithLegacySync<T>(entry);
+    }
+
+    private async Task<AssetHandle<T>> LoadResolvedWithABAsync<T>(
+        ABPackageBackend abBackend,
+        RuntimeAssetEntry entry) where T : UnityEngine.Object
+    {
+        var (asset, bundleName, loadErr) = await abBackend.LoadAssetTupleAsync<T>(entry.Address, entry.EntryId);
+        if (loadErr != null)
+            return new AssetHandle<T>(loadErr);
+
+        return CreateABHandle(entry, asset, bundleName, abBackend);
+    }
+
+    private AssetHandle<T> LoadResolvedWithABSync<T>(
+        ABPackageBackend abBackend,
+        RuntimeAssetEntry entry) where T : UnityEngine.Object
+    {
+        var (asset, bundleName, loadErr) = abBackend.LoadAssetTupleSync<T>(entry.Address, entry.EntryId);
+        if (loadErr != null)
+            return new AssetHandle<T>(loadErr);
+
+        return CreateABHandle(entry, asset, bundleName, abBackend);
+    }
+
+    private async Task<AssetHandle<T>> LoadResolvedWithLegacyAsync<T>(RuntimeAssetEntry entry)
+        where T : UnityEngine.Object
+    {
+        T asset;
+        try
+        {
+            asset = await _backend.LoadAssetAsync<T>(entry.Address, entry.EntryId);
+        }
+        catch (Exception ex)
+        {
+            return new AssetHandle<T>(AssetLoadError.LoadFailed(entry.EntryId, ex.Message));
         }
 
-        // Legacy 路径
-        var legacyAsset = _backend.LoadAssetSync<T>(entry.Address, entry.EntryId);
-        if (legacyAsset == null)
-            return new AssetHandle<T>(
-                AssetLoadError.LoadFailed(entry.EntryId, "Backend 返回 null"));
+        if (asset == null)
+            return new AssetHandle<T>(AssetLoadError.LoadFailed(entry.EntryId, "Backend 返回 null"));
 
+        return CreateLegacyHandle(entry, asset);
+    }
+
+    private AssetHandle<T> LoadResolvedWithLegacySync<T>(RuntimeAssetEntry entry)
+        where T : UnityEngine.Object
+    {
+        var asset = _backend.LoadAssetSync<T>(entry.Address, entry.EntryId);
+        if (asset == null)
+            return new AssetHandle<T>(AssetLoadError.LoadFailed(entry.EntryId, "Backend 返回 null"));
+
+        return CreateLegacyHandle(entry, asset);
+    }
+
+    private static AssetHandle<T> CreateABHandle<T>(
+        RuntimeAssetEntry entry,
+        T asset,
+        string bundleName,
+        ABPackageBackend abBackend) where T : UnityEngine.Object
+    {
+        var (handleId, generation) = HandleRegistry.Alloc(
+            entry.EntryId,
+            bundleName ?? "",
+            null,
+            id => abBackend.UnloadByEntryId(id));
+
+        return new AssetHandle<T>(handleId, generation, asset);
+    }
+
+    private AssetHandle<T> CreateLegacyHandle<T>(RuntimeAssetEntry entry, T asset)
+        where T : UnityEngine.Object
+    {
         var releaseAddress = entry.Address;
-        var (hid2, gen2) = HandleRegistry.Alloc(entry.EntryId, "", null,
+        var (handleId, generation) = HandleRegistry.Alloc(
+            entry.EntryId,
+            "",
+            null,
             _ => _backend.UnloadAsset(releaseAddress));
-        return new AssetHandle<T>(hid2, gen2, legacyAsset);
+
+        return new AssetHandle<T>(handleId, generation, asset);
     }
 
     #endregion

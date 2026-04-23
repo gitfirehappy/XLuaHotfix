@@ -234,7 +234,7 @@ public struct AddressRuleContext
 ```csharp
 public interface IPackRule
 {
-    string GetBundleName(PackRuleContext ctx);
+    string GetPackKey(PackRuleContext ctx);
 }
 
 public struct PackRuleContext
@@ -244,6 +244,7 @@ public struct PackRuleContext
     public string CollectPath;
     public string PackageName;
     public AssetClassification Classification;
+    public IReadOnlyList<string> Labels;    // E2 addendum — merged Group.Tags ∪ Collector.Tags
 }
 ```
 
@@ -295,7 +296,7 @@ public static class RuleResolver
 | IFilterRule.cs | Build/Collector/Editor/Rules/ | Editor | ~20 | Interface + FilterRuleContext |
 | RuleResolver.cs | Build/Collector/Editor/ | Editor | ~60 | String → instance reflection resolver with cache |
 
-All paths relative to `Assets/AboutXLua/Scripts/Core/Hotfix_AssetPackageManage/`.
+All paths relative to `Assets/FYAsset/Scripts/`.
 
 ---
 

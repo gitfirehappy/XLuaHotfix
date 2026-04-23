@@ -545,3 +545,44 @@
 [done] 2026-04-23 B4+B9 review fixes verified — dotnet build 0 errors, all warnings pre-existing
 [done] 2026-04-23 plan-B4B9 SIGNED OFF - review fixes rechecked, AB manifest stale-format cleanup added, final dotnet build passed with 0 errors
 [next] 2026-04-23 Awaiting developer sign-off for B4+B9 review fixes, then decide next direction
+
+[start] 2026-04-23 E2 PackRule precise sub-plan discussion
+[decision] 2026-04-23 E2 D1: IPackRule interface change GetBundleName→GetPackKey — PackRule outputs grouping key only, framework assembles final name
+[decision] 2026-04-23 E2 D2: BundleNameBuilder static utility — Build(pkg, group, key) → 3-segment lowercase logical name. SanitizeSegment: lowercase + non-alphanumeric→underscore, hyphen preserved
+[decision] 2026-04-23 E2 D3: PackRuleContext gains IReadOnlyList<string> Labels field for PackByLabel
+[decision] 2026-04-23 E2 D4: Separator convention — _ between segments (pkg_group_key), - between labels within packKey (panel-ui)
+[decision] 2026-04-23 E2 D5: PackSeparately packKey=filename, PackByDirectory packKey=sub-dir name (root fallback), PackByLabel packKey=sorted lowercase labels joined by hyphen
+[decision] 2026-04-23 E2 D6: RawFile unified naming — no special treatment, same rules as Serialized
+[decision] 2026-04-23 E2 D7: Hash not in E2 scope — E5 TaskBuildBundles appends hash+extension after packing
+[decision] 2026-04-23 E2 D8: Naming extension boundary — BundleNameBuilder intentionally minimal, future extensions require discussion (developer note: 不能无限膨胀)
+[done] 2026-04-23 plan-E2.md written — 8 tasks, 4 new files, 4 modified files, 10 invariants, 10 approval checklist items
+[done] 2026-04-23 plan.md updated — E2 index entry updated from "To be planned" to "Awaiting approval" with full description, change log entry added
+[next] 2026-04-23 Awaiting developer approval of plan-E2.md
+
+[done] 2026-04-23 E2 rev2 sync fix — addressed 3 review findings + 1 open issue:
+[done] 2026-04-23 P1-a: E1-3 scan pipeline fully synced — step order (labels before PackRule), call signature (PackRuleContext struct), BundleNameBuilder.Build; T6 description + approval checklist updated
+[done] 2026-04-23 P1-b: E1-2 PackByCollectPath semantic change synced — rule table + naming section updated to "return collectDirName only"; GetBundleName references eliminated
+[done] 2026-04-23 P2: E2 risk upgraded Low→Low-Medium + compatibility boundary added (new pipeline only, no Addressables impact)
+[done] 2026-04-23 Open: _unlabeled→unlabeled (avoid double underscore in pkg_group__unlabeled)
+[done] 2026-04-23 plan.md index + change log aligned with latest E2 rev2 (5 modified files, unlabeled, E1-3 sync)
+[next] 2026-04-23 Awaiting developer re-review of plan-E2.md (rev2)
+
+[done] 2026-04-23 E1-3 execution order block — removed duplicate Classify/AddressRule lines (文案瑕疵)
+[done] 2026-04-23 plan-E2.md APPROVED — status changed to Approved in plan-E2.md + plan.md index
+
+[decision] 2026-04-23 E3 CANCELLED — gap analysis: 11/12 items absorbed by E1-3 (deepest-path dedup, IgnorePatterns, conflict detection, excludedPaths, unique attribution). Sole uncovered item (Dev/CI severity policy) deferred to E5 build pipeline fail-fast design
+[done] 2026-04-23 plan.md updated: E3 status→CANCELLED, Phase Overview updated, changelog entry added
+
+[done] 2026-04-23 E1-3 review fix (GPT P1): Dependencies updated to include E2 (GetPackKey contract + PackRuleContext.Labels + BundleNameBuilder.Build). T6 task dependency also updated
+[done] 2026-04-23 E1-3 review fix (GPT P2): Risk upgraded Low→Low-Medium + compatibility boundary added (bundle logical names internal to new AB pipeline, no Addressables impact)
+[done] 2026-04-23 plan.md E1-3 index entry synced with dependency + risk changes
+[next] 2026-04-23 Awaiting developer re-review of plan-E1-3.md (dependency + risk fix)
+[done] 2026-04-23 plan-E1-3.md APPROVED — GPT confirmed fixes, status changed to Approved in plan-E1-3.md + plan.md index
+
+[done] 2026-04-23 Full code review complete — Phase 1-3 + S + Phase 4 (~30 files). 0 P0, 4 P1, 4 P2. Report: review-phase1-4.md
+[done] 2026-04-23 P1-1 FIXED — Constants.BINARY_SERIALIZER_GENERATE_PATH updated from AboutXLua path to Assets/Tools/Scripts/Serialization/Generated
+[decision] 2026-04-23 P1-3 REJECTED — Address intentionally not stored in AssetCacheEntry (not unique, can't serve as identity key)
+[decision] 2026-04-23 P1-4 (Sync/Async重复) accepted as known tech debt
+[done] 2026-04-23 P2-5 FIXED — E1-1/E1-2/E1-3/E1-4/E2 plan files' "All paths relative to" prefix unified from `Assets/AboutXLua/Scripts/Core/Hotfix_AssetPackageManage/` to `Assets/FYAsset/Scripts/`
+[done] 2026-04-23 P1-2 FIXED — AssetPackageManager 4 个 LoadByXxx 入口提取公共 Resolve/AB/Legacy Handle helper，消除重复分支并保持外部行为不变
+[next] 2026-04-23 This review-fix round is complete after compilation verification and commit; next session starts from the next approved sub-plan

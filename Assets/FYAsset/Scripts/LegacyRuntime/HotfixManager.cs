@@ -17,9 +17,21 @@ public static class HotfixManager
     // 固定下载 manifest 动态获取路径
     private static readonly string _manifestUrl = $"{_hotfixUrl}manifest.json";
     
+    /// <summary>
+    /// 当热更步骤发生改变时触发
+    /// </summary>
     public static event Action<string> OnStepChanged;
+    /// <summary>
+    /// 当热更进度更新时触发 (0f~1f, 步骤名称)
+    /// </summary>
     public static event Action<float, string> OnProgress;
+    /// <summary>
+    /// 当热更发生错误时触发
+    /// </summary>
     public static event Action<string> OnError;
+    /// <summary>
+    /// 热更流程全部结束时触发
+    /// </summary>
     public static event Action OnFinished;
     
     private const int TotalSteps = 11;
@@ -60,6 +72,9 @@ public static class HotfixManager
     
     #endregion
 
+    /// <summary>
+    /// 开始执行完整的异步热更流程
+    /// </summary>
     public async static Task InitializeAsync()
     {
         _currentStepIndex = -1;
@@ -159,6 +174,9 @@ public static class HotfixManager
     /// <summary>
     /// 步骤2：初始化后端
     /// </summary>
+    /// <summary>
+    /// 步骤2：初始化热更后端
+    /// </summary>
     private static async Task<bool> StepInitializeBackendAsync(IHotfixPipeline pipeline)
     {
         BeginStep("Initialize backend", 1);
@@ -174,6 +192,9 @@ public static class HotfixManager
 
     /// <summary>
     /// 步骤3：下载 Manifest，确定下载路径
+    /// </summary>
+    /// <summary>
+    /// 步骤3：下载清单文件(manifest.json)
     /// </summary>
     private static async Task<bool> StepDownloadManifestAsync(HotfixContext ctx)
     {
@@ -205,6 +226,9 @@ public static class HotfixManager
     /// <summary>
     /// 步骤4：加载本地版本
     /// </summary>
+    /// <summary>
+    /// 步骤4：加载本地热更版本信息
+    /// </summary>
     private static async Task<HotfixVersionInfo> StepLoadLocalVersionAsync(IHotfixPipeline pipeline)
     {
         BeginStep("Load local version", 3);
@@ -215,6 +239,9 @@ public static class HotfixManager
 
     /// <summary>
     /// 步骤5：拉取远端版本
+    /// </summary>
+    /// <summary>
+    /// 步骤5：获取远端热更版本信息
     /// </summary>
     private static async Task<HotfixVersionInfo> StepFetchRemoteVersionAsync(IHotfixPipeline pipeline, HotfixContext ctx)
     {
@@ -258,6 +285,9 @@ public static class HotfixManager
 
     /// <summary>
     /// 步骤7：提取下载列表
+    /// </summary>
+    /// <summary>
+    /// 步骤7：获取需要下载的 Bundle 列表
     /// </summary>
     private static IReadOnlyList<BundleDownloadItem> StepGetBundleDownloadList(IHotfixPipeline pipeline, HotfixVersionInfo remoteInfo)
     {
@@ -365,6 +395,9 @@ public static class HotfixManager
     /// <summary>
     /// 步骤9：后处理
     /// </summary>
+    /// <summary>
+    /// 步骤9：后端特定的下载后处理（例如：保存版本信息、Catalog更新）
+    /// </summary>
     private static async Task<bool> StepPostDownloadAsync(IHotfixPipeline pipeline, HotfixContext ctx)
     {
         BeginStep("Post download", 8);
@@ -417,6 +450,9 @@ public static class HotfixManager
         }
     }
 
+    /// <summary>
+    /// 热更流程收尾：触发回调，初始化 AssetPackageManager 和 LuaEnv
+    /// </summary>
     private static async Task FinishHotfix()
     {
         await AssetPackageManager.Instance.Initialize();
@@ -540,6 +576,9 @@ public static class HotfixManager
         }
     }
 
+    /// <summary>
+    /// 根据全局开关创建对应的热更后端接口实现
+    /// </summary>
     private static IHotfixPipeline CreatePipeline()
     {
         return Constants.USE_AB_BACKEND

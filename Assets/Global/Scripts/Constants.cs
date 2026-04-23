@@ -59,5 +59,5 @@ public static class Constants
     public const string MANIFEST_FILE_NAME = "ABManifest.json";
     public const string MANIFEST_FILE_NAME_BIN = "ABManifest.bin";
     
-    public const string BINARY_SERIALIZER_GENERATE_PATH = "Assets/AboutXLua/Scripts/Utility/Serialization/Generated";
+    public const string BINARY_SERIALIZER_GENERATE_PATH = "Assets/Tools/Scripts/Serialization/Generated";
 }

@@ -103,6 +103,9 @@ public static class NetworkDownloader
     /// <summary>
     /// 下载字节
     /// </summary>
+    /// <summary>
+    /// 下载二进制数据，带重试机制
+    /// </summary>
     public static async Task<byte[]> DownloadBytes(string url)
     {
         for (int i = 0; i <= MAX_RETRIES; i++)

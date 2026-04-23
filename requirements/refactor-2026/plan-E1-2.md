@@ -67,7 +67,7 @@ Added to `CollectorEnums.cs`. `Collector` data class gains `public EForcePayload
 |---------------|---------------|----------|
 | IAddressRule | `AddressByFileName` | File name without extension. Reuses `AssetAddressGenerator.GenerateShortAddress(assetPath, primaryType)` from B5-1 for type-suffix disambiguation |
 | IFilterRule | `CollectAll` | Collects all assets. Excludes: `.meta`, `.cs`, `.dll`, `.asmdef`, `.asmref`, files under `Editor/` directories |
-| IPackRule | `PackByCollectPath` | All assets under the same Collector.CollectPath go into one Bundle. Bundle name: `{packageName}_{groupName}_{collectDirName}` |
+| IPackRule | `PackByCollectPath` | All assets under the same Collector.CollectPath go into one Bundle. Returns grouping key only: `{collectDirName}` (last segment of CollectPath). Framework assembles full logical name via BundleNameBuilder.Build(pkg, group, key) |
 
 ### AddressByFileName Reuse
 
@@ -81,12 +81,14 @@ Extensions: .meta, .cs, .dll, .asmdef, .asmref, .gitigore
 Directories: any path segment == "Editor"
 ```
 
-### PackByCollectPath Naming
+### PackByCollectPath — Grouping Key Only
 
-Minimal bundle naming for the default rule:
+PackByCollectPath returns only the grouping key (last directory segment of CollectPath):
 ```
-{packageName}_{groupName}_{lastDirectoryName}.bundle
+GetPackKey returns: {lastDirectoryName}
 ```
+The framework assembles the full logical name via `BundleNameBuilder.Build(packageName, groupName, packKey)` → `{packageName}_{groupName}_{lastDirectoryName}`. Hash and `.bundle` extension are appended by E5 build pipeline.
+
 Full naming with labels/hash/type is E2's responsibility (PackByDirectory, PackSeparately, etc.).
 
 ---
@@ -100,7 +102,7 @@ Full naming with labels/hash/type is E2's responsibility (PackByDirectory, PackS
 | CollectAll.cs | Build/Collector/Editor/Rules/ | Editor | ~35 | IFilterRule impl, exclusion list |
 | PackByCollectPath.cs | Build/Collector/Editor/Rules/ | Editor | ~25 | IPackRule impl, minimal bundle naming |
 
-All paths relative to `Assets/AboutXLua/Scripts/Core/Hotfix_AssetPackageManage/`.
+All paths relative to `Assets/FYAsset/Scripts/`.
 
 ---
 
