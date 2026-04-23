@@ -1,9 +1,6 @@
 using System;
-using System.Collections;
-using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
-using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.Networking;
 
@@ -11,27 +8,25 @@ using UnityEngine.Networking;
 /// 对接 Netlify / CDN / 任意服务器
 /// 下载版本文件、catalog、bundle 等文件
 /// </summary>
-public class NetworkDownloader : Singleton<NetworkDownloader>
+public static class NetworkDownloader
 {
-    public event Action<float> OnProgress; 
-    
     // 配置重试参数
     private const int MAX_RETRIES = 3;
     private const int RETRY_INTERVAL_MS = 1000; // 1秒
-    
+
     /// <summary>
     /// 下载文件
     /// </summary>
-    public async Task<bool> DownloadFile(string url, string savePath)
+    public static async Task<bool> DownloadFile(string url, string savePath)
     {
         for (int i = 0; i <= MAX_RETRIES; i++)
         {
             if (i > 0)
             {
                 Debug.LogWarning($"[NetworkDownloader] 开始第 {i} 次重试下载: {url}");
-                if (File.Exists(savePath)) File.Delete(savePath); 
+                if (File.Exists(savePath)) File.Delete(savePath);
             }
-            
+
             using var uwr = UnityWebRequest.Get(url);
 
             uwr.downloadHandler = new DownloadHandlerFile(savePath) {removeFileOnAbort = true};
@@ -39,7 +34,6 @@ public class NetworkDownloader : Singleton<NetworkDownloader>
 
             while (!operation.isDone)
             {
-                OnProgress?.Invoke(operation.progress);
                 await Task.Yield();
             }
 
@@ -54,7 +48,7 @@ public class NetworkDownloader : Singleton<NetworkDownloader>
                 Debug.LogError($"[NetworkDownloader] 文件未找到 (404)，停止重试: {url}");
                 return false;
             }
-            
+
             if (i == MAX_RETRIES)
             {
                 Debug.LogError($"[NetworkDownloader] 下载文件失败 (已重试{MAX_RETRIES}次): {url}\n错误: {uwr.error}");
@@ -70,18 +64,17 @@ public class NetworkDownloader : Singleton<NetworkDownloader>
     /// <summary>
     /// 下载文本
     /// </summary>
-    public async Task<string> DownloadText(string url)
+    public static async Task<string> DownloadText(string url)
     {
         for (int i = 0; i <= MAX_RETRIES; i++)
         {
             if(i > 0) Debug.LogWarning($"[NetworkDownloader] 开始第 {i} 次重试获取文本: {url}");
-            
+
             using var uwr = UnityWebRequest.Get(url);
             var operation = uwr.SendWebRequest();
 
             while (!operation.isDone)
             {
-                OnProgress?.Invoke(operation.progress);
                 await Task.Yield();
             }
 
@@ -110,18 +103,17 @@ public class NetworkDownloader : Singleton<NetworkDownloader>
     /// <summary>
     /// 下载字节
     /// </summary>
-    public async Task<byte[]> DownloadBytes(string url)
+    public static async Task<byte[]> DownloadBytes(string url)
     {
         for (int i = 0; i <= MAX_RETRIES; i++)
         {
             if (i > 0) Debug.LogWarning($"[NetworkDownloader] 开始第 {i} 次重试获取字节: {url}");
-            
+
             using var uwr = UnityWebRequest.Get(url);
             var operation = uwr.SendWebRequest();
 
             while (!operation.isDone)
             {
-                OnProgress?.Invoke(operation.progress);
                 await Task.Yield();
             }
 

@@ -59,3 +59,9 @@
 - **原因**: 运行时加载器如果直接在 `CurrentGUIDRoot/` 查 bundle，而现有热更链路实际将 bundle 落在 `CurrentGUIDRoot/bundles/`；同时如果 backend 继续以 Address 作为缓存唯一键，会违背 B5 允许 duplicate Address 的运行时契约
 - **解决**: Bundle 查找必须与当前落盘结构保持一致，优先走 `CurrentGUIDRoot/bundles/` 与 `StreamingAssets/bundles/`；AB backend 内部缓存与释放统一使用 `EntryId` 作为唯一身份，Address 仅保留为查询输入
 - **预防**: 运行时路径策略必须和 HotfixManager/BuildProjectManager 的真实输出目录一起审查；涉及 duplicate Address 的设计一旦落地，后续缓存/句柄/释放链路都要检查是否仍在偷偷依赖 Address 唯一性
+
+### Hotfix pipeline 抽象后出现步序/共享状态错位
+- **现象**: 将 HotfixManager 从单体流程拆成 orchestrator + backend 后，如果沿用旧的步骤编号或继续依赖静态共享字段，进度条会跳步，后端也容易读到错误上下文
+- **原因**: 旧实现把“流程编排”“版本数据源”“下载后处理”混在一个静态类里；拆分后如果不同时引入统一上下文对象和连续步骤编号，公共逻辑与后端逻辑的责任边界会再次混淆
+- **解决**: 用 `HotfixContext` 承载共享状态（BuildIndex/TargetPackageName/RemoteUrlRoot/TargetGUIDRoot），HotfixManager 只控制公共步骤与事件回调；Legacy/AB 后端各自负责 `LoadLocalVersion / FetchRemoteVersion / GetBundleDownloadList / PostDownload`
+- **预防**: 后续再扩热更链路时，先判断逻辑属于“公共编排”还是“后端差异”，不要重新把网络请求、版本文件格式判断、后处理写回 HotfixManager

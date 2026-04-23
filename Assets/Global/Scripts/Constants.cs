@@ -49,6 +49,13 @@ public static class Constants
     
     // ------------------重构计划涉及字段-----------------------//
 
+    /// <summary>
+    /// 资源运行时全局后端开关。
+    /// true = ABManifest + AB backend 全链路；
+    /// false = Legacy Addressables 全链路。
+    /// </summary>
+    public const bool USE_AB_BACKEND = false;
+
     public const string MANIFEST_FILE_NAME = "ABManifest.json";
     public const string MANIFEST_FILE_NAME_BIN = "ABManifest.bin";
     

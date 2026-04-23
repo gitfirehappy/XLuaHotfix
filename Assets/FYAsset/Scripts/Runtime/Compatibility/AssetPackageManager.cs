@@ -15,8 +15,6 @@ public class AssetPackageManager : Singleton<AssetPackageManager>
     /// false = 使用 AddressableLabelsConfig + AddressablesBackend（原有 Addressables 路径）。
     /// 一个开关同时控制索引源和加载后端，不存在 "AB 索引 + Addressables 后端" 的组合。
     /// </summary>
-    private const bool USE_AB_INDEX = false;
-
     #endregion
 
     private IAssetIndex _index;
@@ -27,7 +25,7 @@ public class AssetPackageManager : Singleton<AssetPackageManager>
 
     public async Task Initialize()
     {
-        if (USE_AB_INDEX)
+        if (Constants.USE_AB_BACKEND)
         {
             await InitializeWithABIndex();
         }

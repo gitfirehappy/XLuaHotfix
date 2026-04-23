@@ -518,3 +518,30 @@
 [decision] 2026-04-21 review-fix-01 approved by developer — bundle lookup follows current `bundles/` layout only; AB backend uses EntryId as unique identity; legacy handle release follows pre-interface strategy (release by resolved address); manifest dependency cycles fail fast
 [done] 2026-04-21 review-fix-01 completed — updated ABBundleLoader/ABPackageBackend/AssetPackageManager; README and troubleshooting synced; escalated dotnet build reached project compile and surfaced pre-existing Editor csproj missing file `Assets/FYAsset/Scripts/Helpers/Helper/Editor/HashGenerator.cs`
 [done] 2026-04-21 review-fix-01 SIGNED OFF - runtime review fixes verified in Unity: bundle path aligned to bundles/, AB cache identity switched to EntryId, legacy handle release restored, dependency cycles fail fast
+[start] 2026-04-23 B4+B9 execution started — implement hotfix orchestrator + dual backend split according to approved plan-B4B9
+[decision] 2026-04-23 B4+B9 uses `Constants.USE_AB_BACKEND` as the single runtime switch for hotfix pipeline + asset index + loading backend; `AssetPackageManager` no longer keeps a private `USE_AB_INDEX`
+[decision] 2026-04-23 B4+B9 keeps `HotfixManager` as static orchestrator; shared state moved into `HotfixContext`, backend-specific version source and post-download logic moved to `LegacyHotfixBackend` / `ABHotfixBackend`
+[done] 2026-04-23 B4+B9 implementation completed — added `IHotfixPipeline`, `HotfixVersionInfo`, `BundleDownloadItem`, `HotfixContext`, `ABHotfixBackend`, `LegacyHotfixBackend`; `HotfixManager` refactored to orchestrator flow; `NetworkDownloader` relocated to `Helpers/Helper/`; README and troubleshooting updated
+[done] 2026-04-23 B4+B9 verification complete — `dotnet build XLuaHotfix.sln` passed with 0 errors after syncing `Assembly-CSharp.csproj` to the relocated `NetworkDownloader` and new hotfix backend source files; remaining warnings are existing project warnings (`System.Net.Http` conflict, `USG0001`, `CS0162`, `CS0168`, `CS1998`)
+[next] 2026-04-23 Awaiting developer sign-off for B4+B9 before starting the next sub-plan
+
+[start] 2026-04-23 E1-4 design discussion — BuildPipelineWindow + Collector Editor UI
+[decision] 2026-04-23 D1 window form: Option A — BuildPipelineWindow full shell with sidebar 5-area routing, only Collector area implemented, other 4 placeholder
+[decision] 2026-04-23 D2 UI technology: IMGUI TreeView — consistent with all existing editor code in project
+[decision] 2026-04-23 D3 V1 capabilities: drag-and-drop same-level reorder + right-click context menus (Add/Delete/Duplicate). Collection preview deferred until E1-3 implemented
+[decision] 2026-04-23 D4 rule selection: RuleDropdownHelper reflection scan all IAddressRule/IPackRule/IFilterRule implementations, EditorGUI.Popup dropdown. New Collector auto-fills default rule names
+[decision] 2026-04-23 D5 validation timing: save-time automatic (SerializedObject.ApplyModifiedProperties detects changes → CollectorSettingValidator.Validate). 9 validation rules
+[done] 2026-04-23 plan-E1-4.md written — 12 tasks, 8 new files, 1 modified file, 10 invariants, 10 approval checklist items
+[done] 2026-04-23 plan-E1-4.md APPROVED by developer — all design decisions confirmed
+[done] 2026-04-23 plan.md updated — E1-4 index entry updated from "To be planned" to "Approved" with full description, change log entry added
+[next] 2026-04-23 Continue E-series sub-plan precision: E2 (PackRule) / E4 (dependency analysis) / E5 (build pipeline) or begin executing approved plans (B4B9 / E1-1 / E1-2 / E1-3 / E1-4)
+
+[start] 2026-04-23 B4+B9 code review — GPT implementation reviewed, 6 issues identified (P0-P5)
+[done] 2026-04-23 P0+P1 fix — concurrent download safety: SemaphoreSlim(maxConcurrent:6) throttle + Interlocked.Increment for thread-safe counters + DownloadBundleWithThrottle replaces DownloadBundleWithTrack
+[done] 2026-04-23 P2 fix — NetworkDownloader singleton removed: converted from Singleton<T> to static class, removed Unity.VisualScripting dependency, all .Instance references updated
+[done] 2026-04-23 P3 fix — error flow unified: FinishHotfix() removed from StepDownloadManifestAsync internals, moved to InitializeAsync orchestration layer. Degradable failures (manifest/remoteInfo) call FinishHotfix; fatal errors (backend init/version mismatch/bundle download/post-download) return directly
+[done] 2026-04-23 P4 fix — LegacyHotfixBackend unnecessary JSON round-trip removed: File.WriteAllText replaces SerializationUtility.WriteToFile(DeserializeJson()) for version_state.json
+[done] 2026-04-23 P5 fix — included in P2 batch (NetworkDownloader.Instance references)
+[done] 2026-04-23 B4+B9 review fixes verified — dotnet build 0 errors, all warnings pre-existing
+[done] 2026-04-23 plan-B4B9 SIGNED OFF - review fixes rechecked, AB manifest stale-format cleanup added, final dotnet build passed with 0 errors
+[next] 2026-04-23 Awaiting developer sign-off for B4+B9 review fixes, then decide next direction

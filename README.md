@@ -37,12 +37,14 @@
   - 资源索引：通过 `IAssetIndex` 接口支持双数据源（Legacy: AddressableLabelsConfig / AB: ABAssetIndex + ABManifest）
   - 资源池：引用计数管理，支持按标签/类型加载/卸载
   - B5-2 新增 Resolve/Load API：`LoadByAddress<T>` / `LoadByTypeKey<T>` 返回 `AssetHandle<T>`
+- **HotfixManager**: 已重构为 orchestrator，仅负责公共步骤编排、进度回调、错误上报；后端差异由 `IHotfixPipeline` 实现
+- **LegacyHotfixBackend / ABHotfixBackend**: Legacy 路径保留 Addressables `version_state + catalog` 流程；AB 路径改为 `ABManifest.bin/json` + bundles 流程
 - **ABAssetIndex**: 基于 ABManifest 的完整 IAssetIndex 实现，预缓存 RuntimeAssetEntry，零分配查询热路径
 - **ManifestLoader**: 异步清单加载器（热更目录优先，StreamingAssets 回退）
 - **ABBundleLoader**: 运行时从 `CurrentGUIDRoot/bundles/` 与 `StreamingAssets/bundles/` 查找 Bundle，依赖环按错误处理而不是静默跳过
 - **ABPackageBackend**: 内部以 `EntryId` 作为缓存与释放的唯一身份，`Address` 只作为查询入口，兼容 duplicate Address 设计
 - **PathManager**: 热更路径统一管理，包体GUID隔离
-- **NetworkDownloader**: Catalog 重定向、增量下载优化（保留hash一致的bundle）
+- **NetworkDownloader**: 已迁移到共享 `Helpers/Helper/`，供 Legacy/AB 双后端共用下载能力
 
 ---
 
