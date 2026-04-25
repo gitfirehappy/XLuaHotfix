@@ -593,3 +593,9 @@
 [done] 2026-04-25 E1-1 complete — added Collector foundation files (`CollectorSetting`, collector enums, `AssetClassification`, `CollectedAssetInfo`, rule interfaces, `RuleResolver`) and updated `Constants.cs` with collector asset path + built-in rule constants
 [done] 2026-04-25 E1-1 verification complete — escalated `dotnet build XLuaHotfix.sln` passed with 0 errors; existing warnings remain `System.Net.Http` conflict, `USG0001`, `CS0162`, `CS0168`, `CS1998`
 [next] 2026-04-25 Awaiting developer sign-off for E1-1 before starting E1-2
+[start] 2026-04-25 E1-2 execution started — implement Classifier and default rules (`AddressByFileName`, `CollectAll`, `PackByCollectPath`) on top of the landed Collector foundation
+[decision] 2026-04-25 E1-2 keeps the finalized downstream contract: `IPackRule` stays on `GetPackKey`, `PackByCollectPath` returns collector-dir packKey only, and RawFile is never auto-inferred — only explicit `ForcePayloadKind.RawFile` yields `EPayloadKind.RawFile`
+[decision] 2026-04-25 `AddressByFileName` reuses `AssetAddressGenerator` via a new shared `GenerateShortAddress(assetPath, primaryType, useTypeSuffix)` entry, so collector-side address generation does not diverge from the existing B5 naming rules
+[done] 2026-04-25 E1-2 complete — added `AssetClassifier`, `AddressByFileName`, `CollectAll`, `PackByCollectPath`; updated `AssetAddressGenerator` and `Assembly-CSharp-Editor.csproj`
+[done] 2026-04-25 E1-2 verification complete — `dotnet build XLuaHotfix.sln` passed with 0 errors; existing warnings unchanged (`System.Net.Http` conflict, `USG0001`, `CS0162`, `CS0168`, `CS1998`)
+[next] 2026-04-25 Awaiting developer sign-off for E1-2 before starting E1-3

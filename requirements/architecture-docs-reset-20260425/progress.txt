@@ -1,0 +1,13 @@
+# architecture-docs-reset-20260425 进度记录
+# 格式：[类型] YYYY-MM-DD 描述
+# 类型: start(开始) / done(完成) / decision(决策) / blocked(阻塞) / next(下一步)
+
+[start] 2026-04-25 创建需求记录，开始重置 context/architecture 的 AI 架构文档
+[decision] 2026-04-25 彻底放弃旧的 tech-stack/xlua-internals 两篇总览式结构，改为模块化英文文档
+[decision] 2026-04-25 AI 文档仅记录已验证当前事实；docs 中的未来 AB 设计不直接视为现状
+[decision] 2026-04-25 XLua 项目侧集成与第三方 XLua 底层机制拆成两篇独立文档
+[decision] 2026-04-25 明确区分 Legacy Addressables 路径与 AB backend in-progress 路径，避免 AI 混用语义
+[decision] 2026-04-25 `docs/README.md` 读者职责未变化，本次不做机械同步
+[done] 2026-04-25 完成 context/architecture 模块化重写，新增 system overview、build/release、runtime loading、collector、xlua runtime、xlua third-party 文档
+[done] 2026-04-25 完成 context 架构索引同步，并移除旧的 tech-stack/xlua-internals 文档入口
+[next] 2026-04-25 等待开发者签收本次 architecture 文档重置结果
