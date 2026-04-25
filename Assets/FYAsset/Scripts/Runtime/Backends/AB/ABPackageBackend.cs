@@ -41,6 +41,12 @@ public class ABPackageBackend : IPackageBackend
         /// <summary>资产的 EntryId（用于 UnloadByEntryId 反查）</summary>
         public string EntryId;
 
+        /// <summary>
+        /// 资产的 address（用于 ReleaseEntry 清理 _addressToEntryIds，避免回查 Manifest）。
+        /// 注：address 可重复（多个 EntryId 共享同一 address），EntryId 才是唯一键。
+        /// </summary>
+        public string Address;
+
         /// <summary>引用计数</summary>
         public int RefCount;
     }
@@ -232,6 +238,7 @@ public class ABPackageBackend : IPackageBackend
         if (!_addressToEntryIds.TryGetValue(key, out var entryIds) || entryIds.Count == 0) return;
 
         string targetEntryId = null;
+        // HashSet 无索引器，用 foreach+break 取第一个元素（C# 无非 LINQ 的 First()）
         foreach (var entryId in entryIds)
         {
             targetEntryId = entryId;
@@ -397,7 +404,7 @@ public class ABPackageBackend : IPackageBackend
             await AssetBundleRequestToTask(request);
             asset = request.asset as T;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             _bundleLoader.UnloadBundle(bundleName);
             return (null, bundleName,
@@ -465,6 +472,7 @@ public class ABPackageBackend : IPackageBackend
             Asset = asset,
             BundleName = bundleName,
             EntryId = assetEntry.EntryId,
+            Address = assetEntry.Address,
             RefCount = 1
         };
 
@@ -493,15 +501,16 @@ public class ABPackageBackend : IPackageBackend
 
         _assetCache.Remove(entryId);
 
-        var assetEntry = ResolveAssetEntry("", entryId);
-        if (assetEntry != null && !string.IsNullOrEmpty(assetEntry.Address))
+        // 直接用缓存条目里的 Address，无需回查 Manifest
+        // 注：address 可重复，_addressToEntryIds[address] 是 HashSet，只移除本 entryId
+        if (!string.IsNullOrEmpty(entry.Address))
         {
-            if (_addressToEntryIds.TryGetValue(assetEntry.Address, out var entryIds))
+            if (_addressToEntryIds.TryGetValue(entry.Address, out var entryIds))
             {
                 entryIds.Remove(entryId);
                 if (entryIds.Count == 0)
                 {
-                    _addressToEntryIds.Remove(assetEntry.Address);
+                    _addressToEntryIds.Remove(entry.Address);
                 }
             }
         }

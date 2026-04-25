@@ -103,6 +103,7 @@ public class ABBundleLoader
         }
 
         // 递归加载依赖 Bundle（同步）
+        // 注：visited HashSet 对无依赖的叶子 Bundle 也会分配，代价小于提前查询依赖数量带来的双重 GetDirectDependencies 调用
         var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
             bundleName
@@ -197,6 +198,7 @@ public class ABBundleLoader
         }
 
         // 递归加载依赖 Bundle（异步）
+        // 注：visited HashSet 对无依赖的叶子 Bundle 也会分配，代价小于提前查询依赖数量带来的双重 GetDirectDependencies 调用
         var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
             bundleName
@@ -326,7 +328,7 @@ public class ABBundleLoader
             // 环依赖直接判错，避免坏 manifest 在运行时递归爆栈
             if (!visited.Add(dep.BundleName))
             {
-                UnloadDependencies(loadedDepNames.ToArray());
+                UnloadDependencies(loadedDepNames);
                 return (null, AssetLoadError.DependencyFailed(bundleEntry.BundleName, dep.BundleName));
             }
 
@@ -335,7 +337,7 @@ public class ABBundleLoader
             if (depError != null)
             {
                 // 回滚已加载的依赖
-                UnloadDependencies(loadedDepNames.ToArray());
+                UnloadDependencies(loadedDepNames);
                 return (null, AssetLoadError.DependencyFailed(bundleEntry.BundleName, dep.BundleName));
             }
 
@@ -347,6 +349,7 @@ public class ABBundleLoader
 
     /// <summary>
     /// 异步递归加载 BundleEntry 的所有依赖 Bundle。
+
     /// 使用 HashSet 防环和防重复加载。
     /// </summary>
     /// <returns>成功返回 (depNames, null)，失败返回 (null, error)</returns>
@@ -367,7 +370,7 @@ public class ABBundleLoader
             // 环依赖直接判错，避免坏 manifest 在运行时递归爆栈
             if (!visited.Add(dep.BundleName))
             {
-                UnloadDependencies(loadedDepNames.ToArray());
+                UnloadDependencies(loadedDepNames);
                 return (null, AssetLoadError.DependencyFailed(bundleEntry.BundleName, dep.BundleName));
             }
 
@@ -375,7 +378,7 @@ public class ABBundleLoader
             var (depBundle, depError) = await LoadBundleInternalAsync(dep.BundleName, visited);
             if (depError != null)
             {
-                UnloadDependencies(loadedDepNames.ToArray());
+                UnloadDependencies(loadedDepNames);
                 return (null, AssetLoadError.DependencyFailed(bundleEntry.BundleName, dep.BundleName));
             }
 
@@ -388,10 +391,10 @@ public class ABBundleLoader
     /// <summary>
     /// 批量卸载依赖 Bundle（用于加载失败时的回滚和正常卸载时的递归释放）。
     /// </summary>
-    private void UnloadDependencies(string[] depNames)
+    private void UnloadDependencies(IList<string> depNames)
     {
         if (depNames == null) return;
-        for (int i = 0; i < depNames.Length; i++)
+        for (int i = 0; i < depNames.Count; i++)
         {
             UnloadBundle(depNames[i]);
         }
