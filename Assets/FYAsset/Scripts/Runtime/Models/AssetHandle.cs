@@ -94,7 +94,7 @@ public struct AssetHandle<T> where T : UnityEngine.Object
     {
         get
         {
-            if (HandleId < 0 || _cachedAsset == null) return false;
+            if (HandleId < 0) return false;
             return HandleRegistry.IsValid(HandleId, Generation);
         }
     }
@@ -150,14 +150,25 @@ public struct AssetHandle<T> where T : UnityEngine.Object
     /// <summary>
     /// 如果此句柄表示加载失败，抛出 InvalidOperationException。
     /// 用于加载失败不可预期、需要 fail-fast 的场景。
+    /// 注：已释放的 Handle（HandleId >= 0 但 Generation 不匹配）也会抛异常，防止 use-after-free 静默通过。
     /// </summary>
     public AssetHandle<T> ThrowIfFailed()
     {
-        if (!IsValid && Error != null)
+        if (HandleId < 0 && Error != null)
         {
+            // 加载失败句柄
             throw new InvalidOperationException(
                 string.Concat("资源加载失败: ", Error.ToString()));
         }
+
+        if (HandleId >= 0 && !HandleRegistry.IsValid(HandleId, Generation))
+        {
+            // Handle 已释放或过期（use-after-free）
+            throw new InvalidOperationException(
+                string.Concat("Handle 已释放或过期（use-after-free）: id=",
+                    HandleId.ToString(), ", gen=", Generation.ToString()));
+        }
+
         return this;
     }
 

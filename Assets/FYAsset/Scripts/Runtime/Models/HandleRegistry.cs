@@ -57,6 +57,7 @@ internal static class HandleRegistry
 
     private static Slot[] _slots = new Slot[64];
     private static int _count = 0;
+    private static int _activeCount = 0;
     private static readonly Stack<int> _freeList = new();
 
     #endregion
@@ -95,6 +96,7 @@ internal static class HandleRegistry
         slot.Error = error;
         slot.ReleaseCallback = releaseCallback;
 
+        _activeCount++;
         return (id, slot.Generation);
     }
 
@@ -196,6 +198,8 @@ internal static class HandleRegistry
             slot.ReleaseCallback = null;
             slot.Generation++;
 
+            _activeCount--;
+
             // 归还 FreeList
             _freeList.Push(handleId);
             return true;
@@ -211,29 +215,32 @@ internal static class HandleRegistry
     /// <summary>
     /// 重置所有 Slot（资源管理器销毁时调用）。
     /// 不触发释放回调 — 调用方应先通过 ABBundleLoader.UnloadAllBundles() 清理。
+    /// 保留 _slots 数组容量，避免下次使用时重新扩容。
     /// </summary>
     public static void Reset()
     {
-        _slots = new Slot[64];
+        // 检查是否有未释放的 Handle，提示调用方可能存在引用泄漏
+        if (ActiveCount > 0)
+        {
+            Debug.LogWarning(string.Concat(
+                "[HandleRegistry] Reset 时仍有 ", ActiveCount.ToString(),
+                " 个活跃 Handle，可能存在 Bundle 引用泄漏。请先释放所有 Handle 再调用 Reset。"));
+        }
+
+        // 清零已分配的 Slot，保留数组容量
+        for (int i = 0; i < _count; i++)
+        {
+            _slots[i] = default;
+        }
         _count = 0;
+        _activeCount = 0;
         _freeList.Clear();
     }
 
     /// <summary>
-    /// 当前活跃 Handle 数量（诊断用）。
+    /// 当前活跃 Handle 数量（诊断用）。O(1)。
     /// </summary>
-    public static int ActiveCount
-    {
-        get
-        {
-            int count = 0;
-            for (int i = 0; i < _count; i++)
-            {
-                if (_slots[i].RefCount > 0) count++;
-            }
-            return count;
-        }
-    }
+    public static int ActiveCount => _activeCount;
 
     #endregion
 }
