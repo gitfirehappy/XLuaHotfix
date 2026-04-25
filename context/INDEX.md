@@ -4,8 +4,12 @@ Start here before any task.
 
 ## Architecture
 - `architecture/INDEX.md` - module structure, technical stack, runtime systems
-- `architecture/tech-stack.md` - verified project architecture and tech stack
-- `architecture/xlua-internals.md` - XLua runtime internals and bridge behavior
+- `architecture/system-overview.md` - verified top-level module map, stack baseline, and architecture boundaries
+- `architecture/resource-build-and-release.md` - build-time exports, differential snapshots, and release operations
+- `architecture/runtime-resource-loading.md` - runtime loading facade, hotfix boundary, and Legacy-vs-AB split
+- `architecture/collector-framework.md` - collector data model, rule contracts, and current classification behavior
+- `architecture/xlua-runtime.md` - project-side XLua integration, bridge lifecycle, and cross-language runtime services
+- `architecture/xlua-third-party.md` - third-party XLua internals used to reason about wrappers, delegates, GC, and hotfix
 
 ## Business
 - `business/INDEX.md` - domain-specific gameplay and business knowledge
@@ -15,18 +19,18 @@ Start here before any task.
 - `conventions/collaboration.md` - project workflow and resource-management rules
 
 ## Dependencies
-- `dependencies/INDEX.md` - third-party and engine integration notes
-- `dependencies/yooasset-collector-packing.md` - YooAsset collector framework & packing rules (Phase 5 ref)
-- `dependencies/yooasset-build-pipeline.md` - YooAsset build pipeline & dependency analysis (Phase 6 ref)
-- `dependencies/yooasset-manifest-model.md` - YooAsset manifest data model & serialization (Phase 3-4 ref)
-- `dependencies/yooasset-runtime-loading.md` - YooAsset runtime loading flow & comparison with our design
-- `dependencies/yooasset-filesystem.md` - YooAsset filesystem abstraction & cache internals
+- `dependencies/INDEX.md` - dependency domain index
+- `dependencies/integration/INDEX.md` - direct project dependency notes
+- `dependencies/reference/INDEX.md` - external framework, protocol, and research references
 
-## Experience
-- `experience/INDEX.md` - verified pitfalls and troubleshooting notes
-- `experience/troubleshooting.md` - confirmed problems and solutions
+## Mistakes
+- `mistakes/INDEX.md` - verified historical errors, troubleshooting notes, and prevention rules
+- `mistakes/troubleshooting.md` - confirmed problems and solutions
 
 Rules:
 - Only store verified knowledge here.
 - Mark uncertain items as [UNVERIFIED].
-- Prefer English file names and stable topic grouping.
+- Keep `context/` in English because it is AI-facing.
+- Keep `context/` aligned with the latest verified project reality.
+- Keep plan sequencing, TODOs, and workflow tracking out of `context/`.
+- Keep human-facing documentation in `docs/`, in Chinese, and update it only when there is an actual human documentation need.

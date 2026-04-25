@@ -19,14 +19,14 @@
 
 ## 知识管理
 - 工作前先查看 `context/INDEX.md` 了解已有知识
-- 新知识按主题写入对应分层目录（如 `context/architecture/`、`context/conventions/`、`context/experience/`）
+- 新知识按主题写入对应分层目录（如 `context/architecture/`、`context/dependencies/reference/`、`context/dependencies/integration/`、`context/mistakes/`）
 - 只记录已验证的知识，未确认的标注 [待确认]
 
 ## 需求工作流
 1. 创建 `requirements/{需求ID}/brief.md` 描述需求目标和背景
 2. 在 `requirements/{需求ID}/progress.txt` 记录关键进展（开始/完成/决策/阻塞/下一步）
-3. 遇到的问题和解决方案写入 `context/experience/troubleshooting.md`
-4. 需求完成后将有价值的经验迁移到 `context/`
+3. 遇到的问题和解决方案写入 `context/mistakes/troubleshooting.md`
+4. 需求完成后将有价值的已验证事实迁移到 `context/`，并保持 `context/` 与项目最新真实状态对齐
 
 ### 执行协议（强制）
 ```
@@ -49,7 +49,7 @@
 1. **追加 progress.txt**：记录完成事项、关键决策、验证事实
 2. **更新 plan.md 状态表**：将完成的子计划状态从 TODO 改为 DONE
 3. **同步 README.md**：反映新能力或结构变更
-4. **更新 context/ 知识库**：添加新验证的事实、模式或踩坑经验
+4. **更新 context/ 知识库**：添加新验证的事实、依赖集成说明、外部参考结论或历史错误防错规则；不得写入 plan 语句
 5. **请求开发者签收**：展示变更摘要，问「以上更新是否确认？可以进入下一个子计划吗？」
    **未签收前不得开启下一个子计划。**
    签收记录写入 progress.txt：`[done] YYYY-MM-DD plan-XX SIGNED OFF`
@@ -85,6 +85,16 @@
 2. 用 2-3 句话总结当前状态和建议的下一步
 3. 等待你确认后继续工作
 
+
+## Knowledge Boundary Rules
+- `context/` is AI-facing and must stay in English.
+- `context/` must stay aligned with the latest verified project reality.
+- `docs/` is human-facing and should stay in Chinese; update it only when there is an actual human documentation need.
+- `requirements/` is the only place for plans, sequencing, approvals, and progress tracking.
+- Do not let `plan-*`, `TODO`, `next step`, or workflow text leak into `context/`.
+- Use `context/dependencies/integration/` for direct project dependency notes.
+- Use `context/dependencies/reference/` for external framework, engine, protocol, or paper references.
+- Use `context/mistakes/` for verified historical errors, troubleshooting, and prevention rules.
 ## 项目特定规则
 
 ### 代码规范
@@ -126,3 +136,4 @@
 | `context/` | AI 协作知识库 |
 | `docs/` | 面向开发者的中文文档 |
 | `requirements/` | 需求追踪目录 |
+
