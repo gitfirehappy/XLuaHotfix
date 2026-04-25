@@ -95,7 +95,11 @@ public static class HotfixManager
             BuildIndex = buildIndex
         };
 
-        if (!await StepInitializeBackendAsync(pipeline)) return;
+        if (!await StepInitializeBackendAsync(pipeline))
+        {
+            await FinishHotfix();
+            return;
+        }
 
         if (!await StepDownloadManifestAsync(ctx))
         {
@@ -172,9 +176,6 @@ public static class HotfixManager
     }
 
     /// <summary>
-    /// 步骤2：初始化后端
-    /// </summary>
-    /// <summary>
     /// 步骤2：初始化热更后端
     /// </summary>
     private static async Task<bool> StepInitializeBackendAsync(IHotfixPipeline pipeline)
@@ -190,9 +191,6 @@ public static class HotfixManager
         return true;
     }
 
-    /// <summary>
-    /// 步骤3：下载 Manifest，确定下载路径
-    /// </summary>
     /// <summary>
     /// 步骤3：下载清单文件(manifest.json)
     /// </summary>
@@ -224,9 +222,6 @@ public static class HotfixManager
     }
 
     /// <summary>
-    /// 步骤4：加载本地版本
-    /// </summary>
-    /// <summary>
     /// 步骤4：加载本地热更版本信息
     /// </summary>
     private static async Task<HotfixVersionInfo> StepLoadLocalVersionAsync(IHotfixPipeline pipeline)
@@ -237,9 +232,6 @@ public static class HotfixManager
         return localInfo;
     }
 
-    /// <summary>
-    /// 步骤5：拉取远端版本
-    /// </summary>
     /// <summary>
     /// 步骤5：获取远端热更版本信息
     /// </summary>
@@ -283,9 +275,6 @@ public static class HotfixManager
         return Task.FromResult(true);
     }
 
-    /// <summary>
-    /// 步骤7：提取下载列表
-    /// </summary>
     /// <summary>
     /// 步骤7：获取需要下载的 Bundle 列表
     /// </summary>
@@ -392,9 +381,6 @@ public static class HotfixManager
         return true;
     }
 
-    /// <summary>
-    /// 步骤9：后处理
-    /// </summary>
     /// <summary>
     /// 步骤9：后端特定的下载后处理（例如：保存版本信息、Catalog更新）
     /// </summary>
