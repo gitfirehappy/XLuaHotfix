@@ -56,8 +56,37 @@ public static class Constants
     /// </summary>
     public const bool USE_AB_BACKEND = false;
 
+    /// <summary> ABManifest JSON 格式文件名 </summary>
     public const string MANIFEST_FILE_NAME = "ABManifest.json";
+
+    /// <summary> ABManifest 二进制格式文件名 </summary>
     public const string MANIFEST_FILE_NAME_BIN = "ABManifest.bin";
-    
+
+    /// <summary> 二进制序列化器生成代码输出路径 </summary>
     public const string BINARY_SERIALIZER_GENERATE_PATH = "Assets/Tools/Scripts/Serialization/Generated";
+
+    /// <summary> CollectorSetting 配置文件保存路径 </summary>
+    public const string COLLECTOR_SETTING_ASSET_PATH = "Assets/Build/CollectorSetting.asset";
+
+    #region Collector Rules
+
+    /// <summary> 地址规则：使用文件名（不含扩展名）作为 Address </summary>
+    public const string RULE_ADDRESS_BY_FILE_NAME = "AddressByFileName";
+
+    /// <summary> 过滤规则：收集所有有效资源（排除 .meta/.cs/.dll 等） </summary>
+    public const string RULE_COLLECT_ALL = "CollectAll";
+
+    /// <summary> 打包规则：同一 Collector 下的所有资源打入同一 Bundle </summary>
+    public const string RULE_PACK_BY_COLLECT_PATH = "PackByCollectPath";
+
+    /// <summary> 打包规则：每个资源单独打入一个 Bundle </summary>
+    public const string RULE_PACK_SEPARATELY = "PackSeparately";
+
+    /// <summary> 打包规则：同一目录下的资源打入同一 Bundle </summary>
+    public const string RULE_PACK_BY_DIRECTORY = "PackByDirectory";
+
+    /// <summary> 打包规则：相同 Labels 的资源打入同一 Bundle </summary>
+    public const string RULE_PACK_BY_LABEL = "PackByLabel";
+
+    #endregion
 }

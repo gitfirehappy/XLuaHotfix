@@ -65,3 +65,9 @@
 - **原因**: 旧实现把“流程编排”“版本数据源”“下载后处理”混在一个静态类里；拆分后如果不同时引入统一上下文对象和连续步骤编号，公共逻辑与后端逻辑的责任边界会再次混淆
 - **解决**: 用 `HotfixContext` 承载共享状态（BuildIndex/TargetPackageName/RemoteUrlRoot/TargetGUIDRoot），HotfixManager 只控制公共步骤与事件回调；Legacy/AB 后端各自负责 `LoadLocalVersion / FetchRemoteVersion / GetBundleDownloadList / PostDownload`
 - **预防**: 后续再扩热更链路时，先判断逻辑属于“公共编排”还是“后端差异”，不要重新把网络请求、版本文件格式判断、后处理写回 HotfixManager
+
+### 新增 Unity 脚本后 `dotnet build` 没有覆盖到实际改动
+- **现象**: 新脚本已经落盘，但外部执行 `dotnet build XLuaHotfix.sln` 时看不到对应编译结果，容易误判为“代码没问题”或“验证已通过”
+- **原因**: 当前项目没有为 FYAsset 新构建链路单独建立 asmdef，外部 `dotnet build` 依赖 Unity 生成的 `Assembly-CSharp.csproj` / `Assembly-CSharp-Editor.csproj` 编译项；新增文件如果尚未被项目文件包含，就不会进入这条验证链路
+- **解决**: 新增 Runtime/Editor 脚本后，同时检查并同步对应 `.csproj` 的 `Compile Include` 项，再运行 `dotnet build` 做外部验证
+- **预防**: 在没有 asmdef 的目录下推进新模块时，把“脚本落盘”和“项目文件纳入编译”视为同一个闭环；否则验证结果不可信

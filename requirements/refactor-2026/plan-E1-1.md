@@ -2,7 +2,7 @@
 
 > **Risk**: Low (pure data definitions, zero runtime logic)
 > **Dependencies**: None (foundational layer for E1-2/E1-3/E1-4/E2)
-> **Status**: Awaiting approval
+> **Status**: DONE
 
 ---
 

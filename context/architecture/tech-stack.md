@@ -34,6 +34,12 @@ ConfirmRelease    →  快照转正 (Staged → Head)，正式发布后调用
 ResetGroupsToOriginal → 还原热更组资源到原始组（整包发布前必须执行）
 ```
 
+#### 新构建管线基础（Collector Framework）
+- **CollectorSetting / CollectorPackage / CollectorGroup / Collector**：已落地新构建管线的基础数据模型，用于表达独立于 Addressables 的资源收集配置
+- **CollectorEnums / AssetClassification**：定义收集意图、载荷类型、资源角色和强制分类配置，为后续扫描、打包、依赖分析提供统一契约
+- **IAddressRule / IPackRule / IFilterRule**：Editor 侧规则接口已建立，`IPackRule` 当前契约为 `GetPackKey`，由框架统一组装最终逻辑 Bundle 名
+- **CollectedAssetInfo / RuleResolver**：分别承担构建期扁平中间结果与规则类名到实例的反射解析职责
+
 #### 运行时资源管理（AssetPackageManager）
 - 资源索引：加载 AddressableLabelsConfig，构建 Type/Label → Keys 映射
 - 引用计数池：安全管理异步加载 Handle，支持按标签/类型批量加载/卸载

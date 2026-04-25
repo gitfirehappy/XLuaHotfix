@@ -586,3 +586,10 @@
 [done] 2026-04-23 P2-5 FIXED — E1-1/E1-2/E1-3/E1-4/E2 plan files' "All paths relative to" prefix unified from `Assets/AboutXLua/Scripts/Core/Hotfix_AssetPackageManage/` to `Assets/FYAsset/Scripts/`
 [done] 2026-04-23 P1-2 FIXED — AssetPackageManager 4 个 LoadByXxx 入口提取公共 Resolve/AB/Legacy Handle helper，消除重复分支并保持外部行为不变
 [next] 2026-04-23 This review-fix round is complete after compilation verification and commit; next session starts from the next approved sub-plan
+[start] 2026-04-25 E1-1 execution started — implement Collector foundation (data model + rule interfaces + RuleResolver) as the first approved E-series sub-plan
+[decision] 2026-04-25 E1-1 implementation follows the finalized downstream contract, not the stale draft: `IPackRule` lands directly as `GetPackKey`, `PackRuleContext` includes `Labels`, and `Collector` already includes `ForcePayloadKind` / `IgnorePatterns` to stay aligned with approved E1-2/E1-3/E2 plans
+[decision] 2026-04-25 Collector framework assembly boundary uses Unity's default folder split in this project: runtime data types live under `Assets/FYAsset/Scripts/Build/Collector/`, editor-only rule contracts and resolver live under `Assets/FYAsset/Scripts/Build/Collector/Editor/`; no custom asmdef added in E1-1
+[decision] 2026-04-25 External `dotnet build` verification for new Unity scripts also requires syncing `Assembly-CSharp.csproj` / `Assembly-CSharp-Editor.csproj`; otherwise newly added files may exist on disk but not enter compilation
+[done] 2026-04-25 E1-1 complete — added Collector foundation files (`CollectorSetting`, collector enums, `AssetClassification`, `CollectedAssetInfo`, rule interfaces, `RuleResolver`) and updated `Constants.cs` with collector asset path + built-in rule constants
+[done] 2026-04-25 E1-1 verification complete — escalated `dotnet build XLuaHotfix.sln` passed with 0 errors; existing warnings remain `System.Net.Http` conflict, `USG0001`, `CS0162`, `CS0168`, `CS1998`
+[next] 2026-04-25 Awaiting developer sign-off for E1-1 before starting E1-2
