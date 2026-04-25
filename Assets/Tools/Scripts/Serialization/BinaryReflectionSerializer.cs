@@ -2,7 +2,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Reflection;
 
 /// <summary>
@@ -11,6 +10,10 @@ using System.Reflection;
 /// </summary>
 public static class BinaryReflectionSerializer
 {
+    /// <summary>
+    /// 按类型缓存已排序的 [BinaryField] 字段列表，避免每次序列化重复反射扫描。
+    /// </summary>
+    private static readonly Dictionary<Type, FieldInfo[]> _fieldCache = new();
     /// <summary>
     /// 用 [BinaryField] 顺序递归写入对象。
     /// </summary>
@@ -199,17 +202,25 @@ public static class BinaryReflectionSerializer
 
     public static FieldInfo[] GetOrderedBinaryFields(Type type)
     {
-        return type
-            .GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)
-            .Select(f => new
-            {
-                Field = f,
-                Attr = f.GetCustomAttribute<BinaryFieldAttribute>()
-            })
-            .Where(x => x.Attr != null)
-            .OrderBy(x => x.Attr.Order)
-            .Select(x => x.Field)
-            .ToArray();
+        if (_fieldCache.TryGetValue(type, out var cached))
+            return cached;
+
+        var allFields = type.GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+        var result = new List<FieldInfo>(allFields.Length);
+
+        for (int i = 0; i < allFields.Length; i++)
+        {
+            if (allFields[i].GetCustomAttribute<BinaryFieldAttribute>() != null)
+                result.Add(allFields[i]);
+        }
+
+        result.Sort((a, b) =>
+            a.GetCustomAttribute<BinaryFieldAttribute>().Order
+            .CompareTo(b.GetCustomAttribute<BinaryFieldAttribute>().Order));
+
+        var arr = result.ToArray();
+        _fieldCache[type] = arr;
+        return arr;
     }
 
     public static bool IsBinarySerializableType(Type type)
