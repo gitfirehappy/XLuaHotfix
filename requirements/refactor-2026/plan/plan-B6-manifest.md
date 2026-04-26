@@ -1,6 +1,6 @@
 # ABManifest Format Specification
 
-> **Status**: APPROVED - Initial design 2026-03-30, field extension (BundleType + ReferencedBy + IsImplicitDependency deferred) approved 2026-04-07
+> **Status**: DONE — Implemented in B6 (2026-04-01). Field extensions (BundleType + ReferencedBy) incorporated into ManifestBundleEntry. IsImplicitDependency deferred to E4. This file retained for design rationale traceability.
 > **Phase**: 3 (Runtime Implementation Layer)
 > **Created**: 2026-03-30
 > **Dependencies**: B5-1 (RuntimeAssetEntry), B5-2 (Resolve/Load API)

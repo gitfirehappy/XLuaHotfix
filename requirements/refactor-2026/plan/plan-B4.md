@@ -2,7 +2,7 @@
 
 > **Risk**: High (hotfix core pipeline)
 > **Dependencies**: After B1 + B2 completed and verified stable on device
-> **Status**: Concept design stage, not in this round's approval scope
+> **Status**: ⚠️ SUPERSEDED — B4 was merged with B9 into [plan-B4B9.md](plan-B4B9.md) which is DONE. This file retained for design traceability only; refer to B4B9 for the executed plan.
 
 ---
 

@@ -95,17 +95,19 @@ This is an additive change to E1-1's definition. The Labels field is populated b
 ### D4: Separator Convention
 
 - **Segment separator**: `_` (underscore) — separates packageName, groupName, packKey
-- **Label separator**: `-` (hyphen) — separates multiple labels within packKey (PackByLabel only)
+- **Label separator**: `--` (double hyphen) — separates multiple labels within packKey (PackByLabel only)
 
-Example: `hotfix_ui_panel-common` = package `hotfix`, group `ui`, labels `common` + `panel` (sorted)
+Example: `hotfix_ui_panel--common` = package `hotfix`, group `ui`, labels `common` + `panel` (sorted)
+
+**Rationale for `--` over `-`**: A single hyphen is a valid character within label names (e.g. `"ui-panel"` is a legal label). Using `--` as join eliminates ambiguity — `panel--common` unambiguously means two labels `["panel","common"]`, while `panel-common` (single hyphen preserved by SanitizeSegment) unambiguously means one label `["panel-common"]`. Double-hyphen cannot appear naturally in SanitizeSegment output, so join vs. literal is always distinguishable.
 
 ### D5: Three Built-in PackRule Implementations
 
 | Rule | packKey Source | Example Input | Example packKey |
 |------|--------------|---------------|-----------------|
 | PackSeparately | Asset filename (no extension) | `Assets/Art/UI/Panel.prefab` | `panel` |
-| PackByDirectory | Asset's parent directory name relative to CollectPath; falls back to CollectPath last segment if asset is at root | `Assets/Art/UI/Icons/star.png` (CollectPath=`Assets/Art/UI`) | `icons` |
-| PackByLabel | Sorted labels joined by `-`; `unlabeled` if no labels | Labels=`["ui","panel"]` | `panel-ui` |
+| PackByDirectory | Asset's parent directory name relative to CollectPath; falls back to CollectPath last segment if asset is at root. **Usage guidance**: root-level asset bundling granularity should be controlled via Collector configuration (multiple Collectors with different sub-paths and/or PackRules under the same Group), not via PackByDirectory's fallback logic. The deepest-path ownership dedup in E1-3 ensures sub-directory Collectors claim their assets first — leftover root-level assets can be handled by a separate Collector with PackSeparately or another suitable rule. | `Assets/Art/UI/Icons/star.png` (CollectPath=`Assets/Art/UI`) | `icons` |
+| PackByLabel | Sorted labels joined by `--`; `__orphan__` if no labels | Labels=`["ui","panel"]` | `panel--ui` |
 
 ### D6: RawFile Naming — Unified
 
@@ -165,7 +167,7 @@ public class PackByDirectory : IPackRule
 
 ### PackByLabel
 
-Assets with the same label combination go into one bundle. Labels sorted case-insensitively, joined by `-`.
+Assets with the same label combination go into one bundle. Labels sorted case-insensitively, joined by `--` (double hyphen). Empty/null labels → `"__orphan__"` (double-underscore sentinel, not collidable with user labels after SanitizeSegment).
 
 ```csharp
 public class PackByLabel : IPackRule
@@ -173,18 +175,18 @@ public class PackByLabel : IPackRule
     public string GetPackKey(PackRuleContext ctx)
     {
         if (ctx.Labels == null || ctx.Labels.Count == 0)
-            return "unlabeled";
+            return "__orphan__";
 
         var sorted = new List<string>(ctx.Labels.Count);
         for (int i = 0; i < ctx.Labels.Count; i++)
             sorted.Add(ctx.Labels[i].ToLowerInvariant());
         sorted.Sort(StringComparer.Ordinal);
-        return string.Join("-", sorted);
+        return string.Join("--", sorted);
     }
 }
 ```
 
-**Note**: Labels are lowercased before sorting to ensure deterministic output regardless of input casing.
+**Note**: Labels are lowercased before sorting to ensure deterministic output regardless of input casing. Double-hyphen `--` as join eliminates ambiguity with single hyphens within label names.
 
 ---
 
@@ -226,11 +228,9 @@ All paths relative to `Assets/FYAsset/Scripts/`.
 
 | File | Change | Risk |
 |------|--------|------|
-| IPackRule.cs (E1-1) | Rename `GetBundleName` → `GetPackKey` | Low — E1-1 not yet implemented, plan-level change |
-| PackRuleContext (E1-1) | Add `IReadOnlyList<string> Labels` field | Low — additive |
-| PackByCollectPath.cs (E1-2) | Method rename `GetBundleName` → `GetPackKey` AND semantic change: return only `{collectDirName}` (grouping key), not full `{pkg}_{group}_{dir}` | Low — E1-2 not yet implemented, plan-level change |
-| plan-E1-3.md | Sync scan pipeline: step h/i/j updated to labels→GetPackKey→BundleNameBuilder.Build flow; step order adjusted (labels before PackRule) | Low — plan-level change |
-| Constants.cs | Add `RULE_PACK_SEPARATELY`, `RULE_PACK_BY_DIRECTORY`, `RULE_PACK_BY_LABEL` constants | Low — additive |
+| plan-E1-3.md | Sync scan pipeline: step h/i/j references updated to labels→GetPackKey→BundleNameBuilder.Build flow; join char `--` and orphan sentinel `__orphan__` aligned | Low — plan-level change |
+
+**Note**: E1-1 and E1-2 code files (IPackRule.cs, PackRuleContext, PackByCollectPath.cs, Constants.cs) already adopted the E2 contract proactively during E1-1/E1-2 implementation — `GetPackKey` method name, `Labels` field, `collectDirName`-only return value, and `RULE_PACK_*` constants are all already in place. No code-level back-changes needed.
 
 ---
 
@@ -238,15 +238,14 @@ All paths relative to `Assets/FYAsset/Scripts/`.
 
 | Task | Content | Depends On |
 |------|---------|-----------|
-| E2-T1 | Update E1-1 plan: IPackRule `GetBundleName` → `GetPackKey` + PackRuleContext add Labels field | — |
-| E2-T2 | Update E1-2 plan: PackByCollectPath method rename + semantic change (return only collectDirName, not full logical name) | T1 |
-| E2-T3 | Update E1-3 plan: sync scan pipeline steps h/i/j to labels→GetPackKey→BundleNameBuilder.Build flow | T1 |
-| E2-T4 | Create `BundleNameBuilder.cs` (Build + SanitizeSegment) | E1-1 done |
-| E2-T5 | Create `PackSeparately.cs` | E1-1 done |
-| E2-T6 | Create `PackByDirectory.cs` | E1-1 done |
-| E2-T7 | Create `PackByLabel.cs` | E1-1 done |
-| E2-T8 | Update `Constants.cs` with 3 new rule class name constants | — |
-| E2-T9 | Compilation verification (dotnet build) | All above |
+| E2-T1 | Create `BundleNameBuilder.cs` (Build + SanitizeSegment) | E1-1 done |
+| E2-T2 | Create `PackSeparately.cs` | E1-1 done |
+| E2-T3 | Create `PackByDirectory.cs` | E1-1 done |
+| E2-T4 | Create `PackByLabel.cs` | E1-1 done |
+| E2-T5 | Sync `plan-E1-3.md` scan pipeline references (join char / orphan sentinel) | T1-T4 |
+| E2-T6 | Compilation verification (`dotnet build XLuaHotfix.sln`) | T1-T4 |
+
+**Note**: T1-T3 from the original plan (update IPackRule, PackRuleContext, PackByCollectPath, Constants) are removed — these changes were already applied proactively during E1-1/E1-2 implementation.
 
 ---
 
@@ -258,8 +257,8 @@ All paths relative to `Assets/FYAsset/Scripts/`.
 4. `BundleNameBuilder.Build("pkg", "grp", "a/b c")` → `"pkg_grp_a_b_c"` (illegal chars replaced)
 5. `PackSeparately.GetPackKey` returns filename without extension
 6. `PackByDirectory.GetPackKey` returns sub-directory name; falls back to CollectPath last segment for root-level assets
-7. `PackByLabel.GetPackKey` with labels `["UI","Panel"]` → `"panel-ui"` (lowercase, sorted, hyphen-joined)
-8. `PackByLabel.GetPackKey` with empty/null labels → `"unlabeled"`
+7. `PackByLabel.GetPackKey` with labels `["UI","Panel"]` → `"panel--ui"` (lowercase, sorted, double-hyphen-joined)
+8. `PackByLabel.GetPackKey` with empty/null labels → `"__orphan__"`
 9. `RuleResolver` can resolve all 3 new rule class names to instances
 10. `dotnet build XLuaHotfix.sln` passes with 0 errors
 
@@ -282,9 +281,21 @@ All paths relative to `Assets/FYAsset/Scripts/`.
 - [ ] Agree to BundleNameBuilder as framework-side name assembly (3-segment: pkg_group_key)
 - [ ] Agree to SanitizeSegment: lowercase + non-alphanumeric → underscore, hyphen preserved
 - [ ] Agree to PackRuleContext adding `IReadOnlyList<string> Labels` field
-- [ ] Agree to separator convention: `_` between segments, `-` between labels
+- [ ] Agree to separator convention: `_` between segments, `--` between labels (double hyphen avoids ambiguity with hyphens inside label names)
 - [ ] Agree to PackSeparately: packKey = filename without extension
-- [ ] Agree to PackByDirectory: packKey = sub-directory name, root fallback to CollectPath last segment
-- [ ] Agree to PackByLabel: sorted lowercase labels joined by `-`, empty → `unlabeled`
+- [ ] Agree to PackByDirectory: packKey = sub-directory name, root fallback to CollectPath last segment; root-level distribution controlled via Collector configuration, not PackRule internals
+- [ ] Agree to PackByLabel: sorted lowercase labels joined by `--`, empty → `__orphan__`
 - [ ] Agree to RawFile unified naming (no special treatment)
-- [ ] Agree to 4 new files + 5 modified files (including E1-1/E1-2 plan updates + E1-3 scan pipeline sync)
+- [ ] Agree to 4 new files + 1 plan sync (E1-3 scan pipeline alignment). Code files (IPackRule, PackRuleContext, PackByCollectPath, Constants) already reflect E2 contract — zero back-changes to implementation code
+
+---
+
+## Change Log
+
+| Date | Change |
+|------|--------|
+| 2026-04-23 | Initial version: 3 PackRule implementations + BundleNameBuilder. Approved by developer |
+| 2026-04-26 | D2 refined: empty-label sentinel changed from `"unlabeled"` → `"__orphan__"` (double-underscore avoids collision with user labels after SanitizeSegment) |
+| 2026-04-26 | D4 refined: PackByLabel join separator changed from `-` → `--` (double hyphen eliminates ambiguity with hyphens inside label names) |
+| 2026-04-26 | D5 PackByDirectory: added usage guidance — root-level distribution controlled via Collector configuration (multiple Collectors + deepest-path dedup), not via PackRule fallback logic |
+| 2026-04-26 | Scope reduced: IPackRule/PackRuleContext/PackByCollectPath/Constants already reflect E2 contract (proactively adopted in E1-1/E1-2). Modified files reduced from 5 to 1 (plan-E1-3.md only). Task count reduced from 9 to 6 |

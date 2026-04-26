@@ -1,7 +1,23 @@
 # Phase 5-6 构建管线重构 — 草稿 Plan
 
 > 状态：草稿收敛完成，待精确化
-> 最后更新：2026-04-17
+> 最后更新：2026-04-26（方向审计 + 偏移修正）
+>
+> **⚠️ 2026-04-26 方向审计**：本文档于 2026-04-17 收敛完成后，Phase 5 子计划（E1-1/E1-2/E1-3/E1-4/E2）相继审批和落地。审计发现 5 处方向偏移，以下各节均已标注修正。**当前版为审计修正版**，历史版本见 git log。
+
+***
+
+## 🩺 2026-04-26 方向审计记录
+
+| # | 偏移 | 严重度 | 原因 | 修正 |
+|---|------|--------|------|------|
+| 1 | 三规则模型简化为两规则（GroupRule 消失） | 🔴 严重 | E1-1 精确计划时 AI 执行层静默跳过，未经审批 | 恢复 IGroupRule。三规则：IFilterRule(收集过滤)→IGroupRule(资源路由到Group)→IPackRule(Bundle分组键)。Group 由被动容器恢复为有行为实体 |
+| 2 | Bundle 命名格式 `pkg_group_type_labels_hash` → `pkg_group_packKey` | 🟡 中度 | 4/23 E2 审批时主动收敛为三段 minimal | 三段 minimal 格式成立。Draft 的 type/labels/hash 入名倾向被显式否决，已记录在 E2 plan |
+| 3 | E3 作为独立子计划被取消，内容归入 E1-3 | 🟡 中度 | 4/23 差距分析确认 11/12 E3 项已被 E1-3 吸收 | 全文 E3→E1-3 引用修正 |
+| 4 | 扫描管线缺 GroupRule 步骤 | 🟡 中度 | 偏移 #1 的连锁影响 | Classify → **GroupRule** → Address → Pack → Tags |
+| 5 | Collector 数据结构缺字段 | 🟡 中度 | Draft 未包含后期 E1-2 新增字段 | 补齐 ForcePayloadKind / IgnorePatterns / Tags / GroupRuleName（新增） |
+
+以下章节中，已修正的内容标记 `[审计修正]`，已被否决/废弃的内容标记 `[已废弃]`。
 
 ***
 
@@ -16,29 +32,43 @@ CollectorSetting (SO)
 │       └── List<Collector>     // 收集器（扫描路径 + 规则）
 ```
 
-### 2. 规则接口：三规则分离
+### 2. 规则接口：三规则分离 `[审计修正]`
+
+> ⚠️ 审计前本文档描述 CollectRule→GroupRule→PackRule 三规则，但 E1-1 落地时 GroupRule 被静默移除。2026-04-26 审视后决定**恢复三规则模型**。以下为修正版。
 
 | 规则 | 职责 | 输入 | 输出 |
 | --- | --- | --- | --- |
-| CollectRule | 决定收集哪些资源 | collectPath | List\<AssetInfo\> |
-| GroupRule | 决定资源分组 | AssetInfo | GroupKey |
-| PackRule | 决定 Bundle 命名 | GroupKey, List\<AssetInfo\> | BundleName |
+| IFilterRule | 决定哪些资源通过过滤 | FilterRuleContext (assetPath, primaryType, extension) | bool |
+| IGroupRule | 决定资源路由到哪个 Group | GroupRuleContext (assetPath, classification) | string groupName |
+| IPackRule | 决定 Bundle 分组键 | PackRuleContext (assetPath, groupName, collectPath, packageName, classification, labels) | string packKey |
 
 保留接口：IAddressRule（生成 Address）
 
-### 3. Bundle 命名组成
+**IFilterRule** 对应原 CollectRule 的过滤职责（名字不同，语义一致——CollectAll 就是 CollectAll filter）。Collection 的扫描/发现职责由 E1-3 CollectionScanner 负责，不归入规则接口。
+
+**IGroupRule** 使 Group 从被动容器恢复为有行为实体。一个 Collector 可通过 GroupRule 将资源路由到不同 Group，避免 Collector 数量随资源类型线性膨胀。
+
+### 3. Bundle 命名组成 `[审计修正]`
+
+> ⚠️ Draft 原格式 `{pkg}_{group}_{type}_{labels}_{hash}` 已被 E2 (2026-04-23→04-26) 显式收敛为三段 minimal。以下为修正版。
 
 ```
-{packageName}_{groupName}_{type}_{labels}_{hash}.bundle
+{packageName}_{groupName}_{packKey}
+// Hash 和 .bundle 扩展名由 E5 TaskBuildBundles 追加：
+// → {packageName}_{groupName}_{packKey}_{hash}.bundle
 
 示例：
-hotfix_ui_prefab_panel_abc123.bundle
-hotfix_audio_clip_music_def456.bundle
+hotfix_ui_prefabs         (PackByDirectory: 子目录名)
+hotfix_audio_panel--ui    (PackByLabel: 标签双连字符连接)
 ```
 
-- Labels 全部入名，多标签用下划线连接
-- Hash 长度可配置（默认 8 位，可选 16/32 位）
-- type 字段取 PrimaryType 简名（如 Prefab、Texture2D）
+- 三段均为 lowercase，非法字符→下划线，连字符保留
+- PrimaryType **不入名**（PackByType 时自然出现在 packKey 中）
+- Labels **不入名**（PackByLabel 时自然出现在 packKey 中，`--` 双连字符 join）
+- Hash 由 E5 追加，长度可配置；E2 不涉及
+- 扩展名 `.bundle` 由 E5 追加；E2 输出逻辑名不含扩展名
+
+**[已废弃]** ~~`{pkg}_{group}_{type}_{labels}_{hash}` 富语义格式~~ — 被 E2 三段 minimal 取代。
 
 ### 4. Pipeline Pattern + BuildContext
 
@@ -164,14 +194,16 @@ public interface IBuildTask
 
 ***
 
-## E1: Collector 框架（已定）
+## E1: Collector 框架（已定）`[审计修正]`
 
 - [x] 配置层级：三级结构
-- [x] Group 作用：逻辑分组 + 输出目录
+- [x] Group 作用：逻辑分组 + 输出目录 **+ 通过 GroupRule 路由资源到 Group**
 - [x] 标签类型：Labels + Tags
-- [x] IgnoreRule：Collector 级配置
+- [x] IgnoreRule：Collector 级配置（已落地为 IgnorePatterns List\<string\>）
 - [x] ECollectorType 与 PayloadKind 正交分离
 - [x] 标签继承：默认不继承，显式声明优先
+- [x] 三规则模型：IFilterRule(收集过滤) + IGroupRule(资源路由到Group) + IPackRule(Bundle分组键)
+- [x] Collector 字段完整性：ForcePayloadKind / IgnorePatterns / Tags / GroupRuleName
 - [ ] CollectorSettingEditor 可视化设计（归编辑器专项）
 
 ### E1 已定决策
@@ -183,7 +215,7 @@ public interface IBuildTask
 
 2. 核心契约精简为 2 字段：
    - AssetClassification = { AssetRole, PayloadKind }
-   - 三规则职责边界：CollectRule（扫描+过滤+身份识别）→ GroupRule（逻辑分组，不改身份）→ PackRule（Bundle 归属+命名，可看 PayloadKind）。
+   - 三规则职责边界：IFilterRule（过滤+初筛）→ IGroupRule（资源路由到目标 Group）→ IPackRule（Bundle 分组键 packKey）。`[审计修正]`
 
 3. 依赖分析阶段权限：
    - 可以：发现未收集的隐式依赖 → 创建 AssetRole=ImplicitDependency 新条目。
@@ -194,44 +226,40 @@ public interface IBuildTask
 4. PackRule 关系：
    - 三种内置规则（PackSeparately / PackByDirectory / PackByLabel）并列可选。
    - PackRule 是接口，框架支持自定义实现。
-   - 特殊场景优先通过子目录收集器（E3）+ 目录结构组合解决。
+   - ~~特殊场景优先通过子目录收集器（E3）+ 目录结构组合解决。~~ `[已废弃 — E3 已取消]` 特殊场景通过 Collector 配置组合（多 Collector + GroupRule + PackRule）解决。
 
-5. 未识别资源策略：
+5. GroupRule 设计（2026-04-26 审计新增）：
+   - IGroupRule 接口：`string GetTargetGroup(GroupRuleContext ctx)`
+   - GroupRuleContext：AssetPath, Classification, CollectorPath, PackageName
+   - 内置实现：GroupByType（按 PrimaryType 路由）/ GroupByLabel（按标签路由）/ GroupByDirectory（按目录层级路由）/ GroupAll（默认——路由到 Collector 绑定的 Group）
+   - GroupAll 为默认值，保持向后兼容
+
+6. 未识别资源策略：
    - Dev：仅告警并跳过打包。
    - CI/Release：被引用且未识别的资源阻断构建；未被引用资源仅告警。
 
-### E2: Packing 规则（已定）
+### E2: Packing 规则（已定）`[审计修正]`
 
-- [x] 内置 PackRule（PackSeparately/PackDirectory/PackByLabel）— 并列可选，接口支持自定义扩展
-- [x] Bundle 命名规则细节（见已确认决策 #3）
+- [x] 内置 PackRule（PackSeparately/PackByDirectory/PackByLabel）— 并列可选，接口支持自定义扩展
+- [x] Bundle 命名规则：`{pkg}_{group}_{packKey}` 三段 lowercase minimal（**非** draft 原设 `{pkg}_{group}_{type}_{labels}_{hash}`） `[审计修正]`
 - [x] RawFile 是 PayloadKind，PackRule 内部差异化处理
+- [x] 空标签哨兵值：`__orphan__`；标签 join 符：`--`（双连字符） `[2026-04-26]`
+- [x] PackByDirectory 根级 fallback 不改，分流靠 Collector 配置 `[2026-04-26]`
 
-### E3: 子目录收集器 + 忽略规则（方向已定）
+### E3: 子目录收集器 + 忽略规则 `[已废弃 — 2026-04-23 E3 取消]`
 
-- [x] 支持子目录收集器；不支持按资产对象类型进行收集
-- [x] 子目录收集器与 IgnoreRule 执行顺序：先路径归属排除，再执行 IgnoreRule
-- [ ] 子目录收集器的配置方式（细节待定）
-- [ ] 忽略规则的语义设计（细节待定）
+> E3 所有内容已被 E1-3 CollectionScanner 吸收。见 plan-E1-3.md。
 
-**子目录收集器核心规则**：
-
-1. 目录优先：资源归属由目录路径决定。
-2. 自动剔除：父收集器自动排除已被子收集器覆盖的路径。最深路径优先。
-3. 冲突检测：同深度多收集器覆盖同一路径 → 配置冲突告警。
-4. 唯一归属：每个资源在收集阶段仅归属一个收集器。
-
-**待定**：冲突级别策略（Dev 告警 / CI 阻断的差异）。
-
-### E4: 依赖分析（已定）
+### E4: 依赖分析（已定）`[审计修正]`
 
 - [x] 循环依赖处理：报错中断构建
 - [x] 共享资源处理策略 — 简化方案
 
-**E3-E4 责任分界**：
+**E1-3-E4 责任分界** `[审计修正：E3→E1-3]`：
 
-- E3 管归属：每个资源唯一归属一个收集器，输出 AssetClassification。
-- E4 管共享：基于归属结果构建依赖图，仅对 ImplicitDependency 执行共享提取。
-- E4 不覆盖 E3 明确归属的 Main/Static 资源。
+- **E1-3 管归属**：每个资源唯一归属一个收集器，经 GroupRule 路由到目标 Group，输出 AssetClassification。
+- **E4 管共享**：基于归属结果构建依赖图，仅对 ImplicitDependency 执行共享提取。
+- E4 不覆盖 E1-3 明确归属的 Main/Static 资源。
 
 **SharePolicy（Package 层配置）**：
 
@@ -325,16 +353,16 @@ public interface IBuildTask
 
 | 方向 | 状态 | 已定 | 待定 |
 | --- | --- | --- | --- |
-| G1（E1+E2） | 已收敛 | 主链路 Classifier→GroupRule→PackRule；ECollectorType 与 PayloadKind 正交分离；核心契约 2 字段；PackRule 并列可选+接口扩展；Bundle 命名：Labels 全部入名，Hash 可配置 | — |
-| G2（E3+E4） | 已收敛 | E3 管归属、E4 管共享；依赖分析仅补写不覆盖；SharePolicy Package 层：AutoShare + NoShare，仅处理 ImplicitDependency | E3 子目录冲突级别 |
+| G1（E1+E2） | 已收敛·审计修正 | 三规则：IFilterRule→IGroupRule→IPackRule；ECollectorType 与 PayloadKind 正交分离；核心契约 2 字段；PackRule 并列可选+接口扩展；Bundle 命名：三段 lowercase minimal `pkg_group_packKey`；空标签 `__orphan__`；Label join `--` | — |
+| G2（E1-3+E4） | 已收敛·审计修正 | E1-3 管归属（含 GroupRule 路由）、E4 管共享；依赖分析仅补写不覆盖；SharePolicy Package 层：AutoShare + NoShare，仅处理 ImplicitDependency | 冲突级别策略归入 E5 |
 | G3（E5） | 已收敛 | DAG 调度器（Sequence+Parallel）；IBuildTask 4 字段契约；6 骨干节点+扩展节点；HelperBuildData 已取消 | — |
 | G4（E6+E7） | 收敛 | BuildContext 统一版本源；Digest 在快照；ConfirmRelease 固化；version_state 仅旧后端 | 回滚机制文档化 |
 | G5（E7） | 非优先 | 旧后端可停放，不强制退场 | — |
 | G6（E8） | 延期 | 文件系统 5 类接口；异步统一 Task 语义 | Android StreamingAssets 治理 |
 
-## 暂定口径（未定稿）
+## 暂定口径（未定稿）`[审计修正]`
 
-1. E2 命名倾向：Bundle 名尽量保留更多语义信息。
+1. ~~E2 命名倾向：Bundle 名尽量保留更多语义信息。~~ `[已废弃]` → E2 已收敛为三段 minimal `pkg_group_packKey`，语义信息体现在 packKey 内部。
 2. G6 倾向：统一访问路径更好，治理原则待安卓专项。
 
 ***

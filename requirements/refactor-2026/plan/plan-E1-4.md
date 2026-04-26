@@ -1,8 +1,8 @@
 # Sub-Plan E1-4: Editor UI — BuildPipelineWindow + Collector Panel
 
 > **Risk**: Low (Editor-only UI, no runtime impact)
-> **Dependencies**: E1-1 (data model, enums), E1-2 (default rules for dropdown), E1-3 (IgnorePatterns field on Collector)
-> **Status**: Approved
+> **Dependencies**: E1-1 (data model, enums, **including IGroupRule**), E1-2 (default rules for dropdown), E1-3 (IgnorePatterns field on Collector)
+> **Status**: ⚠️ Approved, needs plan update (2026-04-26 audit: add GroupRule dropdown + RuleDropdownHelper IGroupRule scanning) `[审计修正]`
 
 ---
 
@@ -32,7 +32,7 @@ Uses Unity's built-in IMGUI TreeView API. Consistent with all existing editor co
 
 ### D4: Rule Selection — Dropdown Menu
 
-RuleDropdownHelper scans all IAddressRule/IPackRule/IFilterRule implementations via reflection, caches class name lists, and renders EditorGUI.Popup dropdowns. New Collectors auto-fill default rule names from Constants.
+RuleDropdownHelper scans all IAddressRule/IPackRule/IFilterRule/**IGroupRule** implementations via reflection, caches class name lists, and renders EditorGUI.Popup dropdowns. New Collectors auto-fill default rule names from Constants. `[审计修正]`
 
 ### D5: Validation Timing — On Save
 
@@ -184,6 +184,7 @@ Renders different fields based on selected node type. Uses SerializedObject/Seri
 | AddressRuleName | RuleDropdownHelper.Popup (IAddressRule implementations) |
 | PackRuleName | RuleDropdownHelper.Popup (IPackRule implementations) |
 | FilterRuleName | RuleDropdownHelper.Popup (IFilterRule implementations) |
+| GroupRuleName | RuleDropdownHelper.Popup (IGroupRule implementations) `[审计新增]` |
 | Tags | ReorderableList of string |
 | IgnorePatterns | ReorderableList of string |
 
@@ -194,7 +195,7 @@ Renders different fields based on selected node type. Uses SerializedObject/Seri
 ```csharp
 public static class RuleDropdownHelper
 {
-    // On first call: scan all assemblies for IAddressRule/IPackRule/IFilterRule implementations
+    // On first call: scan all assemblies for IAddressRule/IPackRule/IFilterRule/IGroupRule implementations
     // Cache: Dictionary<Type, string[]> interfaceType → class name array
     // Popup: EditorGUI.Popup with cached names, returns selected class name string
     

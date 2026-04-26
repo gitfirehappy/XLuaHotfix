@@ -2,13 +2,15 @@
 
 > **Risk**: Low (pure data definitions, zero runtime logic)
 > **Dependencies**: None (foundational layer for E1-2/E1-3/E1-4/E2)
-> **Status**: DONE
+> **Status**: ⚠️ Needs back-change (2026-04-26 direction audit: IGroupRule interface missing)
+>
+> **Audit finding**: E1-1 was executed on 2026-04-25 with only 3 rule interfaces (IAddressRule/IPackRule/IFilterRule). The 2026-04-26 direction audit determined that IGroupRule was incorrectly omitted — the approved draft plan specified a three-rule model (CollectRule/GroupRule/PackRule) and GroupRule was silently dropped during E1-1 precise planning without developer sign-off. IGroupRule must be added.
 
 ---
 
 ## Objective
 
-Define the Collector framework's data model layer: the hierarchical ScriptableObject structure (Setting → Package → Group → Collector), enum types, the AssetClassification contract, rule interfaces (IAddressRule / IPackRule / IFilterRule), the CollectedAssetInfo intermediate data structure, and the RuleResolver reflection utility.
+Define the Collector framework's data model layer: the hierarchical ScriptableObject structure (Setting → Package → Group → Collector), enum types, the AssetClassification contract, rule interfaces (**IAddressRule / IPackRule / IFilterRule / IGroupRule**), the CollectedAssetInfo intermediate data structure, and the RuleResolver reflection utility.
 
 E1-1 contains NO rule implementations and NO scanning logic. It establishes the "vocabulary" that all subsequent E1/E2 sub-plans build upon.
 
@@ -45,6 +47,7 @@ CollectorSetting (ScriptableObject, global singleton)
                 ├── AddressRuleName  (string class name → IAddressRule)
                 ├── PackRuleName     (string class name → IPackRule)
                 ├── FilterRuleName   (string class name → IFilterRule)
+                ├── GroupRuleName    (string class name → IGroupRule) `[审计新增]`
                 └── Tags[]          (collector-level labels)
 ```
 
@@ -182,6 +185,7 @@ public class Collector
     public string AddressRuleName;
     public string PackRuleName;
     public string FilterRuleName;
+    public string GroupRuleName;      // 2026-04-26 audit: IGroupRule class name (default: "GroupAll")
     public List<string> Tags = new();
 }
 ```
@@ -201,6 +205,11 @@ public class CollectedAssetInfo
     public string Address;
     public string PrimaryType;
     public List<string> Labels;
+    /// <summary>
+    /// Target Group for this asset. Populated by IGroupRule.GetTargetGroup().
+    /// Default (GroupAll): falls back to the Collector's parent Group name.
+    /// [审计修正] Before audit, this was always the Collector's parent Group.
+    /// </summary>
     public string GroupName;
     public string PackageName;
     public string BundleName;
@@ -264,19 +273,54 @@ public struct FilterRuleContext
 }
 ```
 
-### RuleResolver
+### IGroupRule `[2026-04-26 审计新增]`
+
+> ⚠️ 审计前 E1-1 缺失 IGroupRule。原三规则模型中 GroupRule 负责决定资源路由到哪个 Group。
 
 ```csharp
 /// <summary>
-/// Resolves rule class name strings to instances via reflection.
-/// Caches instances per class name (rules are stateless).
-/// Editor-only.
+/// Group rule — determines which Group a collected asset belongs to.
+/// One Collector can route assets to different Groups via GroupRule.
 /// </summary>
+public interface IGroupRule
+{
+    /// <summary>Returns the target Group name for this asset.</summary>
+    string GetTargetGroup(GroupRuleContext ctx);
+}
+
+public struct GroupRuleContext
+{
+    /// <summary>Asset project path relative to Assets/</summary>
+    public string AssetPath;
+
+    /// <summary>Classification result from Classifier</summary>
+    public AssetClassification Classification;
+
+    /// <summary>The Collector's own collectPath</summary>
+    public string CollectPath;
+
+    /// <summary>The Package name the Collector belongs to</summary>
+    public string PackageName;
+}
+```
+
+**Built-in implementations (to be created in E1-2 addendum or standalone)**:
+| Rule | packKey / route | Description |
+|------|----------------|-------------|
+| `GroupAll` (default) | Collector's parent GroupName | Backward compatible — same as pre-GroupRule behavior |
+| `GroupByType` | PrimaryType short name | Prefab→"prefabs", Texture2D→"textures" |
+| `GroupByLabel` | Sorted labels joined by `--` | Routes by asset labels |
+| `GroupByDirectory` | Sub-directory name | Routes by directory hierarchy |
+
+### RuleResolver `[审计修正]`
+
+```csharp
 public static class RuleResolver
 {
     public static IAddressRule GetAddressRule(string className);
     public static IPackRule GetPackRule(string className);
     public static IFilterRule GetFilterRule(string className);
+    public static IGroupRule GetGroupRule(string className);   // 2026-04-26 added
     // Internal: reflection scan + cache
 }
 ```
@@ -294,7 +338,8 @@ public static class RuleResolver
 | IAddressRule.cs | Build/Collector/Editor/Rules/ | Editor | ~20 | Interface + AddressRuleContext |
 | IPackRule.cs | Build/Collector/Editor/Rules/ | Editor | ~20 | Interface + PackRuleContext |
 | IFilterRule.cs | Build/Collector/Editor/Rules/ | Editor | ~20 | Interface + FilterRuleContext |
-| RuleResolver.cs | Build/Collector/Editor/ | Editor | ~60 | String → instance reflection resolver with cache |
+| IGroupRule.cs | Build/Collector/Editor/Rules/ | Editor | ~25 | Interface + GroupRuleContext `[审计新增]` |
+| RuleResolver.cs | Build/Collector/Editor/ | Editor | ~70 | String → instance reflection resolver with cache (+ GetGroupRule) |
 
 All paths relative to `Assets/FYAsset/Scripts/`.
 
@@ -320,6 +365,11 @@ All paths relative to `Assets/FYAsset/Scripts/`.
 | E1-1-T6 | Create `RuleResolver.cs` (reflection resolver + cache) | T4 |
 | E1-1-T7 | Update `Constants.cs` — add SO path constant + Collector Rules region | — |
 | E1-1-T8 | Compilation verification (dotnet build) | All above |
+| E1-1-TA1 | **[审计新增]** Create `IGroupRule.cs` interface + GroupRuleContext struct | T4 |
+| E1-1-TA2 | **[审计新增]** Update `CollectorSetting.cs` — add `GroupRuleName` field to Collector class | T3 |
+| E1-1-TA3 | **[审计新增]** Update `RuleResolver.cs` — add `GetGroupRule()` method | T6 |
+| E1-1-TA4 | **[审计新增]** Update `Constants.cs` — add `GROUP_RULE_*` constants | — |
+| E1-1-TA5 | **[审计新增]** Compilation verification after audit back-changes | TA1-TA4 |
 
 ---
 
@@ -330,13 +380,15 @@ All paths relative to `Assets/FYAsset/Scripts/`.
 3. Runtime assembly has zero dependency on Editor types (string class names bridge the gap)
 4. No rule implementations exist — only interfaces and data definitions
 5. CollectedAssetInfo fields align with RuntimeAssetEntry / ManifestAssetEntry field names (AssetGUID→EntryId, Address, PrimaryType, Labels, GroupName)
-6. `dotnet build XLuaHotfix.sln` passes with 0 errors
+6. GroupName in CollectedAssetInfo is populated by IGroupRule.GetTargetGroup() (not hardcoded to Collector's parent Group) `[审计新增]`
+7. `dotnet build XLuaHotfix.sln` passes with 0 errors
 
 ---
 
 ## Not In Scope
 
 - Rule implementations: AddressByFileName, CollectAll, PackByDirectory, etc. (E1-2 / E2)
+- GroupRule implementations: GroupByType, GroupByLabel, GroupByDirectory, GroupAll (E1-2 addendum or standalone) `[审计新增]`
 - Classifier logic: PayloadKind auto-inference (E1-2)
 - Directory scanning + deepest-path dedup + IgnoreRule (E1-3)
 - Editor UI: CollectorSetting inspector, tree editing (E1-4)
@@ -352,9 +404,20 @@ All paths relative to `Assets/FYAsset/Scripts/`.
 - [ ] Agree to global singleton SO at `Assets/Build/CollectorSetting.asset`
 - [ ] Agree to 3 enums: ECollectorType (Main/Static/Depend), EPayloadKind (Serialized/RawFile/Scene), EAssetRole (Main/Static/Depend/ImplicitDependency)
 - [ ] Agree to AssetClassification = { EAssetRole, EPayloadKind } two-field struct
-- [ ] Agree to 3 rule interfaces (IAddressRule/IPackRule/IFilterRule) with Context structs
-- [ ] Agree to string class name rule reference + RuleResolver reflection
+- [ ] Agree to **4** rule interfaces (IAddressRule/IPackRule/IFilterRule/**IGroupRule**) with Context structs `[审计修正]`
+- [ ] Agree to string class name rule reference + RuleResolver reflection (now includes GetGroupRule)
 - [ ] Agree to Runtime/Editor assembly split (data classes in Runtime, rules+logic in Editor)
 - [ ] Agree to Tags merge: Group.Tags ∪ Collector.Tags (union, deduplicated)
-- [ ] Agree to CollectedAssetInfo as Editor-only intermediate data (not serialized)
+- [ ] Agree to CollectedAssetInfo as Editor-only intermediate data (not serialized); GroupName sourced from IGroupRule
 - [ ] Agree that E1-1 contains zero rule implementations (all deferred to E1-2/E2)
+- [ ] Agree to GroupRule default (GroupAll) preserving backward compatibility `[审计新增]`
+
+---
+
+## Change Log `[审计新增]`
+
+| Date | Change |
+|------|--------|
+| 2026-04-18 | Initial version: 3 rule interfaces (IAddressRule/IPackRule/IFilterRule). Approved by developer |
+| 2026-04-25 | Executed: all 8 tasks completed, dotnet build passed |
+| 2026-04-26 | **Direction audit**: IGroupRule interface + GroupRuleContext + GroupRuleName on Collector + GetGroupRule on RuleResolver + GROUP_RULE_* constants added. IGroupRule was in the approved draft but silently dropped during E1-1 precise planning — restoring per developer review |

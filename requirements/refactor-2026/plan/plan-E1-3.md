@@ -1,8 +1,8 @@
 # Sub-Plan E1-3: Collection Scan Engine
 
 > **Risk**: Low-Medium (Editor-only logic, no runtime impact, but scan output includes bundle logical names via BundleNameBuilder — directly touches build-product naming chain. This naming convention is internal to the new AB build pipeline only; existing Addressables build output and live hotfix bundles are not affected)
-> **Dependencies**: E1-1 (data model, enums, interfaces), E1-2 (Classifier, default rules, ForcePayloadKind), E2 (IPackRule.GetPackKey contract, PackRuleContext.Labels field, BundleNameBuilder.Build utility)
-> **Status**: Approved
+> **Dependencies**: E1-1 (data model, enums, interfaces, **including IGroupRule** `[审计修正]`), E1-2 (Classifier, default rules, ForcePayloadKind), E2 (IPackRule.GetPackKey contract, PackRuleContext.Labels field, BundleNameBuilder.Build utility)
+> **Status**: ⚠️ Approved, needs plan update (2026-04-26 audit: scan pipeline must include GroupRule step) `[审计修正]`
 
 ---
 
@@ -60,11 +60,12 @@ AssetDatabase.FindAssets (directory scope)
     → FilterRule (CollectAll: skip .meta/.cs/.dll/.asmdef/.asmref/Editor/)
       → IgnorePatterns (glob match against relative path)
         → Classify (AssetClassifier.Classify)
-        → AddressRule (AddressByFileName etc.)
-        → Tags merge (Group.Tags ∪ Collector.Tags)
-        → PackRule.GetPackKey (via PackRuleContext with Labels)
-        → BundleNameBuilder.Build (packageName, groupName, packKey)
-        → Assemble CollectedAssetInfo
+        → GroupRule (IGroupRule.GetTargetGroup) — determines target Group  [审计新增]
+        → AddressRule (AddressByFileName etc.) — uses target Group name
+        → Tags merge (targetGroup.Tags ∪ Collector.Tags) — Labels from target Group
+        → PackRule.GetPackKey (via PackRuleContext with Labels + target GroupName)
+        → BundleNameBuilder.Build (packageName, targetGroupName, packKey)
+        → Assemble CollectedAssetInfo (GroupName = targetGroupName)
 ```
 
 ### IgnorePatterns: Simplified Gitignore Subset
@@ -151,10 +152,11 @@ CollectionScanner.Scan(CollectorSetting setting)
 │   │   ├── d. Skip if !FilterRule.IsCollectable(assetPath, extension, collectPath)
 │   │   ├── e. Skip if any IgnorePattern matches relative path
 │   │   ├── f. classification = AssetClassifier.Classify(assetPath, collectorType, forcePayloadKind)
-│   │   ├── g. address = AddressRule.GetAddress(assetPath, groupName, collectPath)
-│   │   ├── h. labels = Group.Tags ∪ Collector.Tags (HashSet dedup)
-│   │   ├── i. packRuleCtx = new PackRuleContext { AssetPath, GroupName, CollectPath, PackageName, Classification, Labels }
-│   │   ├── j. packKey = PackRule.GetPackKey(packRuleCtx)
+│   │   ├── g. targetGroupName = GroupRule.GetTargetGroup(groupRuleCtx)  [审计新增]
+│   │   ├── h. address = AddressRule.GetAddress(assetPath, targetGroupName, collectPath)
+│   │   ├── i. labels = targetGroup.Tags ∪ Collector.Tags (HashSet dedup)  [审计修正: targetGroup]
+│   │   ├── j. packRuleCtx = new PackRuleContext { AssetPath, GroupName=targetGroupName, CollectPath, PackageName, Classification, Labels }
+│   │   ├── k. packKey = PackRule.GetPackKey(packRuleCtx)
 │   │   ├── k. bundleName = BundleNameBuilder.Build(packageName, groupName, packKey)
 │   │   ├── l. primaryType = AssetDatabase.GetMainAssetTypeAtPath(assetPath).Name
 │   │   └── m. Add CollectedAssetInfo to result list
@@ -280,5 +282,15 @@ All paths relative to `Assets/FYAsset/Scripts/`.
 - [ ] Agree to `GlobMatcher` as minimal glob utility (* wildcard only)
 - [ ] Agree to `ScanResult` return type (assets + messages with severity)
 - [ ] Agree to 7 error/warning conditions (table above)
-- [ ] Agree to execution order: FindAssets → exclude sub-paths → FilterRule → IgnorePatterns → Classify/Address/Tags → PackKey(via PackRuleContext) → BundleNameBuilder.Build
+- [ ] Agree to execution order: FindAssets → exclude sub-paths → FilterRule → IgnorePatterns → Classify → **GroupRule** → Address → Tags → PackKey → BundleNameBuilder.Build `[审计修正]`
 - [ ] Agree to full scan each time (no incremental/cache)
+
+---
+
+## Change Log
+
+| Date | Change |
+|------|--------|
+| 2026-04-18 | Initial version: 8 tasks, 3 new files. Approved by developer |
+| 2026-04-23 | Dependency update: added E2 contract dependency (GetPackKey + PackRuleContext.Labels + BundleNameBuilder.Build). Approved |
+| 2026-04-26 | **Direction audit**: inserted GroupRule step in scan pipeline (after Classify, before Address). GroupName now sourced from IGroupRule.GetTargetGroup() instead of Collector's parent Group. Labels/Tags merge uses target Group, not parent Group |

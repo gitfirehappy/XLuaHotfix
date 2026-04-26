@@ -1,6 +1,6 @@
 # Sub-Plan B: AB Package Management Replacement — Overview
 
-> **Status**: In progress (B1/B2/B3/B5/B6/B7/B8 completed; B4 concept stage, B9 pending planning)
+> **Status**: In progress (B1/B2/B3/B5/B6/B7/B8/B4B9 completed; B4 individual plan superseded by B4B9)
 > **Sub-files**: plan-B1.md / plan-B2.md / plan-B3.md / plan-B5.md / plan-B6.md / plan-B6-manifest.md / plan-B7.md / plan-B7-1.md / plan-B7-2.md / plan-B8.md / plan-B4.md
 
 ---

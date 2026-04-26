@@ -599,3 +599,30 @@
 [done] 2026-04-25 E1-2 complete — added `AssetClassifier`, `AddressByFileName`, `CollectAll`, `PackByCollectPath`; updated `AssetAddressGenerator` and `Assembly-CSharp-Editor.csproj`
 [done] 2026-04-25 E1-2 verification complete — `dotnet build XLuaHotfix.sln` passed with 0 errors; existing warnings unchanged (`System.Net.Http` conflict, `USG0001`, `CS0162`, `CS0168`, `CS1998`)
 [next] 2026-04-25 Awaiting developer sign-off for E1-2 before starting E1-3
+[start] 2026-04-26 E2 plan discussion — reviewed E2 design details, identified 4 discussion points (PackByDirectory fallback, "unlabeled" sentinel, hyphen collision, E2/E1-3 boundary)
+[decision] 2026-04-26 E2 D2: empty-label sentinel "unlabeled" → "__orphan__" (double-underscore prevents collision with user labels after SanitizeSegment)
+[decision] 2026-04-26 E2 D4: PackByLabel join separator "-" → "--" (double hyphen eliminates ambiguity with hyphens inside label names)
+[decision] 2026-04-26 E2 D5: PackByDirectory root-level fallback unchanged — distribution controlled via Collector configuration + deepest-path dedup, not PackRule internals
+[decision] 2026-04-26 E2 scope reduced: E1-1/E1-2 already adopted E2 contract proactively (GetPackKey, Labels field, collectDirName-only return, RULE_PACK_* constants). Modified files reduced 5→1 (plan-E1-3.md only), task count reduced 9→6
+[done] 2026-04-26 plan-E2.md updated with all discussion conclusions, Change Log appended, plan status remains Approved
+[next] 2026-04-26 Continue discussing subsequent sub-plans (E1-3 / E1-4 / Phase 6 E4-E7)
+[start] 2026-04-26 Phase 6 direction convergence audit — cross-checked plan-E-draft.md (2026-04-17) against actual Phase 5 implementation (E1-1/E1-2/E2, 2026-04-25)
+[decision] 2026-04-26 Audit finding #1: GroupRule was silently dropped — IGroupRule interface must be restored. Developer confirmed three-rule model (IFilterRule→IGroupRule→IPackRule)
+[decision] 2026-04-26 Audit finding #2: Bundle naming format converged from draft `pkg_group_type_labels_hash` to E2 three-segment `pkg_group_packKey` minimal — confirmed as intended
+[decision] 2026-04-26 Audit finding #3: E3 cancelled — all references updated from E3→E1-3 in direction documentation
+[decision] 2026-04-26 Audit finding #4: Scan pipeline execution order — GroupRule step inserted between Classify and Address
+[decision] 2026-04-26 Audit finding #5: Collector data class missing ForcePayloadKind/IgnorePatterns/Tags/GroupRuleName — fields added to plan-E1-1.md
+[done] 2026-04-26 plan-E-draft.md updated with audit banner + 5 offset corrections + convergence board refresh
+[done] 2026-04-26 plan-E1-1.md updated — status changed to "Needs back-change", IGroupRule interface + GroupRuleContext + GroupRuleName + GetGroupRule + GROUP_RULE_* constants + 5 audit tasks (TA1-TA5) + Change Log
+[done] 2026-04-26 plan-E1-3.md updated — status changed to "Needs plan update", dependency upgraded to include IGroupRule, scan pipeline inserted GroupRule step, execution order + approval checklist updated
+[done] 2026-04-26 plan-E1-4.md updated — status changed to "Needs plan update", RuleDropdownHelper + property panel updated for IGroupRule
+[done] 2026-04-26 E4 plan discussion complete — 12 design decisions (D1-D12) confirmed: single-pass BFS, SharePolicyConfig in Runtime, Depend=Bundle edge only, Package-internal scope, type-inferred GroupName + sm_ marker, Implicit Labels/Address empty, ECollectorType.Implicit, SharedBundleDef not needed, structured BundleDependencyGraph, asset-level cycle detection, granularity via rules
+[done] 2026-04-26 plan-E4.md created — 4 new files, 3 modified files, 10 tasks, 12 invariants
+[done] 2026-04-26 E5 split into E5-1 + E5-2 per developer review
+[done] 2026-04-26 plan-E5.md rewritten as parent overview with D7 contract table + execution flow
+[done] 2026-04-26 plan-E5-1.md created — Core Engine: 7 new files, 1 modified, 10 tasks (IBuildTask + BuildContext + BuildTaskResult + BuildPipelineConfig + DAGScheduler + BackendMode)
+[done] 2026-04-26 plan-E5-2.md created — Backbone Tasks: 4 new files, 5 tasks (TaskPrepareContext + TaskBuildBundles + TaskOrganizeOutput + BundleBuildInfo)
+[done] 2026-04-26 plan-E6.md created — 2 new files, 0 modified, 7 tasks, 9 invariants. ABManifest runtime structures already in B6, E6 only adds TaskGenerateManifest assembly logic
+[done] 2026-04-26 Plan cleanup round: plan-B4.md→SUPERSEDED by B4B9, plan-B6-manifest.md→DONE, plan-B.md B4 ref updated, plan-E5-1/E5-2 Status lines added
+[done] 2026-04-26 plan-F-ideas.md drafted — 3 forward-looking features: 单机离线包(DeliveryMode) + 后台下载(BackgroundDownloadManager) + A/B测试(VariantIndex+ABTestManager). Principle: maximize existing architecture, minimize new code
+[next] 2026-04-26 Continue to E7 or Phase 5 execution
