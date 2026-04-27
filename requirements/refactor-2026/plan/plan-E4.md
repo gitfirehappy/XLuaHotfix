@@ -2,7 +2,8 @@
 
 > **Risk**: Medium (Editor-only logic, no runtime impact; but dependency graph correctness directly affects bundle completeness)
 > **Dependencies**: E1-1 (data model, enums, CollectedAssetInfo), E1-3 (CollectionScanner — provides `List<CollectedAssetInfo>` input), E5 (IBuildTask interface + BuildContext contract)
-> **Status**: Draft — discussion complete, pending approval
+> **Status**: Draft — updated 2026-04-27 (terminology + naming + ForceShare + Address correction)
+> **Execution order**: E5-1 (IBuildTask + BuildContext) must execute before E4. E4 core logic (DependencyAnalyzer) is independent of E5 contract types.
 
 ---
 
@@ -36,17 +37,19 @@ Depend Collector assets have unique ownership (E1-3 deepest-path dedup). E4 hand
 
 Dependency analysis and shared extraction run per-Package. Shared bundles are Package-scoped. Cross-Package path overlap is already a configuration error (E1-3).
 
-### D5: ImplicitDependency GroupName — Type-Inferred + Shared Marker
+### D5: ImplicitDependency GroupName + Bundle Naming
 
-GroupName is inferred from the asset's `PrimaryType` via Classifier (e.g., "shaders", "textures", "materials"). packKey uses `sm_` prefix + content short hash (first 6 chars of SHA256 of sorted referencing asset GUIDs). BundleName: `{pkg}_{typeGroup}_sm_{shortHash}`.
+GroupName = `"$shared"` (via SystemIdentifiers.SharedGroupName) (reserved keyword, users may not create a CollectorGroup named "shared"). PackKey = typeGroup inferred from PrimaryType (e.g., "materials", "shaders", "textures"). Logical name: `{pkg}_shared_{typeGroup}`. E5 appends content hash + extension like all other bundles.
+
+Multiple implicit deps with same typeGroup naturally merge into one shared bundle (same logical name → same bundle).
 
 ### D6: ImplicitDependency Labels — Empty
 
-ImplicitDependency has no user-declared Collector/Group, so Labels = empty. Runtime loading is guaranteed by Bundle dependency edges, not by label-based filtering.
+Labels only come from user configuration. ImplicitDependency has no user-declared Collector/Group → Labels = empty. Runtime loading guaranteed by Bundle dependency edges, not label-based filtering.
 
-### D7: ImplicitDependency Address — Empty
+### D7: ImplicitDependency Address — Auto-Generated
 
-ImplicitDependency is not directly addressable. Address field = `""`.
+Address = `AssetAddressGenerator.GenerateShortAddress(assetPath, primaryType)`. Same auto-generation logic as explicit assets — no special handling. ImplicitDependency IS addressable, just not explicitly collected.
 
 ### D8: ECollectorType.Implicit
 
@@ -97,6 +100,9 @@ public class SharePolicyConfig
 
     /// <summary>Glob patterns matching asset paths. Matched assets are never shared.</summary>
     public List<string> NoSharePatterns = new();
+
+    /// <summary>Glob patterns matching asset paths. Matched assets are always shared (ignoring MinReferenceCount).</summary>
+    public List<string> ForceSharePatterns = new();
 }
 ```
 
@@ -183,10 +189,14 @@ TaskAnalyzeDependencies.Execute(BuildContext ctx)
 │   │   │
 │   │   ├── Skip if matches any NoSharePatterns glob → force duplicate
 │   │   │
+│   │   ├── Skip if matches any ForceSharePatterns glob → force shared (bypass refCount)
+│   │   │
 │   │   ├── if refCount >= MinReferenceCount AND assetSize >= MinAssetSizeBytes:
 │   │   │   ├── Create CollectedAssetInfo with IsInSharedBundle=true
-│   │   │   ├── BundleName = {pkg}_{typeGroup}_sm_{shortHash}
-│   │   │   ├── Labels = empty, Address = empty, CollectorType = Implicit
+│   │   │   ├── GroupName = "$shared", PackKey = typeGroup
+│   │   │   ├── BundleName = BundleNameBuilder.Build(pkg, "shared", typeGroup)
+│   │   │   ├── Address = AssetAddressGenerator.GenerateShortAddress(...)
+│   │   │   ├── Labels = empty, CollectorType = Implicit
 │   │   │   └── One entry for the shared bundle
 │   │   │
 │   │   └── else:
@@ -299,7 +309,7 @@ All paths relative to `Assets/FYAsset/Scripts/`.
 
 1. `TaskAnalyzeDependencies` correctly builds Bundle dependency edges for all collected assets (including Depend)
 2. Implicit dependencies (assets not in any Collector) are discovered and recorded with `CollectorType = Implicit`
-3. `refCount >= MinReferenceCount` → asset enters shared bundle with `IsInSharedBundle = true`, BundleName = `{pkg}_{typeGroup}_sm_{shortHash}`
+3. `refCount >= MinReferenceCount` (or matches ForceSharePatterns) → asset enters shared bundle with `IsInSharedBundle = true`, GroupName = "$shared", PackKey = typeGroup, BundleName via BundleNameBuilder
 4. `refCount < MinReferenceCount` → asset duplicated into each referencing Bundle with `IsDuplicated = true`
 5. Assets matching `NoSharePatterns` are forced to duplicate regardless of refCount
 6. Asset-level circular dependency → `CIRCULAR_DEPENDENCY` error, build aborted
@@ -322,17 +332,26 @@ All paths relative to `Assets/FYAsset/Scripts/`.
 
 ---
 
+## Change Log
+
+| Date | Change |
+|------|--------|
+| 2026-04-26 | Initial version: 12 design decisions, 10 tasks. Approved by developer |
+| 2026-04-27 | **Discussion refinement**: (1) SharePolicyConfig +ForceSharePatterns (4 fields total). (2) ImplicitDependency Address → auto-generated via AssetAddressGenerator (not empty). (3) Shared bundle GroupName = "$shared" (reserved), PackKey = typeGroup. Removed sm_ prefix and GUID-based shortHash. Naming unified with BundleNameBuilder 3-segment format. (4) Labels confirmed empty (only user config produces Labels). (5) Execution order: E5-1 before E4 |
+
+---
+
 ## Approval Checklist
 
 - [ ] Agree to single-pass BFS (Phase 1: Bundle edges + implicit discovery; Phase 2: SharePolicy decision)
-- [ ] Agree to `SharePolicyConfig` in Runtime assembly (SO serialization requirement) with 3 fields
+- [ ] Agree to `SharePolicyConfig` in Runtime assembly with 4 fields (MinReferenceCount, MinAssetSizeBytes, NoSharePatterns, ForceSharePatterns)
 - [ ] Agree to Depend assets handled as "already owned" → Bundle dependency edges only
 - [ ] Agree to Package-internal shared bundle scope
-- [ ] Agree to ImplicitDependency GroupName = type-inferred + packKey = `sm_` + short hash
-- [ ] Agree to ImplicitDependency Labels = empty, Address = empty
+- [ ] Agree to ImplicitDependency GroupName = "$shared" (reserved), PackKey = typeGroup, BundleName via BundleNameBuilder
+- [ ] Agree to ImplicitDependency Labels = empty (only user config produces Labels), Address = auto-generated (AssetAddressGenerator)
 - [ ] Agree to `ECollectorType.Implicit = 3` for "no user declaration" semantics
 - [ ] Agree to SharedBundleDef NOT being a separate data structure (BundleName on CollectedAssetInfo is sufficient)
 - [ ] Agree to `BundleDependencyGraph` as structured, human-readable edge list with `ViaAssets`
 - [ ] Agree to asset-level cycle detection (BFS stack), not Bundle-level
 - [ ] Agree to 4 new files + 3 modified files + 10 tasks
-- [ ] Agree to E5 defining IBuildTask/BuildContext contract; E4 declares expected keys
+- [ ] Agree to E5 defining IBuildTask/BuildContext contract; E4 declares expected keys. E5-1 executes BEFORE E4

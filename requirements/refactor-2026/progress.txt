@@ -600,7 +600,7 @@
 [done] 2026-04-25 E1-2 verification complete — `dotnet build XLuaHotfix.sln` passed with 0 errors; existing warnings unchanged (`System.Net.Http` conflict, `USG0001`, `CS0162`, `CS0168`, `CS1998`)
 [next] 2026-04-25 Awaiting developer sign-off for E1-2 before starting E1-3
 [start] 2026-04-26 E2 plan discussion — reviewed E2 design details, identified 4 discussion points (PackByDirectory fallback, "unlabeled" sentinel, hyphen collision, E2/E1-3 boundary)
-[decision] 2026-04-26 E2 D2: empty-label sentinel "unlabeled" → "__orphan__" (double-underscore prevents collision with user labels after SanitizeSegment)
+[decision] 2026-04-26 E2 D2: empty-label sentinel "unlabeled" → "$orphan" (double-underscore prevents collision with user labels after SanitizeSegment)
 [decision] 2026-04-26 E2 D4: PackByLabel join separator "-" → "--" (double hyphen eliminates ambiguity with hyphens inside label names)
 [decision] 2026-04-26 E2 D5: PackByDirectory root-level fallback unchanged — distribution controlled via Collector configuration + deepest-path dedup, not PackRule internals
 [decision] 2026-04-26 E2 scope reduced: E1-1/E1-2 already adopted E2 contract proactively (GetPackKey, Labels field, collectDirName-only return, RULE_PACK_* constants). Modified files reduced 5→1 (plan-E1-3.md only), task count reduced 9→6
@@ -630,8 +630,17 @@
 [done] 2026-04-27 E1返工 verification — dotnet build XLuaHotfix.sln passed with 0 errors, all 6 warnings pre-existing
 [next] 2026-04-27 Awaiting developer sign-off, then continue to E1-3 or E4
 [start] 2026-04-27 E2 execution — BundleNameBuilder + 3 PackRule implementations (PackSeparately/PackByDirectory/PackByLabel)
-[done] 2026-04-27 E2 complete — BundleNameBuilder.cs (Build+SanitizeSegment, ~50 lines) + PackSeparately.cs (~15 lines) + PackByDirectory.cs (~40 lines, sub-dir name with root fallback) + PackByLabel.cs (~30 lines, sorted labels joined by "--", __orphan__ sentinel). Zero back-changes to existing code (E1-1/E1-2 proactively adopted E2 contract). dotnet build 0 errors
+[done] 2026-04-27 E2 complete — BundleNameBuilder.cs (Build+SanitizeSegment, ~50 lines) + PackSeparately.cs (~15 lines) + PackByDirectory.cs (~40 lines, sub-dir name with root fallback) + PackByLabel.cs (~30 lines, sorted labels joined by "--", $orphan sentinel). Zero back-changes to existing code (E1-1/E1-2 proactively adopted E2 contract). dotnet build 0 errors
 [next] 2026-04-27 E2 done, continue to E1-3 (CollectionScanner)
 [start] 2026-04-27 E1-3 execution — CollectionScanner scan engine (GlobMatcher + ScanResult + CollectionScanner)
-[done] 2026-04-27 E1-3 complete — GlobMatcher.cs (~55 lines, * wildcard split+sequential match with start/end anchors) + ScanResult.cs (~30 lines, ScanResult/ScanMessage/ScanSeverity) + CollectionScanner.cs (~370 lines, full scan pipeline: Step 0 cross-Package overlap → Step 1 ownership map deepest-path → Step 2 per-Collector scan with GroupRule/Address/Tags/PackKey/BundleName → Step 3 GUID uniqueness). 7 error/warning conditions implemented. dotnet build 0 errors
-[next] 2026-04-27 E系列 Phase 5 收尾：确认 E1-4 (Editor UI) 执行还是跳过，进入 E4/E5 或其他方向
+[done] 2026-04-27 E1-3 complete — GlobMatcher.cs (~55 lines, * wildcard split+sequential match with start/end anchors) + ScanResult.cs (~30 lines, ScanResult/ScanMessage/ScanSeverity) + CollectionScanner.cs (~370 lines, full scan pipeline: Step 0 cross-Package overlap → Step 1 ownership map deepest-path → Step 2 per-Collector scan with GroupRule/Address/Labels/PackKey/BundleName → Step 3 GUID uniqueness). 7 error/warning conditions implemented. dotnet build 0 errors
+[decision] 2026-04-27 Terminology unification: Labels (asset identification, user-configured) vs Tags (Bundle download strategy). CollectorGroup.Tags→Labels, Collector.Tags→Labels. ManifestBundleEntry.Tags stays as Tags. GroupName unified across codebase. BundleLogicalName vs BundleName (tentative A)
+[done] 2026-04-27 E1+E2+E3 committed (d105127): 10 new .cs files + 4 modified + 3 plan files + 1 discussion doc. dotnet build 0 errors
+[start] 2026-04-27 E4 design discussion — reviewed 12 decisions, refined 5 key areas
+[decision] 2026-04-27 E4 SharePolicyConfig: +ForceSharePatterns (4 fields total). ForceShare bypasses MinReferenceCount
+[decision] 2026-04-27 E4 ImplicitDependency Address: NOT empty — auto-generate via AssetAddressGenerator (same as explicit assets)
+[decision] 2026-04-27 E4 shared bundle naming: GroupName="shared" (reserved), PackKey=typeGroup, BundleName={pkg}_shared_{typeGroup}. Removed sm_ prefix and GUID-based shortHash. E5 adds content hash uniformly
+[decision] 2026-04-27 E4 Labels: confirmed empty for ImplicitDependency (Labels only from user config)
+[decision] 2026-04-27 E4 execution order: E5-1 (IBuildTask + BuildContext) must execute before E4
+[done] 2026-04-27 plan-E4.md updated with all 5 discussion refinements + Change Log
+[next] 2026-04-27 Discuss E5-1 (IBuildTask + BuildContext + DAGScheduler) — E5 defines the contract that E4 depends on

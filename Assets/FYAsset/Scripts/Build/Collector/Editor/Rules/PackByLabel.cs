@@ -7,7 +7,7 @@ using System.Collections.Generic;
 /// </summary>
 public sealed class PackByLabel : IPackRule
 {
-    private const string OrphanSentinel = "__orphan__";
+    private const string OrphanSentinel = SystemIdentifiers.OrphanPackKey;
 
     #region Public Methods
 

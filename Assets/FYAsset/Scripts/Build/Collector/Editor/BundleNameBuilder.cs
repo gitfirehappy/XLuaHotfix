@@ -36,7 +36,7 @@ public static class BundleNameBuilder
             char c = raw[i];
             if (c >= 'A' && c <= 'Z')
                 c = (char)(c + 32); // ToLowerInvariant for ASCII
-            if ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-')
+            if ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' || c == '$')
                 sb.Append(c);
             else
                 sb.Append('_');
