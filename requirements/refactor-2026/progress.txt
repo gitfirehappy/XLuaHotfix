@@ -625,4 +625,13 @@
 [done] 2026-04-26 plan-E6.md created — 2 new files, 0 modified, 7 tasks, 9 invariants. ABManifest runtime structures already in B6, E6 only adds TaskGenerateManifest assembly logic
 [done] 2026-04-26 Plan cleanup round: plan-B4.md→SUPERSEDED by B4B9, plan-B6-manifest.md→DONE, plan-B.md B4 ref updated, plan-E5-1/E5-2 Status lines added
 [done] 2026-04-26 plan-F-ideas.md drafted — 3 forward-looking features: 单机离线包(DeliveryMode) + 后台下载(BackgroundDownloadManager) + A/B测试(VariantIndex+ABTestManager). Principle: maximize existing architecture, minimize new code
-[next] 2026-04-26 Continue to E7 or Phase 5 execution
+[start] 2026-04-27 E1返工（E1-1 back-change + E1-2 addendum）— 审计发现 IGroupRule 被遗漏，回填接口+数据字段+解析器+常量+默认GroupAll实现
+[done] 2026-04-27 E1-1 TA1-TA4 complete — IGroupRule.cs (interface + GroupRuleContext with ParentGroupName) + GroupAll.cs (default impl) + CollectorSetting.cs (GroupRuleName field) + RuleResolver.cs (GetGroupRule + GroupRuleCache) + Constants.cs (4 GROUP_RULE_* constants) + Assembly-CSharp-Editor.csproj (2 new include entries)
+[done] 2026-04-27 E1返工 verification — dotnet build XLuaHotfix.sln passed with 0 errors, all 6 warnings pre-existing
+[next] 2026-04-27 Awaiting developer sign-off, then continue to E1-3 or E4
+[start] 2026-04-27 E2 execution — BundleNameBuilder + 3 PackRule implementations (PackSeparately/PackByDirectory/PackByLabel)
+[done] 2026-04-27 E2 complete — BundleNameBuilder.cs (Build+SanitizeSegment, ~50 lines) + PackSeparately.cs (~15 lines) + PackByDirectory.cs (~40 lines, sub-dir name with root fallback) + PackByLabel.cs (~30 lines, sorted labels joined by "--", __orphan__ sentinel). Zero back-changes to existing code (E1-1/E1-2 proactively adopted E2 contract). dotnet build 0 errors
+[next] 2026-04-27 E2 done, continue to E1-3 (CollectionScanner)
+[start] 2026-04-27 E1-3 execution — CollectionScanner scan engine (GlobMatcher + ScanResult + CollectionScanner)
+[done] 2026-04-27 E1-3 complete — GlobMatcher.cs (~55 lines, * wildcard split+sequential match with start/end anchors) + ScanResult.cs (~30 lines, ScanResult/ScanMessage/ScanSeverity) + CollectionScanner.cs (~370 lines, full scan pipeline: Step 0 cross-Package overlap → Step 1 ownership map deepest-path → Step 2 per-Collector scan with GroupRule/Address/Tags/PackKey/BundleName → Step 3 GUID uniqueness). 7 error/warning conditions implemented. dotnet build 0 errors
+[next] 2026-04-27 E系列 Phase 5 收尾：确认 E1-4 (Editor UI) 执行还是跳过，进入 E4/E5 或其他方向

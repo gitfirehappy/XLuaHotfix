@@ -40,7 +40,7 @@ CollectorSetting (ScriptableObject, global singleton)
       ├── SharePolicyConfig         (field placeholder, E4 consumes)
       └── CollectorGroup[]
            ├── GroupName
-           ├── Tags[]               (group-level labels, explicit)
+           ├── Labels[]               (group-level labels, explicit)
            └── Collector[]
                 ├── CollectPath      (directory path)
                 ├── CollectorType    (ECollectorType)
@@ -48,7 +48,7 @@ CollectorSetting (ScriptableObject, global singleton)
                 ├── PackRuleName     (string class name → IPackRule)
                 ├── FilterRuleName   (string class name → IFilterRule)
                 ├── GroupRuleName    (string class name → IGroupRule) `[审计新增]`
-                └── Tags[]          (collector-level labels)
+                └── Labels[]          (collector-level labels)
 ```
 
 ### SO Structure: Global Singleton
@@ -66,9 +66,9 @@ Collector stores rule class names as strings. RuleResolver resolves them to inst
 
 String class names on Collector bridge the two assemblies without type dependency.
 
-### Tags Merge Strategy
+### Labels Merge Strategy
 
-CollectedAssetInfo.Labels = Group.Tags ∪ Collector.Tags (union, deduplicated). Collector.Tags appends to Group.Tags, does not override. Empty Collector.Tags means Group.Tags only.
+CollectedAssetInfo.Labels = Group.Labels ∪ Collector.Labels (union, deduplicated). Collector.Labels appends to Group.Labels, does not override. Empty Collector.Labels means Group.Labels only.
 
 ### No Default Rule Implementations in E1-1
 
@@ -173,7 +173,7 @@ public class CollectorPackage
 public class CollectorGroup
 {
     public string GroupName;
-    public List<string> Tags = new();
+    public List<string> Labels = new();
     public List<Collector> Collectors = new();
 }
 
@@ -186,7 +186,7 @@ public class Collector
     public string PackRuleName;
     public string FilterRuleName;
     public string GroupRuleName;      // 2026-04-26 audit: IGroupRule class name (default: "GroupAll")
-    public List<string> Tags = new();
+    public List<string> Labels = new();
 }
 ```
 
@@ -253,7 +253,7 @@ public struct PackRuleContext
     public string CollectPath;
     public string PackageName;
     public AssetClassification Classification;
-    public IReadOnlyList<string> Labels;    // E2 addendum — merged Group.Tags ∪ Collector.Tags
+    public IReadOnlyList<string> Labels;    // E2 addendum — merged Group.Labels ∪ Collector.Labels
 }
 ```
 
@@ -407,7 +407,7 @@ All paths relative to `Assets/FYAsset/Scripts/`.
 - [ ] Agree to **4** rule interfaces (IAddressRule/IPackRule/IFilterRule/**IGroupRule**) with Context structs `[审计修正]`
 - [ ] Agree to string class name rule reference + RuleResolver reflection (now includes GetGroupRule)
 - [ ] Agree to Runtime/Editor assembly split (data classes in Runtime, rules+logic in Editor)
-- [ ] Agree to Tags merge: Group.Tags ∪ Collector.Tags (union, deduplicated)
+- [ ] Agree to Labels merge: Group.Labels ∪ Collector.Labels (union, deduplicated)
 - [ ] Agree to CollectedAssetInfo as Editor-only intermediate data (not serialized); GroupName sourced from IGroupRule
 - [ ] Agree that E1-1 contains zero rule implementations (all deferred to E1-2/E2)
 - [ ] Agree to GroupRule default (GroupAll) preserving backward compatibility `[审计新增]`

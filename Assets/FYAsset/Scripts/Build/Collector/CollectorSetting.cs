@@ -49,8 +49,8 @@ public class CollectorGroup
     /// <summary>组名，用于构建 Bundle 逻辑名的第二段</summary>
     public string GroupName;
 
-    /// <summary>组级别标签，与 Collector.Tags 取并集后写入 CollectedAssetInfo.Labels</summary>
-    public List<string> Tags = new();
+    /// <summary>组级别标签，与 Collector.Labels 取并集后写入 CollectedAssetInfo.Labels</summary>
+    public List<string> Labels = new();
 
     /// <summary>该组下的所有采集器配置</summary>
     public List<Collector> Collectors = new();
@@ -84,8 +84,11 @@ public class Collector
     /// <summary>过滤规则类名，由 RuleResolver 反射解析为 IFilterRule 实例</summary>
     public string FilterRuleName;
 
-    /// <summary>采集器级别标签，与 Group.Tags 取并集后写入 CollectedAssetInfo.Labels</summary>
-    public List<string> Tags = new();
+    /// <summary>分组规则类名，由 RuleResolver 反射解析为 IGroupRule 实例</summary>
+    public string GroupRuleName;
+
+    /// <summary>采集器级别标签，与 Group.Labels 取并集后写入 CollectedAssetInfo.Labels</summary>
+    public List<string> Labels = new();
 
     /// <summary>忽略规则模式列表（类 gitignore 子集：*.ext / dirname/ / *keyword*）</summary>
     public List<string> IgnorePatterns = new();

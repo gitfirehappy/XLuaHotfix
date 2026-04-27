@@ -21,7 +21,7 @@ public class CollectedAssetInfo
     /// <summary>资产主类型名称（如 Texture2D / GameObject），来自 AssetDatabase</summary>
     public string PrimaryType;
 
-    /// <summary>合并后的标签列表（Group.Tags ∪ Collector.Tags，去重）</summary>
+    /// <summary>合并后的标签列表（Group.Labels ∪ Collector.Labels，去重）</summary>
     public List<string> Labels = new();
 
     /// <summary>所属 Group 名称</summary>

@@ -14,6 +14,7 @@ public static class RuleResolver
     private static readonly Dictionary<string, IAddressRule> AddressRuleCache = new(StringComparer.Ordinal);
     private static readonly Dictionary<string, IPackRule> PackRuleCache = new(StringComparer.Ordinal);
     private static readonly Dictionary<string, IFilterRule> FilterRuleCache = new(StringComparer.Ordinal);
+    private static readonly Dictionary<string, IGroupRule> GroupRuleCache = new(StringComparer.Ordinal);
 
     #endregion
 
@@ -35,6 +36,12 @@ public static class RuleResolver
     public static IFilterRule GetFilterRule(string className)
     {
         return GetRule(className, FilterRuleCache);
+    }
+
+    /// <summary>根据类名获取分组规则实例（缓存）</summary>
+    public static IGroupRule GetGroupRule(string className)
+    {
+        return GetRule(className, GroupRuleCache);
     }
 
     #endregion

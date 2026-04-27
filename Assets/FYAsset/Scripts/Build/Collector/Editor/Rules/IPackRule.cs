@@ -30,6 +30,6 @@ public struct PackRuleContext
     /// <summary>资产的分类结果（角色 + 载荷类型）</summary>
     public AssetClassification Classification;
     
-    /// <summary>合并后的标签列表（Group.Tags ∪ Collector.Tags），供 PackByLabel 使用</summary>
+    /// <summary>合并后的标签列表（Group.Labels ∪ Collector.Labels），供 PackByLabel 使用</summary>
     public IReadOnlyList<string> Labels;
 }

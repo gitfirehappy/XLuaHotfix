@@ -62,7 +62,7 @@ AssetDatabase.FindAssets (directory scope)
         → Classify (AssetClassifier.Classify)
         → GroupRule (IGroupRule.GetTargetGroup) — determines target Group  [审计新增]
         → AddressRule (AddressByFileName etc.) — uses target Group name
-        → Tags merge (targetGroup.Tags ∪ Collector.Tags) — Labels from target Group
+        → Labels merge (targetGroup.Labels ∪ Collector.Labels) — Labels from target Group
         → PackRule.GetPackKey (via PackRuleContext with Labels + target GroupName)
         → BundleNameBuilder.Build (packageName, targetGroupName, packKey)
         → Assemble CollectedAssetInfo (GroupName = targetGroupName)
@@ -111,9 +111,9 @@ public static class GlobMatcher
 
 Implementation: split pattern by `*`, check if input contains all segments in order. O(n) per match.
 
-### Tags Merge
+### Labels Merge
 
-As decided in E1-1: `Labels = Group.Tags ∪ Collector.Tags` (union, deduplicated). Implementation uses `HashSet<string>` for dedup.
+As decided in E1-1: `Labels = Group.Labels ∪ Collector.Labels` (union, deduplicated). Implementation uses `HashSet<string>` for dedup.
 
 ### PrimaryType Extraction
 
@@ -154,7 +154,7 @@ CollectionScanner.Scan(CollectorSetting setting)
 │   │   ├── f. classification = AssetClassifier.Classify(assetPath, collectorType, forcePayloadKind)
 │   │   ├── g. targetGroupName = GroupRule.GetTargetGroup(groupRuleCtx)  [审计新增]
 │   │   ├── h. address = AddressRule.GetAddress(assetPath, targetGroupName, collectPath)
-│   │   ├── i. labels = targetGroup.Tags ∪ Collector.Tags (HashSet dedup)  [审计修正: targetGroup]
+│   │   ├── i. labels = targetGroup.Labels ∪ Collector.Labels (HashSet dedup)  [审计修正: targetGroup]
 │   │   ├── j. packRuleCtx = new PackRuleContext { AssetPath, GroupName=targetGroupName, CollectPath, PackageName, Classification, Labels }
 │   │   ├── k. packKey = PackRule.GetPackKey(packRuleCtx)
 │   │   ├── k. bundleName = BundleNameBuilder.Build(packageName, groupName, packKey)
@@ -240,7 +240,7 @@ All paths relative to `Assets/FYAsset/Scripts/`.
 | E1-3-T3 | Create `ScanResult.cs` (ScanResult + ScanMessage + ScanSeverity) | — |
 | E1-3-T4 | Create `CollectionScanner.cs` — Step 0: cross-Package overlap detection | T3 |
 | E1-3-T5 | Create `CollectionScanner.cs` — Step 1: ownership map + deepest-path sorting + conflict detection | T3, T4 |
-| E1-3-T6 | Create `CollectionScanner.cs` — Step 2: per-Collector scan (FindAssets + exclude + Filter + Ignore + Classify + Address + Tags + PackKey + BundleNameBuilder + Type) | T1, T2, T3, T4, T5, E1-2 done, E2 done |
+| E1-3-T6 | Create `CollectionScanner.cs` — Step 2: per-Collector scan (FindAssets + exclude + Filter + Ignore + Classify + Address + Labels + PackKey + BundleNameBuilder + Type) | T1, T2, T3, T4, T5, E1-2 done, E2 done |
 | E1-3-T7 | Create `CollectionScanner.cs` — Step 3: GUID uniqueness validation | T6 |
 | E1-3-T8 | Compilation verification (dotnet build) | All above |
 
@@ -254,7 +254,7 @@ All paths relative to `Assets/FYAsset/Scripts/`.
 4. Same-depth same-path within Package produces `ScanSeverity.Error` with code `SAME_PATH_CONFLICT`
 5. IgnorePatterns `*.bak` excludes `subfolder/texture_backup.bak` but not `subfolder/texture.png`
 6. IgnorePatterns `Backup/` excludes all assets under any `Backup` directory segment
-7. Tags merge is union: Group.Tags = ["ui"], Collector.Tags = ["panel"] → Labels = ["ui", "panel"]
+7. Labels merge is union: Group.Labels = ["ui"], Collector.Labels = ["panel"] → Labels = ["ui", "panel"]
 8. FilterRule runs before IgnorePatterns (filter first, ignore second)
 9. `ScanResult.HasErrors` is false when all Collectors have valid paths and no conflicts
 10. `dotnet build XLuaHotfix.sln` passes with 0 errors
@@ -282,7 +282,7 @@ All paths relative to `Assets/FYAsset/Scripts/`.
 - [ ] Agree to `GlobMatcher` as minimal glob utility (* wildcard only)
 - [ ] Agree to `ScanResult` return type (assets + messages with severity)
 - [ ] Agree to 7 error/warning conditions (table above)
-- [ ] Agree to execution order: FindAssets → exclude sub-paths → FilterRule → IgnorePatterns → Classify → **GroupRule** → Address → Tags → PackKey → BundleNameBuilder.Build `[审计修正]`
+- [ ] Agree to execution order: FindAssets → exclude sub-paths → FilterRule → IgnorePatterns → Classify → **GroupRule** → Address → Labels → PackKey → BundleNameBuilder.Build `[审计修正]`
 - [ ] Agree to full scan each time (no incremental/cache)
 
 ---
@@ -293,4 +293,4 @@ All paths relative to `Assets/FYAsset/Scripts/`.
 |------|--------|
 | 2026-04-18 | Initial version: 8 tasks, 3 new files. Approved by developer |
 | 2026-04-23 | Dependency update: added E2 contract dependency (GetPackKey + PackRuleContext.Labels + BundleNameBuilder.Build). Approved |
-| 2026-04-26 | **Direction audit**: inserted GroupRule step in scan pipeline (after Classify, before Address). GroupName now sourced from IGroupRule.GetTargetGroup() instead of Collector's parent Group. Labels/Tags merge uses target Group, not parent Group |
+| 2026-04-26 | **Direction audit**: inserted GroupRule step in scan pipeline (after Classify, before Address). GroupName now sourced from IGroupRule.GetTargetGroup() instead of Collector's parent Group. Labels merge uses target Group, not parent Group |

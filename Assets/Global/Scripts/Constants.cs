@@ -85,8 +85,20 @@ public static class Constants
     /// <summary> 打包规则：同一目录下的资源打入同一 Bundle </summary>
     public const string RULE_PACK_BY_DIRECTORY = "PackByDirectory";
 
-    /// <summary> 打包规则：相同 Labels 的资源打入同一 Bundle </summary>
+    /// <summary> 打包规则：相同 Labels 的资源打入同一 Bundle（Labels = Group.Labels ∪ Collector.Labels） </summary>
     public const string RULE_PACK_BY_LABEL = "PackByLabel";
+
+    /// <summary> 分组规则：所有资源归属到 Collector 的父 Group（默认） </summary>
+    public const string RULE_GROUP_ALL = "GroupAll";
+
+    /// <summary> 分组规则：按主类型名称分组 </summary>
+    public const string RULE_GROUP_BY_TYPE = "GroupByType";
+
+    /// <summary> 分组规则：按标签分组 </summary>
+    public const string RULE_GROUP_BY_LABEL = "GroupByLabel";
+
+    /// <summary> 分组规则：按子目录分组 </summary>
+    public const string RULE_GROUP_BY_DIRECTORY = "GroupByDirectory";
 
     #endregion
 }
