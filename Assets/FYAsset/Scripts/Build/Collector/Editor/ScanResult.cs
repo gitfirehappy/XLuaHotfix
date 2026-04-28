@@ -7,12 +7,20 @@ using System.Linq;
 /// </summary>
 public class ScanResult
 {
+    #region Public Fields
+
     /// <summary>采集到的资源列表（所有 Package 合并）</summary>
     public List<CollectedAssetInfo> Assets = new();
 
     /// <summary>扫描过程中的错误和警告</summary>
     public List<BuildMessage> Messages = new();
 
+    #endregion
+
+    #region Public Properties
+
     /// <summary>是否存在 Error 级别的消息</summary>
     public bool HasErrors => Messages.Any(m => m.Severity == BuildSeverity.Error);
+
+    #endregion
 }

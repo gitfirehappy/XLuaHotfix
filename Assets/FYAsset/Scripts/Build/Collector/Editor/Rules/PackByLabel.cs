@@ -11,6 +11,7 @@ public sealed class PackByLabel : IPackRule
 
     #region Public Methods
 
+    /// <summary>返回排序后的 Labels 以 "--" 连接作为分组键；无 Labels 时返回 $orphan</summary>
     public string GetPackKey(PackRuleContext ctx)
     {
         if (ctx.Labels == null || ctx.Labels.Count == 0)

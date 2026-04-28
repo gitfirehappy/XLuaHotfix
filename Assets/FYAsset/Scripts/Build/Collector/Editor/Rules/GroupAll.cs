@@ -6,6 +6,7 @@ public sealed class GroupAll : IGroupRule
 {
     #region Public Methods
 
+    /// <summary>始终返回父 Group 名称，保持资源归属 Collector 所在 Group</summary>
     public string GetTargetGroup(GroupRuleContext ctx)
     {
         return ctx.ParentGroupName;

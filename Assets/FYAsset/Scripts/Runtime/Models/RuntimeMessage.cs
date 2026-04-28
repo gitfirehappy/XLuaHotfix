@@ -18,14 +18,31 @@ public enum RuntimeSeverity
 /// </summary>
 public static class RuntimeErrorCodes
 {
+    /// <summary>未找到匹配查询条件的条目</summary>
     public const string NotFound = "NOT_FOUND";
+
+    /// <summary>多条条目匹配，无法消歧（需要 Labels）</summary>
     public const string AmbiguousMatch = "AMBIGUOUS_MATCH";
+
+    /// <summary>找到条目但 PrimaryType 与请求类型不兼容</summary>
     public const string TypeMismatch = "TYPE_MISMATCH";
+
+    /// <summary>Resolve 成功但底层加载操作失败</summary>
     public const string LoadFailed = "LOAD_FAILED";
+
+    /// <summary>索引不支持条目级查询（旧版 AddressableLabelsConfig）</summary>
     public const string IndexNotSupported = "INDEX_NOT_SUPPORTED";
+
+    /// <summary>Bundle 文件在磁盘上不存在（热更目录 + StreamingAssets 均未找到）</summary>
     public const string BundleNotFound = "BUNDLE_NOT_FOUND";
+
+    /// <summary>AssetBundle.LoadFromFile 返回 null（文件损坏、加密异常等）</summary>
     public const string BundleLoadFailed = "BUNDLE_LOAD_FAILED";
+
+    /// <summary>依赖 Bundle 加载失败（级联失败）</summary>
     public const string DependencyFailed = "DEPENDENCY_FAILED";
+
+    /// <summary>从 Bundle 中提取 Asset 失败（SourcePath 不正确或类型不匹配）</summary>
     public const string AssetExtractionFailed = "ASSET_EXTRACTION_FAILED";
 }
 
@@ -33,6 +50,10 @@ public static class RuntimeErrorCodes
 /// 运行时诊断消息 —— 替代旧的 AssetLoadError。
 /// 通过静态工厂方法构造，禁止裸 new。
 /// </summary>
+/// <remarks>
+/// [Serializable] 用于支持 Unity 序列化（Inspector 调试面板 / 热重载异常跨域传递）。
+/// 只读字段通过 private constructor 初始化，序列化系统通过反射写入。
+/// </remarks>
 [Serializable]
 public class RuntimeMessage
 {
@@ -68,11 +89,17 @@ public class RuntimeMessage
 
     #region 通用工厂方法
 
+    /// <summary>创建 Error 级别的运行时消息</summary>
+    /// <param name="code">错误码，使用 RuntimeErrorCodes 常量</param>
+    /// <param name="message">人类可读的描述信息</param>
     public static RuntimeMessage Error(string code, string message)
     {
         return new RuntimeMessage(RuntimeSeverity.Error, code, message);
     }
 
+    /// <summary>创建 Warning 级别的运行时消息（当前无消费者，为降级加载/重试恢复预留）</summary>
+    /// <param name="code">错误码，使用 RuntimeErrorCodes 常量</param>
+    /// <param name="message">人类可读的描述信息</param>
     public static RuntimeMessage Warning(string code, string message)
     {
         return new RuntimeMessage(RuntimeSeverity.Warning, code, message);
@@ -82,37 +109,63 @@ public class RuntimeMessage
 
     #region 语义化工厂方法（保持与旧 AssetLoadError 同名 API，方便迁移）
 
+    /// <summary>未找到匹配条目</summary>
+    /// <param name="query">查询键（Address / TypeKey）</param>
     public static RuntimeMessage NotFound(string query)
         => Error(RuntimeErrorCodes.NotFound, string.Concat("未找到匹配条目: ", query));
 
+    /// <summary>多条条目匹配，需通过 Labels 消歧</summary>
+    /// <param name="query">查询键</param>
+    /// <param name="candidates">所有匹配的候选条目列表</param>
     public static RuntimeMessage Ambiguous(string query, IReadOnlyList<RuntimeAssetEntry> candidates)
         => new RuntimeMessage(RuntimeSeverity.Error, RuntimeErrorCodes.AmbiguousMatch,
             string.Concat("多条条目匹配: ", query, " (", candidates.Count.ToString(), " 个候选)"), candidates);
 
+    /// <summary>找到条目但 PrimaryType 与请求类型不兼容</summary>
+    /// <param name="query">查询键</param>
+    /// <param name="expectedType">期望的类型</param>
+    /// <param name="actualType">实际的 PrimaryType</param>
     public static RuntimeMessage TypeMismatch(string query, string expectedType, string actualType)
         => Error(RuntimeErrorCodes.TypeMismatch,
             string.Concat("类型不匹配: ", query, ", 期望可赋值给 ", expectedType, ", 实际 ", actualType));
 
+    /// <summary>Resolve 成功但底层加载操作失败</summary>
+    /// <param name="entryId">资源 EntryId</param>
+    /// <param name="reason">失败原因</param>
     public static RuntimeMessage LoadFailed(string entryId, string reason)
         => Error(RuntimeErrorCodes.LoadFailed,
             string.Concat("加载失败, EntryId=[", entryId, "]: ", reason));
 
+    /// <summary>索引不支持条目级查询（旧版 AddressableLabelsConfig）</summary>
+    /// <param name="indexType">索引类型名称</param>
     public static RuntimeMessage IndexNotSupported(string indexType)
         => Error(RuntimeErrorCodes.IndexNotSupported,
             string.Concat("索引 ", indexType, " 不支持条目级查询，请使用基于 RuntimeAssetEntry 的索引实现。"));
 
+    /// <summary>Bundle 文件在磁盘上不存在</summary>
+    /// <param name="bundleName">Bundle 文件名</param>
     public static RuntimeMessage BundleNotFound(string bundleName)
         => Error(RuntimeErrorCodes.BundleNotFound,
             string.Concat("Bundle 文件未找到: ", bundleName, "（热更目录 + StreamingAssets 均不存在）"));
 
+    /// <summary>AssetBundle.LoadFromFile 返回 null（文件损坏、加密异常等）</summary>
+    /// <param name="bundleName">Bundle 文件名</param>
+    /// <param name="path">尝试的物理路径</param>
     public static RuntimeMessage BundleLoadFailed(string bundleName, string path)
         => Error(RuntimeErrorCodes.BundleLoadFailed,
             string.Concat("AssetBundle.LoadFromFile 失败: ", bundleName, ", 路径=", path));
 
+    /// <summary>依赖 Bundle 加载失败（级联失败）</summary>
+    /// <param name="bundleName">主 Bundle 文件名</param>
+    /// <param name="depBundleName">加载失败的依赖 Bundle 文件名</param>
     public static RuntimeMessage DependencyFailed(string bundleName, string depBundleName)
         => Error(RuntimeErrorCodes.DependencyFailed,
             string.Concat("依赖 Bundle 加载失败: ", depBundleName, " (被 ", bundleName, " 依赖)"));
 
+    /// <summary>从 Bundle 中提取 Asset 失败（SourcePath 不正确或类型不匹配）</summary>
+    /// <param name="entryId">资源 EntryId</param>
+    /// <param name="sourcePath">Bundle 内的资源路径</param>
+    /// <param name="bundleName">Bundle 文件名</param>
     public static RuntimeMessage AssetExtractionFailed(string entryId, string sourcePath, string bundleName)
         => Error(RuntimeErrorCodes.AssetExtractionFailed,
             string.Concat("从 Bundle 提取 Asset 失败: SourcePath=", sourcePath,

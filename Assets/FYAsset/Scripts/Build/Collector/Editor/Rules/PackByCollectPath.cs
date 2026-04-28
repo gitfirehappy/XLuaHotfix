@@ -9,6 +9,7 @@ public sealed class PackByCollectPath : IPackRule
 
     #region Public Methods
 
+    /// <summary>返回 CollectPath 末段目录名作为分组键</summary>
     public string GetPackKey(PackRuleContext ctx)
     {
         if (string.IsNullOrEmpty(ctx.CollectPath))

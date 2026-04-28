@@ -9,6 +9,7 @@ public sealed class PackByDirectory : IPackRule
 {
     #region Public Methods
 
+    /// <summary>返回资源所在的第一级子目录名作为分组键；根级资源回退到 CollectPath 末段</summary>
     public string GetPackKey(PackRuleContext ctx)
     {
         string assetDir = Path.GetDirectoryName(ctx.AssetPath);

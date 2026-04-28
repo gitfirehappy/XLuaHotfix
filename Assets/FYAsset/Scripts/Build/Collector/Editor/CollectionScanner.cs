@@ -632,11 +632,18 @@ public static class CollectionScanner
 
     #region Private — Helpers: Messages
 
+    /// <summary>
+    /// 私有 Error 包装器 —— 避免修改 20+ 处调用点的方法签名。
+    /// 等价于直接调用 BuildMessage.Error(code, message, source)。
+    /// </summary>
     private static BuildMessage Error(string code, string message, string source)
     {
         return BuildMessage.Error(code, message, source);
     }
 
+    /// <summary>
+    /// 私有 Warning 包装器 —— 同上。
+    /// </summary>
     private static BuildMessage Warning(string code, string message, string source)
     {
         return BuildMessage.Warning(code, message, source);
