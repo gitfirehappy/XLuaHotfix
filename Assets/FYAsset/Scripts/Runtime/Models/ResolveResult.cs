@@ -37,7 +37,7 @@ public class ResolveResult
     public RuntimeAssetEntry Entry { get; private set; }
 
     /// <summary> 结构化错误信息。Status != Hit 时非 null。 </summary>
-    public AssetLoadError Error { get; private set; }
+    public RuntimeMessage Error { get; private set; }
 
     public bool IsSuccess => Status == ResolveStatus.Hit && Entry != null;
 
@@ -49,16 +49,16 @@ public class ResolveResult
         => new() { Status = ResolveStatus.Hit, Entry = entry };
 
     public static ResolveResult NotFound(string query)
-        => new() { Status = ResolveStatus.NotFound, Error = AssetLoadError.NotFound(query) };
+        => new() { Status = ResolveStatus.NotFound, Error = RuntimeMessage.NotFound(query) };
 
     public static ResolveResult Conflict(string query, IReadOnlyList<RuntimeAssetEntry> candidates)
-        => new() { Status = ResolveStatus.Conflict, Error = AssetLoadError.Ambiguous(query, candidates) };
+        => new() { Status = ResolveStatus.Conflict, Error = RuntimeMessage.Ambiguous(query, candidates) };
 
     public static ResolveResult TypeMismatch(string query, string expectedType, string actualType)
-        => new() { Status = ResolveStatus.TypeMismatch, Error = AssetLoadError.TypeMismatch(query, expectedType, actualType) };
+        => new() { Status = ResolveStatus.TypeMismatch, Error = RuntimeMessage.TypeMismatch(query, expectedType, actualType) };
 
     public static ResolveResult IndexNotSupported(string indexType)
-        => new() { Status = ResolveStatus.NotFound, Error = AssetLoadError.IndexNotSupported(indexType) };
+        => new() { Status = ResolveStatus.NotFound, Error = RuntimeMessage.IndexNotSupported(indexType) };
 
     #endregion
 

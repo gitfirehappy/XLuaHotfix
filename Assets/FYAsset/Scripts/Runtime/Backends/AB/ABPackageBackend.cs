@@ -323,14 +323,14 @@ public class ABPackageBackend : IPackageBackend
     /// 异步加载资产，返回 (asset, bundleName, error) 元组。
     /// AssetPackageManager 通过此方法获取 bundleName 以分配 HandleRegistry 槽位。
     /// </summary>
-    internal async Task<(T asset, string bundleName, AssetLoadError error)> LoadAssetTupleAsync<T>(
+    internal async Task<(T asset, string bundleName, RuntimeMessage error)> LoadAssetTupleAsync<T>(
         string key, string entryId) where T : UnityEngine.Object
     {
         var assetEntry = ResolveAssetEntry(key, entryId);
 
         if (assetEntry == null)
         {
-            return (null, null, AssetLoadError.NotFound(
+            return (null, null, RuntimeMessage.NotFound(
                 string.Concat("key=", key, ", entryId=", entryId ?? "")));
         }
 
@@ -347,14 +347,14 @@ public class ABPackageBackend : IPackageBackend
     /// 同步加载资产，返回 (asset, bundleName, error) 元组。
     /// AssetPackageManager 通过此方法获取 bundleName 以分配 HandleRegistry 槽位。
     /// </summary>
-    internal (T asset, string bundleName, AssetLoadError error) LoadAssetTupleSync<T>(
+    internal (T asset, string bundleName, RuntimeMessage error) LoadAssetTupleSync<T>(
         string key, string entryId) where T : UnityEngine.Object
     {
         var assetEntry = ResolveAssetEntry(key, entryId);
 
         if (assetEntry == null)
         {
-            return (null, null, AssetLoadError.NotFound(
+            return (null, null, RuntimeMessage.NotFound(
                 string.Concat("key=", key, ", entryId=", entryId ?? "")));
         }
 
@@ -375,7 +375,7 @@ public class ABPackageBackend : IPackageBackend
     /// 异步加载资产的内部实现（已确认 assetEntry 有效）。
     /// 返回 (asset, bundleName, error) 元组 — 内部 API，不抛异常。
     /// </summary>
-    private async Task<(T asset, string bundleName, AssetLoadError error)> LoadAssetInternalAsync<T>(
+    private async Task<(T asset, string bundleName, RuntimeMessage error)> LoadAssetInternalAsync<T>(
         ManifestAssetEntry assetEntry) where T : UnityEngine.Object
     {
         // 获取 Bundle 信息
@@ -383,7 +383,7 @@ public class ABPackageBackend : IPackageBackend
         if (bundleEntry == null)
         {
             return (null, null,
-                AssetLoadError.BundleNotFound(
+                RuntimeMessage.BundleNotFound(
                     string.Concat("(asset: ", assetEntry.Address, ", EntryId=", assetEntry.EntryId, ")")));
         }
 
@@ -408,14 +408,14 @@ public class ABPackageBackend : IPackageBackend
         {
             _bundleLoader.UnloadBundle(bundleName);
             return (null, bundleName,
-                AssetLoadError.AssetExtractionFailed(assetEntry.EntryId, assetEntry.SourcePath, bundleName));
+                RuntimeMessage.AssetExtractionFailed(assetEntry.EntryId, assetEntry.SourcePath, bundleName));
         }
 
         if (asset == null)
         {
             _bundleLoader.UnloadBundle(bundleName);
             return (null, bundleName,
-                AssetLoadError.AssetExtractionFailed(assetEntry.EntryId, assetEntry.SourcePath, bundleName));
+                RuntimeMessage.AssetExtractionFailed(assetEntry.EntryId, assetEntry.SourcePath, bundleName));
         }
 
         // 加入 Asset 缓存
@@ -427,7 +427,7 @@ public class ABPackageBackend : IPackageBackend
     /// 同步加载资产的内部实现（已确认 assetEntry 有效）。
     /// 返回 (asset, bundleName, error) 元组 — 内部 API，不抛异常。
     /// </summary>
-    private (T asset, string bundleName, AssetLoadError error) LoadAssetInternalSync<T>(
+    private (T asset, string bundleName, RuntimeMessage error) LoadAssetInternalSync<T>(
         ManifestAssetEntry assetEntry) where T : UnityEngine.Object
     {
         // 获取 Bundle 信息
@@ -435,7 +435,7 @@ public class ABPackageBackend : IPackageBackend
         if (bundleEntry == null)
         {
             return (null, null,
-                AssetLoadError.BundleNotFound(
+                RuntimeMessage.BundleNotFound(
                     string.Concat("(asset: ", assetEntry.Address, ", EntryId=", assetEntry.EntryId, ")")));
         }
 
@@ -454,7 +454,7 @@ public class ABPackageBackend : IPackageBackend
         {
             _bundleLoader.UnloadBundle(bundleName);
             return (null, bundleName,
-                AssetLoadError.AssetExtractionFailed(assetEntry.EntryId, assetEntry.SourcePath, bundleName));
+                RuntimeMessage.AssetExtractionFailed(assetEntry.EntryId, assetEntry.SourcePath, bundleName));
         }
 
         // 加入 Asset 缓存

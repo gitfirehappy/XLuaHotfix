@@ -42,7 +42,7 @@ public struct AssetHandle<T> where T : UnityEngine.Object
     /// 失败句柄的内联错误（HandleId=-1 时使用，不通过 Registry 存储）。
     /// 成功句柄的 Error 从 Registry 获取。
     /// </summary>
-    private AssetLoadError _inlineError;
+    private RuntimeMessage _inlineError;
 
     #endregion
 
@@ -62,7 +62,7 @@ public struct AssetHandle<T> where T : UnityEngine.Object
     /// <summary>
     /// 失败构造：不占用 Registry 槽位，错误信息内联存储。
     /// </summary>
-    internal AssetHandle(AssetLoadError error)
+    internal AssetHandle(RuntimeMessage error)
     {
         HandleId = -1;
         Generation = -1;
@@ -104,7 +104,7 @@ public struct AssetHandle<T> where T : UnityEngine.Object
     /// 失败句柄：返回内联错误。
     /// 成功句柄：返回 Registry 中存储的错误（通常为 null）。
     /// </summary>
-    public AssetLoadError Error
+    public RuntimeMessage Error
     {
         get
         {

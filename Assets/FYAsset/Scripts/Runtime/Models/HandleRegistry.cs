@@ -45,7 +45,7 @@ internal static class HandleRegistry
         public string BundleName;
 
         /// <summary>加载错误信息（成功时为 null）</summary>
-        public AssetLoadError Error;
+        public RuntimeMessage Error;
 
         /// <summary>释放回调：RefCount 归零时调用，参数为 EntryId</summary>
         public Action<string> ReleaseCallback;
@@ -71,7 +71,7 @@ internal static class HandleRegistry
     public static (int handleId, int generation) Alloc(
         string entryId,
         string bundleName,
-        AssetLoadError error,
+        RuntimeMessage error,
         Action<string> releaseCallback)
     {
         int id;
@@ -117,7 +117,7 @@ internal static class HandleRegistry
     /// <summary>
     /// 获取 Handle 关联的错误信息。Handle 过期或无效返回 null。
     /// </summary>
-    public static AssetLoadError GetError(int handleId, int generation)
+    public static RuntimeMessage GetError(int handleId, int generation)
     {
         if (handleId < 0 || handleId >= _count) return null;
         ref var slot = ref _slots[handleId];

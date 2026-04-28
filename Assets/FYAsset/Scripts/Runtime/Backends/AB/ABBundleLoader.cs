@@ -82,11 +82,11 @@ public class ABBundleLoader
     /// </summary>
     /// <param name="bundleName">ManifestBundleEntry.BundleName</param>
     /// <returns>成功返回 (bundle, null)，失败返回 (null, error)</returns>
-    public (AssetBundle bundle, AssetLoadError error) LoadBundle(string bundleName)
+    public (AssetBundle bundle, RuntimeMessage error) LoadBundle(string bundleName)
     {
         if (string.IsNullOrEmpty(bundleName))
         {
-            return (null, AssetLoadError.BundleNotFound(bundleName ?? ""));
+            return (null, RuntimeMessage.BundleNotFound(bundleName ?? ""));
         }
 
         // 缓存命中：引用计数 +1，直接返回
@@ -99,7 +99,7 @@ public class ABBundleLoader
         // 查询 Manifest 获取 BundleEntry
         if (!_manifest.TryGetBundleByName(bundleName, out var bundleEntry))
         {
-            return (null, AssetLoadError.BundleNotFound(bundleName));
+            return (null, RuntimeMessage.BundleNotFound(bundleName));
         }
 
         // 递归加载依赖 Bundle（同步）
@@ -119,7 +119,7 @@ public class ABBundleLoader
         if (bundlePath == null)
         {
             UnloadDependencies(depNames);
-            return (null, AssetLoadError.BundleNotFound(bundleName));
+            return (null, RuntimeMessage.BundleNotFound(bundleName));
         }
 
         // 加载 AssetBundle
@@ -127,7 +127,7 @@ public class ABBundleLoader
         if (bundle == null)
         {
             UnloadDependencies(depNames);
-            return (null, AssetLoadError.BundleLoadFailed(bundleName, bundlePath));
+            return (null, RuntimeMessage.BundleLoadFailed(bundleName, bundlePath));
         }
 
         // 加入缓存
@@ -177,11 +177,11 @@ public class ABBundleLoader
     /// </summary>
     /// <param name="bundleName">ManifestBundleEntry.BundleName</param>
     /// <returns>成功返回 (bundle, null)，失败返回 (null, error)</returns>
-    public async Task<(AssetBundle bundle, AssetLoadError error)> LoadBundleAsync(string bundleName)
+    public async Task<(AssetBundle bundle, RuntimeMessage error)> LoadBundleAsync(string bundleName)
     {
         if (string.IsNullOrEmpty(bundleName))
         {
-            return (null, AssetLoadError.BundleNotFound(bundleName ?? ""));
+            return (null, RuntimeMessage.BundleNotFound(bundleName ?? ""));
         }
 
         // 缓存命中：引用计数 +1，直接返回
@@ -194,7 +194,7 @@ public class ABBundleLoader
         // 查询 Manifest 获取 BundleEntry
         if (!_manifest.TryGetBundleByName(bundleName, out var bundleEntry))
         {
-            return (null, AssetLoadError.BundleNotFound(bundleName));
+            return (null, RuntimeMessage.BundleNotFound(bundleName));
         }
 
         // 递归加载依赖 Bundle（异步）
@@ -214,7 +214,7 @@ public class ABBundleLoader
         if (bundlePath == null)
         {
             UnloadDependencies(depNames);
-            return (null, AssetLoadError.BundleNotFound(bundleName));
+            return (null, RuntimeMessage.BundleNotFound(bundleName));
         }
 
         // 异步加载 AssetBundle
@@ -225,7 +225,7 @@ public class ABBundleLoader
         if (bundle == null)
         {
             UnloadDependencies(depNames);
-            return (null, AssetLoadError.BundleLoadFailed(bundleName, bundlePath));
+            return (null, RuntimeMessage.BundleLoadFailed(bundleName, bundlePath));
         }
 
         // 加入缓存
@@ -311,7 +311,7 @@ public class ABBundleLoader
     /// 使用 HashSet 防环和防重复加载。
     /// </summary>
     /// <returns>成功返回 (depNames, null)，失败返回 (null, error)</returns>
-    private (string[] depNames, AssetLoadError error) LoadDependenciesSync(
+    private (string[] depNames, RuntimeMessage error) LoadDependenciesSync(
         ManifestBundleEntry bundleEntry, HashSet<string> visited)
     {
         var directDeps = _manifest.GetDirectDependencies(bundleEntry);
@@ -329,7 +329,7 @@ public class ABBundleLoader
             if (!visited.Add(dep.BundleName))
             {
                 UnloadDependencies(loadedDepNames);
-                return (null, AssetLoadError.DependencyFailed(bundleEntry.BundleName, dep.BundleName));
+                return (null, RuntimeMessage.DependencyFailed(bundleEntry.BundleName, dep.BundleName));
             }
 
             // 递归加载依赖的依赖，沿用同一个 visited 集合
@@ -338,7 +338,7 @@ public class ABBundleLoader
             {
                 // 回滚已加载的依赖
                 UnloadDependencies(loadedDepNames);
-                return (null, AssetLoadError.DependencyFailed(bundleEntry.BundleName, dep.BundleName));
+                return (null, RuntimeMessage.DependencyFailed(bundleEntry.BundleName, dep.BundleName));
             }
 
             loadedDepNames.Add(dep.BundleName);
@@ -353,7 +353,7 @@ public class ABBundleLoader
     /// 使用 HashSet 防环和防重复加载。
     /// </summary>
     /// <returns>成功返回 (depNames, null)，失败返回 (null, error)</returns>
-    private async Task<(string[] depNames, AssetLoadError error)> LoadDependenciesAsync(
+    private async Task<(string[] depNames, RuntimeMessage error)> LoadDependenciesAsync(
         ManifestBundleEntry bundleEntry, HashSet<string> visited)
     {
         var directDeps = _manifest.GetDirectDependencies(bundleEntry);
@@ -371,7 +371,7 @@ public class ABBundleLoader
             if (!visited.Add(dep.BundleName))
             {
                 UnloadDependencies(loadedDepNames);
-                return (null, AssetLoadError.DependencyFailed(bundleEntry.BundleName, dep.BundleName));
+                return (null, RuntimeMessage.DependencyFailed(bundleEntry.BundleName, dep.BundleName));
             }
 
             // 递归加载依赖的依赖，沿用同一个 visited 集合
@@ -379,7 +379,7 @@ public class ABBundleLoader
             if (depError != null)
             {
                 UnloadDependencies(loadedDepNames);
-                return (null, AssetLoadError.DependencyFailed(bundleEntry.BundleName, dep.BundleName));
+                return (null, RuntimeMessage.DependencyFailed(bundleEntry.BundleName, dep.BundleName));
             }
 
             loadedDepNames.Add(dep.BundleName);
@@ -420,12 +420,12 @@ public class ABBundleLoader
     /// <summary>
     /// 内部同步加载实现，沿用调用链传入的 visited 集合。
     /// </summary>
-    private (AssetBundle bundle, AssetLoadError error) LoadBundleInternal(
+    private (AssetBundle bundle, RuntimeMessage error) LoadBundleInternal(
         string bundleName, HashSet<string> visited)
     {
         if (string.IsNullOrEmpty(bundleName))
         {
-            return (null, AssetLoadError.BundleNotFound(bundleName ?? ""));
+            return (null, RuntimeMessage.BundleNotFound(bundleName ?? ""));
         }
 
         if (_bundleCache.TryGetValue(bundleName, out var cached))
@@ -436,7 +436,7 @@ public class ABBundleLoader
 
         if (!_manifest.TryGetBundleByName(bundleName, out var bundleEntry))
         {
-            return (null, AssetLoadError.BundleNotFound(bundleName));
+            return (null, RuntimeMessage.BundleNotFound(bundleName));
         }
 
         var (depNames, depError) = LoadDependenciesSync(bundleEntry, visited);
@@ -449,14 +449,14 @@ public class ABBundleLoader
         if (bundlePath == null)
         {
             UnloadDependencies(depNames);
-            return (null, AssetLoadError.BundleNotFound(bundleName));
+            return (null, RuntimeMessage.BundleNotFound(bundleName));
         }
 
         AssetBundle bundle = AssetBundle.LoadFromFile(bundlePath);
         if (bundle == null)
         {
             UnloadDependencies(depNames);
-            return (null, AssetLoadError.BundleLoadFailed(bundleName, bundlePath));
+            return (null, RuntimeMessage.BundleLoadFailed(bundleName, bundlePath));
         }
 
         _bundleCache[bundleName] = new BundleCacheEntry
@@ -472,12 +472,12 @@ public class ABBundleLoader
     /// <summary>
     /// 内部异步加载实现，沿用调用链传入的 visited 集合。
     /// </summary>
-    private async Task<(AssetBundle bundle, AssetLoadError error)> LoadBundleInternalAsync(
+    private async Task<(AssetBundle bundle, RuntimeMessage error)> LoadBundleInternalAsync(
         string bundleName, HashSet<string> visited)
     {
         if (string.IsNullOrEmpty(bundleName))
         {
-            return (null, AssetLoadError.BundleNotFound(bundleName ?? ""));
+            return (null, RuntimeMessage.BundleNotFound(bundleName ?? ""));
         }
 
         if (_bundleCache.TryGetValue(bundleName, out var cached))
@@ -488,7 +488,7 @@ public class ABBundleLoader
 
         if (!_manifest.TryGetBundleByName(bundleName, out var bundleEntry))
         {
-            return (null, AssetLoadError.BundleNotFound(bundleName));
+            return (null, RuntimeMessage.BundleNotFound(bundleName));
         }
 
         var (depNames, depError) = await LoadDependenciesAsync(bundleEntry, visited);
@@ -501,7 +501,7 @@ public class ABBundleLoader
         if (bundlePath == null)
         {
             UnloadDependencies(depNames);
-            return (null, AssetLoadError.BundleNotFound(bundleName));
+            return (null, RuntimeMessage.BundleNotFound(bundleName));
         }
 
         var request = AssetBundle.LoadFromFileAsync(bundlePath);
@@ -511,7 +511,7 @@ public class ABBundleLoader
         if (bundle == null)
         {
             UnloadDependencies(depNames);
-            return (null, AssetLoadError.BundleLoadFailed(bundleName, bundlePath));
+            return (null, RuntimeMessage.BundleLoadFailed(bundleName, bundlePath));
         }
 
         _bundleCache[bundleName] = new BundleCacheEntry

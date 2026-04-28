@@ -280,7 +280,7 @@ public class AssetPackageManager : Singleton<AssetPackageManager>
     {
         if (!_isInitialized)
             return new AssetHandle<T>(
-                AssetLoadError.LoadFailed("", "AssetPackageManager 未初始化"));
+                RuntimeMessage.LoadFailed("", "AssetPackageManager 未初始化"));
 
         var result = AssetResolver.ResolveByAddress<T>(_index, address);
         if (!result.IsSuccess)
@@ -296,7 +296,7 @@ public class AssetPackageManager : Singleton<AssetPackageManager>
     {
         if (!_isInitialized)
             return new AssetHandle<T>(
-                AssetLoadError.LoadFailed("", "AssetPackageManager 未初始化"));
+                RuntimeMessage.LoadFailed("", "AssetPackageManager 未初始化"));
 
         var result = AssetResolver.ResolveByAddress<T>(_index, address);
         if (!result.IsSuccess)
@@ -314,7 +314,7 @@ public class AssetPackageManager : Singleton<AssetPackageManager>
     {
         if (!_isInitialized)
             return new AssetHandle<T>(
-                AssetLoadError.LoadFailed("", "AssetPackageManager 未初始化"));
+                RuntimeMessage.LoadFailed("", "AssetPackageManager 未初始化"));
 
         var result = AssetResolver.ResolveByTypeKey<T>(_index, key, labels);
         if (!result.IsSuccess)
@@ -331,7 +331,7 @@ public class AssetPackageManager : Singleton<AssetPackageManager>
     {
         if (!_isInitialized)
             return new AssetHandle<T>(
-                AssetLoadError.LoadFailed("", "AssetPackageManager 未初始化"));
+                RuntimeMessage.LoadFailed("", "AssetPackageManager 未初始化"));
 
         var result = AssetResolver.ResolveByTypeKey<T>(_index, key, labels);
         if (!result.IsSuccess)
@@ -394,11 +394,11 @@ public class AssetPackageManager : Singleton<AssetPackageManager>
         }
         catch (Exception ex)
         {
-            return new AssetHandle<T>(AssetLoadError.LoadFailed(entry.EntryId, ex.Message));
+            return new AssetHandle<T>(RuntimeMessage.LoadFailed(entry.EntryId, ex.Message));
         }
 
         if (asset == null)
-            return new AssetHandle<T>(AssetLoadError.LoadFailed(entry.EntryId, "Backend 返回 null"));
+            return new AssetHandle<T>(RuntimeMessage.LoadFailed(entry.EntryId, "Backend 返回 null"));
 
         return CreateLegacyHandle(entry, asset);
     }
@@ -408,7 +408,7 @@ public class AssetPackageManager : Singleton<AssetPackageManager>
     {
         var asset = _backend.LoadAssetSync<T>(entry.Address, entry.EntryId);
         if (asset == null)
-            return new AssetHandle<T>(AssetLoadError.LoadFailed(entry.EntryId, "Backend 返回 null"));
+            return new AssetHandle<T>(RuntimeMessage.LoadFailed(entry.EntryId, "Backend 返回 null"));
 
         return CreateLegacyHandle(entry, asset);
     }
