@@ -63,13 +63,12 @@ Phase 5: Build-Time - Asset Collection & Indexing (ref. YooAsset)
   E1 Collector framework -> E2 Packing rules -> E3 CANCELLED (absorbed by E1-3)
 
 Phase 6: Build-Time - Build Pipeline
-  E4 Dependency analysis -> E5 Build pipeline rewrite -> E6 ABManifest build export -> E7 Diff snapshot adaptation
+  E4 Dependency analysis -> E5 Build pipeline engine -> E6 ABManifest build export -> E7 Diff snapshot adaptation
 
-Phase 7: Raw Files & Special Assets
-  F1 RawFile Bundle -> F2 SpriteAtlas linkage -> F3 Platform-specific compression
+Phase 7: Delivery & Download Strategy
+  F1 Offline built-in package -> F2 Background download -> F3 A/B test variant download
 
-Phase 8: Editor Tools
-  G1 Visual management panel -> G2 Dependency graph -> G3 Build report & estimation
+Phase 8: Editor Tools (incremental — inserted after each phase, no standalone G-series)
 
 Phase 9: Advanced Runtime
   H1 AsyncOp priority scheduler (TBD) -> H2 LRU/LFU cache strategy (deferred)
@@ -151,6 +150,13 @@ Phase 4 and Phase 6 must be coordinated (ABManifest runtime consumption + build-
 | plan-S2.md | S2: BinaryCodec infrastructure: [BinarySerializable]/[BinaryField] attributes + BinaryHeader read/write + Editor code generator | DONE |
 | plan-S3S4.md | S3: ABManifest data class annotation + code generation + Magic registration; S4: ManifestLoader .bin/.json auto-detect + build-side dual export | DONE |
 
+### Cross-Cutting Utilities
+
+| File | Content | Status |
+|------|---------|--------|
+| plan-filehelper.md | FileHelper: cross-platform file I/O utility (7 methods: ReadAllBytesAsync/ReadAllTextAsync/WriteAllBytesAtomic/WriteAllTextAtomic/TryDelete/TryDeleteDirectory/EnsureDirectoryForFile). Fixes Android StreamingAssets read bug + adds atomic write + unified delete semantics. 1 new file, 3 modified | Draft |
+| plan-R1.md | R1: Unified error handling architecture — BuildMessage (Editor) + RuntimeMessage (Runtime) separated types, string Code with const files (BuildErrorCodes/RuntimeErrorCodes), Severity on both sides, factory-only construction, AssetLoadError/ScanMessage renamed, PATH_NOT_FOUND fixed to Warning | Approved (2026-04-28) |
+
 ### Phase 5: Build-Time - Asset Collection & Indexing
 
 | ID | Content | Reference | Status |
@@ -166,26 +172,33 @@ Phase 4 and Phase 6 must be coordinated (ABManifest runtime consumption + build-
 
 | ID | Content | Status |
 |----|---------|--------|
-| E4 | Dependency analysis + static asset GCRoot | To be planned |
-| E5 | Build pipeline rewrite (replace Addressables BuildScript) | To be planned |
-| E6 | ABManifest build export | To be planned |
-| E7 | Diff snapshot adaptation (DifferentialProcessor migration) | To be planned |
+| E4 | Dependency analysis + shared extraction (BFS + SharePolicy) | Draft (plan-E4.md) |
+| E5 | Build pipeline engine (DAG scheduler + backbone Tasks) | Draft (plan-E5.md / E5-1 / E5-2) |
+| E6 | ABManifest build export (TaskGenerateManifest) | Draft (plan-E6.md) |
+| E7 | Diff snapshot adaptation (IDiffPipeline + Legacy/AB backends) | Draft (plan-E7.md) |
 
-### Phase 7: Raw Files & Special Assets
+### Phase 7: Delivery & Download Strategy
 
 | ID | Content | Status |
 |----|---------|--------|
-| F1 | RawFile Bundle support | To be planned |
-| F2 | SpriteAtlas linked refresh | To be planned |
-| F3 | Platform-specific compression strategy | To be planned |
+| F1 | Offline built-in package (DeliveryMode: Streamed/Builtin/Hybrid) | Ideas (plan-F-ideas.md) |
+| F2 | Background download (BackgroundDownloadManager + Bundle Tags) | Ideas (plan-F-ideas.md) |
+| F3 | A/B test variant download (VariantIndex + ABTestManager) | Ideas (plan-F-ideas.md) |
+
+> **Note**: Original F1 (RawFile Bundle) / F2 (SpriteAtlas) / F3 (Platform compression) absorbed into unified pipeline + 5 extension points (see plan-E-draft.md F-series convergence). RawFile handled via PayloadKind routing + IPackageBackend.LoadRawFile; SpriteAtlas via E4 dependency analysis; compression via IAssetImportRule.
 
 ### Phase 8: Editor Tools
 
-| ID | Content | Status |
-|----|---------|--------|
-| G1 | Visual resource management panel | To be planned |
-| G2 | Dependency graph | To be planned |
-| G3 | Build report & estimation | To be planned |
+> **Strategy**: Editor tools are built incrementally as validation closure for each phase — not a standalone G-series. Insertion points by phase completion:
+>
+> | After | Editor Delivery |
+> |-------|----------------|
+> | Phase 5 (E1-1~E1-4 + E2 complete) | Collector panel (E1-4, Approved) + scan result preview |
+> | Phase 6 E5-1/E5-2 | Pipeline panel (DAG visualization) + Builder panel (build execution) |
+> | Phase 6 E4+E6 | Inspector panel (Bundle table + asset search) |
+> | Phase 6 closed | Settings panel finalization |
+>
+> Each insertion point produces its own precise sub-plan at that time. No empty G1/G2/G3 plan files.
 
 ### Phase 9: Advanced Runtime
 
@@ -243,3 +256,5 @@ Phase 4 and Phase 6 must be coordinated (ABManifest runtime consumption + build-
 | 2026-04-23 | **E3 CANCELLED**: Gap analysis confirmed 11/12 E3 items fully absorbed by E1-3 (deepest-path dedup, IgnorePatterns, CROSS_PACKAGE_OVERLAP/SAME_PATH_CONFLICT, excludedPaths, unique attribution). Sole uncovered item (Dev/CI conflict severity policy) deferred to E5 build pipeline fail-fast design — severity differentiation is a build-task caller decision, not Scanner internal logic |
 | 2026-04-25 | **E1-1 completed**: Implemented Collector foundation under `Assets/FYAsset/Scripts/Build/Collector/` — runtime data model (`CollectorSetting`, `CollectorPackage`, `CollectorGroup`, `Collector`, enums, `AssetClassification`) + editor rule contracts (`IAddressRule`, `IPackRule.GetPackKey`, `IFilterRule`, `CollectedAssetInfo`, `RuleResolver`). `Constants.cs` gained collector asset path + built-in rule name constants. Verification also synced `Assembly-CSharp.csproj` / `Assembly-CSharp-Editor.csproj` so `dotnet build XLuaHotfix.sln` compiles the new files. Build passed with 0 errors, existing warnings only |
 | 2026-04-25 | **E1-2 completed**: Implemented `AssetClassifier` + three default rules (`AddressByFileName`, `CollectAll`, `PackByCollectPath`) under `Assets/FYAsset/Scripts/Build/Collector/Editor/`. `AssetAddressGenerator` added a shared `GenerateShortAddress(assetPath, primaryType, useTypeSuffix)` entry so collector address rules reuse the existing B5 naming contract instead of forking logic. External verification updated `Assembly-CSharp-Editor.csproj` to include the new editor files, and `dotnet build XLuaHotfix.sln` passed with 0 errors, existing warnings only |
+| 2026-04-28 | **Plan gap convergence**: (1) E7 precise sub-plan written (plan-E7.md): IDiffPipeline 5-method interface + LegacyDiffBackend/ABDiffBackend separation + BundleDigestList .bin/.json persistence + head.json per-version snapshot history + each backend produces own delta type. 10 design decisions, 12 tasks, 8 new files. (2) F-series renumbered: F1/F2/F3 now cover offline package / background download / A/B test. Original RawFile/SpriteAtlas/Compression absorbed into unified pipeline extension points. (3) G-series replaced with incremental insertion point strategy — editor tools built as validation closure after each phase, not a standalone series. (4) YooAsset gap analysis resolved: all 11 decision items closed. #1 Shader→TaskCollectBuiltins, #2 Verify→TaskVerifyBuildResult, #3 Tags→E6 union aggregation, #4 Cleanup→PackageCleaner already covered, #5 Report→TaskOrganizeOutput already covered, #6 Naming→E5-1 BundleFileNameStyle enum, #7 Toggle→E1-4 CollectorGroup.Enabled, #8 Retry→deferred to mobile testing |
+| 2026-04-28 | **plan-filehelper.md written**: Cross-platform file I/O utility (7 methods, 1 new file, 3 modified). Fills gap between PathManager / NetworkDownloader / SerializationUtility. Fixes Android StreamingAssets read bug in ManifestLoader + adds atomic write (WriteAllBytesAtomic) + unified safe delete (TryDelete). Positioned as cross-cutting utility alongside Phase S |

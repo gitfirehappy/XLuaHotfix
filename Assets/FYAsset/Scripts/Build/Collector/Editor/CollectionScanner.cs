@@ -19,13 +19,13 @@ public static class CollectionScanner
 
         if (setting == null)
         {
-            result.Messages.Add(Error("SETTING_NULL", "CollectorSetting is null.", string.Empty));
+            result.Messages.Add(Error(BuildErrorCodes.SettingNull, "CollectorSetting is null.", string.Empty));
             return result;
         }
 
         if (setting.Packages == null || setting.Packages.Count == 0)
         {
-            result.Messages.Add(Warning("NO_PACKAGES", "CollectorSetting has no Packages configured.", string.Empty));
+            result.Messages.Add(Warning(BuildErrorCodes.NoPackages, "CollectorSetting has no Packages configured.", string.Empty));
             return result;
         }
 
@@ -42,7 +42,7 @@ public static class CollectionScanner
 
             if (package.Groups == null || package.Groups.Count == 0)
             {
-                result.Messages.Add(Warning("EMPTY_PACKAGE",
+                result.Messages.Add(Warning(BuildErrorCodes.EmptyPackage,
                     string.Concat("Package '", package.PackageName, "' has no Groups."), string.Empty));
                 continue;
             }
@@ -99,7 +99,7 @@ public static class CollectionScanner
                 // Same path across different Packages
                 if (string.Equals(pathI, pathJ, StringComparison.OrdinalIgnoreCase))
                 {
-                    result.Messages.Add(Error("CROSS_PACKAGE_OVERLAP",
+                    result.Messages.Add(Error(BuildErrorCodes.CrossPackageOverlap,
                         string.Concat("Cross-Package path conflict: ", pathI, " in Package '", pkgI, "' and '", pkgJ, "'."),
                         pathI));
                     return false;
@@ -108,7 +108,7 @@ public static class CollectionScanner
                 // Path containment across Packages
                 if (IsPathContained(pathI, pathJ))
                 {
-                    result.Messages.Add(Error("CROSS_PACKAGE_OVERLAP",
+                    result.Messages.Add(Error(BuildErrorCodes.CrossPackageOverlap,
                         string.Concat("Cross-Package path overlap: ", pathI, " (", pkgI, ") contains ", pathJ, " (", pkgJ, ")."),
                         pathI));
                     return false;
@@ -116,7 +116,7 @@ public static class CollectionScanner
 
                 if (IsPathContained(pathJ, pathI))
                 {
-                    result.Messages.Add(Error("CROSS_PACKAGE_OVERLAP",
+                    result.Messages.Add(Error(BuildErrorCodes.CrossPackageOverlap,
                         string.Concat("Cross-Package path overlap: ", pathJ, " (", pkgJ, ") contains ", pathI, " (", pkgI, ")."),
                         pathJ));
                     return false;
@@ -157,7 +157,9 @@ public static class CollectionScanner
             List<string> excluded = new List<string>();
             for (int j = 0; j < i; j++)
             {
-                if (IsPathContained(currentPaths[j], currentPaths[i]))
+                // i 是更浅的路径（后排序），j 是更深的路径（先排序）
+                // 检查更浅路径 i 是否包含更深路径 j —— 若是，j 应从 i 的扫描范围中排除
+                if (IsPathContained(currentPaths[i], currentPaths[j]))
                     excluded.Add(currentPaths[j]);
             }
 
@@ -205,7 +207,7 @@ public static class CollectionScanner
         // Validate collect path
         if (string.IsNullOrEmpty(collectPath))
         {
-            result.Messages.Add(Error("EMPTY_COLLECT_PATH",
+            result.Messages.Add(Error(BuildErrorCodes.EmptyCollectPath,
                 string.Concat("Collector in Package '", packageName, "' Group '", ctx.ParentGroupName, "' has empty CollectPath."),
                 string.Empty));
             return false;
@@ -213,10 +215,10 @@ public static class CollectionScanner
 
         if (!AssetDatabase.IsValidFolder(collectPath))
         {
-            result.Messages.Add(Error("PATH_NOT_FOUND",
+            result.Messages.Add(Warning(BuildErrorCodes.PathNotFound,
                 string.Concat("CollectPath not found: ", collectPath, " (Package '", packageName, "', Group '", ctx.ParentGroupName, "')."),
                 collectPath));
-            return false;
+            return true; // Warning only — other Collectors in this Package may still be valid
         }
 
         // Resolve rules
@@ -232,7 +234,7 @@ public static class CollectionScanner
         string[] guids = AssetDatabase.FindAssets(string.Empty, new[] { collectPath });
         if (guids == null || guids.Length == 0)
         {
-            result.Messages.Add(Warning("EMPTY_COLLECTOR",
+            result.Messages.Add(Warning(BuildErrorCodes.EmptyCollector,
                 string.Concat("No assets found for Collector: ", collectPath), collectPath));
             return true; // Not an error — just empty
         }
@@ -378,7 +380,7 @@ public static class CollectionScanner
 
                 if (depthI == depthJ && string.Equals(pathI, pathJ, StringComparison.OrdinalIgnoreCase))
                 {
-                    result.Messages.Add(Error("SAME_PATH_CONFLICT",
+                    result.Messages.Add(Error(BuildErrorCodes.SamePathConflict,
                         string.Concat("Same-depth same-path conflict in Package '", packageName, "': ", pathI),
                         pathI));
                     return false;
@@ -504,7 +506,7 @@ public static class CollectionScanner
     {
         if (string.IsNullOrEmpty(className))
         {
-            result.Messages.Add(Error("RULE_NOT_FOUND",
+            result.Messages.Add(Error(BuildErrorCodes.RuleNotFound,
                 string.Concat("Empty ", ruleType, " class name for Collector: ", collectPath), collectPath));
             return null;
         }
@@ -524,7 +526,7 @@ public static class CollectionScanner
         }
         catch (Exception ex)
         {
-            result.Messages.Add(Error("RULE_NOT_FOUND",
+            result.Messages.Add(Error(BuildErrorCodes.RuleNotFound,
                 string.Concat("Failed to resolve ", ruleType, " '", className, "' at ", collectPath, ": ", ex.Message),
                 collectPath));
             return null;
@@ -579,7 +581,7 @@ public static class CollectionScanner
 
             if (!seen.Add(guid))
             {
-                result.Messages.Add(Error("DUPLICATE_GUID",
+                result.Messages.Add(Error(BuildErrorCodes.DuplicateGuid,
                     string.Concat("Duplicate GUID in result: ", guid, " (", assets[i].AssetPath, ")."),
                     assets[i].AssetPath));
                 return false;
@@ -630,26 +632,14 @@ public static class CollectionScanner
 
     #region Private — Helpers: Messages
 
-    private static ScanMessage Error(string code, string message, string collectorPath)
+    private static BuildMessage Error(string code, string message, string source)
     {
-        return new ScanMessage
-        {
-            Severity = ScanSeverity.Error,
-            Code = code,
-            Message = message,
-            CollectorPath = collectorPath
-        };
+        return BuildMessage.Error(code, message, source);
     }
 
-    private static ScanMessage Warning(string code, string message, string collectorPath)
+    private static BuildMessage Warning(string code, string message, string source)
     {
-        return new ScanMessage
-        {
-            Severity = ScanSeverity.Warning,
-            Code = code,
-            Message = message,
-            CollectorPath = collectorPath
-        };
+        return BuildMessage.Warning(code, message, source);
     }
 
     #endregion

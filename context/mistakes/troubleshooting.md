@@ -66,6 +66,12 @@
 - **解决**: 用 `HotfixContext` 承载共享状态（BuildIndex/TargetPackageName/RemoteUrlRoot/TargetGUIDRoot），HotfixManager 只控制公共步骤与事件回调；Legacy/AB 后端各自负责 `LoadLocalVersion / FetchRemoteVersion / GetBundleDownloadList / PostDownload`
 - **预防**: 后续再扩热更链路时，先判断逻辑属于“公共编排”还是“后端差异”，不要重新把网络请求、版本文件格式判断、后处理写回 HotfixManager
 
+### E1-3 PATH_NOT_FOUND 严重级别与计划规格不一致
+- **现象**: `CollectionScanner.cs` 对 `PATH_NOT_FOUND` 使用了 `Error` (中止扫描)，但 `plan-E1-3.md` 错误条件表明确指定为 `Warning` (继续扫描)
+- **原因**: 实现时凭记忆写代码，未逐行对照计划中的错误条件表格（7 条件 × 4 列）。"path not found" 听起来像 Error，但计划理由是该 Collector 异常不影响同 Package 其他 Collector
+- **解决**: 修正为 `Warning` 级别 + 不 return false。将随 R1-B3（统一错误架构改造）一并修复，届时所有消息构造迁移到 `BuildMessage.Warning()` 工厂方法
+- **预防**: 实现枚举式条件表（错误码表/配置表/状态机）时，必须逐行对齐源码与规格，不能凭记忆
+
 ### 新增 Unity 脚本后 `dotnet build` 没有覆盖到实际改动
 - **现象**: 新脚本已经落盘，但外部执行 `dotnet build XLuaHotfix.sln` 时看不到对应编译结果，容易误判为“代码没问题”或“验证已通过”
 - **原因**: 当前项目没有为 FYAsset 新构建链路单独建立 asmdef，外部 `dotnet build` 依赖 Unity 生成的 `Assembly-CSharp.csproj` / `Assembly-CSharp-Editor.csproj` 编译项；新增文件如果尚未被项目文件包含，就不会进入这条验证链路
