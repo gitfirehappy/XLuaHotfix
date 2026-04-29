@@ -138,7 +138,7 @@ Responsibilities:
 
 ### `NetworkDownloader`
 
-- shared helper under `Assets/FYAsset/Scripts/Helpers/Helper/`
+- shared helper under `Assets/FYAsset/Scripts/Helpers/`
 - used by both hotfix backends
 - provides text/file download primitives instead of backend-specific download code
 
