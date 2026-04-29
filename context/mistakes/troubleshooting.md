@@ -66,6 +66,12 @@
 - **解决**: 用 `HotfixContext` 承载共享状态（BuildIndex/TargetPackageName/RemoteUrlRoot/TargetGUIDRoot），HotfixManager 只控制公共步骤与事件回调；Legacy/AB 后端各自负责 `LoadLocalVersion / FetchRemoteVersion / GetBundleDownloadList / PostDownload`
 - **预防**: 后续再扩热更链路时，先判断逻辑属于“公共编排”还是“后端差异”，不要重新把网络请求、版本文件格式判断、后处理写回 HotfixManager
 
+### HandleRegistry 与 AssetCache 引用计数不同步导致 use-after-free 风险
+- **现象**: 同一资源通过 LoadByAddress 创建多个 AssetHandle 后，如果混用直接 UnloadAsset(key) 和 Handle.Release()，先释放的 Handle 可能触发 bundle.Unload(true) 销毁资源，而另一个有效 Handle 仍指向已销毁的资源
+- **原因**: AssetCache._assetCache 的全局 RefCount 和 HandleRegistry 每个 Slot 的 RefCount 是两套独立计数器。ReleaseEntry() 在任何释放路径上递减全局计数，而这个计数不区分哪个 Handle 在释放
+- **解决**: [待讨论] 方案A: 移除 AssetCache 全局计数，由 HandleRegistry 按 EntryId 追踪共享引用数；方案B: 统一所有释放走 Handle 路径，废弃直接 UnloadAsset(key)
+- **预防**: 设计双层引用计数（Handle 层 + Cache 层）时，必须明确定义计数器之间的同步协议，画出所有释放路径的状态转换图
+
 ### E1-3 PATH_NOT_FOUND 严重级别与计划规格不一致
 - **现象**: `CollectionScanner.cs` 对 `PATH_NOT_FOUND` 使用了 `Error` (中止扫描)，但 `plan-E1-3.md` 错误条件表明确指定为 `Warning` (继续扫描)
 - **原因**: 实现时凭记忆写代码，未逐行对照计划中的错误条件表格（7 条件 × 4 列）。"path not found" 听起来像 Error，但计划理由是该 Collector 异常不影响同 Package 其他 Collector

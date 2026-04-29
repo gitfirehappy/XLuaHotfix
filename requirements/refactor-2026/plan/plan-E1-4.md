@@ -1,8 +1,8 @@
 # Sub-Plan E1-4: Editor UI — BuildPipelineWindow + Collector Panel
 
 > **Risk**: Low (Editor-only UI, no runtime impact)
-> **Dependencies**: E1-1 (data model, enums, **including IGroupRule**), E1-2 (default rules for dropdown), E1-3 (IgnorePatterns field on Collector)
-> **Status**: ⚠️ Approved, needs plan update (2026-04-26 audit: add GroupRule dropdown + RuleDropdownHelper IGroupRule scanning) `[审计修正]`
+> **Dependencies**: E1-1 (data model, enums, **including IGroupRule**), E1-2 (default rules for dropdown), E1-3 (IgnorePatterns field on Collector), R1 (BuildMessage/BuildSeverity unified types)
+> **Status**: Approved, plan synced (2026-04-27: aligned with R1 error handling + terminology unification + GroupRule audit)
 
 ---
 
@@ -84,7 +84,8 @@ BuildPipelineWindow holds a `IBuildPipelinePanel[]` array and routes to the acti
 │   ▶ 📁 audio        │ │ AddressRule: [AddressByFile ▾] ││
 │ ▶ 📦 builtin        │ │ PackRule: [PackByCollect   ▾] ││
 │                      │ │ FilterRule: [CollectAll    ▾] ││
-│                      │ │ Tags: [+] ui, panel           ││
+│                      │ │ GroupRule: [GroupAll       ▾] ││
+│                      │ │ Labels: [+] ui, panel           ││
 │                      │ │ IgnorePatterns: [+] *.bak     ││
 │                      │ └───────────────────────────────┘│
 ├──────────────────────┴──────────────────────────────────┤
@@ -172,7 +173,8 @@ Renders different fields based on selected node type. Uses SerializedObject/Seri
 | Field | Widget |
 |-------|--------|
 | GroupName | EditorGUILayout.TextField |
-| Tags | ReorderableList of string |
+| Enabled | EditorGUILayout.Toggle (default: true) — when false, E1-3 CollectionScanner skips this Group |
+| Labels | ReorderableList of string |
 
 ### Collector Selected
 
@@ -185,7 +187,7 @@ Renders different fields based on selected node type. Uses SerializedObject/Seri
 | PackRuleName | RuleDropdownHelper.Popup (IPackRule implementations) |
 | FilterRuleName | RuleDropdownHelper.Popup (IFilterRule implementations) |
 | GroupRuleName | RuleDropdownHelper.Popup (IGroupRule implementations) `[审计新增]` |
-| Tags | ReorderableList of string |
+| Labels | ReorderableList of string |
 | IgnorePatterns | ReorderableList of string |
 
 ---
@@ -202,6 +204,7 @@ public static class RuleDropdownHelper
     public static string AddressRulePopup(Rect rect, string currentValue);
     public static string PackRulePopup(Rect rect, string currentValue);
     public static string FilterRulePopup(Rect rect, string currentValue);
+    public static string GroupRulePopup(Rect rect, string currentValue);   // 2026-04-26 audit
     
     // Force re-scan (called when new rules are added)
     public static void ClearCache();
@@ -218,24 +221,17 @@ Scan filters: concrete classes only (not abstract, not interface), must have par
 
 Static utility class. Called automatically when SO is modified (ApplyModifiedProperties returns true).
 
+Uses the unified `BuildMessage` / `BuildSeverity` types from R1 (plan-R1.md) — no separate validation-specific error types.
+
 ```csharp
 public static class CollectorSettingValidator
 {
-    public static List<ValidationMessage> Validate(CollectorSetting setting);
+    /// <summary>Returns empty list when no issues found.</summary>
+    public static List<BuildMessage> Validate(CollectorSetting setting);
 }
-
-public class ValidationMessage
-{
-    public ValidationSeverity Severity;  // Error, Warning
-    public string Code;
-    public string Message;
-    public int PackageIndex;    // -1 if global
-    public int GroupIndex;      // -1 if Package-level
-    public int CollectorIndex;  // -1 if Group-level
-}
-
-public enum ValidationSeverity { Warning = 0, Error = 1 }
 ```
+
+`BuildMessage.Source` encodes the tree path, e.g. `"Package[0].Group[1].Collector[2]"`. The Validator does NOT need its own `PackageIndex/GroupIndex/CollectorIndex` fields — `Source` carries this information as a human-readable path.
 
 ### Validation Rules (9 items)
 
@@ -267,8 +263,8 @@ Bottom area of Collector panel. Only visible when messages exist. Each message s
 | CollectorPanel.cs | Build/Collector/Editor/UI/ | Editor | ~120 | Collector area coordinator: TreeView + PropertyPanel + Validator display |
 | CollectorTreeView.cs | Build/Collector/Editor/UI/ | Editor | ~280 | IMGUI TreeView: 3-level tree + drag reorder + right-click menus |
 | CollectorPropertyPanel.cs | Build/Collector/Editor/UI/ | Editor | ~220 | Property panel: Package/Group/Collector field editors |
-| CollectorSettingValidator.cs | Build/Collector/Editor/ | Editor | ~100 | 9-rule validation + ValidationMessage + ValidationSeverity |
-| RuleDropdownHelper.cs | Build/Collector/Editor/UI/ | Editor | ~70 | Rule reflection scan + cache + Popup rendering |
+| CollectorSettingValidator.cs | Build/Collector/Editor/ | Editor | ~80 | 9-rule validation, returns List\<BuildMessage\> |
+| RuleDropdownHelper.cs | Build/Collector/Editor/UI/ | Editor | ~80 | Rule reflection scan + cache + 4 Popup methods (Address/Pack/Filter/Group) |
 
 All paths relative to `Assets/FYAsset/Scripts/`.
 
@@ -335,7 +331,21 @@ All paths relative to `Assets/FYAsset/Scripts/`.
 - [x] Agree to right-click context menus (Add/Delete/Duplicate per node type)
 - [x] Agree to RuleDropdownHelper reflection scan + Popup for rule selection
 - [x] Agree to new Collector auto-filling default rule names
-- [x] Agree to save-time validation (9 rules) with bottom-area result display
+- [x] Agree to save-time validation (9 rules) using unified BuildMessage/BuildSeverity from R1 — no separate ValidationMessage type
 - [x] Agree to IBuildPipelinePanel interface for panel abstraction
 - [x] Agree to 8 new files + 1 modified file
 - [x] Agree to collection preview deferred until E1-3 is implemented
+- [x] Agree to Labels terminology (not Tags) on Group and Collector property panels `[2026-04-27 sync]`
+- [x] Agree to RuleDropdownHelper scanning all 4 rule interfaces (Address/Pack/Filter/Group) `[2026-04-27 sync]`
+
+---
+
+## Change Log
+
+| Date | Change |
+|------|--------|
+| 2026-04-23 | Initial version. Approved by developer |
+| 2026-04-27 | R1 alignment: ValidationMessage→BuildMessage, ValidationSeverity→BuildSeverity, eliminated duplicate error types |
+| 2026-04-27 | Terminology sync: Tags→Labels on Group/Collector property panels |
+| 2026-04-27 | Audit fix: RuleDropdownHelper GroupRulePopup method added (4 instead of 3) |
+| 2026-04-27 | Dependencies updated: R1 (BuildMessage/BuildSeverity) added as prerequisite |

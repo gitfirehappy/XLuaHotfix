@@ -39,7 +39,7 @@ The ABManifest runtime structure (`ABManifest`, `ManifestAssetEntry`, `ManifestB
 | BundleBuildInfo.Size | FileSize | Direct mapping |
 | default false | Encrypted | No encryption in V1 |
 | Inferred from bundle contents | BundleType | See D4 |
-| empty list | Tags | Reserved for B9/future download strategy |
+| Aggregated from CollectedAssetInfo.Tags | Tags | Union of all asset Tags within the bundle (see D6) |
 | BundleDependencyGraph edges | DependBundleIndices | int[] pointing to BundleEntries indices |
 
 ### D3: FileCRC — Computed at Build Time
@@ -82,9 +82,13 @@ For each Bundle in BundleEntries:
 
 Name→index resolution via `Dictionary<string, int> bundleNameToIndex` built from `BundleBuildInfo.BundleName` (logical name) → position in list.
 
-### D6: Bundle-Level Tags — Empty in E6
+### D6: Bundle-Level Tags — Aggregated from Asset Tags
 
-`ManifestBundleEntry.Tags` is reserved for Bundle-level download strategy tags ("必装", "DLC-1"). Population rules are deferred to B9 (incremental download adaptation) or future sub-plans. E6 sets empty list.
+`ManifestBundleEntry.Tags` = union of `CollectedAssetInfo.Tags` across all assets in the same bundle (deduplicated). Tags are download strategy identifiers ("startup", "background", "on-demand").
+
+Source chain: `Collector.Tags ∪ Group.Tags` (E1-3 merge at asset level) → `CollectedAssetInfo.Tags` (per-asset) → E6 union aggregation (per-bundle) → `ManifestBundleEntry.Tags`.
+
+Multiple Collectors routing to the same Bundle (via same Group + PackRule) → all their Tags union into the Bundle's Tags. Simple set union, no frequency counting or priority rules needed.
 
 ---
 
@@ -199,7 +203,7 @@ None. All runtime structures (`ABManifest`, `ManifestAssetEntry`, `ManifestBundl
 - [ ] Agree to BundleBuildInfo→ManifestBundleEntry mapping (D2) including CRC32 computation
 - [ ] Agree to >80% threshold BundleType inference (D4) with PrimaryType mapping table
 - [ ] Agree to DependBundleIndices resolution from BundleDependencyGraph (D5)
-- [ ] Agree to Bundle-level Tags = empty in E6 (D6)
+- [ ] Agree to Bundle-level Tags = union of asset Tags within each bundle (D6)
 - [ ] Agree to AutoAddress = true for V1 (no manual override yet)
 - [ ] Agree to 2 new files + 0 modified files + 7 tasks
 - [ ] Agree E6 does NOT need sub-plan split

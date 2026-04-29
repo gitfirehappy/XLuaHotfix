@@ -4,7 +4,7 @@ using System.Collections.Generic;
 /// <summary>
 /// 资源索引接口。
 /// 
-/// V1 保留原有字符串查询方法（向后兼容 AddressableLabelsConfig）；
+/// 当前保留原有字符串查询方法（向后兼容 AddressableLabelsConfig）；
 /// 新增条目级查询方法，供 Resolve/Load 使用。
 ///
 /// 旧实现（AddressableLabelsConfig）通过默认方法抛 NotSupportedException，
