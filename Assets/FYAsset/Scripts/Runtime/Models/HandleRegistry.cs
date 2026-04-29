@@ -15,8 +15,8 @@ using UnityEngine;
 ///   默认单 Owner（Load=1, Release→0→释放），需要共享时显式 Retain() 增加引用计数。
 ///
 /// 线程安全：
-/// - V1 仅在主线程操作（Unity API 限制：AssetBundle 加载必须主线程）。
-/// - 如 Phase 9 H1 引入多线程调度，在 Alloc/Retain/Release 加 Interlocked 原子操作即可。
+/// - 当前仅在主线程操作（Unity API 限制：AssetBundle 加载必须主线程）。
+/// - 若后续 引入多线程调度，在 Alloc/Retain/Release 加 Interlocked 原子操作即可。
 ///
 /// 访问级别：internal — 不暴露给框架消费者，仅 AssetHandle&lt;T&gt; 和 AssetPackageManager 使用。
 /// </summary>
@@ -60,6 +60,12 @@ internal static class HandleRegistry
     private static int _activeCount = 0;
     private static readonly Stack<int> _freeList = new();
 
+    /// <summary>
+    /// Per-EntryId 活跃 Handle 计数。Alloc +1，Slot.RefCount 归零时 -1。
+    /// 归零时触发释放回调——确保同一 EntryId 的所有 Handle 都释放后才卸载 Asset。
+    /// </summary>
+    private static readonly Dictionary<string, int> _entryActiveCounts = new();
+
     #endregion
 
     #region 分配
@@ -95,6 +101,15 @@ internal static class HandleRegistry
         slot.BundleName = bundleName;
         slot.Error = error;
         slot.ReleaseCallback = releaseCallback;
+
+        // 递增 EntryId 级活跃计数
+        if (!string.IsNullOrEmpty(entryId))
+        {
+            if (_entryActiveCounts.TryGetValue(entryId, out int c))
+                _entryActiveCounts[entryId] = c + 1;
+            else
+                _entryActiveCounts[entryId] = 1;
+        }
 
         _activeCount++;
         return (id, slot.Generation);
@@ -185,10 +200,27 @@ internal static class HandleRegistry
 
         if (slot.RefCount <= 0)
         {
-            // 执行释放回调
-            if (slot.ReleaseCallback != null && !string.IsNullOrEmpty(slot.EntryId))
+            // EntryId-aware: 仅当该 EntryId 的所有 Handle 都释放后才触发回调
+            bool shouldFireCallback = false;
+            string eid = slot.EntryId;
+
+            if (!string.IsNullOrEmpty(eid) && _entryActiveCounts.TryGetValue(eid, out int activeCount))
             {
-                slot.ReleaseCallback(slot.EntryId);
+                activeCount--;
+                if (activeCount <= 0)
+                {
+                    _entryActiveCounts.Remove(eid);
+                    shouldFireCallback = true;
+                }
+                else
+                {
+                    _entryActiveCounts[eid] = activeCount;
+                }
+            }
+
+            if (shouldFireCallback && slot.ReleaseCallback != null)
+            {
+                slot.ReleaseCallback(eid);
             }
 
             // 清理 Slot 状态，递增 Generation
@@ -235,6 +267,7 @@ internal static class HandleRegistry
         _count = 0;
         _activeCount = 0;
         _freeList.Clear();
+        _entryActiveCounts.Clear();
     }
 
     /// <summary>

@@ -2,12 +2,10 @@ using System.Text;
 
 /// <summary>
 /// Bundle 逻辑名组装工具 —— 将 PackRule 输出的分组键组装为标准化三段式名称。
-/// 输出不含 Hash 和 .bundle 扩展名，这些由 E5 TaskBuildBundles 追加。
+/// 输出不含 Hash 和 .bundle 扩展名，这些由 TaskBuildBundles 追加。
 /// </summary>
 public static class BundleNameBuilder
 {
-    private const string FallbackSegment = "default";
-
     #region Public Methods
 
     /// <summary>
@@ -28,7 +26,7 @@ public static class BundleNameBuilder
     private static string SanitizeSegment(string raw)
     {
         if (string.IsNullOrEmpty(raw))
-            return FallbackSegment;
+            return SystemIdentifiers.DefaultPackKey;
 
         StringBuilder sb = new StringBuilder(raw.Length);
         for (int i = 0; i < raw.Length; i++)
@@ -43,7 +41,7 @@ public static class BundleNameBuilder
         }
 
         string result = sb.ToString();
-        return result.Length > 0 ? result : FallbackSegment;
+        return result.Length > 0 ? result : SystemIdentifiers.DefaultPackKey;
     }
 
     #endregion

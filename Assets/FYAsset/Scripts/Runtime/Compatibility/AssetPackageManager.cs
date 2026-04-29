@@ -173,9 +173,16 @@ public class AssetPackageManager : Singleton<AssetPackageManager>
 
     public async Task<T> LoadAssetAsync<T>(string key) where T : UnityEngine.Object
     {
-        if (!_isInitialized) Debug.LogError("AssetPackageManager 未初始化");
+        if (!_isInitialized)
+        {
+            Debug.LogError("AssetPackageManager 未初始化");
+            return null;
+        }
 
-        return await _backend.LoadAssetAsync<T>(key);
+        var (asset, error) = await _backend.LoadAssetAsync<T>(key);
+        if (error != null)
+            Debug.LogError(error.ToString());
+        return asset;
     }
 
     public async Task<List<T>> LoadAssetByLabelAsync<T>(string label) where T : UnityEngine.Object
@@ -265,7 +272,10 @@ public class AssetPackageManager : Singleton<AssetPackageManager>
             return null;
         }
 
-        return _backend.LoadAssetSync<T>(key);
+        var (asset, error) = _backend.LoadAssetSync<T>(key);
+        if (error != null)
+            Debug.LogError(error.ToString());
+        return asset;
     }
 
     #endregion
@@ -387,15 +397,9 @@ public class AssetPackageManager : Singleton<AssetPackageManager>
     private async Task<AssetHandle<T>> LoadResolvedWithLegacyAsync<T>(RuntimeAssetEntry entry)
         where T : UnityEngine.Object
     {
-        T asset;
-        try
-        {
-            asset = await _backend.LoadAssetAsync<T>(entry.Address, entry.EntryId);
-        }
-        catch (Exception ex)
-        {
-            return new AssetHandle<T>(RuntimeMessage.LoadFailed(entry.EntryId, ex.Message));
-        }
+        var (asset, loadError) = await _backend.LoadAssetAsync<T>(entry.Address, entry.EntryId);
+        if (loadError != null)
+            return new AssetHandle<T>(loadError);
 
         if (asset == null)
             return new AssetHandle<T>(RuntimeMessage.LoadFailed(entry.EntryId, "Backend 返回 null"));
@@ -406,7 +410,10 @@ public class AssetPackageManager : Singleton<AssetPackageManager>
     private AssetHandle<T> LoadResolvedWithLegacySync<T>(RuntimeAssetEntry entry)
         where T : UnityEngine.Object
     {
-        var asset = _backend.LoadAssetSync<T>(entry.Address, entry.EntryId);
+        var (asset, loadError) = _backend.LoadAssetSync<T>(entry.Address, entry.EntryId);
+        if (loadError != null)
+            return new AssetHandle<T>(loadError);
+
         if (asset == null)
             return new AssetHandle<T>(RuntimeMessage.LoadFailed(entry.EntryId, "Backend 返回 null"));
 

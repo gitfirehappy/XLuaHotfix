@@ -32,23 +32,10 @@ public class ABPackageBackend : IPackageBackend
     /// </summary>
     private class AssetCacheEntry
     {
-        /// <summary>已加载的资产实例</summary>
         public UnityEngine.Object Asset;
-
-        /// <summary>该资产所属的 Bundle 名称（卸载时用于联动 Bundle 引用计数）</summary>
         public string BundleName;
-
-        /// <summary>资产的 EntryId（用于 UnloadByEntryId 反查）</summary>
         public string EntryId;
-
-        /// <summary>
-        /// 资产的 address（用于 ReleaseEntry 清理 _addressToEntryIds，避免回查 Manifest）。
-        /// 注：address 可重复（多个 EntryId 共享同一 address），EntryId 才是唯一键。
-        /// </summary>
         public string Address;
-
-        /// <summary>引用计数</summary>
-        public int RefCount;
     }
 
     #endregion
@@ -102,54 +89,40 @@ public class ABPackageBackend : IPackageBackend
     /// 异步加载资产（按 address/key）。
     /// 链路：key → ABManifest 解析 → ABBundleLoader 加载 Bundle → bundle.LoadAssetAsync 提取
     /// </summary>
-    public async Task<T> LoadAssetAsync<T>(string key) where T : UnityEngine.Object
+    public async Task<(T asset, RuntimeMessage error)> LoadAssetAsync<T>(string key) where T : UnityEngine.Object
     {
         if (string.IsNullOrEmpty(key))
-            throw new ArgumentException("[ABPackageBackend] LoadAssetAsync: key is null or empty");
+            return (null, RuntimeMessage.Error("INVALID_ARG", "[ABPackageBackend] LoadAssetAsync: key is null or empty"));
 
-        // 缓存命中
         var assetEntry = ResolveAssetEntryByAddress(key);
         if (assetEntry == null)
-            throw new Exception(string.Concat("[ABPackageBackend] Asset not found in manifest: ", key));
+            return (null, RuntimeMessage.NotFound(key));
 
         if (_assetCache.TryGetValue(assetEntry.EntryId, out var cached))
-        {
-            cached.RefCount++;
-            return cached.Asset as T;
-        }
+            return (cached.Asset as T, null);
 
-        var (asset, bundleName, error) = await LoadAssetInternalAsync<T>(assetEntry);
-        if (error != null)
-            throw new Exception(string.Concat("[ABPackageBackend] ", error.ToString()));
-
-        return asset;
+        var (asset, _, error) = await LoadAssetInternalAsync<T>(assetEntry);
+        return (asset, error);
     }
 
     /// <summary>
     /// 异步加载资产（扩展：附带 EntryId）。
     /// 优先按 EntryId 精确查找，回退到 address 查找。
     /// </summary>
-    public async Task<T> LoadAssetAsync<T>(string key, string entryId) where T : UnityEngine.Object
+    public async Task<(T asset, RuntimeMessage error)> LoadAssetAsync<T>(string key, string entryId) where T : UnityEngine.Object
     {
         if (string.IsNullOrEmpty(key))
-            throw new ArgumentException("[ABPackageBackend] LoadAssetAsync: key is null or empty");
+            return (null, RuntimeMessage.Error("INVALID_ARG", "[ABPackageBackend] LoadAssetAsync: key is null or empty"));
 
         var assetEntry = ResolveAssetEntry(key, entryId);
-
         if (assetEntry == null)
-            throw new Exception(string.Concat("[ABPackageBackend] Asset not found: key=", key, ", entryId=", entryId));
+            return (null, RuntimeMessage.NotFound(string.Concat("key=", key, ", entryId=", entryId ?? "")));
 
         if (_assetCache.TryGetValue(assetEntry.EntryId, out var cached))
-        {
-            cached.RefCount++;
-            return cached.Asset as T;
-        }
+            return (cached.Asset as T, null);
 
-        var (asset, bundleName, error) = await LoadAssetInternalAsync<T>(assetEntry);
-        if (error != null)
-            throw new Exception(string.Concat("[ABPackageBackend] ", error.ToString()));
-
-        return asset;
+        var (asset, _, error) = await LoadAssetInternalAsync<T>(assetEntry);
+        return (asset, error);
     }
 
     #endregion
@@ -159,70 +132,39 @@ public class ABPackageBackend : IPackageBackend
     /// <summary>
     /// 同步加载资产（按 address/key）。
     /// </summary>
-    public T LoadAssetSync<T>(string key) where T : UnityEngine.Object
+    public (T asset, RuntimeMessage error) LoadAssetSync<T>(string key) where T : UnityEngine.Object
     {
         if (string.IsNullOrEmpty(key))
-        {
-            Debug.LogError("[ABPackageBackend] LoadAssetSync: key is null or empty");
-            return null;
-        }
+            return (null, RuntimeMessage.Error("INVALID_ARG", "[ABPackageBackend] LoadAssetSync: key is null or empty"));
 
         var assetEntry = ResolveAssetEntryByAddress(key);
         if (assetEntry == null)
-        {
-            Debug.LogError(string.Concat("[ABPackageBackend] Asset not found in manifest: ", key));
-            return null;
-        }
+            return (null, RuntimeMessage.NotFound(key));
 
         if (_assetCache.TryGetValue(assetEntry.EntryId, out var cached))
-        {
-            cached.RefCount++;
-            return cached.Asset as T;
-        }
+            return (cached.Asset as T, null);
 
-        var (asset, bundleName, error) = LoadAssetInternalSync<T>(assetEntry);
-        if (error != null)
-        {
-            Debug.LogError(string.Concat("[ABPackageBackend] ", error.ToString()));
-            return null;
-        }
-
-        return asset;
+        var (asset, _, error) = LoadAssetInternalSync<T>(assetEntry);
+        return (asset, error);
     }
 
     /// <summary>
     /// 同步加载资产（扩展：附带 EntryId）。
     /// </summary>
-    public T LoadAssetSync<T>(string key, string entryId) where T : UnityEngine.Object
+    public (T asset, RuntimeMessage error) LoadAssetSync<T>(string key, string entryId) where T : UnityEngine.Object
     {
         if (string.IsNullOrEmpty(key))
-        {
-            Debug.LogError("[ABPackageBackend] LoadAssetSync: key is null or empty");
-            return null;
-        }
+            return (null, RuntimeMessage.Error("INVALID_ARG", "[ABPackageBackend] LoadAssetSync: key is null or empty"));
 
         var assetEntry = ResolveAssetEntry(key, entryId);
-
         if (assetEntry == null)
-        {
-            Debug.LogError(string.Concat("[ABPackageBackend] Asset not found: key=", key, ", entryId=", entryId));
-            return null;
-        }
+            return (null, RuntimeMessage.NotFound(string.Concat("key=", key, ", entryId=", entryId ?? "")));
 
         if (_assetCache.TryGetValue(assetEntry.EntryId, out var cached))
-        {
-            cached.RefCount++;
-            return cached.Asset as T;
-        }
+            return (cached.Asset as T, null);
 
-        var (asset, bundleName, error) = LoadAssetInternalSync<T>(assetEntry);
-        if (error != null)
-        {
-            Debug.LogError(string.Concat("[ABPackageBackend] ", error.ToString()));
-            return null;
-        }
-
-        return asset;
+        var (asset, _, error) = LoadAssetInternalSync<T>(assetEntry);
+        return (asset, error);
     }
 
     #endregion
@@ -336,7 +278,6 @@ public class ABPackageBackend : IPackageBackend
 
         if (_assetCache.TryGetValue(assetEntry.EntryId, out var cached))
         {
-            cached.RefCount++;
             return (cached.Asset as T, cached.BundleName, null);
         }
 
@@ -360,7 +301,6 @@ public class ABPackageBackend : IPackageBackend
 
         if (_assetCache.TryGetValue(assetEntry.EntryId, out var cached))
         {
-            cached.RefCount++;
             return (cached.Asset as T, cached.BundleName, null);
         }
 
@@ -472,8 +412,7 @@ public class ABPackageBackend : IPackageBackend
             Asset = asset,
             BundleName = bundleName,
             EntryId = assetEntry.EntryId,
-            Address = assetEntry.Address,
-            RefCount = 1
+            Address = assetEntry.Address
         };
 
         if (string.IsNullOrEmpty(assetEntry.Address))
@@ -495,9 +434,6 @@ public class ABPackageBackend : IPackageBackend
     {
         if (string.IsNullOrEmpty(entryId)) return;
         if (!_assetCache.TryGetValue(entryId, out var entry)) return;
-
-        entry.RefCount--;
-        if (entry.RefCount > 0) return;
 
         _assetCache.Remove(entryId);
 

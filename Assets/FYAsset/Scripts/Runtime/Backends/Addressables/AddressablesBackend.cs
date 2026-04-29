@@ -21,12 +21,12 @@ public class AddressablesBackend : IPackageBackend
         return Task.CompletedTask;
     }
 
-    public async Task<T> LoadAssetAsync<T>(string key) where T : UnityEngine.Object
+    public async Task<(T asset, RuntimeMessage error)> LoadAssetAsync<T>(string key) where T : UnityEngine.Object
     {
         if (_resourceCache.TryGetValue(key, out var entry) && entry.IsValid)
         {
             entry.ReferenceCount++;
-            return entry.Handle.Result as T;
+            return (entry.Handle.Result as T, null);
         }
 
         var handle = Addressables.LoadAssetAsync<T>(key);
@@ -35,19 +35,19 @@ public class AddressablesBackend : IPackageBackend
         if (handle.IsDone && handle.Status == AsyncOperationStatus.Succeeded)
         {
             AddToCache(key, handle);
-            return handle.Result as T;
+            return (handle.Result as T, null);
         }
 
         Addressables.Release(handle);
-        throw new Exception($"[AddressablesBackend] 加载资源失败: {key}");
+        return (null, RuntimeMessage.LoadFailed(key, $"[AddressablesBackend] 加载资源失败: {key}"));
     }
 
-    public T LoadAssetSync<T>(string key) where T : UnityEngine.Object
+    public (T asset, RuntimeMessage error) LoadAssetSync<T>(string key) where T : UnityEngine.Object
     {
         if (_resourceCache.TryGetValue(key, out var entry) && entry.IsValid)
         {
             entry.ReferenceCount++;
-            return entry.Handle.Result as T;
+            return (entry.Handle.Result as T, null);
         }
 
         var handle = Addressables.LoadAssetAsync<T>(key);
@@ -56,12 +56,12 @@ public class AddressablesBackend : IPackageBackend
         if (handle.Status == AsyncOperationStatus.Succeeded)
         {
             AddToCache(key, handle);
-            return result;
+            return (result, null);
         }
 
         Debug.LogError($"[AddressablesBackend] 同步加载失败: {key}");
         Addressables.Release(handle);
-        return null;
+        return (null, RuntimeMessage.LoadFailed(key, $"[AddressablesBackend] 同步加载失败: {key}"));
     }
 
     public void UnloadAsset(string key)

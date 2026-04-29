@@ -5,19 +5,17 @@ using System.IO;
 /// </summary>
 public sealed class PackByCollectPath : IPackRule
 {
-    private const string FallbackPackKey = "default";
-
     #region Public Methods
 
     /// <summary>返回 CollectPath 末段目录名作为分组键</summary>
     public string GetPackKey(PackRuleContext ctx)
     {
         if (string.IsNullOrEmpty(ctx.CollectPath))
-            return FallbackPackKey;
+            return SystemIdentifiers.DefaultPackKey;
 
         string normalizedPath = ctx.CollectPath.Replace('\\', '/').TrimEnd('/');
         string lastSegment = Path.GetFileName(normalizedPath);
-        return string.IsNullOrEmpty(lastSegment) ? FallbackPackKey : lastSegment;
+        return string.IsNullOrEmpty(lastSegment) ? SystemIdentifiers.DefaultPackKey : lastSegment;
     }
 
     #endregion

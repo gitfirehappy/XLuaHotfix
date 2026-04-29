@@ -38,9 +38,7 @@ public sealed class PackByDirectory : IPackRule
 
     private static string Fallback(PackRuleContext ctx)
     {
-        string path = (ctx.CollectPath ?? string.Empty).Replace('\\', '/').TrimEnd('/');
-        string last = Path.GetFileName(path);
-        return string.IsNullOrEmpty(last) ? "default" : last;
+        return new PackByCollectPath().GetPackKey(ctx);
     }
 
     #endregion

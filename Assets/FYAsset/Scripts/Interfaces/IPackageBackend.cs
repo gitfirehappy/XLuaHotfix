@@ -12,9 +12,9 @@ public interface IPackageBackend
 
     #region 资源加载
 
-    Task<T> LoadAssetAsync<T>(string key) where T : UnityEngine.Object;
+    Task<(T asset, RuntimeMessage error)> LoadAssetAsync<T>(string key) where T : UnityEngine.Object;
 
-    T LoadAssetSync<T>(string key) where T : UnityEngine.Object;
+    (T asset, RuntimeMessage error) LoadAssetSync<T>(string key) where T : UnityEngine.Object;
 
     #endregion
 
@@ -32,20 +32,12 @@ public interface IPackageBackend
 
     #region 带 EntryId 的重载（default method，不破坏现有实现）
 
-    /// <summary>
-    /// 异步加载资源，附带 EntryId 用于句柄追踪。
-    /// 默认实现委托给基于 key 的加载方法。
-    /// </summary>
-    Task<T> LoadAssetAsync<T>(string key, string entryId) where T : UnityEngine.Object
+    Task<(T asset, RuntimeMessage error)> LoadAssetAsync<T>(string key, string entryId) where T : UnityEngine.Object
     {
         return LoadAssetAsync<T>(key);
     }
 
-    /// <summary>
-    /// 同步加载资源，附带 EntryId。
-    /// 默认实现委托给基于 key 的加载方法。
-    /// </summary>
-    T LoadAssetSync<T>(string key, string entryId) where T : UnityEngine.Object
+    (T asset, RuntimeMessage error) LoadAssetSync<T>(string key, string entryId) where T : UnityEngine.Object
     {
         return LoadAssetSync<T>(key);
     }
