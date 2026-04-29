@@ -139,7 +139,7 @@ public class ABHotfixBackend : IHotfixPipeline
             if (File.Exists(alternateFilePath))
                 File.Delete(alternateFilePath);
 
-            File.WriteAllBytes(filePath, _remoteManifestData);
+            FileHelper.WriteAllBytesAtomic(filePath, _remoteManifestData);
             Debug.Log($"[ABHotfixBackend] 已写入热更清单: {filePath}");
             return Task.FromResult(true);
         }

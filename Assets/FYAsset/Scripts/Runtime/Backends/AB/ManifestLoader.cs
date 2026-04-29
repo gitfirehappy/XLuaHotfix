@@ -88,7 +88,7 @@ public static class ManifestLoader
 
         try
         {
-            byte[] data = await Task.Run(() => File.ReadAllBytes(path));
+            byte[] data = await FileHelper.ReadAllBytesAsync(path);
 
             if (data == null || data.Length == 0)
             {

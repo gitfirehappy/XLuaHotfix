@@ -518,42 +518,11 @@ public static class HotfixManager
     private static async Task<BuildIndexData> LoadBuildIndexFromStreamingAssets()
     {
         string path = Path.Combine(Application.streamingAssetsPath, "BuildIndex.json");
-        
+
         try
         {
-#if UNITY_ANDROID && !UNITY_EDITOR
-            // Android 需要使用 UnityWebRequest 读取 StreamingAssets
-            using (var request = UnityWebRequest.Get(path))
-            {
-                var operation = request.SendWebRequest();
-                while (!operation.isDone)
-                {
-                    await Task.Yield();
-                }
-                
-                if (request.result == UnityWebRequest.Result.Success)
-                {
-                    string json = request.downloadHandler.text;
-                    return SerializationUtility.DeserializeJson<BuildIndexData>(json);
-                }
-                else
-                {
-                    Debug.LogError($"[HotfixManager] 读取 BuildIndex 失败: {request.error}");
-                    return null;
-                }
-            }
-#else
-            // 其他平台可直接读取文件
-            if (File.Exists(path))
-            {
-                return SerializationUtility.ReadFromFile<BuildIndexData>(path);
-            }
-            else
-            {
-                Debug.LogError($"[HotfixManager] BuildIndex.json 不存在: {path}");
-                return null;
-            }
-#endif
+            string json = await FileHelper.ReadAllTextAsync(path);
+            return SerializationUtility.DeserializeJson<BuildIndexData>(json);
         }
         catch (Exception e)
         {
