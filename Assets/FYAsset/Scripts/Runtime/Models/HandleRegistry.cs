@@ -170,9 +170,10 @@ internal static class HandleRegistry
     }
 
     /// <summary>
-    /// 减少引用计数。归零时执行释放回调 + 递增 Generation + 回收 Slot。
+    /// 减少引用计数。归零时检查 _entryActiveCounts，仅当该 EntryId 的所有 Handle 都释放后才触发回调。
+    /// 之后递增 Generation + 回收 Slot。
     /// Handle 过期（拷贝体或已释放）时输出警告并返回 false。
-    /// 返回 true 表示引用计数归零并触发了释放。
+    /// 返回 true 表示 Slot 引用计数归零并已回收。
     /// </summary>
     public static bool Release(int handleId, int generation)
     {

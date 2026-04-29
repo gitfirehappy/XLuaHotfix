@@ -1,6 +1,6 @@
 # Collector Framework
 
-Last reviewed: 2026-04-25
+Last reviewed: 2026-04-29
 
 ## Scope
 
@@ -113,6 +113,8 @@ Important constraint:
 - the rule interfaces and reflection-based resolver exist
 - classification contracts exist
 - the framework already defines the build-time vocabulary needed for later pipeline work
+- `CollectionScanner` produces `ScanResult` containing `BuildMessage` entries via factory methods (`BuildMessage.Error` / `BuildMessage.Warning`)
+- `BuildSeverity { Warning, Error }` × `Code` (string, from `BuildErrorCodes`) × `Message` × `Source` (file/collector path)
 
 ## What This Document Does Not Claim
 

@@ -1,6 +1,6 @@
 # Runtime Resource Loading
 
-Last reviewed: 2026-04-25
+Last reviewed: 2026-04-29
 
 ## Scope
 
@@ -45,12 +45,14 @@ This is still the default assumption unless code explicitly selects the AB path.
 
 When `Constants.USE_AB_BACKEND` is `true`:
 
-- `ManifestLoader.LoadAsync()` loads the AB manifest
+- `ManifestLoader.LoadAsync()` loads the AB manifest via `FileHelper.ReadAllBytesAsync`
 - `ABAssetIndex` becomes the active `IAssetIndex`
 - `ABBundleLoader` manages bundle loading and dependency traversal
 - `ABPackageBackend` becomes the active `IPackageBackend`
 
 Initialization is fail-fast. If AB manifest loading fails, the manager does not silently fall back to the Legacy path.
+
+All public load methods return `(T asset, RuntimeMessage error)` tuples — errors are values, not exceptions. The internal tuple API `LoadAssetTupleAsync/Sync` returns `(T, string bundleName, RuntimeMessage)` and is used by `AssetPackageManager` for Handle allocation.
 
 ## Resolve-And-Handle API
 
@@ -70,8 +72,14 @@ Main methods:
 
 ### Load stage
 
-- Legacy path: backend returns the asset directly and the manager wraps unload logic into a handle callback
-- AB path: backend returns `(asset, bundleName, error)` and the manager allocates a handle whose release callback calls `ABPackageBackend.UnloadByEntryId`
+- Legacy path: backend returns `(asset, error)` tuple and the manager wraps unload logic into a handle callback
+- AB path: backend returns `(asset, bundleName, error)` and the manager allocates a handle via `HandleRegistry.Alloc`; the release callback calls `ABPackageBackend.UnloadByEntryId` only when `HandleRegistry._entryActiveCounts` for that EntryId reaches zero (all Handles released)
+
+### Handle lifecycle
+
+- `HandleRegistry` tracks per-EntryId active Handle count via `_entryActiveCounts` dictionary
+- `Alloc` increments the count; `Release` decrements and fires the unload callback only when the count reaches zero
+- This prevents use-after-free when multiple Handles reference the same asset
 
 ## Index And Backend Abstractions
 
@@ -91,12 +99,18 @@ Current implementations:
 
 ### `IPackageBackend`
 
-Represents the runtime loading backend.
+Represents the runtime loading backend. All load methods return `(T, RuntimeMessage)` tuples — errors are never thrown for expected failure paths.
+
+```csharp
+Task<(T asset, RuntimeMessage error)> LoadAssetAsync<T>(string key);
+(T asset, RuntimeMessage error) LoadAssetSync<T>(string key);
+// Plus entryId overloads with the same tuple return pattern.
+```
 
 Current implementations:
 
-- `AddressablesBackend`
-- `ABPackageBackend`
+- `AddressablesBackend` — wraps Addressables exceptions as `RuntimeMessage`
+- `ABPackageBackend` — uses internal `LoadAssetInternal*` methods that return `RuntimeMessage` directly
 
 ## Hotfix Orchestration Boundary
 
@@ -127,6 +141,37 @@ Responsibilities:
 - shared helper under `Assets/FYAsset/Scripts/Helpers/Helper/`
 - used by both hotfix backends
 - provides text/file download primitives instead of backend-specific download code
+
+### `FileHelper`
+
+- cross-platform file I/O utility, same tier as `NetworkDownloader` / `PathManager`
+- Android StreamingAssets reads go through `UnityWebRequest`; other platforms use `Task.Run(File.ReadAllBytes)`
+- atomic writes via temp-file + rename pattern (`WriteAllBytesAtomic` / `WriteAllTextAtomic`)
+- safe deletion via `TryDelete` / `TryDeleteDirectory` that return bool and never throw
+- used by `ManifestLoader`, `HotfixManager.LoadBuildIndexFromStreamingAssets`, and `ABHotfixBackend.PostDownloadAsync`
+
+## Error Handling Architecture
+
+### Runtime errors: `RuntimeMessage`
+
+- `RuntimeSeverity { Warning, Error }` × `Code` (string) × `Message` (string)
+- constructed exclusively through static factory methods (`RuntimeMessage.NotFound`, `.Error`, `.Warning`, etc.)
+- `RuntimeErrorCodes` holds all code constants as `const string`
+- all `IPackageBackend` load methods return `(T, RuntimeMessage)` tuples — errors are values
+- `AssetHandle<T>` carries a `RuntimeMessage` through `HandleRegistry` for caller inspection
+
+### Build-time errors: `BuildMessage`
+
+- `BuildSeverity { Warning, Error }` × `Code` (string) × `Message` (string) × `Source` (string)
+- used by `CollectionScanner` and the collector framework for diagnostics during build
+- factory methods: `BuildMessage.Error(code, msg, source)` / `BuildMessage.Warning(code, msg, source)`
+- `BuildErrorCodes` holds all code constants
+
+### Design principles
+
+- Build-time and runtime error types are intentionally separate (different assemblies, runtime has no `Source`)
+- String `Code` on both sides — extensible without touching a central enum
+- `Warning` severity on both sides — runtime currently has zero Warning consumers (infrastructure reserved for degraded loading / retry recovery)
 
 ## Current Truth vs Refactor Direction
 

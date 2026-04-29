@@ -21,6 +21,14 @@
 - LINQ must not be used in gameplay-sensitive hot paths, repeated runtime query loops, asset resolve/filter core paths, or public runtime APIs whose call frequency is uncertain.
 - If a method may be used both during startup and gameplay, default to loop-based implementations (`for`, `foreach`, `Dictionary`, `HashSet`, cached lookups) instead of LINQ.
 
+## Error Handling Rules
+- Construct `RuntimeMessage` / `BuildMessage` exclusively through static factory methods; never use bare `new`.
+- Public load APIs return `(T, RuntimeMessage)` tuples — errors are values, not exceptions.
+- Use `RuntimeErrorCodes` / `BuildErrorCodes` constants for the `Code` field; do not hardcode error code strings.
+- `RuntimeSeverity.Error` for operation failures; `RuntimeSeverity.Warning` is reserved for degraded-but-usable paths (currently zero consumers — infrastructure only).
+- Build-time diagnostics use `BuildMessage` with a `Source` field identifying the file or collector path.
+- `FileHelper.TryDelete` / `TryDeleteDirectory` return `bool` and never throw — callers decide whether to care.
+
 ## Git Rules
 - Commit types: `feat`, `fix`, `refactor`, `docs`, `chore`.
 - Run XLua Generate Code before commits that affect XLua-exposed APIs.

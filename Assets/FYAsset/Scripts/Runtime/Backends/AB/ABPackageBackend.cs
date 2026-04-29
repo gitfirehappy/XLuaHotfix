@@ -11,12 +11,13 @@ using UnityEngine;
 /// - 通过 ABManifest 将 address/entryId 解析到 ManifestAssetEntry → BundleEntry
 /// - 委托 ABBundleLoader 处理 Bundle 文件加载/卸载（含依赖和引用计数）
 /// - 使用 AssetBundle.LoadAsset/LoadAssetAsync 从 Bundle 中提取资产
-/// - 维护 Asset 级缓存与引用计数，卸载时联动 ABBundleLoader 的 Bundle 引用计数
+/// - 维护 Asset 级缓存；引用计数由 HandleRegistry._entryActiveCounts 统一管理
 /// - 支持扩展接口：LoadAssetAsync(key, entryId) / LoadAssetSync(key, entryId) / UnloadByEntryId
+/// - 公开 API 统一返回 (T, RuntimeMessage) 元组，不抛异常
 ///
-/// 引用计数流程：
-/// Load → AssetCache[key].RefCount++ → BundleLoader.LoadBundle(bundleName).RefCount++
-/// Unload → AssetCache[key].RefCount-- → 归零时移除 → BundleLoader.UnloadBundle(bundleName).RefCount--
+/// 引用计数流程（R2 重构后）：
+/// Load → HandleRegistry.Alloc → _entryActiveCounts[entryId]++
+/// Release → HandleRegistry.Release → _entryActiveCounts[entryId]-- → 归零时回调 ReleaseEntry
 ///
 /// 使用方式：
 /// 1. AssetPackageManager.Initialize() 创建 ABBundleLoader + ABPackageBackend
@@ -172,7 +173,8 @@ public class ABPackageBackend : IPackageBackend
     #region IPackageBackend · 卸载
 
     /// <summary>
-    /// 按 address/key 卸载资产。引用计数 -1，归零时移除缓存并联动 Bundle 卸载。
+    /// 按 address/key 卸载资产。直接移除缓存并联动 Bundle 卸载。
+    /// 注：Handle 路径的调用方应先通过 HandleRegistry 确保所有 Handle 已释放。
     /// </summary>
     public void UnloadAsset(string key)
     {
@@ -192,8 +194,8 @@ public class ABPackageBackend : IPackageBackend
     }
 
     /// <summary>
-    /// 按 EntryId 卸载资产。
-    /// 通过 EntryId → address 反查，委托给 UnloadAsset(key)。
+    /// 按 EntryId 卸载资产。直接移除缓存并联动 Bundle 卸载。
+    /// 由 HandleRegistry 回调触发；仅在 _entryActiveCounts 归零时调用。
     /// </summary>
     public void UnloadByEntryId(string entryId)
     {
@@ -428,7 +430,7 @@ public class ABPackageBackend : IPackageBackend
     }
 
     /// <summary>
-    /// 按 EntryId 释放资产缓存并联动 Bundle 引用计数。
+    /// 按 EntryId 移除资产缓存并联动 Bundle 卸载。调用方负责确保无活跃 Handle 引用。
     /// </summary>
     private void ReleaseEntry(string entryId)
     {
