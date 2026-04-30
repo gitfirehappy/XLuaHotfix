@@ -12,7 +12,7 @@ using UnityEngine.Networking;
 /// </summary>
 public static class HotfixManager
 {
-    private static readonly string _hotfixUrl = Constants.HOTFIX_URL;
+    private static readonly string _hotfixUrl = FYAssetConstants.HOTFIX_URL;
     
     // 固定下载 manifest 动态获取路径
     private static readonly string _manifestUrl = $"{_hotfixUrl}manifest.json";
@@ -536,7 +536,7 @@ public static class HotfixManager
     /// </summary>
     private static IHotfixPipeline CreatePipeline()
     {
-        return Constants.USE_AB_BACKEND
+        return FYAssetConstants.USE_AB_BACKEND
             ? new ABHotfixBackend()
             : new LegacyHotfixBackend();
     }

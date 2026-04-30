@@ -16,7 +16,7 @@ using UnityEngine;
 /// </summary>
 public static class DifferentialProcessor
 {
-    private static string SnapShotAssetPath = Constants.SNAPSHOT_ASSET_PATH;
+    private static string SnapShotAssetPath = FYAssetConstants.SNAPSHOT_ASSET_PATH;
     
     /// <summary>
     /// 分析快照差异，将修改的资源移入 Hotfix 组
@@ -69,7 +69,7 @@ public static class DifferentialProcessor
         EditorUtility.SetDirty(data);
         AssetDatabase.SaveAssets();
         
-        Debug.Log($"[DiffProcessor] 差异准备完成。{modifiedAssets.Count} 个资源已移动至 {Constants.HOTFIX_GROUP_NAME}。Staged快照已保存。");
+        Debug.Log($"[DiffProcessor] 差异准备完成。{modifiedAssets.Count} 个资源已移动至 {FYAssetConstants.HOTFIX_GROUP_NAME}。Staged快照已保存。");
         return true;
     }
 
@@ -80,7 +80,7 @@ public static class DifferentialProcessor
     public static void RestoreOriginalGroups()
     {
         var settings = AddressableAssetSettingsDefaultObject.Settings;
-        var hotfixGroup = settings.FindGroup(Constants.HOTFIX_GROUP_NAME);
+        var hotfixGroup = settings.FindGroup(FYAssetConstants.HOTFIX_GROUP_NAME);
         
         if (hotfixGroup == null || hotfixGroup.entries.Count == 0)
         {
@@ -117,7 +117,7 @@ public static class DifferentialProcessor
                 string targetGroupName = originalInfo.OriginalGroupName;
                 
                 // 如果原始组名无效或为空，尝试使用 CurrentGroupName (如果它不是 HotfixGroup)
-                if (string.IsNullOrEmpty(targetGroupName) || targetGroupName == Constants.HOTFIX_GROUP_NAME)
+                if (string.IsNullOrEmpty(targetGroupName) || targetGroupName == FYAssetConstants.HOTFIX_GROUP_NAME)
                 {
                     // 尝试寻找是否有更早的记录，或者只能放到 Default Group
                     targetGroupName = "Default Local Group"; 
@@ -253,7 +253,7 @@ public static class DifferentialProcessor
             if (group == null) continue;
             // 跳过内置数据、HelperData(由BuildManager处理)
             if (group.Name == "Built In Data" || 
-                group.Name == Constants.HELPER_BUILD_DATA_GROUP_NAME) 
+                group.Name == FYAssetConstants.HELPER_BUILD_DATA_GROUP_NAME) 
                 continue;
 
             foreach (var entry in group.entries)
@@ -287,13 +287,13 @@ public static class DifferentialProcessor
                 string originalGroup = group.Name;
                 
                 // 如果当前资源在 Hotfix Group，我们需要查阅历史记录来获取它原本在哪
-                if (group.Name == Constants.HOTFIX_GROUP_NAME && headIndex != null)
+                if (group.Name == FYAssetConstants.HOTFIX_GROUP_NAME && headIndex != null)
                 {
                     if (headIndex.TryGetValue(entry.guid, out var oldAsset))
                     {
                         originalGroup = oldAsset.OriginalGroupName;
                         // 如果历史记录里 original 也是 hotfix (极少情况)，则尝试保持现状或 fallback
-                        if (originalGroup == Constants.HOTFIX_GROUP_NAME) 
+                        if (originalGroup == FYAssetConstants.HOTFIX_GROUP_NAME) 
                         {
                             originalGroup = "Default Local Group"; 
                         }
@@ -379,10 +379,10 @@ public static class DifferentialProcessor
     /// </summary>
     private static AddressableAssetGroup GetOrCreateHotfixGroup(AddressableAssetSettings settings)
     {
-        var group = settings.FindGroup(Constants.HOTFIX_GROUP_NAME);
+        var group = settings.FindGroup(FYAssetConstants.HOTFIX_GROUP_NAME);
         if (group == null)
         {
-            group = settings.CreateGroup(Constants.HOTFIX_GROUP_NAME, false, false, true, null);
+            group = settings.CreateGroup(FYAssetConstants.HOTFIX_GROUP_NAME, false, false, true, null);
             
             // 添加 BundledSchema 并强制设置为 Remote
             var schema = group.AddSchema<BundledAssetGroupSchema>();

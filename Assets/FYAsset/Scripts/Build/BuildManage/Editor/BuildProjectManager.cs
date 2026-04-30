@@ -237,7 +237,7 @@ public static class BuildProjectManager
             }
             
             // HelperBuildData (必要的辅助数据)，必须强制为 Remote，否则无法热更配置
-            if (group.Name == Constants.HELPER_BUILD_DATA_GROUP_NAME)
+            if (group.Name == FYAssetConstants.HELPER_BUILD_DATA_GROUP_NAME)
             {
                 SetSchemaPathToRemote(settings, schema);
             }

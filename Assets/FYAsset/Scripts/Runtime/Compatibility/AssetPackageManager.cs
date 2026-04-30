@@ -25,7 +25,7 @@ public class AssetPackageManager : Singleton<AssetPackageManager>
 
     public async Task Initialize()
     {
-        if (Constants.USE_AB_BACKEND)
+        if (FYAssetConstants.USE_AB_BACKEND)
         {
             await InitializeWithABIndex();
         }
@@ -82,13 +82,13 @@ public class AssetPackageManager : Singleton<AssetPackageManager>
     private async Task InitializeWithLegacyIndex()
     {
         AsyncOperationHandle<AddressableLabelsConfig> handle =
-            Addressables.LoadAssetAsync<AddressableLabelsConfig>(Constants.AA_LABELS_CONFIG);
+            Addressables.LoadAssetAsync<AddressableLabelsConfig>(FYAssetConstants.AA_LABELS_CONFIG);
 
         var config = await handle.Task;
 
         if (handle.Status != AsyncOperationStatus.Succeeded || config == null)
         {
-            Debug.LogError($"[AssetPackageManager] 关键配置加载失败: {Constants.AA_LABELS_CONFIG}。管理器无法初始化。");
+            Debug.LogError($"[AssetPackageManager] 关键配置加载失败: {FYAssetConstants.AA_LABELS_CONFIG}。管理器无法初始化。");
             return;
         }
 

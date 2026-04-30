@@ -8,7 +8,7 @@ using UnityEngine;
 /// </summary>
 public static class PathManager
 {
-    public static readonly string PersistentRoot = Path.Combine(Application.persistentDataPath, Constants.PROJECTNAME);
+    public static readonly string PersistentRoot = Path.Combine(Application.persistentDataPath, FYAssetConstants.PROJECTNAME);
     
     // 运行时动态决定的路径
     public static string EnvRoot { get; private set; }    // .../[Platform]/[Debug]

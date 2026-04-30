@@ -18,8 +18,8 @@ using UnityEngine;
 /// </summary>
 public static class ManifestLoader
 {
-    private const string ManifestFileNameBin = Constants.MANIFEST_FILE_NAME_BIN;
-    private const string ManifestFileNameJson = Constants.MANIFEST_FILE_NAME;
+    private const string ManifestFileNameBin = FYAssetConstants.MANIFEST_FILE_NAME_BIN;
+    private const string ManifestFileNameJson = FYAssetConstants.MANIFEST_FILE_NAME;
 
     /// <summary>
     /// 异步加载 ABManifest。

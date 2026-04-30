@@ -196,7 +196,7 @@ public static class XLuaLoader
     {
         try
         {
-            var indexSO = await AssetPackageManager.Instance.LoadAssetAsync<LuaScriptsIndex>(Constants.LUA_SCRIPTS_INDEX);
+            var indexSO = await AssetPackageManager.Instance.LoadAssetAsync<LuaScriptsIndex>(FYAssetConstants.LUA_SCRIPTS_INDEX);
 
             if (indexSO != null)
             {

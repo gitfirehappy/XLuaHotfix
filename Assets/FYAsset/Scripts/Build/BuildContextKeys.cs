@@ -1,0 +1,17 @@
+/// <summary>
+/// BuildContext 键名常量 —— Task 代码中不出现裸字符串，全部引用此静态类。
+/// 供 Editor Task 和 Runtime 消费方共同使用，放 Runtime 程序集。
+/// </summary>
+public static class BuildContextKeys
+{
+    public const string BackendMode = "BackendMode";
+    public const string BuildVersion = "BuildVersion";
+    public const string OutputRoot = "OutputRoot";
+    public const string TargetPlatform = "TargetPlatform";
+    public const string CollectedAssets = "CollectedAssets";
+    public const string BundleDependencyGraph = "BundleDependencyGraph";
+    public const string BundleBuildResults = "BundleBuildResults";
+    public const string ABManifest = "ABManifest";
+    public const string OutputPath = "OutputPath";
+    public const string BuildVerificationResult = "BuildVerificationResult";
+}
