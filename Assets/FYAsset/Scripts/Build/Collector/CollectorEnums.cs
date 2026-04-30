@@ -10,7 +10,10 @@ public enum ECollectorType
     Static = 1,
 
     /// <summary>仅作为依赖项打包，不直接加载</summary>
-    Depend = 2
+    Depend = 2,
+
+    /// <summary>由依赖分析自动发现的隐式依赖资产，无用户声明</summary>
+    Implicit = 3
 }
 
 /// <summary>

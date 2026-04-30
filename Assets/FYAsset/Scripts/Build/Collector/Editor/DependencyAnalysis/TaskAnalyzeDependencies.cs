@@ -1,0 +1,74 @@
+using System.Collections.Generic;
+using UnityEditor;
+
+/// <summary>
+/// E4 管线 Task：依赖分析 + Bundle 依赖图构建 + 隐式依赖发现 + 共享提取决策。
+/// 在管线中位于 TaskCollectAssets (E1-3) 之后，TaskBuildBundles (E5-2) 之前。
+/// ReadKeys: CollectedAssets
+/// WriteKeys: CollectedAssets (augmented), BundleDependencyGraph
+/// </summary>
+public class TaskAnalyzeDependencies : IBuildTask
+{
+    public string TaskName => "TaskAnalyzeDependencies";
+    public string[] DependsOn => new[] { "TaskCollectAssets" };
+    public string[] ReadKeys => new[] { BuildContextKeys.CollectedAssets };
+    public string[] WriteKeys => new[] { BuildContextKeys.CollectedAssets, BuildContextKeys.BundleDependencyGraph };
+
+    public BuildTaskResult Execute(BuildContext ctx)
+    {
+        // 读取 E1-3 产出的资产列表
+        var assets = ctx.Get<List<CollectedAssetInfo>>(BuildContextKeys.CollectedAssets);
+        if (assets == null || assets.Count == 0)
+        {
+            return BuildTaskResult.Fail("NO_COLLECTED_ASSETS",
+                "TaskCollectAssets produced no assets. Check Collector configuration.", false);
+        }
+
+        // 加载 CollectorSetting SO 获取 Per-Package SharePolicy
+        var policies = new Dictionary<string, SharePolicyConfig>();
+        var setting = AssetDatabase.LoadAssetAtPath<CollectorSetting>(
+            FYAssetConstants.COLLECTOR_SETTING_ASSET_PATH);
+        if (setting != null)
+        {
+            foreach (var pkg in setting.Packages)
+            {
+                if (!string.IsNullOrEmpty(pkg.PackageName) && pkg.SharePolicy != null)
+                    policies[pkg.PackageName] = pkg.SharePolicy;
+            }
+        }
+
+        // 执行依赖分析
+        var augmented = DependencyAnalyzer.Analyze(assets, policies,
+            out var graph, out var messages);
+
+        // 汇总消息
+        var warnings = new List<string>();
+        bool hasFatal = false;
+        foreach (var msg in messages)
+        {
+            if (msg.Severity == BuildSeverity.Error)
+            {
+                hasFatal = true;
+                warnings.Add($"[{msg.Code}] {msg.Message} ({msg.Source})");
+            }
+            else
+            {
+                warnings.Add($"[{msg.Code}] {msg.Message} ({msg.Source})");
+            }
+        }
+
+        if (hasFatal)
+        {
+            var result = BuildTaskResult.Fail("DEPENDENCY_ANALYSIS_FAILED",
+                $"Dependency analysis found {messages.Count} issue(s). See warnings for details.", true);
+            result.Warnings = warnings;
+            return result;
+        }
+
+        // 写回 BuildContext
+        ctx.Set(BuildContextKeys.CollectedAssets, augmented);
+        ctx.Set(BuildContextKeys.BundleDependencyGraph, graph);
+
+        return BuildTaskResult.Ok(warnings.Count > 0 ? warnings : null);
+    }
+}

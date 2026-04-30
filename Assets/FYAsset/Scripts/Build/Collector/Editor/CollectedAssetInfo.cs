@@ -39,5 +39,11 @@ public class CollectedAssetInfo
     /// <summary>采集器类型，透传自 Collector.CollectorType</summary>
     public ECollectorType CollectorType;
 
+    /// <summary>E4 决策：该资产被打入共享 Bundle（GroupName = "$shared"）</summary>
+    public bool IsInSharedBundle;
+
+    /// <summary>E4 决策：该隐式依赖被复制到多个引用 Bundle 中</summary>
+    public bool IsDuplicated;
+
     #endregion
 }
