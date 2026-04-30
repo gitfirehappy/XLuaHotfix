@@ -2,8 +2,8 @@
 
 > **Risk**: Medium (Editor-only logic, no runtime impact; but dependency graph correctness directly affects bundle completeness)
 > **Dependencies**: E1-1 (data model, enums, CollectedAssetInfo), E1-3 (CollectionScanner — provides `List<CollectedAssetInfo>` input), E5 (IBuildTask interface + BuildContext contract)
-> **Status**: Draft — updated 2026-04-27 (terminology + naming + ForceShare + Address correction)
-> **Execution order**: E5-1 (IBuildTask + BuildContext) must execute before E4. E4 core logic (DependencyAnalyzer) is independent of E5 contract types.
+> **Status**: Approved — 2026-04-30, all 12 checklist items confirmed with 3 refinements (SharePolicy conflict→Error, PackKey=PrimaryType no mapping table, cycle detection same/cross-Bundle severity split)
+> **Execution order**: E5-1 already realized (IBuildTask + BuildContext + DAGScheduler). E4 can proceed immediately.
 
 ---
 
@@ -39,9 +39,9 @@ Dependency analysis and shared extraction run per-Package. Shared bundles are Pa
 
 ### D5: ImplicitDependency GroupName + Bundle Naming
 
-GroupName = `"$shared"` (via SystemIdentifiers.SharedGroupName) (reserved keyword, users may not create a CollectorGroup named "shared"). PackKey = typeGroup inferred from PrimaryType (e.g., "materials", "shaders", "textures"). Logical name: `{pkg}_shared_{typeGroup}`. E5 appends content hash + extension like all other bundles.
+GroupName = `"$shared"` (via SystemIdentifiers.SharedGroupName) (reserved keyword, CollectorGroup names starting with `$` are rejected by validation). PackKey = PrimaryType directly — no secondary typeGroup mapping table (e.g., "Texture2D" → "texture2d" after SanitizeSegment). Logical name: `{pkg}_shared_{primarytype}` via BundleNameBuilder. E5 appends content hash + extension like all other bundles.
 
-Multiple implicit deps with same typeGroup naturally merge into one shared bundle (same logical name → same bundle).
+Multiple implicit deps with same PrimaryType naturally merge into one shared bundle (same BundleName → same bundle).
 
 ### D6: ImplicitDependency Labels — Empty
 
@@ -72,9 +72,13 @@ public class BundleDependencyEdge
 
 Stored as `List<BundleDependencyEdge>` — flat list with full traceability, consumable by Inspector UI (E1-4 extension or Phase 6 Inspector).
 
-### D11: Cycle Detection — Asset Level
+### D11: Cycle Detection — Asset Level, BFS Stack + Visited Set
 
-BFS visited-set detects asset-level cycles (A→B→A). Asset-level cycle → Bundle-level cycle (asset A in Bundle X, asset B in Bundle Y). Detected during BFS expansion — if a dependency is already in the current BFS stack, report error.
+**Detection**: During BFS expansion, each asset is checked against the BFS stack (current expansion path). If `guid` already appears in the stack, it's a cycle. The **global visited set** (`HashSet<string>`) prevents infinite loops — any asset in visited is not re-expanded. The BFS stack is for **reporting only** (providing the cycle path `A→B→...→A`), not for flow control.
+
+**Severity depends on Bundle boundary**:
+- Assets A and B in the **same** Bundle → **Warning** `SAME_BUNDLE_CYCLE`. Unity handles intra-Bundle circular references normally at load time.
+- Assets A and B in **different** Bundles → **Error** `CIRCULAR_DEPENDENCY`. Cross-Bundle cycles cause Unity AssetBundle load failures — build must abort.
 
 ### D12: Shared Bundle Granularity — Rule Layer, Not E4
 
@@ -104,6 +108,12 @@ public class SharePolicyConfig
     /// <summary>Glob patterns matching asset paths. Matched assets are always shared (ignoring MinReferenceCount).</summary>
     public List<string> ForceSharePatterns = new();
 }
+
+/// <summary>
+/// Conflict resolution: if an asset matches both ForceSharePatterns and NoSharePatterns
+/// (user configuration error), it is a hard error — the build aborts with
+/// SHAREPOLICY_CONFLICT. No silent priority fallback.
+/// </summary>
 ```
 
 ---
@@ -231,7 +241,9 @@ TaskAnalyzeDependencies.Execute(BuildContext ctx)
 
 | Condition | Severity | Code |
 |-----------|----------|------|
-| Asset-level circular dependency | Error | `CIRCULAR_DEPENDENCY` |
+| Asset-level circular dependency (cross-Bundle) | Error | `CIRCULAR_DEPENDENCY` |
+| Asset-level circular dependency (same Bundle) | Warning | `SAME_BUNDLE_CYCLE` |
+| Asset matches both ForceShare + NoShare patterns | Error | `SHAREPOLICY_CONFLICT` |
 | Dependency outside Assets/ | Warning | `EXTERNAL_DEPENDENCY` |
 | Dependency path not found | Warning | `DEPENDENCY_PATH_NOT_FOUND` |
 | Shared bundle created with only 1 asset | Warning | `SINGLE_ASSET_SHARED` |
@@ -338,20 +350,21 @@ All paths relative to `Assets/FYAsset/Scripts/`.
 |------|--------|
 | 2026-04-26 | Initial version: 12 design decisions, 10 tasks. Approved by developer |
 | 2026-04-27 | **Discussion refinement**: (1) SharePolicyConfig +ForceSharePatterns (4 fields total). (2) ImplicitDependency Address → auto-generated via AssetAddressGenerator (not empty). (3) Shared bundle GroupName = "$shared" (reserved), PackKey = typeGroup. Removed sm_ prefix and GUID-based shortHash. Naming unified with BundleNameBuilder 3-segment format. (4) Labels confirmed empty (only user config produces Labels). (5) Execution order: E5-1 before E4 |
+| 2026-04-30 | **Approved with 3 refinements**: (1) SharePolicy rule conflict (ForceShare ∩ NoShare) → Error `SHAREPOLICY_CONFLICT`, no silent fallback. (2) D5 PackKey = PrimaryType directly — removed typeGroup mapping table. (3) D11 cycle detection: BFS global visited set prevents infinite loop, BFS stack reports path; same-Bundle cycle → Warning `SAME_BUNDLE_CYCLE`, cross-Bundle → Error `CIRCULAR_DEPENDENCY`. All 12 approval checklist items confirmed. |
 
 ---
 
 ## Approval Checklist
 
-- [ ] Agree to single-pass BFS (Phase 1: Bundle edges + implicit discovery; Phase 2: SharePolicy decision)
-- [ ] Agree to `SharePolicyConfig` in Runtime assembly with 4 fields (MinReferenceCount, MinAssetSizeBytes, NoSharePatterns, ForceSharePatterns)
-- [ ] Agree to Depend assets handled as "already owned" → Bundle dependency edges only
-- [ ] Agree to Package-internal shared bundle scope
-- [ ] Agree to ImplicitDependency GroupName = "$shared" (reserved), PackKey = typeGroup, BundleName via BundleNameBuilder
-- [ ] Agree to ImplicitDependency Labels = empty (only user config produces Labels), Address = auto-generated (AssetAddressGenerator)
-- [ ] Agree to `ECollectorType.Implicit = 3` for "no user declaration" semantics
-- [ ] Agree to SharedBundleDef NOT being a separate data structure (BundleName on CollectedAssetInfo is sufficient)
-- [ ] Agree to `BundleDependencyGraph` as structured, human-readable edge list with `ViaAssets`
-- [ ] Agree to asset-level cycle detection (BFS stack), not Bundle-level
-- [ ] Agree to 4 new files + 3 modified files + 10 tasks
-- [ ] Agree to E5 defining IBuildTask/BuildContext contract; E4 declares expected keys. E5-1 executes BEFORE E4
+- [x] Agree to single-pass BFS (Phase 1: Bundle edges + implicit discovery; Phase 2: SharePolicy decision)
+- [x] Agree to `SharePolicyConfig` in Runtime assembly with 4 fields (MinReferenceCount, MinAssetSizeBytes, NoSharePatterns, ForceSharePatterns). Rule conflict (ForceShare ∩ NoShare) → Error `SHAREPOLICY_CONFLICT`
+- [x] Agree to Depend assets handled as "already owned" → Bundle dependency edges only
+- [x] Agree to Package-internal shared bundle scope
+- [x] Agree to ImplicitDependency GroupName = "$shared" (reserved), PackKey = PrimaryType directly (no typeGroup mapping), BundleName via BundleNameBuilder
+- [x] Agree to ImplicitDependency Labels = empty (only user config produces Labels), Address = auto-generated (AssetAddressGenerator)
+- [x] Agree to `ECollectorType.Implicit = 3` for "no user declaration" semantics
+- [x] Agree to SharedBundleDef NOT being a separate data structure (BundleName on CollectedAssetInfo is sufficient)
+- [x] Agree to `BundleDependencyGraph` as structured, human-readable edge list with `ViaAssets`
+- [x] Agree to asset-level cycle detection: BFS stack (reporting) + visited set (loop prevention). Same-Bundle cycle → Warning `SAME_BUNDLE_CYCLE`, cross-Bundle cycle → Error `CIRCULAR_DEPENDENCY`
+- [x] Agree to 4 new files + 3 modified files + 10 tasks
+- [x] Agree to E5 defining IBuildTask/BuildContext contract; E4 declares expected keys. E5-1 executes BEFORE E4

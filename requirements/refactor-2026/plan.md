@@ -172,7 +172,7 @@ Phase 4 and Phase 6 must be coordinated (ABManifest runtime consumption + build-
 
 | ID | Content | Status |
 |----|---------|--------|
-| E4 | Dependency analysis + shared extraction (BFS + SharePolicy) | Draft (plan-E4.md) |
+| E4 | Dependency analysis + shared extraction (BFS + SharePolicy) | **Approved** (plan-E4.md) |
 | E5-1 | Build pipeline core engine — IBuildTask + BuildContext + BuildTaskResult + BuildPipelineConfig SO + BuildTaskResolver + DAGScheduler (Kahn topology + batch parallel + W-W/R-before-W validation + ValidatePair/ValidateAll + SequentialMode). 8 new files, 608 lines | **Realized** (plan-E5-1.md) |
 | E5-2 | Backbone Task implementations — TaskPrepareContext / TaskCollectBuiltins / TaskBuildBundles / TaskVerifyBuildResult / TaskOrganizeOutput + BundleBuildInfo. Depends on E5-1 + E1-3 + E4 | Draft (plan-E5-2.md) |
 | E6 | ABManifest build export (TaskGenerateManifest) | Draft (plan-E6.md) |
