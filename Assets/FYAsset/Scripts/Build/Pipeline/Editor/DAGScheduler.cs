@@ -1,0 +1,335 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+/// <summary>
+/// DAG 任务调度器 —— 基于 Kahn 拓扑排序算法实现分批并行执行和事前校验。
+///
+/// 两阶段模型：
+///   Phase 0 Validate — 依赖存在性、循环依赖、Write-Write 冲突、Read-before-Write 警告
+///   Phase 1 Execute  — 入度表驱动批循环，批内字母序确定性执行，Fatal 中止传播
+///
+/// 预留 ValidatePair / ValidateAll 公共 API，供编辑器蓝图连线时实时校验。
+/// SequentialMode 关闭批并发，所有 Task 按拓扑序逐个串行执行。
+/// </summary>
+public static class DAGScheduler
+{
+    #region Public API
+
+    /// <summary>执行构建管线：Phase 0 Validate → Phase 1 Execute</summary>
+    public static BuildResult Execute(BuildPipelineConfig config, BuildContext context)
+    {
+        if (config == null) throw new ArgumentNullException(nameof(config));
+        if (context == null) throw new ArgumentNullException(nameof(context));
+
+        var validation = ValidateInternal(config);
+        if (!validation.Success)
+            return validation;
+
+        return ExecuteInternal(config, context);
+    }
+
+    /// <summary>仅运行 Phase 0 校验，不执行 Task</summary>
+    public static BuildResult Validate(BuildPipelineConfig config)
+    {
+        if (config == null) throw new ArgumentNullException(nameof(config));
+        return ValidateInternal(config);
+    }
+
+    /// <summary>编辑器连线时实时检查两个 Task 的 WriteKeys 是否有交集</summary>
+    /// <returns>冲突的 Key 列表，空数组表示无冲突</returns>
+    public static string[] ValidatePair(string taskNameA, string taskNameB)
+    {
+        if (string.Equals(taskNameA, taskNameB, StringComparison.Ordinal))
+            return Array.Empty<string>();
+
+        var taskA = BuildTaskResolver.CreateTask(taskNameA);
+        var taskB = BuildTaskResolver.CreateTask(taskNameB);
+
+        var writeA = taskA.WriteKeys ?? Array.Empty<string>();
+        var writeB = taskB.WriteKeys ?? Array.Empty<string>();
+
+        var setA = new HashSet<string>(writeA, StringComparer.Ordinal);
+        var conflicts = new List<string>();
+        foreach (var key in writeB)
+        {
+            if (setA.Contains(key))
+                conflicts.Add(key);
+        }
+        return conflicts.ToArray();
+    }
+
+    /// <summary>全图校验的便捷方法，返回 true 表示通过</summary>
+    public static bool ValidateAll(BuildPipelineConfig config)
+    {
+        if (config == null) return false;
+        return ValidateInternal(config).Success;
+    }
+
+    #endregion
+
+    #region Phase 0 — Validation
+
+    private static BuildResult ValidateInternal(BuildPipelineConfig config)
+    {
+        var errors = new List<BuildTaskResult>();
+        var warnings = new List<BuildTaskResult>();
+
+        var enabled = config.Tasks.Where(e => e.Enabled).ToList();
+        if (enabled.Count == 0)
+            return ErrorResult(config, new List<BuildTaskResult> { BuildTaskResult.Fail(
+                "NO_ENABLED_TASKS", "No enabled tasks in pipeline config.", true) });
+
+        var allNames = new HashSet<string>(config.Tasks.Select(e => e.TaskName), StringComparer.Ordinal);
+
+        // 解析所有 Enabled Task
+        var instances = new Dictionary<string, IBuildTask>(StringComparer.Ordinal);
+        foreach (var entry in enabled)
+        {
+            if (!BuildTaskResolver.Exists(entry.TaskName))
+            {
+                errors.Add(BuildTaskResult.Fail(
+                    "TASK_NOT_FOUND",
+                    $"'{entry.TaskName}' — no IBuildTask implementation found.", true));
+                continue;
+            }
+            instances[entry.TaskName] = BuildTaskResolver.CreateTask(entry.TaskName);
+        }
+        if (errors.Count > 0) return ErrorResult(config, errors);
+
+        // 校验 1：所有 DependsOn 指向已注册的 TaskName
+        foreach (var instance in instances.Values)
+        {
+            if (instance.DependsOn == null) continue;
+            foreach (var dep in instance.DependsOn)
+            {
+                if (!allNames.Contains(dep))
+                {
+                    errors.Add(BuildTaskResult.Fail(
+                        "MISSING_DEPENDENCY",
+                        $"'{instance.TaskName}' depends on '{dep}' — not in task list.", true));
+                }
+            }
+        }
+        if (errors.Count > 0) return ErrorResult(config, errors);
+
+        // 构建邻接表
+        var indegree = new Dictionary<string, int>(StringComparer.Ordinal);
+        var successors = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+        foreach (var name in instances.Keys)
+        {
+            indegree[name] = 0;
+            successors[name] = new List<string>();
+        }
+        foreach (var instance in instances.Values)
+        {
+            if (instance.DependsOn == null) continue;
+            foreach (var dep in instance.DependsOn)
+            {
+                if (instances.ContainsKey(dep))
+                {
+                    successors[dep].Add(instance.TaskName);
+                    indegree[instance.TaskName]++;
+                }
+            }
+        }
+
+        // 校验 2：Kahn 拓扑排序 → 检测循环依赖
+        var sorted = TopologicalSort(instances.Keys.ToList(), indegree, successors);
+        if (sorted.Count < instances.Count)
+        {
+            var cyclic = instances.Keys.Except(sorted).ToList();
+            errors.Add(BuildTaskResult.Fail("CIRCULAR_TASK_DEPENDENCY",
+                $"Circular dependency among: {string.Join(", ", cyclic)}.", true));
+            return ErrorResult(config, errors);
+        }
+
+        // 校验 3：Write-Write 冲突
+        var writeOwners = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var instance in instances.Values)
+        {
+            if (instance.WriteKeys == null) continue;
+            foreach (var key in instance.WriteKeys)
+            {
+                if (writeOwners.TryGetValue(key, out var owner))
+                {
+                    errors.Add(BuildTaskResult.Fail("CONFLICTING_WRITE_KEYS",
+                        $"Key '{key}' claimed by both '{owner}' and '{instance.TaskName}'.", true));
+                }
+                else
+                {
+                    writeOwners[key] = instance.TaskName;
+                }
+            }
+        }
+        if (errors.Count > 0) return ErrorResult(config, errors);
+
+        // 校验 4：Read-before-Write 警告
+        var produced = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var taskName in sorted)
+        {
+            var instance = instances[taskName];
+            if (instance.ReadKeys != null)
+            {
+                foreach (var key in instance.ReadKeys)
+                {
+                    bool selfProduce = instance.WriteKeys != null && instance.WriteKeys.Contains(key);
+                    if (!selfProduce && !produced.Contains(key) && !writeOwners.ContainsKey(key))
+                    {
+                        warnings.Add(BuildTaskResult.Fail("UNSATISFIED_READ_KEY",
+                            $"'{taskName}' reads '{key}' but no preceding task produces it.", false));
+                    }
+                }
+            }
+            if (instance.WriteKeys != null)
+            {
+                foreach (var key in instance.WriteKeys)
+                    produced.Add(key);
+            }
+        }
+
+        var result = new BuildResult { Success = true, TotalTasks = instances.Count };
+        result.TaskResults.AddRange(warnings);
+        return result;
+    }
+
+    private static List<string> TopologicalSort(
+        List<string> nodes,
+        Dictionary<string, int> indegree,
+        Dictionary<string, List<string>> successors)
+    {
+        var sorted = new List<string>();
+        var inDeg = new Dictionary<string, int>(indegree, StringComparer.Ordinal);
+        var queue = new Queue<string>(nodes.Where(n => inDeg[n] == 0).OrderBy(n => n, StringComparer.Ordinal));
+
+        while (queue.Count > 0)
+        {
+            var current = queue.Dequeue();
+            sorted.Add(current);
+            foreach (var succ in successors[current])
+            {
+                inDeg[succ]--;
+                if (inDeg[succ] == 0)
+                    queue.Enqueue(succ);
+            }
+        }
+        return sorted;
+    }
+
+    #endregion
+
+    #region Phase 1 — Execution
+
+    private static BuildResult ExecuteInternal(BuildPipelineConfig config, BuildContext context)
+    {
+        var enabled = config.Tasks.Where(e => e.Enabled).ToList();
+        var instances = new Dictionary<string, IBuildTask>(StringComparer.Ordinal);
+        foreach (var entry in enabled)
+            instances[entry.TaskName] = BuildTaskResolver.CreateTask(entry.TaskName);
+
+        // 入度计算：仅统计对 Enabled Task 的依赖
+        var indegree = new Dictionary<string, int>(StringComparer.Ordinal);
+        var successors = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+        foreach (var name in instances.Keys)
+        {
+            indegree[name] = 0;
+            successors[name] = new List<string>();
+        }
+        foreach (var instance in instances.Values)
+        {
+            if (instance.DependsOn == null) continue;
+            foreach (var dep in instance.DependsOn)
+            {
+                if (instances.ContainsKey(dep))
+                {
+                    successors[dep].Add(instance.TaskName);
+                    indegree[instance.TaskName]++;
+                }
+            }
+        }
+
+        var results = new List<BuildTaskResult>();
+        var executed = new HashSet<string>(StringComparer.Ordinal);
+        var remaining = new HashSet<string>(instances.Keys, StringComparer.Ordinal);
+        var fatalAbort = false;
+
+        while (remaining.Count > 0 && !fatalAbort)
+        {
+            var ready = remaining
+                .Where(n => indegree[n] == 0)
+                .OrderBy(n => n, StringComparer.Ordinal)
+                .ToList();
+
+            if (ready.Count == 0)
+            {
+                results.Add(BuildTaskResult.Fail("SCHEDULER_DEADLOCK",
+                    $"Unmet dependencies block: {string.Join(", ", remaining)}.", true));
+                break;
+            }
+
+            int batchSize = config.SequentialMode ? 1 : ready.Count;
+            for (int i = 0; i < batchSize && !fatalAbort; i++)
+            {
+                var taskName = ready[i];
+                indegree[taskName] = -1;
+                remaining.Remove(taskName);
+                executed.Add(taskName);
+
+                var task = instances[taskName];
+                BuildTaskResult taskResult;
+                try
+                {
+                    taskResult = task.Execute(context) ?? BuildTaskResult.Fail(
+                        "NULL_RESULT", $"'{taskName}' returned null.", true);
+                }
+                catch (Exception ex)
+                {
+                    taskResult = BuildTaskResult.Fail("TASK_EXECUTION_ERROR",
+                        $"'{taskName}' threw {ex.GetType().Name}: {ex.Message}.", true);
+                }
+
+                results.Add(taskResult);
+
+                if (taskResult.IsFatal && !taskResult.Success)
+                {
+                    fatalAbort = true;
+                    break;
+                }
+
+                foreach (var succ in successors[taskName])
+                {
+                    if (indegree.TryGetValue(succ, out int deg) && deg > 0)
+                        indegree[succ] = deg - 1;
+                }
+            }
+        }
+
+        // 标记因 Fatal 中止而跳过的 Task
+        var skippedTasks = instances.Count - executed.Count;
+
+        return new BuildResult
+        {
+            Success = !fatalAbort && results.TrueForAll(r => r.Success),
+            TotalTasks = instances.Count,
+            CompletedTasks = results.Count(r => r.Success),
+            SkippedTasks = skippedTasks,
+            TaskResults = results
+        };
+    }
+
+    #endregion
+
+    #region Helpers
+
+    private static BuildResult ErrorResult(BuildPipelineConfig config, List<BuildTaskResult> errors)
+    {
+        return new BuildResult
+        {
+            Success = false,
+            TotalTasks = config.Tasks.Count(e => e.Enabled),
+            TaskResults = errors
+        };
+    }
+
+    #endregion
+}

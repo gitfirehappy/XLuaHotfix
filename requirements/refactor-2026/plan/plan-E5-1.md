@@ -3,7 +3,7 @@
 > **Risk**: High (defines the execution framework that ALL subsequent Tasks plug into)
 > **Dependencies**: E1-1 (data model, enums for Constants.cs)
 > **Parent**: [plan-E5.md](plan-E5.md)
-> **Status**: Approved — 2026-04-29, all 12 items confirmed, D2 modified (drop `where T : class`), D4 modified (ClassName → assembly scan)
+> **Status**: Realized — 2026-04-30, 8 files created + Constants.cs updated (later migrated to FYAssetConstants), build passes 0 errors, all 15 invariants met
 
 ---
 
@@ -279,4 +279,6 @@ All paths relative to `Assets/FYAsset/Scripts/`.
 | Date | Change |
 |------|--------|
 | 2026-04-28 | Initial version: 7 design decisions, 7 new files, 10 tasks |
+| 2026-04-29 | Approved with modifications: D2 drop `where T : class`; D4 remove ClassName, add BuildTaskResolver (assembly scan); D6 clarified (DAG W-W guarantees exclusivity, not runtime lock); +1 new file (BuildTaskResolver), +1 task; 15 invariants |
+| 2026-04-30 | **Realized**: 8 files (608 lines) + Constants modified. Build verify: 0 errors. Minor deviation: DAGScheduler.Execute takes BuildContext not commandLineArgs; ValidatePair same-name guard fixed post-review. Constants later migrated to FYAssetConstants (separate plan). |
 | 2026-04-29 | Approved with modifications: D2 drop `where T : class`; D4 remove ClassName, add BuildTaskResolver (assembly scan); D6 clarified (DAG W-W guarantees exclusivity, not runtime lock); +1 new file (BuildTaskResolver), +1 task; 15 invariants |
