@@ -1,9 +1,9 @@
 # Refactor Plan: XLuaHotfix Full Resource Management System Overhaul — Master Plan
 
-> **Status**: In progress (Phase 1-3 completed, Phase S completed, next: Phase 4)
+> **Status**: In progress (Phase 1-4 completed, Phase 5 E1-1/E1-2/E2 realized, E5-1 realized, Phase 6 E4/E5-2/E6/E7 pending)
 > **Ultimate Goal**: Fully replace Addressables with custom runtime + build-time resource management system (referencing YooAsset architecture)
 > **Created**: 2026-03-16
-> **Updated**: 2026-04-19 — Phase S complete (S1+S2+S3+S4), serialization infrastructure operational
+> **Updated**: 2026-04-30 — E5-1 core engine realized, Constants migrated to FYAssetConstants
 
 ---
 
@@ -173,7 +173,8 @@ Phase 4 and Phase 6 must be coordinated (ABManifest runtime consumption + build-
 | ID | Content | Status |
 |----|---------|--------|
 | E4 | Dependency analysis + shared extraction (BFS + SharePolicy) | Draft (plan-E4.md) |
-| E5 | Build pipeline engine (DAG scheduler + backbone Tasks) | Draft (plan-E5.md / E5-1 / E5-2) |
+| E5-1 | Build pipeline core engine — IBuildTask + BuildContext + BuildTaskResult + BuildPipelineConfig SO + BuildTaskResolver + DAGScheduler (Kahn topology + batch parallel + W-W/R-before-W validation + ValidatePair/ValidateAll + SequentialMode). 8 new files, 608 lines | **Realized** (plan-E5-1.md) |
+| E5-2 | Backbone Task implementations — TaskPrepareContext / TaskCollectBuiltins / TaskBuildBundles / TaskVerifyBuildResult / TaskOrganizeOutput + BundleBuildInfo. Depends on E5-1 + E1-3 + E4 | Draft (plan-E5-2.md) |
 | E6 | ABManifest build export (TaskGenerateManifest) | Draft (plan-E6.md) |
 | E7 | Diff snapshot adaptation (IDiffPipeline + Legacy/AB backends) | Draft (plan-E7.md) |
 

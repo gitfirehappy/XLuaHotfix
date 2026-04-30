@@ -644,3 +644,32 @@
 [decision] 2026-04-27 E4 execution order: E5-1 (IBuildTask + BuildContext) must execute before E4
 [done] 2026-04-27 plan-E4.md updated with all 5 discussion refinements + Change Log
 [next] 2026-04-27 Discuss E5-1 (IBuildTask + BuildContext + DAGScheduler) — E5 defines the contract that E4 depends on
+
+[start] 2026-04-29 E5-1 precise planning — refined 7→8 design decisions, 7→8 new files, 10→11 tasks, 10→15 invariants
+[decision] 2026-04-29 E5-1 D2 modified: BuildContext drops `where T : class` constraint — Dictionary<string, object> internal storage
+[decision] 2026-04-29 E5-1 D4 modified: TaskEntry drops ClassName field; new BuildTaskResolver assembly scan for TaskName→Type index
+[decision] 2026-04-29 E5-1 D6 clarified: BackendMode exclusivity via DAG W-W conflict detection (not runtime lock); CLI --backend override > SO default
+[done] 2026-04-29 plan-E5-1.md APPROVED — all 12 checklist items confirmed, D2+D4+D6 modifications recorded in Change Log
+[start] 2026-04-29 E5-2 plan discussion — backbone Task scope expanded: +TaskCollectBuiltins (YooAsset Gap #1: auto-collect Shaders as Implicit), +TaskVerifyBuildResult (YooAsset Gap #2: 6-point verification)
+[decision] 2026-04-29 E5-2 TaskCollectBuiltins: Shaders auto-collected via AssetDatabase.FindAssets("t:Shader"), CollectorType=Implicit, BundleName via BundleNameBuilder with $shared group
+[decision] 2026-04-29 E5-2 TaskVerifyBuildResult: 6 validation checks (file existence, integrity, orphan, hash re-verify, size anomaly, count cross-check). Error→abort, Warning→continue
+[done] 2026-04-29 plan-E5-2.md updated — 5 backbone Tasks (TaskPrepareContext/TaskCollectBuiltins/TaskBuildBundles/TaskVerifyBuildResult/TaskOrganizeOutput), 6 new files, 6 tasks, 10 invariants
+[decision] 2026-04-29 E5-1 execution priority confirmed — E1-1 audit back-change complete (d105127), E5-1 can proceed. E5-1 defines the IBuildTask contract ALL subsequent task implementations depend on
+[next] 2026-04-30 Begin executing E5-1 (8 new files + 1 modified, ~547 lines estimated)
+
+[done] 2026-04-30 E5-1 executed — 8 new files (608 lines): BackendMode.cs (Runtime enum) + IBuildTask.cs + BuildTaskResult.cs + BuildResult.cs + BuildContext.cs + BuildPipelineConfig.cs (SO + TaskEntry + BundleFileNameStyle) + BuildTaskResolver.cs (assembly scan) + DAGScheduler.cs (Kahn topological sort + batch parallel + Validate/ValidatePair/ValidateAll + SequentialMode). Constants.cs modified: +BuildContextKeys (10 key constants) + PIPELINE_CONFIG_ASSET_PATH. csproj synced with 8 new Compile Includes. dotnet build 0 errors
+[done] 2026-04-30 E5-1 review fix — ValidatePair same-name guard added (taskNameA==taskNameB → Array.Empty<string>). DAGScheduler.ErrorResult parameter fix (single BuildTaskResult→List<BuildTaskResult>)
+[decision] 2026-04-30 E5-1 deviations: (1) DAGScheduler.Execute takes BuildContext not commandLineArgs — CLI parsing is TaskPrepareContext responsibility. (2) Scheduler reads IBuildTask.DependsOn not TaskEntry.DependsOn — programmatic declaration is source of truth. Both non-blocking.
+[done] 2026-04-30 plan-E5-1.md → Realized — 15/15 invariants met, Change Log updated with execution record
+
+[start] 2026-04-30 Constants migration — developer requested rename+relocate+reorganize Constants.cs into FYAsset module
+[decision] 2026-04-30 D1: Constants → FYAssetConstants — explicit module ownership, 27 fields
+[decision] 2026-04-30 D2: BuildContextKeys stays independent class, extracted to Build/BuildContextKeys.cs (Runtime assembly — needed by both Editor and Runtime consumers). Developer: "only cross-module shared constants stay in FYAssetConstants; single-responsibility keys get own file"
+[decision] 2026-04-30 D3: Old-pipeline fields kept and reorganized alongside new fields — not deleting, old pipeline still runs
+[decision] 2026-04-30 D4: USE_AB_BACKEND placed top-level with PROJECTNAME/HOTFIX_URL as global config tier
+[decision] 2026-04-30 D5: SystemIdentifiers/RuntimeErrorCodes/BuildErrorCodes unchanged — already under FYAsset with single responsibility
+[done] 2026-04-30 plan-constants-migration.md written — 6 regions, 6 tasks (M-T1~M-T6), 5 invariants, 13 reference files × 37 occurrences
+[done] 2026-04-30 Constants migration executed — M-T1: FYAssetConstants.cs (27 fields in 6 regions). M-T2: BuildContextKeys.cs (10 keys independent). M-T3: 13 files × 37 occurrences Constants.→FYAssetConstants. M-T4: csproj (remove old, add 2 new). M-T5: Global/Scripts/Constants.cs deleted. M-T6: dotnet build 0 errors
+[done] 2026-04-30 plan-constants-migration.md → Realized — Change Log updated
+[done] 2026-04-30 Both plans committed to git: 2d73324 feat(E5-1): implement build pipeline core engine + 299341c refactor: migrate Constants → FYAssetConstants + extract BuildContextKeys
+[next] 2026-04-30 Progress aligned. Next: discuss E5-2 (backbone Task implementations) — depends on E5-1 + E1-3 (CollectionScanner) + E4 (DependencyAnalyzer, not yet implemented)
