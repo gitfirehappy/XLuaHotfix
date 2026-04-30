@@ -48,7 +48,7 @@ public class TaskEntry
     /// <summary>Task 唯一标识，匹配 IBuildTask.TaskName</summary>
     public string TaskName;
 
-    /// <summary>是否启用：骨干节点强制 true；扩展节点默认 false</summary>
+    /// <summary>是否启用：核心节点强制 true；可选节点默认 false</summary>
     public bool Enabled = true;
 
     /// <summary>前置依赖的 TaskName 列表</summary>

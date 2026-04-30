@@ -4,7 +4,7 @@ using System.Collections.Generic;
 /// <summary>
 /// Bundle 内容类型枚举 — 由构建管线根据包内资源类型自动推断。
 /// 规则：如果 >80% 的资源属于同一类型，标为该类型；否则标为 Mixed。
-/// 当前为预留字段，Phase 6 E5/E6 构建管线实现时赋值。
+/// 预留字段，由构建管线 Task 赋值。
 /// TODO: 纯枚举是否方便？
 /// </summary>
 public enum EBundleType
@@ -55,7 +55,7 @@ public class ManifestBundleEntry
     #region 分类与依赖
 
     /// <summary>
-    /// Bundle 内容类型（预留，由 Phase 6 构建管线自动推断赋值，默认 Unknown）。
+    /// Bundle 内容类型（预留，由构建管线自动推断赋值，默认 Unknown）。
     /// 用途：差异化加载策略、压缩算法选择、下载优先级排序、可视化分组。
     /// TODO：是否需要纯枚举？int 还是 EBundleType？
     /// </summary>
@@ -65,7 +65,7 @@ public class ManifestBundleEntry
     /// <summary>
     /// 分类标签（预留，用于按标签选择性下载，当前默认空）。
     /// 语义：Bundle 级下载策略标签（如 "必装", "DLC-1"），不是 Asset Labels 的聚合。
-    /// 赋值规则在 B9（增量下载适配）/ E6（构建导出）时定义。
+    /// 赋值规则在增量下载适配和构建导出时定义。
     /// </summary>
     [BinaryField(6)]
     public List<string> Tags = new();
@@ -93,7 +93,7 @@ public class ManifestBundleEntry
     /// 反向依赖列表 — 依赖本 Bundle 的其他 Bundle 在 ABManifest.BundleEntries 中的索引。
     /// 由 Initialize() 第 7 步从 DependBundleIndices 反转构建。
     /// 用途：卸载安全判断（引用归零才可卸载）、影响分析（改了本包影响哪些包）、
-    /// 依赖图可视化（Phase 8 G2）。
+    /// 依赖图可视化。
     /// </summary>
     [NonSerialized]
     public List<int> ReferencedByBundleIndices = new();

@@ -32,7 +32,7 @@ public class CollectorPackage
     /// <summary>该包下的所有 Group 配置</summary>
     public List<CollectorGroup> Groups = new();
     
-    /// <summary>Per-Package 共享提取策略，E4 依赖分析使用</summary>
+    /// <summary>Per-Package 共享提取策略，由依赖分析 Task 读取</summary>
     public SharePolicyConfig SharePolicy = new();
 
     #endregion

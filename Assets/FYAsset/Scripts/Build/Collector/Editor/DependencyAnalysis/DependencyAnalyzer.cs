@@ -4,9 +4,9 @@ using UnityEditor;
 
 /// <summary>
 /// 依赖分析器 —— 单次 BFS 遍历完成三项工作：
-///   Phase 1: Bundle 依赖边构建 + 隐式依赖发现（refCount 计数）
-///   Phase 2: SharePolicy 决策（共享 vs 复制）
-/// 全局 visited set 防止无限展开；BFS stack 定位资产级循环路径。
+///   第一步： Bundle 依赖边构建 + 隐式依赖发现（refCount 计数）
+///   第二步： SharePolicy 决策（共享 vs 复制）
+/// 全局 visited set 防止无限展开。
 /// </summary>
 public static class DependencyAnalyzer
 {
@@ -22,7 +22,7 @@ public static class DependencyAnalyzer
     /// <summary>
     /// 对指定 Package 的已收集资产执行依赖分析。
     /// </summary>
-    /// <param name="assets">E1-3 CollectionScanner 产出的资产列表（可包含多个 Package）</param>
+    /// <param name="assets">CollectionScanner 产出的资产列表（可包含多个 Package）</param>
     /// <param name="sharePolicies">Per-Package 共享策略（PackageName → SharePolicyConfig）</param>
     /// <param name="graph">输出：Bundle 依赖图</param>
     /// <param name="messages">输出：错误/警告/信息消息列表</param>
@@ -79,7 +79,7 @@ public static class DependencyAnalyzer
         // 隐式依赖候选：GUID → (refCount, PrimaryType, firstAssetPath, referencingBundles)
         var implicitCandidates = new Dictionary<string, ImplicitCandidate>();
 
-        // Phase 1: BFS
+        // 第一步：BFS 遍历，记录 Bundle 依赖边 + 隐式依赖候选
         var globalVisited = new HashSet<string>(); // 所有已展开过的 GUID
 
         foreach (var asset in packageAssets)
@@ -173,7 +173,7 @@ public static class DependencyAnalyzer
             }
         }
 
-        // Phase 2: SharePolicy 决策
+        // 第二步：SharePolicy 决策（共享 vs 复制）
         foreach (var kvp in implicitCandidates)
         {
             string depGuid = kvp.Key;

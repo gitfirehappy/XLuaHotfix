@@ -32,7 +32,7 @@ public enum EPayloadKind
 }
 
 /// <summary>
-/// 资产角色 —— 由 ECollectorType 映射 + 依赖分析（E4）共同确定的最终语义角色。
+/// 资产角色 —— 由 ECollectorType 映射 + 依赖分析共同确定的最终语义角色。
 /// </summary>
 public enum EAssetRole
 {

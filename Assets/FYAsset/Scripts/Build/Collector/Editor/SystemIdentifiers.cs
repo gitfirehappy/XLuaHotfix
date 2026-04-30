@@ -11,7 +11,7 @@ public static class SystemIdentifiers
     /// <summary>PackByLabel 空 Labels 的哨兵 packKey</summary>
     public const string OrphanPackKey = "$orphan";
 
-    /// <summary>E4 隐式依赖共享 Bundle 的保留 GroupName</summary>
+    /// <summary>隐式依赖共享 Bundle 的保留 GroupName</summary>
     public const string SharedGroupName = "$shared";
 
     /// <summary>PackRule / BundleNameBuilder 的默认回退 packKey</summary>

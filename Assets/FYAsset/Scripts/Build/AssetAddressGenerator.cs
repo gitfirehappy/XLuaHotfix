@@ -48,7 +48,7 @@ public static class AssetAddressGenerator
     /// <summary>
     /// 生成单个资源的默认 Address。
     /// 约定：先取文件短名；仅当调用方确认存在同名冲突时，再升级为 Filename_Type 形式。
-    /// E1-2 的 AddressByFileName 复用这个入口，避免与 B5 的命名规则分叉。
+    /// AddressByFileName 复用这个入口，保持地址命名规则统一。
     /// </summary>
     public static string GenerateShortAddress(string assetPath, string primaryType, bool useTypeSuffix = false)
     {

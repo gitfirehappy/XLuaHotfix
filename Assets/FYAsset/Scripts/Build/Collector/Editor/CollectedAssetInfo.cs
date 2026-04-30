@@ -30,7 +30,7 @@ public class CollectedAssetInfo
     /// <summary>所属 Package 名称</summary>
     public string PackageName;
 
-    /// <summary>逻辑 Bundle 名称，由 BundleNameBuilder 组装（E2 阶段填充）</summary>
+    /// <summary>逻辑 Bundle 名称，由 BundleNameBuilder 组装</summary>
     public string BundleName;
 
     /// <summary>分类结果：资产角色 + 载荷类型</summary>
@@ -39,10 +39,10 @@ public class CollectedAssetInfo
     /// <summary>采集器类型，透传自 Collector.CollectorType</summary>
     public ECollectorType CollectorType;
 
-    /// <summary>E4 决策：该资产被打入共享 Bundle（GroupName = "$shared"）</summary>
+    /// <summary>依赖分析决策：该资产被打入共享 Bundle（GroupName = "$shared"）</summary>
     public bool IsInSharedBundle;
 
-    /// <summary>E4 决策：该隐式依赖被复制到多个引用 Bundle 中</summary>
+    /// <summary>依赖分析决策：该隐式依赖被复制到多个引用 Bundle 中</summary>
     public bool IsDuplicated;
 
     #endregion

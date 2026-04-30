@@ -93,7 +93,7 @@ public static class LocalStatusExporter
     }
 
     /// <summary>
-    /// 创建空的 ABManifest（占位实现，完整数据填充由 Phase 5-6 构建管线实现）
+    /// 创建空的 ABManifest（占位实现，完整数据填充由构建管线 Task 负责）
     /// </summary>
     private static ABManifest CreateEmptyManifest(VersionNumber version)
     {

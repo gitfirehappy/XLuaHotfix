@@ -53,7 +53,7 @@ public class ABBundleLoader
     /// 缓存策略决策（2026-04-07）：当前使用精确引用计数 + 归零即卸载（Unload(true)）。
     /// 该策略下 RefCount=0 的 Bundle 会被立即释放，不会累积。
     /// 主要内存风险来自引用泄漏（Load 后未 Release），由 B8 AssetHandle pool 的 Handle-first 设计解决。
-    /// LRU/LFU 缓存优化已规划在 Phase 9 H2，需要 profiling 数据驱动参数（容量、超时阈值），不做过早优化。
+    /// LRU/LFU 缓存优化需要 profiling 数据驱动参数（容量、超时阈值），不做过早优化。
     private readonly Dictionary<string, BundleCacheEntry> _bundleCache = new();
 
     /// <summary>ABManifest 引用，用于查询 Bundle 依赖关系</summary>

@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 
 /// <summary>
-/// Bundle 依赖关系图，E4 DependencyAnalyzer 的输出。
+/// Bundle 依赖关系图，DependencyAnalyzer 的输出。
 /// 扁平边列表，支持 ViaAssets 追溯到具体触发资产。
 /// </summary>
 public class BundleDependencyGraph

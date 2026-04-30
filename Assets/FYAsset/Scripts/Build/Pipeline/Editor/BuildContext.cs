@@ -3,7 +3,7 @@ using System.Collections.Generic;
 /// <summary>
 /// 构建管线上下文 —— 类型安全的 KV 数据总线。
 /// 各 Task 通过 ReadKeys/WriteKeys 声明确保数据流可见性，
-/// DAGScheduler 在 Phase 0 Validate 阶段校验 Read-before-Write 和 W-W 冲突。
+/// DAGScheduler 在执行前校验 Read-before-Write 和 Write-Write 冲突。
 /// 内部使用 Dictionary&lt;string, object&gt; 存储，兼容值类型和引用类型。
 /// </summary>
 public class BuildContext

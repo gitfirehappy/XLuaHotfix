@@ -2,8 +2,8 @@ using System.Collections.Generic;
 using UnityEditor;
 
 /// <summary>
-/// E4 管线 Task：依赖分析 + Bundle 依赖图构建 + 隐式依赖发现 + 共享提取决策。
-/// 在管线中位于 TaskCollectAssets (E1-3) 之后，TaskBuildBundles (E5-2) 之前。
+/// 管线 Task：依赖分析 + Bundle 依赖图构建 + 隐式依赖发现 + 共享提取决策。
+/// 在管线中位于采集 Task 之后、打包 Task 之前。
 /// ReadKeys: CollectedAssets
 /// WriteKeys: CollectedAssets (augmented), BundleDependencyGraph
 /// </summary>
@@ -16,7 +16,7 @@ public class TaskAnalyzeDependencies : IBuildTask
 
     public BuildTaskResult Execute(BuildContext ctx)
     {
-        // 读取 E1-3 产出的资产列表
+        // 读取收集扫描产出的资产列表
         var assets = ctx.Get<List<CollectedAssetInfo>>(BuildContextKeys.CollectedAssets);
         if (assets == null || assets.Count == 0)
         {
