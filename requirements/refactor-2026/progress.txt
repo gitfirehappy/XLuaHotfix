@@ -683,3 +683,19 @@
 [done] 2026-04-30 plan-E4.md APPROVED — all 12 checklist items confirmed with 3 refinements recorded in Change Log
 [next] 2026-04-30 E4 ready for execution. E5-1 realized, E1-3 done. Next: execute E4 or continue E5-2 discussion (E4 approval unblocks E5-2). Awaiting developer decision.
 [done] 2026-05-02 Wrote review artifacts: review-full-landed-code-20260502-summary.md + review-full-landed-code-20260502-details.md (English static review of landed refactor code)
+[start] 2026-05-02 E1-4 UI rework planning started — user reported unusable Collector editor layout (overlap, weak empty state, no scan preview) and requested tracked repair plan before implementation
+[decision] 2026-05-02 E1-4 rework direction confirmed: keep IMGUI, add explicit Scan Preview, include light BuildPipelineWindow shell polish, no UI Toolkit migration
+[done] 2026-05-02 plan-E1-4-rework.md written — scoped UI-only repair tasks, invariants, verification plan, and approval checklist for execution gating
+[done] 2026-05-02 plan-E1-4-rework SIGNED OFF - proceed with IMGUI-based UI repair, Scan Preview integration, and shell polish
+[start] 2026-05-02 E1-4 UI rework execution started — implementing approved layout repair and scan preview UX
+[done] 2026-05-02 Wave1 completed: BuildPipelineWindow shell padding & sidebar spacing applied (working tree, uncommitted)
+[done] 2026-05-02 Wave2 completed: CollectorPanel partitioned into top/middle/bottom rects and splitter math derived from middle content (working tree, uncommitted)
+[done] 2026-05-02 Wave3 completed: Property panel bounded rendering implemented; bottom Result tabs and explicit Scan Preview action wired; CollectorResultPanel helper added (working tree, uncommitted)
+[done] 2026-05-02 Verification completed: dotnet build XLuaHotfix.sln succeeded with warnings; manual UI checks performed (resize, splitter, selection, tab switching, scan preview basic flows)
+[next] 2026-05-02 Awaiting developer sign-off on committing changes (working tree currently contains uncommitted edits for review)
+[done] 2026-05-02 E1-4 rework implementation completed (Waves 1-3 implemented; Wave4 optional navigation deferred; Wave5 verification performed). Changes are in working tree and not yet committed.
+[next] 2026-05-02 Request: developer sign-off required to create commits. See files under Assets/FYAsset/Scripts/Build/Collector/Editor/UI/ for modified files (CollectorPanel.cs, CollectorPropertyPanel.cs, CollectorResultPanel.cs) and BuildPipelineWindow.cs (shell polish).
+[progress] 2026-05-02 Wave1 completed: BuildPipelineWindow shell padding & sidebar spacing applied (working tree, uncommitted)
+[progress] 2026-05-02 Wave2 completed: CollectorPanel partitioned into top/middle/bottom rects and splitter math derived from middle content (working tree, uncommitted)
+[progress] 2026-05-02 Wave3 in-progress: Property panel bounded rendering, empty-state card, bottom result tabs and explicit Scan Preview UI added (working tree, uncommitted)
+[done] 2026-05-02 E1-4 rework SIGNED OFF — layout fixed (rect-driven composition, no overlap), Scan Preview wired to CollectionScanner.Scan (45 assets verified), CollectorPropertyPanel EndArea bug fixed, CollectorResultPanel simplified (no nested BeginArea), Reload button + CollectorTestSeeder added for phase validation. GUI Error resolved.

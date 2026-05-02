@@ -481,7 +481,7 @@ public static class CollectionScanner
         for (int gi = 0; gi < package.Groups.Count; gi++)
         {
             CollectorGroup group = package.Groups[gi];
-            if (group == null || group.Collectors == null)
+            if (group == null || group.Collectors == null || !group.Enabled)
                 continue;
 
             for (int ci = 0; ci < group.Collectors.Count; ci++)

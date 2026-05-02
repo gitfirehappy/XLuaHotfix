@@ -61,6 +61,9 @@ public static class FYAssetConstants
 
     #region 新管线 — 文件路径
 
+    /// <summary>BuildPipelineWindow 编辑器菜单路径</summary>
+    public const string BUILD_PIPELINE_WINDOW_MENU_PATH = "XLua/Build Pipeline";
+
     /// <summary>二进制序列化器生成代码输出路径</summary>
     public const string BINARY_SERIALIZER_GENERATE_PATH = "Assets/Tools/Scripts/Serialization/Generated";
 

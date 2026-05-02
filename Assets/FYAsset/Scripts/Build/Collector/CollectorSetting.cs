@@ -49,6 +49,9 @@ public class CollectorGroup
     /// <summary>组名，用于构建 Bundle 逻辑名的第二段</summary>
     public string GroupName;
 
+    /// <summary>是否启用该 Group。为 false 时 CollectionScanner 跳过整个 Group</summary>
+    public bool Enabled = true;
+
     /// <summary>组级别标签，与 Collector.Labels 取并集后写入 CollectedAssetInfo.Labels</summary>
     public List<string> Labels = new();
 
