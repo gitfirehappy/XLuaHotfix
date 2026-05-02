@@ -111,6 +111,22 @@ public static class FileHelper
     }
 
     /// <summary>
+    /// 跨平台文件存在性检查。
+    /// Android StreamingAssets 路径（jar: URI）无法用 File.Exists 检测，直接返回 false。
+    /// </summary>
+    public static bool Exists(string path)
+    {
+        if (string.IsNullOrEmpty(path))
+            return false;
+
+#if UNITY_ANDROID && !UNITY_EDITOR
+        if (path.StartsWith(Application.streamingAssetsPath, StringComparison.OrdinalIgnoreCase))
+            return false;
+#endif
+        return File.Exists(path);
+    }
+
+    /// <summary>
     /// 删除文件。失败时返回 false 并输出警告日志。绝不抛异常。
     /// </summary>
     public static bool TryDelete(string path)

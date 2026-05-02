@@ -682,3 +682,4 @@
 [decision] 2026-04-30 E4 D11 refined: cycle detection clarified — BFS global visited set prevents infinite loop, BFS stack only for path reporting. Same-Bundle cycle → Warning SAME_BUNDLE_CYCLE, cross-Bundle → Error CIRCULAR_DEPENDENCY
 [done] 2026-04-30 plan-E4.md APPROVED — all 12 checklist items confirmed with 3 refinements recorded in Change Log
 [next] 2026-04-30 E4 ready for execution. E5-1 realized, E1-3 done. Next: execute E4 or continue E5-2 discussion (E4 approval unblocks E5-2). Awaiting developer decision.
+[done] 2026-05-02 Wrote review artifacts: review-full-landed-code-20260502-summary.md + review-full-landed-code-20260502-details.md (English static review of landed refactor code)

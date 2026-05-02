@@ -81,6 +81,7 @@ public static class DependencyAnalyzer
 
         // 第一步：BFS 遍历，记录 Bundle 依赖边 + 隐式依赖候选
         var globalVisited = new HashSet<string>(); // 所有已展开过的 GUID
+        var cycleEntries = new List<(string path, string depPath)>(); // 循环依赖报告
 
         foreach (var asset in packageAssets)
         {
@@ -91,7 +92,7 @@ public static class DependencyAnalyzer
             if (globalVisited.Contains(asset.AssetGUID))
                 continue;
 
-            var bfsStack = new List<string>(); // 当前路径（用于循环报告）
+            var bfsStack = new List<(string guid, string path)>(); // 当前路径（guid, assetPath）
             var queue = new Queue<string>();
             queue.Enqueue(asset.AssetGUID);
             var localVisited = new HashSet<string>(); // 本次 BFS 已入队的 GUID
@@ -102,15 +103,12 @@ public static class DependencyAnalyzer
                 if (globalVisited.Contains(guid))
                     continue;
 
-                globalVisited.Add(guid);
-                bfsStack.Add(guid);
-
                 string depPath = AssetDatabase.GUIDToAssetPath(guid);
                 if (string.IsNullOrEmpty(depPath))
-                {
-                    bfsStack.RemoveAt(bfsStack.Count - 1);
                     continue;
-                }
+
+                globalVisited.Add(guid);
+                bfsStack.Add((guid, depPath));
 
                 string[] deps;
                 try
@@ -130,6 +128,20 @@ public static class DependencyAnalyzer
 
                     string depGuid = AssetDatabase.AssetPathToGUID(dep);
                     if (string.IsNullOrEmpty(depGuid))
+                        continue;
+
+                    // 循环检测：depGuid 已在当前 BFS 路径中 → 报告并跳过
+                    bool isCycle = false;
+                    for (int si = 0; si < bfsStack.Count; si++)
+                    {
+                        if (bfsStack[si].guid == depGuid)
+                        {
+                            cycleEntries.Add((bfsStack[si].path, dep));
+                            isCycle = true;
+                            break;
+                        }
+                    }
+                    if (isCycle)
                         continue;
 
                     // 判断归属
@@ -173,6 +185,28 @@ public static class DependencyAnalyzer
             }
         }
 
+        // 报告循环依赖诊断消息
+        int cycleCount = 0;
+        foreach (var (fromPath, toPath) in cycleEntries)
+        {
+            if (cycleCount < 20)
+            {
+                messages.Add(BuildMessage.Error("CYCLE_DEPENDENCY",
+                    $"Circular dependency: '{fromPath}' → ... → '{toPath}' → '{fromPath}'.",
+                    fromPath));
+            }
+            cycleCount++;
+        }
+        if (cycleCount > 0)
+        {
+            messages.Add(BuildMessage.Warning("CYCLE_COUNT",
+                $"Found {cycleCount} cyclic asset dependency(s). First 20 reported above. See Unity AssetDatabase for asset-level chains.",
+                packageName));
+            if (cycleCount > 20)
+                messages.Add(BuildMessage.Warning("CYCLE_TRUNCATED",
+                    $"{cycleCount - 20} additional cycle(s) not shown.", packageName));
+        }
+
         // 第二步：SharePolicy 决策（共享 vs 复制）
         foreach (var kvp in implicitCandidates)
         {
@@ -191,11 +225,20 @@ public static class DependencyAnalyzer
                 continue;
             }
 
+            // MinAssetSizeBytes 检查：小于阈值的资产不参与共享（已声明但未消费的死配置）
+            bool meetsSizeThreshold = true;
+            if (policy.MinAssetSizeBytes > 0)
+            {
+                long fileSize = GetAssetFileSize(candidate.AssetPath);
+                if (fileSize > 0 && fileSize < policy.MinAssetSizeBytes)
+                    meetsSizeThreshold = false;
+            }
+
             string bundleName;
             bool isShared;
             bool isDuplicated;
 
-            if (forceShare || (refCount >= policy.MinReferenceCount))
+            if (forceShare || (refCount >= policy.MinReferenceCount && meetsSizeThreshold))
             {
                 // 共享
                 string packKey = candidate.PrimaryType;
@@ -243,6 +286,10 @@ public static class DependencyAnalyzer
         bool isShared,
         bool isDuplicated)
     {
+        // 共享型 → GroupName = "$shared"
+        // 复制型 → GroupName = PackageName（与 "$shared" 明确区分，避免数据模型语义冲突）
+        string groupName = isShared ? "$shared" : candidate.PackageName;
+
         return new CollectedAssetInfo
         {
             AssetPath = candidate.AssetPath,
@@ -250,7 +297,7 @@ public static class DependencyAnalyzer
             Address = AssetAddressGenerator.GenerateShortAddress(candidate.AssetPath, candidate.PrimaryType, true),
             PrimaryType = candidate.PrimaryType,
             Labels = new List<string>(),
-            GroupName = "$shared",
+            GroupName = groupName,
             PackageName = candidate.PackageName,
             BundleName = bundleName,
             Classification = new AssetClassification
@@ -301,6 +348,24 @@ public static class DependencyAnalyzer
                 return true;
         }
         return false;
+    }
+
+    private static long GetAssetFileSize(string assetPath)
+    {
+        if (string.IsNullOrEmpty(assetPath))
+            return -1;
+
+        try
+        {
+            var info = new System.IO.FileInfo(assetPath);
+            if (info.Exists)
+                return info.Length;
+        }
+        catch
+        {
+            // 权限不足或路径非法 → 忽略，不影响分析流程
+        }
+        return -1;
     }
 
     private class ImplicitCandidate

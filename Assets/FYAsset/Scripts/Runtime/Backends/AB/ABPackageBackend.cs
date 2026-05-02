@@ -49,6 +49,10 @@ public class ABPackageBackend : IPackageBackend
     /// <summary>address → 已加载的 EntryId 列表（支持 Legacy 风格按 key 卸载）</summary>
     private readonly Dictionary<string, HashSet<string>> _addressToEntryIds = new();
 
+    /// <summary>进行中的异步加载：EntryId → Task。并发去重，避免重复 I/O。</summary>
+    private readonly Dictionary<string, Task> _inflightLoads = new();
+    private readonly object _inflightLock = new();
+
     /// <summary>ABManifest 引用，用于 Asset→Bundle 解析</summary>
     private readonly ABManifest _manifest;
 
@@ -173,7 +177,8 @@ public class ABPackageBackend : IPackageBackend
     #region IPackageBackend · 卸载
 
     /// <summary>
-    /// 按 address/key 卸载资产。直接移除缓存并联动 Bundle 卸载。
+    /// 按 address/key 卸载资产。释放该地址下所有已加载条目（确定性行为）。
+    /// 存在重复 Address 时全部释放，不会非确定性地只取第一个。
     /// 注：Handle 路径的调用方应先通过 HandleRegistry 确保所有 Handle 已释放。
     /// </summary>
     public void UnloadAsset(string key)
@@ -181,16 +186,12 @@ public class ABPackageBackend : IPackageBackend
         if (string.IsNullOrEmpty(key)) return;
         if (!_addressToEntryIds.TryGetValue(key, out var entryIds) || entryIds.Count == 0) return;
 
-        string targetEntryId = null;
-        // HashSet 无索引器，用 foreach+break 取第一个元素（C# 无非 LINQ 的 First()）
-        foreach (var entryId in entryIds)
+        // 收集所有 entryId 后逐个释放，避免在迭代中修改集合
+        var ids = new List<string>(entryIds);
+        foreach (var entryId in ids)
         {
-            targetEntryId = entryId;
-            break;
+            ReleaseEntry(entryId);
         }
-
-        if (string.IsNullOrEmpty(targetEntryId)) return;
-        ReleaseEntry(targetEntryId);
     }
 
     /// <summary>
@@ -316,53 +317,94 @@ public class ABPackageBackend : IPackageBackend
     /// <summary>
     /// 异步加载资产的内部实现（已确认 assetEntry 有效）。
     /// 返回 (asset, bundleName, error) 元组 — 内部 API，不抛异常。
+    /// 并发去重：同一 EntryId 的并发请求等待同一 inflight Task，避免重复 I/O。
     /// </summary>
     private async Task<(T asset, string bundleName, RuntimeMessage error)> LoadAssetInternalAsync<T>(
         ManifestAssetEntry assetEntry) where T : UnityEngine.Object
     {
-        // 获取 Bundle 信息
-        var bundleEntry = _manifest.GetBundleForAsset(assetEntry);
-        if (bundleEntry == null)
+        string entryId = assetEntry.EntryId;
+
+        // 并发去重：如果已有进行中的加载，等待其完成后从缓存读取
+        TaskCompletionSource<object> myTcs = null;
+        Task inflight;
+        lock (_inflightLock)
         {
-            return (null, null,
-                RuntimeMessage.BundleNotFound(
-                    string.Concat("(asset: ", assetEntry.Address, ", EntryId=", assetEntry.EntryId, ")")));
+            if (_inflightLoads.TryGetValue(entryId, out inflight))
+            {
+                // 已有 inflight，等待之（await 在锁外进行）
+            }
+            else
+            {
+                myTcs = new TaskCompletionSource<object>();
+                _inflightLoads[entryId] = myTcs.Task;
+            }
         }
 
-        string bundleName = bundleEntry.BundleName;
-
-        // 加载 Bundle（含依赖）
-        var (bundle, bundleError) = await _bundleLoader.LoadBundleAsync(bundleName);
-        if (bundleError != null)
+        if (inflight != null)
         {
-            return (null, bundleName, bundleError);
+            await inflight;
+            if (_assetCache.TryGetValue(entryId, out var existing))
+                return (existing.Asset as T, existing.BundleName, null);
+            // inflight 完成但缓存中没有 → 之前的加载失败，本次作为新请求继续
         }
 
-        // 从 Bundle 中异步提取资产
-        T asset = null;
         try
         {
-            var request = bundle.LoadAssetAsync<T>(assetEntry.SourcePath);
-            await AssetBundleRequestToTask(request);
-            asset = request.asset as T;
-        }
-        catch (Exception)
-        {
-            _bundleLoader.UnloadBundle(bundleName);
-            return (null, bundleName,
-                RuntimeMessage.AssetExtractionFailed(assetEntry.EntryId, assetEntry.SourcePath, bundleName));
-        }
+            // 获取 Bundle 信息
+            var bundleEntry = _manifest.GetBundleForAsset(assetEntry);
+            if (bundleEntry == null)
+            {
+                return (null, null,
+                    RuntimeMessage.BundleNotFound(
+                        string.Concat("(asset: ", assetEntry.Address, ", EntryId=", assetEntry.EntryId, ")")));
+            }
 
-        if (asset == null)
-        {
-            _bundleLoader.UnloadBundle(bundleName);
-            return (null, bundleName,
-                RuntimeMessage.AssetExtractionFailed(assetEntry.EntryId, assetEntry.SourcePath, bundleName));
-        }
+            string bundleName = bundleEntry.BundleName;
 
-        // 加入 Asset 缓存
-        AddToAssetCache(assetEntry, asset, bundleName);
-        return (asset, bundleName, null);
+            // 加载 Bundle（含依赖）
+            var (bundle, bundleError) = await _bundleLoader.LoadBundleAsync(bundleName);
+            if (bundleError != null)
+            {
+                return (null, bundleName, bundleError);
+            }
+
+            // 从 Bundle 中异步提取资产
+            T asset = null;
+            try
+            {
+                var request = bundle.LoadAssetAsync<T>(assetEntry.SourcePath);
+                await AssetBundleRequestToTask(request);
+                asset = request.asset as T;
+            }
+            catch (Exception)
+            {
+                _bundleLoader.UnloadBundle(bundleName);
+                return (null, bundleName,
+                    RuntimeMessage.AssetExtractionFailed(assetEntry.EntryId, assetEntry.SourcePath, bundleName));
+            }
+
+            if (asset == null)
+            {
+                _bundleLoader.UnloadBundle(bundleName);
+                return (null, bundleName,
+                    RuntimeMessage.AssetExtractionFailed(assetEntry.EntryId, assetEntry.SourcePath, bundleName));
+            }
+
+            // 加入 Asset 缓存
+            AddToAssetCache(assetEntry, asset, bundleName);
+            return (asset, bundleName, null);
+        }
+        finally
+        {
+            if (myTcs != null)
+            {
+                lock (_inflightLock)
+                {
+                    _inflightLoads.Remove(entryId);
+                }
+                myTcs.TrySetResult(null);
+            }
+        }
     }
 
     /// <summary>

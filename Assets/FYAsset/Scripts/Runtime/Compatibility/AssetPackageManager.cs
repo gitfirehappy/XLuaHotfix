@@ -51,14 +51,17 @@ public class AssetPackageManager : Singleton<AssetPackageManager>
     /// <summary>
     /// AB 索引路径：ManifestLoader → ABManifest → ABAssetIndex + ABBundleLoader + ABPackageBackend。
     /// 同时初始化索引和加载后端，一个开关控制两个维度。
-    /// 加载失败视为致命错误，不回退到 Legacy。
+    /// 加载失败回退到 Legacy 路径并发出结构化警告，避免静默进入不可用状态。
     /// </summary>
     private async Task InitializeWithABIndex()
     {
         var manifest = await ManifestLoader.LoadAsync();
         if (manifest == null)
         {
-            Debug.LogError("[AssetPackageManager] ABManifest 加载失败，管理器无法初始化。");
+            Debug.LogWarning(
+                "[AssetPackageManager] ABManifest 加载失败，回退到 Legacy (Addressables) 路径。" +
+                "请检查 AB 资源是否已正确构建并部署到热更目录或 StreamingAssets。");
+            await InitializeWithLegacyIndex();
             return;
         }
 
@@ -438,12 +441,12 @@ public class AssetPackageManager : Singleton<AssetPackageManager>
     private AssetHandle<T> CreateLegacyHandle<T>(RuntimeAssetEntry entry, T asset)
         where T : UnityEngine.Object
     {
-        var releaseAddress = entry.Address;
+        var releaseEntryId = entry.EntryId;
         var (handleId, generation) = HandleRegistry.Alloc(
             entry.EntryId,
             "",
             null,
-            _ => _backend.UnloadAsset(releaseAddress));
+            _ => _backend.UnloadByEntryId(releaseEntryId));
 
         return new AssetHandle<T>(handleId, generation, asset);
     }

@@ -54,6 +54,9 @@ public class BundleDependencyGraph
             ToBundle = toBundle,
             ViaAssets = new List<string> { viaAsset }
         });
+
+        // Edges 变更后使懒构建缓存失效，防止 GetDependencyMap() 返回陈旧数据
+        _dependencyMap = null;
     }
 }
 

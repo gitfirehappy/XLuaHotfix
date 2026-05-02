@@ -9,6 +9,7 @@ public static class BuildContextKeys
     public const string OutputRoot = "OutputRoot";
     public const string TargetPlatform = "TargetPlatform";
     public const string CollectedAssets = "CollectedAssets";
+    public const string SharePolicies = "SharePolicies";
     public const string BundleDependencyGraph = "BundleDependencyGraph";
     public const string BundleBuildResults = "BundleBuildResults";
     public const string ABManifest = "ABManifest";

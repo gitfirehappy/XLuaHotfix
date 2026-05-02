@@ -80,10 +80,9 @@ public static class DAGScheduler
             return ErrorResult(config, new List<BuildTaskResult> { BuildTaskResult.Fail(
                 "NO_ENABLED_TASKS", "No enabled tasks in pipeline config.", true) });
 
-        var allNames = new HashSet<string>(config.Tasks.Select(e => e.TaskName), StringComparer.Ordinal);
-
         // 解析所有 Enabled Task
         var instances = new Dictionary<string, IBuildTask>(StringComparer.Ordinal);
+        var enabledNames = new HashSet<string>(enabled.Select(e => e.TaskName), StringComparer.Ordinal);
         foreach (var entry in enabled)
         {
             if (!BuildTaskResolver.Exists(entry.TaskName))
@@ -97,17 +96,22 @@ public static class DAGScheduler
         }
         if (errors.Count > 0) return ErrorResult(config, errors);
 
-        // 校验 1：所有 DependsOn 指向已注册的 TaskName
+        // 校验 1：所有 DependsOn（合并 IBuildTask + SO TaskEntry）指向已启用的 TaskName
+        // 只允许依赖 enabled task，防止依赖 disabled task 被静默忽略导致错误拓扑
         foreach (var instance in instances.Values)
         {
-            if (instance.DependsOn == null) continue;
-            foreach (var dep in instance.DependsOn)
+            var taskDeps = GetMergedDependencies(instance, config);
+            if (taskDeps.Length == 0) continue;
+            foreach (var dep in taskDeps)
             {
-                if (!allNames.Contains(dep))
+                if (!enabledNames.Contains(dep))
                 {
+                    string reason = config.Tasks.Any(e => e.TaskName == dep && !e.Enabled)
+                        ? $"'{dep}' is disabled — enable it or update '{instance.TaskName}' dependencies."
+                        : $"'{dep}' — not in task list.";
                     errors.Add(BuildTaskResult.Fail(
                         "MISSING_DEPENDENCY",
-                        $"'{instance.TaskName}' depends on '{dep}' — not in task list.", true));
+                        $"'{instance.TaskName}' depends on '{dep}': {reason}", true));
                 }
             }
         }
@@ -123,8 +127,8 @@ public static class DAGScheduler
         }
         foreach (var instance in instances.Values)
         {
-            if (instance.DependsOn == null) continue;
-            foreach (var dep in instance.DependsOn)
+            var taskDeps = GetMergedDependencies(instance, config);
+            foreach (var dep in taskDeps)
             {
                 if (instances.ContainsKey(dep))
                 {
@@ -237,8 +241,8 @@ public static class DAGScheduler
         }
         foreach (var instance in instances.Values)
         {
-            if (instance.DependsOn == null) continue;
-            foreach (var dep in instance.DependsOn)
+            var taskDeps = GetMergedDependencies(instance, config);
+            foreach (var dep in taskDeps)
             {
                 if (instances.ContainsKey(dep))
                 {
@@ -320,6 +324,32 @@ public static class DAGScheduler
     #endregion
 
     #region Helpers
+
+    /// <summary>合并 IBuildTask.DependsOn 与 TaskEntry.DependsOn（SO 面板级依赖），去重</summary>
+    private static string[] GetMergedDependencies(IBuildTask task, BuildPipelineConfig config)
+    {
+        var deps = new List<string>();
+        if (task.DependsOn != null)
+            deps.AddRange(task.DependsOn);
+
+        // 读 SO 中 TaskEntry 的 DependsOn，避免配置面板依赖成为死配置
+        if (config.Tasks != null)
+        {
+            foreach (var entry in config.Tasks)
+            {
+                if (entry.TaskName == task.TaskName && entry.DependsOn != null)
+                {
+                    foreach (var dep in entry.DependsOn)
+                    {
+                        if (!deps.Contains(dep))
+                            deps.Add(dep);
+                    }
+                    break;
+                }
+            }
+        }
+        return deps.ToArray();
+    }
 
     private static BuildResult ErrorResult(BuildPipelineConfig config, List<BuildTaskResult> errors)
     {

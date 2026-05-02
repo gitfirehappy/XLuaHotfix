@@ -4,14 +4,14 @@ using UnityEditor;
 /// <summary>
 /// 管线 Task：依赖分析 + Bundle 依赖图构建 + 隐式依赖发现 + 共享提取决策。
 /// 在管线中位于采集 Task 之后、打包 Task 之前。
-/// ReadKeys: CollectedAssets
+/// ReadKeys: CollectedAssets, SharePolicies (optional, falls back to CollectorSetting SO)
 /// WriteKeys: CollectedAssets (augmented), BundleDependencyGraph
 /// </summary>
 public class TaskAnalyzeDependencies : IBuildTask
 {
     public string TaskName => "TaskAnalyzeDependencies";
     public string[] DependsOn => new[] { "TaskCollectAssets" };
-    public string[] ReadKeys => new[] { BuildContextKeys.CollectedAssets };
+    public string[] ReadKeys => new[] { BuildContextKeys.CollectedAssets, BuildContextKeys.SharePolicies };
     public string[] WriteKeys => new[] { BuildContextKeys.CollectedAssets, BuildContextKeys.BundleDependencyGraph };
 
     public BuildTaskResult Execute(BuildContext ctx)
@@ -24,16 +24,21 @@ public class TaskAnalyzeDependencies : IBuildTask
                 "TaskCollectAssets produced no assets. Check Collector configuration.", false);
         }
 
-        // 加载 CollectorSetting SO 获取 Per-Package SharePolicy
-        var policies = new Dictionary<string, SharePolicyConfig>();
-        var setting = AssetDatabase.LoadAssetAtPath<CollectorSetting>(
-            FYAssetConstants.COLLECTOR_SETTING_ASSET_PATH);
-        if (setting != null)
+        // 读取 Per-Package SharePolicy：优先从 BuildContext 取（显式数据流），
+        // 不存在时回退到 AssetDatabase 加载 CollectorSetting SO
+        var policies = ctx.Get<Dictionary<string, SharePolicyConfig>>(BuildContextKeys.SharePolicies);
+        if (policies == null)
         {
-            foreach (var pkg in setting.Packages)
+            policies = new Dictionary<string, SharePolicyConfig>();
+            var setting = AssetDatabase.LoadAssetAtPath<CollectorSetting>(
+                FYAssetConstants.COLLECTOR_SETTING_ASSET_PATH);
+            if (setting != null)
             {
-                if (!string.IsNullOrEmpty(pkg.PackageName) && pkg.SharePolicy != null)
-                    policies[pkg.PackageName] = pkg.SharePolicy;
+                foreach (var pkg in setting.Packages)
+                {
+                    if (!string.IsNullOrEmpty(pkg.PackageName) && pkg.SharePolicy != null)
+                        policies[pkg.PackageName] = pkg.SharePolicy;
+                }
             }
         }
 

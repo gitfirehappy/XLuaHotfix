@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 using UnityEngine;
+using UnityEngine.Networking;
 
 /// <summary>
 /// AB Bundle 加载器 — 负责 AssetBundle 文件的加载、卸载与依赖管理。
@@ -211,21 +212,22 @@ public class ABBundleLoader
 
         // 解析 Bundle 物理路径
         string bundlePath = ResolveBundlePath(bundleName);
-        if (bundlePath == null)
+        AssetBundle bundle;
+        if (bundlePath != null)
         {
-            UnloadDependencies(depNames);
-            return (null, RuntimeMessage.BundleNotFound(bundleName));
+            var request = AssetBundle.LoadFromFileAsync(bundlePath);
+            await AssetBundleCreateRequestToTask(request);
+            bundle = request.assetBundle;
+        }
+        else
+        {
+            bundle = await LoadBundleFromStreamingAssetsAsync(bundleName);
         }
 
-        // 异步加载 AssetBundle
-        var request = AssetBundle.LoadFromFileAsync(bundlePath);
-        await AssetBundleCreateRequestToTask(request);
-
-        AssetBundle bundle = request.assetBundle;
         if (bundle == null)
         {
             UnloadDependencies(depNames);
-            return (null, RuntimeMessage.BundleLoadFailed(bundleName, bundlePath));
+            return (null, RuntimeMessage.BundleLoadFailed(bundleName, bundlePath ?? "streamingAssets"));
         }
 
         // 加入缓存
@@ -288,6 +290,7 @@ public class ABBundleLoader
     /// <summary>
     /// 解析 Bundle 文件的物理路径。
     /// 策略：热更目录优先 → StreamingAssets 回退。
+    /// 跨平台：通过 FileHelper.Exists 统一处理 Android jar: URI 等非文件系统路径。
     /// </summary>
     /// <param name="bundleName">Bundle 文件名</param>
     /// <returns>存在的文件路径，找不到返回 null</returns>
@@ -295,15 +298,53 @@ public class ABBundleLoader
     {
         // Primary: 当前热更包的 bundles 目录
         string primaryPath = Path.Combine(PathManager.CurrentGUIDRoot, "bundles", bundleName);
-        if (File.Exists(primaryPath))
+        if (FileHelper.Exists(primaryPath))
             return primaryPath;
 
         // Fallback: 包内初始 bundles 目录
         string fallbackPath = Path.Combine(Application.streamingAssetsPath, "bundles", bundleName);
-        if (File.Exists(fallbackPath))
+        if (FileHelper.Exists(fallbackPath))
             return fallbackPath;
 
         return null;
+    }
+
+    /// <summary>
+    /// 从 StreamingAssets 异步加载 AssetBundle（跨平台）。
+    /// 非 Android / Editor → 直接走 LoadFromFileAsync。
+    /// Android 运行时 → UnityWebRequestAssetBundle（jar: URI 不是真实文件系统）。
+    /// </summary>
+    private static async Task<AssetBundle> LoadBundleFromStreamingAssetsAsync(string bundleName)
+    {
+        string path = Path.Combine(Application.streamingAssetsPath, "bundles", bundleName);
+
+#if UNITY_ANDROID && !UNITY_EDITOR
+        using var request = UnityWebRequestAssetBundle.GetAssetBundle(path);
+        await request.SendWebRequest();
+        if (request.result != UnityWebRequest.Result.Success)
+        {
+            Debug.LogError($"[ABBundleLoader] StreamingAssets bundle load failed: {path}, error: {request.error}");
+            return null;
+        }
+        return DownloadHandlerAssetBundle.GetContent(request);
+#else
+        if (!File.Exists(path))
+        {
+            Debug.LogError($"[ABBundleLoader] Bundle not found in StreamingAssets: {path}");
+            return null;
+        }
+        var fileRequest = AssetBundle.LoadFromFileAsync(path);
+        var tcs = new TaskCompletionSource<AssetBundle>();
+        if (fileRequest.isDone)
+        {
+            tcs.SetResult(fileRequest.assetBundle);
+        }
+        else
+        {
+            fileRequest.completed += _ => tcs.SetResult(fileRequest.assetBundle);
+        }
+        return await tcs.Task;
+#endif
     }
 
     /// <summary>
@@ -498,20 +539,22 @@ public class ABBundleLoader
         }
 
         string bundlePath = ResolveBundlePath(bundleName);
-        if (bundlePath == null)
+        AssetBundle bundle;
+        if (bundlePath != null)
         {
-            UnloadDependencies(depNames);
-            return (null, RuntimeMessage.BundleNotFound(bundleName));
+            var request = AssetBundle.LoadFromFileAsync(bundlePath);
+            await AssetBundleCreateRequestToTask(request);
+            bundle = request.assetBundle;
+        }
+        else
+        {
+            bundle = await LoadBundleFromStreamingAssetsAsync(bundleName);
         }
 
-        var request = AssetBundle.LoadFromFileAsync(bundlePath);
-        await AssetBundleCreateRequestToTask(request);
-
-        AssetBundle bundle = request.assetBundle;
         if (bundle == null)
         {
             UnloadDependencies(depNames);
-            return (null, RuntimeMessage.BundleLoadFailed(bundleName, bundlePath));
+            return (null, RuntimeMessage.BundleLoadFailed(bundleName, bundlePath ?? "streamingAssets"));
         }
 
         _bundleCache[bundleName] = new BundleCacheEntry
