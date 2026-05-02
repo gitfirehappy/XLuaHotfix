@@ -153,7 +153,7 @@ Display names:
 - Add operations insert at end of parent list with sensible defaults:
   - New Package: PackageName = "NewPackage"
   - New Group: GroupName = "NewGroup"
-  - New Collector: CollectPath = "", CollectorType = Main, ForcePayloadKind = Auto, rules = default constants from Constants.cs
+  - New Collector: CollectPath = "", CollectorType = Main, ForcePayloadKind = Auto, rules = default constants from FYAssetConstants.cs
 
 ---
 
@@ -166,7 +166,10 @@ Renders different fields based on selected node type. Uses SerializedObject/Seri
 | Field | Widget |
 |-------|--------|
 | PackageName | EditorGUILayout.TextField |
-| SharePolicy | Disabled label: "Available after E4 implementation" |
+| SharePolicy.MinReferenceCount | EditorGUILayout.IntField (default: 2) |
+| SharePolicy.MinAssetSizeBytes | EditorGUILayout.LongField (default: 0) |
+| SharePolicy.NoSharePatterns | ReorderableList of string |
+| SharePolicy.ForceSharePatterns | ReorderableList of string |
 
 ### Group Selected
 
@@ -274,7 +277,8 @@ All paths relative to `Assets/FYAsset/Scripts/`.
 
 | File | Change | Risk |
 |------|--------|------|
-| Constants.cs | Add `BUILD_PIPELINE_WINDOW_MENU_PATH` menu path constant | Low — additive |
+| FYAssetConstants.cs | Add `BUILD_PIPELINE_WINDOW_MENU_PATH` menu path constant | Low — additive |
+| CollectorSetting.cs | Add `Enabled` field to CollectorGroup (see E1-4-T0) | Low — additive field |
 
 ---
 
@@ -282,6 +286,7 @@ All paths relative to `Assets/FYAsset/Scripts/`.
 
 | Task | Content | Depends On |
 |------|---------|-----------|
+| E1-4-T0 | Pre-work: Add `Enabled` field to `CollectorGroup` (default `true`) + update `CollectionScanner.FlattenCollectors` to skip disabled Groups + update `FYAssetConstants.cs` menu path | — |
 | E1-4-T1 | Create `IBuildPipelinePanel.cs` interface | — |
 | E1-4-T2 | Create `PlaceholderPanel.cs` (generic placeholder for 4 unimplemented areas) | T1 |
 | E1-4-T3 | Create `BuildPipelineWindow.cs` (window shell + sidebar + routing + menu entry) | T1, T2 |
@@ -292,7 +297,7 @@ All paths relative to `Assets/FYAsset/Scripts/`.
 | E1-4-T8 | Create `CollectorPropertyPanel.cs` (3 property panels + rule dropdowns + FolderPicker + ReorderableList) | T7 |
 | E1-4-T9 | Create `CollectorSettingValidator.cs` (9 validation rules + message data structure) | E1-1 done |
 | E1-4-T10 | Create `CollectorPanel.cs` (coordinator: TreeView + PropertyPanel + Validator display + splitter) | T4, T8, T9 |
-| E1-4-T11 | Integrate: register CollectorPanel in BuildPipelineWindow + Constants.cs menu path | T3, T10 |
+| E1-4-T11 | Integrate: register CollectorPanel in BuildPipelineWindow + FYAssetConstants.cs menu path | T3, T10 |
 | E1-4-T12 | Compilation verification (dotnet build) | All above |
 
 ---
@@ -303,7 +308,7 @@ All paths relative to `Assets/FYAsset/Scripts/`.
 2. TreeView correctly reflects CollectorSetting SO's 3-level structure (Package → Group → Collector)
 3. Drag reorder is same-level only; SO data updates correctly with Undo support
 4. Right-click Add creates node with sensible defaults; Delete shows confirmation; Duplicate deep-copies all fields
-5. New Collector auto-fills AddressRuleName/PackRuleName/FilterRuleName with default values from Constants
+5. New Collector auto-fills AddressRuleName/PackRuleName/FilterRuleName with default values from FYAssetConstants
 6. Rule dropdown lists all implemented rule classes (at minimum the 3 defaults from E1-2)
 7. Save-time validation triggers automatically; errors/warnings display in bottom area
 8. Cross-Package path overlap correctly reports Error (CROSS_PACKAGE_OVERLAP)
@@ -314,12 +319,11 @@ All paths relative to `Assets/FYAsset/Scripts/`.
 
 ## Not In Scope
 
-- Collection preview (depends on E1-3 CollectionScanner — add after E1-3 implementation)
+- Collection preview (E1-3 implemented; editorial decision to defer preview to separate UX refinement)
 - Pipeline/Builder/Inspector/Settings panel implementations (future sub-plans)
 - Cross-level drag-and-drop (V1 uses Duplicate + Delete as workaround)
-- SharePolicy editing on Package (E4 enables this)
 - Build triggering (E5)
-- Advanced pack rules in dropdown (E2 adds more options)
+- Advanced pack rules in dropdown (E2 already adds more options)
 
 ---
 
@@ -349,3 +353,4 @@ All paths relative to `Assets/FYAsset/Scripts/`.
 | 2026-04-27 | Terminology sync: Tags→Labels on Group/Collector property panels |
 | 2026-04-27 | Audit fix: RuleDropdownHelper GroupRulePopup method added (4 instead of 3) |
 | 2026-04-27 | Dependencies updated: R1 (BuildMessage/BuildSeverity) added as prerequisite |
+| 2026-05-01 | Architecture alignment: Constants.cs→FYAssetConstants.cs (E5-1 rename), SharePolicy display changed from placeholder to active 4-field editor (E4 implemented), E1-4-T0 pre-work task added (CollectorGroup.Enabled + CollectionScanner sync), FYAssetConstants.cs + CollectorSetting.cs as modified files, Not In Scope pruned
