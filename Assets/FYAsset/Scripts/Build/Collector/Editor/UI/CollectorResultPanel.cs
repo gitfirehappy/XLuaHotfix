@@ -4,7 +4,7 @@ using UnityEditor;
 using UnityEngine;
 
 /// <summary>
-/// Helper for rendering the bottom result band: Validation messages and Scan Preview results.
+/// 底部结果区域渲染辅助类：校验消息 + 扫描预览。
 /// </summary>
 public static class CollectorResultPanel
 {
@@ -30,6 +30,7 @@ public static class CollectorResultPanel
             RenderScanPreview(rect, scanResult);
     }
 
+    /// <summary>渲染校验消息列表：Severity / Code / Message 三列</summary>
     private static void RenderValidation(Rect rect, List<BuildMessage> messages)
     {
         if (messages == null || messages.Count == 0)
@@ -74,6 +75,7 @@ public static class CollectorResultPanel
         return s_textAreaStyle;
     }
 
+    /// <summary>渲染扫描预览：资产数量 + 资产路径列表（缓存避免每帧重建字符串）</summary>
     private static void RenderScanPreview(Rect rect, ScanResult result)
     {
         if (result == null)

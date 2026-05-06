@@ -1,6 +1,9 @@
 using UnityEditor;
 using UnityEngine;
 
+/// <summary>
+/// CollectorSetting SO 的自定义 Inspector —— 提供一键跳转到 BuildPipelineWindow 的快捷入口。
+/// </summary>
 [CustomEditor(typeof(CollectorSetting))]
 public class CollectorSettingInspector : Editor
 {

@@ -46,20 +46,14 @@ public class TaskAnalyzeDependencies : IBuildTask
         var augmented = DependencyAnalyzer.Analyze(assets, policies,
             out var graph, out var messages);
 
-        // 汇总消息
+        // 汇总消息：统一收集，再根据是否有 Error 决定返回 Ok 或 Fail
         var warnings = new List<string>();
         bool hasFatal = false;
         foreach (var msg in messages)
         {
+            warnings.Add($"[{msg.Code}] {msg.Message} ({msg.Source})");
             if (msg.Severity == BuildSeverity.Error)
-            {
                 hasFatal = true;
-                warnings.Add($"[{msg.Code}] {msg.Message} ({msg.Source})");
-            }
-            else
-            {
-                warnings.Add($"[{msg.Code}] {msg.Message} ({msg.Source})");
-            }
         }
 
         if (hasFatal)

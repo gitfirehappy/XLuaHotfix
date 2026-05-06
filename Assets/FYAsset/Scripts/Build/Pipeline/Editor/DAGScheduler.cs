@@ -118,25 +118,7 @@ public static class DAGScheduler
         if (errors.Count > 0) return ErrorResult(config, errors);
 
         // 构建邻接表
-        var indegree = new Dictionary<string, int>(StringComparer.Ordinal);
-        var successors = new Dictionary<string, List<string>>(StringComparer.Ordinal);
-        foreach (var name in instances.Keys)
-        {
-            indegree[name] = 0;
-            successors[name] = new List<string>();
-        }
-        foreach (var instance in instances.Values)
-        {
-            var taskDeps = GetMergedDependencies(instance, config);
-            foreach (var dep in taskDeps)
-            {
-                if (instances.ContainsKey(dep))
-                {
-                    successors[dep].Add(instance.TaskName);
-                    indegree[instance.TaskName]++;
-                }
-            }
-        }
+        BuildAdjacency(instances, config, out var indegree, out var successors);
 
         // 校验 2：Kahn 拓扑排序 → 检测循环依赖
         var sorted = TopologicalSort(instances.Keys.ToList(), indegree, successors);
@@ -231,26 +213,8 @@ public static class DAGScheduler
         foreach (var entry in enabled)
             instances[entry.TaskName] = BuildTaskResolver.CreateTask(entry.TaskName);
 
-        // 入度计算：仅统计对 Enabled Task 的依赖
-        var indegree = new Dictionary<string, int>(StringComparer.Ordinal);
-        var successors = new Dictionary<string, List<string>>(StringComparer.Ordinal);
-        foreach (var name in instances.Keys)
-        {
-            indegree[name] = 0;
-            successors[name] = new List<string>();
-        }
-        foreach (var instance in instances.Values)
-        {
-            var taskDeps = GetMergedDependencies(instance, config);
-            foreach (var dep in taskDeps)
-            {
-                if (instances.ContainsKey(dep))
-                {
-                    successors[dep].Add(instance.TaskName);
-                    indegree[instance.TaskName]++;
-                }
-            }
-        }
+        // 构建邻接表（复用 ValidateInternal 同款逻辑）
+        BuildAdjacency(instances, config, out var indegree, out var successors);
 
         var results = new List<BuildTaskResult>();
         var executed = new HashSet<string>(StringComparer.Ordinal);
@@ -324,6 +288,34 @@ public static class DAGScheduler
     #endregion
 
     #region Helpers
+
+    /// <summary>根据已创建的 Task 实例构建邻接表（入度 + 后继），供 Validate 和 Execute 复用</summary>
+    private static void BuildAdjacency(
+        Dictionary<string, IBuildTask> instances,
+        BuildPipelineConfig config,
+        out Dictionary<string, int> indegree,
+        out Dictionary<string, List<string>> successors)
+    {
+        indegree = new Dictionary<string, int>(StringComparer.Ordinal);
+        successors = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+        foreach (var name in instances.Keys)
+        {
+            indegree[name] = 0;
+            successors[name] = new List<string>();
+        }
+        foreach (var instance in instances.Values)
+        {
+            var taskDeps = GetMergedDependencies(instance, config);
+            foreach (var dep in taskDeps)
+            {
+                if (instances.ContainsKey(dep))
+                {
+                    successors[dep].Add(instance.TaskName);
+                    indegree[instance.TaskName]++;
+                }
+            }
+        }
+    }
 
     /// <summary>合并 IBuildTask.DependsOn 与 TaskEntry.DependsOn（SO 面板级依赖），去重</summary>
     private static string[] GetMergedDependencies(IBuildTask task, BuildPipelineConfig config)

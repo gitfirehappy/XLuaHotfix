@@ -68,9 +68,8 @@ public sealed class CollectorPropertyPanel
     /// <summary>渲染属性面板</summary>
     public void OnGUI(Rect rect)
     {
-        // Constrain all drawing to the provided rect so the inspector cannot escape its bounds.
-        // We use GUILayout.BeginArea + BeginScrollView with explicit width/height to ensure
-        // the entire panel respects the incoming rect passed from CollectorPanel.
+        // 将所有绘制约束在传入的 rect 内，防止面板溢出边界。
+        // 使用 BeginArea + BeginScrollView + 显式宽高确保整个面板不超出 CollectorPanel 的 rect。
         if (_so == null)
         {
             GUILayout.BeginArea(rect);
@@ -86,13 +85,12 @@ public sealed class CollectorPropertyPanel
         }
 
         GUILayout.BeginArea(rect);
-        // Use explicit width/height for the scroll view so it never expands beyond the provided rect.
+        // 使用显式宽高，确保 ScrollView 不会超出 rect 范围
         _scrollPos = GUILayout.BeginScrollView(_scrollPos, GUILayout.Width(Mathf.Max(0, rect.width)), GUILayout.Height(Mathf.Max(0, rect.height)));
 
         if (_selectedItem == null)
         {
-            // Centered empty-state card when nothing is selected. Use a bounded box so the
-            // message does not float outside the inspector area.
+            // 无选中节点时显示居中空状态卡片，用 bounded box 防止文字溢出面板区域
             GUILayout.FlexibleSpace();
             GUILayout.BeginHorizontal();
             GUILayout.FlexibleSpace();
@@ -136,6 +134,7 @@ public sealed class CollectorPropertyPanel
 
     #region Package Fields
 
+    /// <summary>渲染 Package 节点属性：PackageName + SharePolicy 四项</summary>
     private void DrawPackageFields()
     {
         EditorGUILayout.LabelField("Package", EditorStyles.boldLabel);
@@ -171,6 +170,7 @@ public sealed class CollectorPropertyPanel
 
     #region Group Fields
 
+    /// <summary>渲染 Group 节点属性：GroupName + Enabled + Labels</summary>
     private void DrawGroupFields()
     {
         EditorGUILayout.LabelField("Group", EditorStyles.boldLabel);
@@ -193,6 +193,7 @@ public sealed class CollectorPropertyPanel
 
     #region Collector Fields
 
+    /// <summary>渲染 Collector 节点属性：CollectPath + 类型枚举 + 规则下拉 + Labels + IgnorePatterns</summary>
     private void DrawCollectorFields()
     {
         EditorGUILayout.LabelField("Collector", EditorStyles.boldLabel);
@@ -207,7 +208,7 @@ public sealed class CollectorPropertyPanel
             string absPath = EditorUtility.OpenFolderPanel("Select Collect Path", "Assets/", "");
             if (!string.IsNullOrEmpty(absPath))
             {
-                // Convert absolute to relative Assets/ path
+                // 将绝对路径转为相对 Assets/ 路径
                 string dataPath = Application.dataPath;
                 if (absPath.StartsWith(dataPath))
                 {
@@ -262,6 +263,7 @@ public sealed class CollectorPropertyPanel
 
     #region ReorderableList Helper
 
+    /// <summary>使用 ReorderableList 渲染字符串列表，自动缓存避免每帧重建</summary>
     private void DrawStringList(SerializedProperty listProp, ref ReorderableList list, string elementLabel)
     {
         if (list == null || list.serializedProperty != listProp)

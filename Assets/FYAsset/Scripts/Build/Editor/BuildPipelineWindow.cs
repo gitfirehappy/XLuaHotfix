@@ -8,6 +8,7 @@ public sealed class BuildPipelineWindow : EditorWindow
 {
     #region Types
 
+    /// <summary>侧边栏分组定义：标签 + 按钮起始索引 + 按钮数量</summary>
     private struct SidebarGroup
     {
         public string Label;
@@ -158,7 +159,7 @@ public sealed class BuildPipelineWindow : EditorWindow
         textRect.xMin += 4;
         GUI.Label(textRect, label, headerStyle);
 
-        // Separator line below header
+        // 分组标题下方的分隔线
         float lineY = headerRect.yMax - 1;
         EditorGUI.DrawRect(new Rect(headerRect.x + 4, lineY, headerRect.width - 8, 1),
             EditorGUIUtility.isProSkin ? new Color(0.35f, 0.35f, 0.35f) : new Color(0.6f, 0.6f, 0.6f));
@@ -219,13 +220,13 @@ public sealed class BuildPipelineWindow : EditorWindow
     {
         _panels = new IBuildPipelinePanel[]
         {
-            // COLLECT (index 0-1)
+            // 采集阶段（索引 0-1）
             new CollectorSettingPanel(),
             collectorPanel ?? new PlaceholderPanel("Collector"),
-            // BUILD (index 2-3)
+            // 构建阶段（索引 2-3）
             new PipelinePanel(),
             new BuilderPanel(),
-            // MANAGE (index 4)
+            // 管理阶段（索引 4）
             new VersionPanel(),
         };
 

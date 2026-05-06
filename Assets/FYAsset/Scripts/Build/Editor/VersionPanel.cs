@@ -1,6 +1,9 @@
 using UnityEditor;
 using UnityEngine;
 
+/// <summary>
+/// 版本管理面板 —— 查看和编辑 VersionDataBase SO（版本号、构建日期、后端模式等）。
+/// </summary>
 public class VersionPanel : IBuildPipelinePanel
 {
     private const string VersionAssetPath = "Assets/Build/VersionDataBase.asset";

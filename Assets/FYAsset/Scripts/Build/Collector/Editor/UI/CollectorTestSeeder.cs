@@ -1,8 +1,12 @@
 using UnityEditor;
 using UnityEngine;
 
+/// <summary>
+/// 测试数据填充工具 —— 一键生成示例 Package/Group/Collector，用于开发期 UI 验证。
+/// </summary>
 public static class CollectorTestSeeder
 {
+    /// <summary>通过菜单项向当前 CollectorSetting SO 写入一组示例数据</summary>
     [MenuItem("XLua/Debug/Seed CollectorSetting Test Data")]
     private static void Seed()
     {

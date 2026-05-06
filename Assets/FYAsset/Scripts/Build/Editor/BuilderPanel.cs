@@ -1,6 +1,9 @@
 using UnityEditor;
 using UnityEngine;
 
+/// <summary>
+/// 构建控制面板（预留区）—— 后续集成热更构建和快照功能。
+/// </summary>
 public class BuilderPanel : IBuildPipelinePanel
 {
     public string PanelName => "Builder";

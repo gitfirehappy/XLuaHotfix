@@ -1,6 +1,9 @@
 using UnityEditor;
 using UnityEngine;
 
+/// <summary>
+/// CollectorSetting SO 原始数据编辑器 —— 通过 SerializedProperty 遍历展示所有字段。
+/// </summary>
 public class CollectorSettingPanel : IBuildPipelinePanel
 {
     private CollectorSetting _setting;

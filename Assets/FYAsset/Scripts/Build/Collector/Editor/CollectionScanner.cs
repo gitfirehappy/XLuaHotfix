@@ -29,7 +29,7 @@ public static class CollectionScanner
             return result;
         }
 
-        // Step 0: Cross-Package overlap detection
+        // 第〇步：跨 Package 路径重叠检测
         if (!CheckCrossPackageOverlaps(setting, result))
             return result;
 
@@ -133,10 +133,10 @@ public static class CollectionScanner
         if (contexts.Count == 0)
             return true;
 
-        // Step 1: Build Ownership Map — deepest path first
+        // 第一步：构建归属映射 —— 最深路径优先
         contexts.Sort((a, b) => PathDepth(b.Collector.CollectPath).CompareTo(PathDepth(a.Collector.CollectPath)));
 
-        // Check same-depth same-path conflicts
+        // 检查同深度同路径冲突
         if (!CheckSameDepthConflicts(contexts, packageName, result))
             return false;
 
@@ -169,7 +169,7 @@ public static class CollectionScanner
                 groupLookup[grp.GroupName] = grp;
         }
 
-        // Step 2: Per-Collector scan
+        // 第二步：逐 Collector 扫描
         List<CollectedAssetInfo> packageAssets = new List<CollectedAssetInfo>();
 
         for (int ci = 0; ci < contexts.Count; ci++)
@@ -179,7 +179,7 @@ public static class CollectionScanner
                 return false;
         }
 
-        // Step 3: GUID uniqueness validation
+        // 第三步：GUID 唯一性校验
         if (!CheckGuidUniqueness(packageAssets, result))
             return false;
 
@@ -207,7 +207,7 @@ public static class CollectionScanner
         if (!AssetDatabase.IsValidFolder(collectPath))
         {
             result.Messages.Add(BuildMessage.PathNotFound(collectPath, collectPath));
-            return true; // Warning only — other Collectors in this Package may still be valid
+            return true; // 仅 Warning —— Package 内其他 Collector 可能仍有效
         }
 
         // Resolve rules
@@ -234,7 +234,7 @@ public static class CollectionScanner
             if (string.IsNullOrEmpty(assetPath))
                 continue;
 
-            // Exclude sub-paths claimed by deeper Collectors
+            // 排除被更深 Collector 声明的子路径
             if (IsExcludedByOwnership(assetPath, ctx.ExcludedPaths))
                 continue;
 
@@ -419,7 +419,7 @@ public static class CollectionScanner
         if (patterns == null || patterns.Count == 0)
             return false;
 
-        // Relative path = assetPath minus collectPath prefix
+        // 相对路径 = assetPath 去掉 collectPath 前缀
         string normalizedAsset = NormalizePath(assetPath);
         string normalizedCollect = NormalizePath(collectPath);
         string relativePath;
@@ -432,12 +432,12 @@ public static class CollectionScanner
         }
         else if (string.Equals(normalizedAsset, normalizedCollect, StringComparison.OrdinalIgnoreCase))
         {
-            // Asset is the collect path itself (unlikely, but handle it)
+            // Asset 就是 CollectPath 本身（不太可能，但处理一下）
             return false;
         }
         else
         {
-            // Asset is outside collectPath — shouldn't happen, but skip
+            // Asset 在 collectPath 之外 —— 不应发生，但跳过
             return false;
         }
 
@@ -449,14 +449,14 @@ public static class CollectionScanner
 
             if (pattern.EndsWith("/"))
             {
-                // Directory match: any path segment equals the directory name
+                // 目录匹配：任意路径段等于目录名
                 string dirName = pattern.Substring(0, pattern.Length - 1);
                 if (ContainsPathSegment(relativePath, dirName))
                     return true;
             }
             else
             {
-                // Glob match for *.ext and *keyword* patterns
+                // Glob 匹配：* 通配符模式
                 if (GlobMatcher.IsMatch(relativePath, pattern))
                     return true;
             }
@@ -532,16 +532,7 @@ public static class CollectionScanner
 
         try
         {
-            if (typeof(T) == typeof(IAddressRule))
-                return RuleResolver.GetAddressRule(className) as T;
-            if (typeof(T) == typeof(IPackRule))
-                return RuleResolver.GetPackRule(className) as T;
-            if (typeof(T) == typeof(IFilterRule))
-                return RuleResolver.GetFilterRule(className) as T;
-            if (typeof(T) == typeof(IGroupRule))
-                return RuleResolver.GetGroupRule(className) as T;
-
-            return null;
+            return RuleResolver.GetRule<T>(className);
         }
         catch (Exception)
         {
@@ -557,7 +548,7 @@ public static class CollectionScanner
     {
         HashSet<string> dedup = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        // Add target Group's Labels
+        // 加入目标 Group 的 Labels
         if (groupLookup.TryGetValue(targetGroupName, out CollectorGroup targetGroup) &&
             targetGroup.Labels != null)
         {
@@ -568,7 +559,7 @@ public static class CollectionScanner
             }
         }
 
-        // Add Collector's Labels (union)
+        // 加入 Collector 的 Labels（并集）
         if (collectorLabels != null)
         {
             for (int i = 0; i < collectorLabels.Count; i++)

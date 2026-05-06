@@ -144,7 +144,7 @@ public sealed class CollectorTreeView : TreeView
     protected override bool CanStartDrag(CanStartDragArgs args)
     {
         if (args.draggedItem is CollectorTreeViewItem item)
-            return item.Type != CollectorTreeViewItem.NodeType.Package; // Packages stay at root — no reorder needed
+            return item.Type != CollectorTreeViewItem.NodeType.Package; // Package 固定在根层级，不需要排序
         return false;
     }
 
@@ -255,12 +255,7 @@ public sealed class CollectorTreeView : TreeView
     #endregion
 
     #region Context Menu (T6)
-
-    public override void OnGUI(Rect rect)
-    {
-        base.OnGUI(rect);
-    }
-
+    // TODO(E1-4-T6): 实现右键上下文菜单 — Add/Delete/Duplicate 节点（当前 base.OnGUI 已处理基础交互）
     #endregion
 
     #region Public API

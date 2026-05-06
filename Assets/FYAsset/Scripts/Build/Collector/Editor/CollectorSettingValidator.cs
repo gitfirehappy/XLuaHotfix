@@ -43,7 +43,7 @@ public static class CollectorSettingValidator
             ValidatePackage(pkg, pi, messages);
         }
 
-        // 5. Cross-Package path overlap
+        // 5. 跨 Package 路径重叠检测
         CheckCrossPackageOverlaps(setting, messages);
 
         return messages;

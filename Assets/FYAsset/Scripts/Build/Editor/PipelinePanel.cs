@@ -1,6 +1,9 @@
 using UnityEditor;
 using UnityEngine;
 
+/// <summary>
+/// Pipeline 配置面板 —— 编辑 BuildPipelineConfig SO，查看/修改管线 Task 编排。
+/// </summary>
 public class PipelinePanel : IBuildPipelinePanel
 {
     private BuildPipelineConfig _config;

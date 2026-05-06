@@ -16,6 +16,15 @@ public static class RuleResolver
     private static readonly Dictionary<string, IFilterRule> FilterRuleCache = new(StringComparer.Ordinal);
     private static readonly Dictionary<string, IGroupRule> GroupRuleCache = new(StringComparer.Ordinal);
 
+    /// <summary>Type → 解析函数映射，支撑泛型 GetRule&lt;T&gt; 方法</summary>
+    private static readonly Dictionary<Type, Func<string, object>> TypedResolvers = new()
+    {
+        [typeof(IAddressRule)] = name => GetAddressRule(name),
+        [typeof(IPackRule)]    = name => GetPackRule(name),
+        [typeof(IFilterRule)]  = name => GetFilterRule(name),
+        [typeof(IGroupRule)]   = name => GetGroupRule(name),
+    };
+
     #endregion
 
     #region 公共方法
@@ -42,6 +51,18 @@ public static class RuleResolver
     public static IGroupRule GetGroupRule(string className)
     {
         return GetRule(className, GroupRuleCache);
+    }
+
+    /// <summary>
+    /// 泛型规则解析入口 —— 根据 Type 自动分发到对应的具体方法。
+    /// 调用方无需 if/typeof 链，直接 RuleResolver.GetRule&lt;IAddressRule&gt;(className)。
+    /// 新增 Rule 接口后只需在 TypedResolvers 字典中追加一条映射。
+    /// </summary>
+    public static T GetRule<T>(string className) where T : class
+    {
+        if (TypedResolvers.TryGetValue(typeof(T), out var resolver))
+            return resolver(className) as T;
+        return null;
     }
 
     #endregion

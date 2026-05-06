@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEditor;
+using UnityEngine;
 
 /// <summary>
 /// 依赖分析器 —— 单次 BFS 遍历完成三项工作：
@@ -68,7 +69,7 @@ public static class DependencyAnalyzer
         List<BuildMessage> messages,
         List<CollectedAssetInfo> result)
     {
-        // 构建 owned 查找表
+        // 构建 owned 查找表（GUID → CollectedAssetInfo）
         var ownedGUIDs = new Dictionary<string, CollectedAssetInfo>();
         foreach (var asset in packageAssets)
         {
@@ -76,23 +77,40 @@ public static class DependencyAnalyzer
                 ownedGUIDs[asset.AssetGUID] = asset;
         }
 
-        // 隐式依赖候选：GUID → (refCount, PrimaryType, firstAssetPath, referencingBundles)
+        // 第一阶段：BFS 遍历 — Bundle 依赖边 + 隐式依赖候选发现 + 循环检测
         var implicitCandidates = new Dictionary<string, ImplicitCandidate>();
+        var cycleEntries = new List<(string fromPath, string toPath)>();
+        BfsTraverseAll(packageAssets, ownedGUIDs, graph, implicitCandidates, cycleEntries);
 
-        // 第一步：BFS 遍历，记录 Bundle 依赖边 + 隐式依赖候选
-        var globalVisited = new HashSet<string>(); // 所有已展开过的 GUID
-        var cycleEntries = new List<(string path, string depPath)>(); // 循环依赖报告
+        // 第二阶段：报告循环依赖诊断消息
+        ReportDependencyCycles(cycleEntries, messages, packageName);
+
+        // 第三阶段：SharePolicy 决策（共享 vs 复制）
+        ApplySharePolicy(implicitCandidates, policy, packageName, graph, messages, result);
+    }
+
+    /// <summary>
+    /// 对所有 Package 资产执行 BFS 展开，同时记录 Bundle 依赖边 + 隐式依赖候选 + 循环路径。
+    /// </summary>
+    private static void BfsTraverseAll(
+        List<CollectedAssetInfo> packageAssets,
+        Dictionary<string, CollectedAssetInfo> ownedGUIDs,
+        BundleDependencyGraph graph,
+        Dictionary<string, ImplicitCandidate> implicitCandidates,
+        List<(string fromPath, string toPath)> cycleEntries)
+    {
+        var globalVisited = new HashSet<string>(); // 跨资产共享：所有已展开过的 GUID
 
         foreach (var asset in packageAssets)
         {
             if (string.IsNullOrEmpty(asset.AssetGUID))
                 continue;
 
-            // 如果该资产在其他 Package 已展开过 → 跳过
             if (globalVisited.Contains(asset.AssetGUID))
                 continue;
 
-            var bfsStack = new List<(string guid, string path)>(); // 当前路径（guid, assetPath）
+            var bfsStack = new List<(string guid, string path)>();
+            var bfsGuidSet = new HashSet<string>(); // 并行 HashSet，O(1) 循环检测
             var queue = new Queue<string>();
             queue.Enqueue(asset.AssetGUID);
             var localVisited = new HashSet<string>(); // 本次 BFS 已入队的 GUID
@@ -109,15 +127,18 @@ public static class DependencyAnalyzer
 
                 globalVisited.Add(guid);
                 bfsStack.Add((guid, depPath));
+                bfsGuidSet.Add(guid);
 
                 string[] deps;
                 try
                 {
                     deps = AssetDatabase.GetDependencies(depPath, false);
                 }
-                catch
+                catch (Exception ex)
                 {
                     bfsStack.RemoveAt(bfsStack.Count - 1);
+                    bfsGuidSet.Remove(guid);
+                    Debug.LogWarning($"[DependencyAnalyzer] GetDependencies failed for '{depPath}': {ex.Message}");
                     continue;
                 }
 
@@ -130,30 +151,30 @@ public static class DependencyAnalyzer
                     if (string.IsNullOrEmpty(depGuid))
                         continue;
 
-                    // 循环检测：depGuid 已在当前 BFS 路径中 → 报告并跳过
-                    bool isCycle = false;
-                    for (int si = 0; si < bfsStack.Count; si++)
+                    // 循环检测：depGuid 已在当前 BFS 路径中 → 报告并跳过（O(1) fast path）
+                    if (bfsGuidSet.Contains(depGuid))
                     {
-                        if (bfsStack[si].guid == depGuid)
+                        // 从 bfsStack 查找路径用于报告（cycle 是极端情况，线性扫描可接受）
+                        for (int si = 0; si < bfsStack.Count; si++)
                         {
-                            cycleEntries.Add((bfsStack[si].path, dep));
-                            isCycle = true;
-                            break;
+                            if (bfsStack[si].guid == depGuid)
+                            {
+                                cycleEntries.Add((bfsStack[si].path, dep));
+                                break;
+                            }
                         }
-                    }
-                    if (isCycle)
                         continue;
+                    }
 
                     // 判断归属
                     if (ownedGUIDs.TryGetValue(depGuid, out var ownedAsset))
                     {
-                        // Owned → 记录 Bundle 边
+                        // Owned → 记录 Bundle 边（排除同 Bundle）
                         if (asset.BundleName != ownedAsset.BundleName)
                         {
                             string depType = AssetDatabase.GetMainAssetTypeAtPath(dep)?.Name ?? "Unknown";
                             graph.AddEdge(asset.BundleName, ownedAsset.BundleName, dep);
                         }
-                        // 不展开 owned 资产的子依赖
                         continue;
                     }
 
@@ -165,7 +186,7 @@ public static class DependencyAnalyzer
                         {
                             AssetPath = dep,
                             PrimaryType = primaryType,
-                            PackageName = packageName
+                            PackageName = string.Empty // filled by caller
                         };
                         implicitCandidates[depGuid] = candidate;
                     }
@@ -182,10 +203,17 @@ public static class DependencyAnalyzer
                 }
 
                 bfsStack.RemoveAt(bfsStack.Count - 1);
+                bfsGuidSet.Remove(guid);
             }
         }
+    }
 
-        // 报告循环依赖诊断消息
+    /// <summary>报告 BFS 阶段发现的循环依赖（限制前 20 条，避免日志爆炸）</summary>
+    private static void ReportDependencyCycles(
+        List<(string fromPath, string toPath)> cycleEntries,
+        List<BuildMessage> messages,
+        string packageName)
+    {
         int cycleCount = 0;
         foreach (var (fromPath, toPath) in cycleEntries)
         {
@@ -197,17 +225,27 @@ public static class DependencyAnalyzer
             }
             cycleCount++;
         }
+
         if (cycleCount > 0)
         {
             messages.Add(BuildMessage.Warning("CYCLE_COUNT",
-                $"Found {cycleCount} cyclic asset dependency(s). First 20 reported above. See Unity AssetDatabase for asset-level chains.",
+                $"Found {cycleCount} cyclic asset dependency(s) in package '{packageName}'. First 20 reported above.",
                 packageName));
             if (cycleCount > 20)
                 messages.Add(BuildMessage.Warning("CYCLE_TRUNCATED",
                     $"{cycleCount - 20} additional cycle(s) not shown.", packageName));
         }
+    }
 
-        // 第二步：SharePolicy 决策（共享 vs 复制）
+    /// <summary>SharePolicy 决策：对每个隐式依赖决定共享还是复制到引用 Bundle</summary>
+    private static void ApplySharePolicy(
+        Dictionary<string, ImplicitCandidate> implicitCandidates,
+        SharePolicyConfig policy,
+        string packageName,
+        BundleDependencyGraph graph,
+        List<BuildMessage> messages,
+        List<CollectedAssetInfo> result)
+    {
         foreach (var kvp in implicitCandidates)
         {
             string depGuid = kvp.Key;
@@ -217,6 +255,7 @@ public static class DependencyAnalyzer
             bool forceShare = IsGlobMatch(candidate.AssetPath, policy.ForceSharePatterns);
             bool noShare = IsGlobMatch(candidate.AssetPath, policy.NoSharePatterns);
 
+            // 规则冲突检测：同时匹配 ForceShare 和 NoShare → 配置错误
             if (forceShare && noShare)
             {
                 messages.Add(BuildMessage.Error("SHAREPOLICY_CONFLICT",
@@ -225,7 +264,7 @@ public static class DependencyAnalyzer
                 continue;
             }
 
-            // MinAssetSizeBytes 检查：小于阈值的资产不参与共享（已声明但未消费的死配置）
+            // MinAssetSizeBytes 检查：小于阈值的资产不参与共享
             bool meetsSizeThreshold = true;
             if (policy.MinAssetSizeBytes > 0)
             {
@@ -240,39 +279,35 @@ public static class DependencyAnalyzer
 
             if (forceShare || (refCount >= policy.MinReferenceCount && meetsSizeThreshold))
             {
-                // 共享
+                // 共享：打入 "$shared" Bundle
                 string packKey = candidate.PrimaryType;
-                bundleName = BundleNameBuilder.Build(
-                    packageName, "$shared", packKey);
+                bundleName = BundleNameBuilder.Build(packageName, "$shared", packKey);
                 isShared = true;
                 isDuplicated = false;
 
                 var sharedEntry = CreateImplicitEntry(candidate, depGuid, bundleName, isShared, isDuplicated);
                 result.Add(sharedEntry);
 
-                // 记录共享 Bundle 到每个引用 Bundle 的依赖边
+                // 记录每个引用 Bundle 到共享 Bundle 的依赖边
                 foreach (var refBundle in candidate.ReferencingBundles)
                     graph.AddEdge(refBundle, bundleName, candidate.AssetPath);
             }
             else if (noShare)
             {
-                // 强制复制
+                // 强制复制：每个引用 Bundle 各一份
                 foreach (var refBundle in candidate.ReferencingBundles)
                 {
-                    bundleName = refBundle;
-                    var dupEntry = CreateImplicitEntry(candidate, depGuid, bundleName, false, true);
+                    var dupEntry = CreateImplicitEntry(candidate, depGuid, refBundle, false, true);
                     result.Add(dupEntry);
-                    // 隐式依赖打入引用 Bundle，不产生新边
                 }
             }
             else
             {
-                // 引用不足 → 复制到每个引用 Bundle
+                // 引用不足最小阈值 → 复制到每个引用 Bundle
                 foreach (var refBundle in candidate.ReferencingBundles)
                 {
-                    bundleName = refBundle;
                     isDuplicated = candidate.ReferencingBundles.Count > 1;
-                    var dupEntry = CreateImplicitEntry(candidate, depGuid, bundleName, false, isDuplicated);
+                    var dupEntry = CreateImplicitEntry(candidate, depGuid, refBundle, false, isDuplicated);
                     result.Add(dupEntry);
                 }
             }
