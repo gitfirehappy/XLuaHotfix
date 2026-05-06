@@ -37,6 +37,15 @@ public sealed class BuildPipelineWindow : EditorWindow
     private void OnEnable()
     {
         InitPanels(new CollectorPanel());
+        // 将 Pipeline 面板替换占位实现为 PipelinePanel，让侧边栏显示具体入口
+        // Panels array layout: Collector Settings, Collector, Pipeline, Builder, Inspector
+        if (_panels != null && _panels.Length >= 4)
+        {
+            _panels[2] = new PipelinePanel();
+            _panels[2].OnEnable(this);
+            _panels[3] = new BuilderPanel();
+            _panels[3].OnEnable(this);
+        }
     }
 
     private void OnDisable()
