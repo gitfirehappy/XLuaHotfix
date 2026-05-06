@@ -2,4 +2,7 @@
 # 格式：[类型] YYYY-MM-DD 描述
 # 类型: start / done / decision / blocked / next
 
-[start] 2026-05-06 开始：创建需求文档和初步计划（brief.md, plan.md, progress.txt）
+[done] 2026-05-06 完成：创建需求文档和初步计划（brief.md, plan.md, progress.txt）
+[done] 2026-05-06 完成：实现 CollectorSettingInspector（Assets/Editor/XLuaHotfix/CollectorSettingInspector.cs），按钮打开 BuildPipelineWindow 并尝试切换到 Pipeline 面板
+[done] 2026-05-06 完成：在 BuildPipelineWindow 侧边栏新增 PipelinePanel 与 BuilderPanel（Assets/FYAsset/Scripts/Build/Editor/PipelinePanel.cs, BuilderPanel.cs），并在 OnEnable 中装载
+[in_progress] 2026-05-06 验证：执行 validation.md 中的手工测试步骤并记录结果
