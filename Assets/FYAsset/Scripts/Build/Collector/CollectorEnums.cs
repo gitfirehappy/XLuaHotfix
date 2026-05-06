@@ -1,4 +1,16 @@
 /// <summary>
+/// 采集路径类型 —— Collector 可绑定目录或单个文件。
+/// </summary>
+public enum ECollectPathType
+{
+    /// <summary>按目录递归采集资源</summary>
+    Folder = 0,
+
+    /// <summary>仅采集指定的单个文件</summary>
+    File = 1
+}
+
+/// <summary>
 /// 采集器类型 —— 用户对资产参与构建方式的意图配置。
 /// </summary>
 public enum ECollectorType

@@ -17,6 +17,11 @@ public static class RuleDropdownHelper
     private static List<string> _filterRuleNames;
     private static List<string> _groupRuleNames;
 
+    private static string[] _addressRuleArray;
+    private static string[] _packRuleArray;
+    private static string[] _filterRuleArray;
+    private static string[] _groupRuleArray;
+
     #endregion
 
     #region Public Popup Methods
@@ -24,25 +29,25 @@ public static class RuleDropdownHelper
     public static string AddressRulePopup(Rect rect, string currentValue)
     {
         EnsureCache();
-        return DrawPopup(rect, currentValue, _addressRuleNames);
+        return DrawPopup(rect, currentValue, _addressRuleNames, _addressRuleArray);
     }
 
     public static string PackRulePopup(Rect rect, string currentValue)
     {
         EnsureCache();
-        return DrawPopup(rect, currentValue, _packRuleNames);
+        return DrawPopup(rect, currentValue, _packRuleNames, _packRuleArray);
     }
 
     public static string FilterRulePopup(Rect rect, string currentValue)
     {
         EnsureCache();
-        return DrawPopup(rect, currentValue, _filterRuleNames);
+        return DrawPopup(rect, currentValue, _filterRuleNames, _filterRuleArray);
     }
 
     public static string GroupRulePopup(Rect rect, string currentValue)
     {
         EnsureCache();
-        return DrawPopup(rect, currentValue, _groupRuleNames);
+        return DrawPopup(rect, currentValue, _groupRuleNames, _groupRuleArray);
     }
 
     /// <summary>强制重新扫描规则实现（新规则类加入后调用）</summary>
@@ -52,6 +57,10 @@ public static class RuleDropdownHelper
         _packRuleNames = null;
         _filterRuleNames = null;
         _groupRuleNames = null;
+        _addressRuleArray = null;
+        _packRuleArray = null;
+        _filterRuleArray = null;
+        _groupRuleArray = null;
     }
 
     #endregion
@@ -66,6 +75,10 @@ public static class RuleDropdownHelper
             _packRuleNames = ScanImplementations(typeof(IPackRule));
             _filterRuleNames = ScanImplementations(typeof(IFilterRule));
             _groupRuleNames = ScanImplementations(typeof(IGroupRule));
+            _addressRuleArray = _addressRuleNames.ToArray();
+            _packRuleArray = _packRuleNames.ToArray();
+            _filterRuleArray = _filterRuleNames.ToArray();
+            _groupRuleArray = _groupRuleNames.ToArray();
         }
     }
 
@@ -105,7 +118,7 @@ public static class RuleDropdownHelper
         return names;
     }
 
-    private static string DrawPopup(Rect rect, string currentValue, List<string> names)
+    private static string DrawPopup(Rect rect, string currentValue, List<string> names, string[] displayArray)
     {
         if (names == null || names.Count == 0)
             return currentValue;
@@ -114,7 +127,7 @@ public static class RuleDropdownHelper
         if (currentIndex < 0)
             currentIndex = 0;
 
-        int newIndex = EditorGUI.Popup(rect, currentIndex, names.ToArray());
+        int newIndex = EditorGUI.Popup(rect, currentIndex, displayArray);
         return newIndex >= 0 && newIndex < names.Count ? names[newIndex] : currentValue;
     }
 

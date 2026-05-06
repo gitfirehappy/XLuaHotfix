@@ -4,7 +4,7 @@ using UnityEngine;
 
 /// <summary>
 /// 采集器全局配置资产（单例 ScriptableObject）。
-/// 存放路径：Assets/Build/CollectorSetting.asset。
+/// 存放路径：Assets/FYAsset/CollectorData/CollectorSetting.asset。
 /// 包含所有 Package 的层级配置：Setting → Package → Group → Collector。
 /// </summary>
 [CreateAssetMenu(fileName = "CollectorSetting", menuName = "XLua/CollectorSetting")]
@@ -62,15 +62,18 @@ public class CollectorGroup
 }
 
 /// <summary>
-/// 最底层的采集规则绑定单元，指定一个目录路径及其对应的规则组合。
+/// 最底层的采集规则绑定单元，指定一个目录或文件路径及其对应的规则组合。
 /// </summary>
 [Serializable]
 public class Collector
 {
     #region 字段
 
-    /// <summary>采集根目录路径（相对于 Assets/）</summary>
+    /// <summary>采集根路径（相对于 Assets/，可指向目录或单个文件）</summary>
     public string CollectPath;
+
+    /// <summary>采集路径类型；默认 Folder 以兼容旧序列化数据</summary>
+    public ECollectPathType CollectPathType = ECollectPathType.Folder;
 
     /// <summary>采集器类型，决定资产的语义角色</summary>
     public ECollectorType CollectorType;

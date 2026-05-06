@@ -104,7 +104,7 @@ public static class CollectorSettingValidator
                     allCollectPaths.Add((normalized, colSrc));
 
                     // 4. Path not found
-                    if (!UnityEditor.AssetDatabase.IsValidFolder(col.CollectPath))
+                    if (!CollectPathExists(col))
                     {
                         messages.Add(BuildMessage.PathNotFound(col.CollectPath, colSrc));
                     }
@@ -254,6 +254,20 @@ public static class CollectorSettingValidator
             child.StartsWith(parent, StringComparison.OrdinalIgnoreCase))
             return true;
         return false;
+    }
+
+    private static bool CollectPathExists(Collector collector)
+    {
+        if (collector == null || string.IsNullOrEmpty(collector.CollectPath))
+            return false;
+
+        if (collector.CollectPathType == ECollectPathType.File)
+        {
+            return !UnityEditor.AssetDatabase.IsValidFolder(collector.CollectPath) &&
+                   !string.IsNullOrEmpty(UnityEditor.AssetDatabase.AssetPathToGUID(collector.CollectPath));
+        }
+
+        return UnityEditor.AssetDatabase.IsValidFolder(collector.CollectPath);
     }
 
     #endregion

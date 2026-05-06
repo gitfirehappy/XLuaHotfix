@@ -731,3 +731,15 @@
 [done] 2026-05-06 plan-review-fix SIGNED OFF — 7 items: F1(bfsGuidSet O(1) cycle detect) F2(catch+log) F3(AnalyzePackage split 3 methods) F4(warning simplify) F5(TODO label) F6(GetRule<T> generic) F7(BuildAdjacency extract). dotnet build 0 errors, 6 files +134/-164.
 [done] 2026-05-06 comment-docs-pass — English comments → Chinese in 6 files (BuildPipelineWindow/CollectionScanner/CollectorPropertyPanel/CollectorResultPanel/CollectorTreeView/CollectorSettingValidator); added ///`<summary>` XML docs to 9 files (BuildPipelineWindow.SidebarGroup, PipelinePanel, BuilderPanel, VersionPanel, CollectorSettingPanel, CollectorPropertyPanel×4, CollectorResultPanel×2, CollectorTestSeeder×2, CollectorSettingInspector). dotnet build 0 errors.
 [decision] 2026-05-06 E6 plan approved (9/9 checklist) with refinements: BundleType int→string, delete EBundleType enum, no mapping table. E5-2 split into E5-2a (3 tasks + BundleBuildInfo, no E6 dep) + E5-2b (2 tasks, blocked by E6). Execution order: E5-2a → E6 → E5-2b. plan-E5-2.md marked superseded.
+[done] 2026-05-06 E5-2a SIGNED OFF — BundleBuildInfo + TaskPrepareContext + TaskCollectBuiltins + TaskBuildBundles (~335 lines). BundleCompression enum on BuildPipelineConfig SO. dotnet build 0 errors.
+
+[start] 2026-05-06 E8 Collector Editor UX Optimization — plan-E8.md drafted (3 phases: infrastructure+panel redesign / Inspector checkbox / drag-drop+context-menu)
+[decision] 2026-05-06 E8 面板方向：CollectorSettingPanel = Addressables Groups 风格全局配置总览；CollectorPanel = YooAsset 风格纯表格收集操作面板
+[decision] 2026-05-06 E8 数据模型：CollectPath 兼容文件路径（新增 ECollectPathType 枚举），向后兼容
+[decision] 2026-05-06 E8 配置路径：SO 迁移到 Assets/FYAsset/CollectorData/，自动迁移
+[decision] 2026-05-06 E8 TreeView：完全移除 CollectorTreeView + CollectorPropertyPanel，纯表格替代
+[decision] 2026-05-06 E8 反向索引：内存缓存 + 脏标记，惰性重建
+[done] 2026-05-06 E8 Phase 1-3 GPT 执行完成，Claude review + 修复
+[fix] 2026-05-06 E8 文件夹支持：Inspector 勾选/TargetPickerPopup/ReverseIndex/ContextMenu 全部支持文件夹
+[fix] 2026-05-06 E8 性能：GUIStyle 缓存、ApplyChanges 改用 ApplyModifiedProperties 返回值、RuleDropdownHelper 缓存 string[]
+[fix] 2026-05-06 E8 UX：移除 Sel toggle 改为点击行选中；toolbar 精简为 Reload；Package/Group 操作改为侧栏右键菜单

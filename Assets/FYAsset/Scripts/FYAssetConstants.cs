@@ -67,8 +67,11 @@ public static class FYAssetConstants
     /// <summary>二进制序列化器生成代码输出路径</summary>
     public const string BINARY_SERIALIZER_GENERATE_PATH = "Assets/Tools/Scripts/Serialization/Generated";
 
+    /// <summary>Collector 数据资产目录</summary>
+    public const string COLLECTOR_DATA_FOLDER = "Assets/FYAsset/CollectorData";
+
     /// <summary>CollectorSetting 配置文件保存路径</summary>
-    public const string COLLECTOR_SETTING_ASSET_PATH = "Assets/Build/CollectorSetting.asset";
+    public const string COLLECTOR_SETTING_ASSET_PATH = COLLECTOR_DATA_FOLDER + "/CollectorSetting.asset";
 
     /// <summary>BuildPipelineConfig SO 存储路径</summary>
     public const string PIPELINE_CONFIG_ASSET_PATH = "Assets/Build/BuildPipelineConfig.asset";
