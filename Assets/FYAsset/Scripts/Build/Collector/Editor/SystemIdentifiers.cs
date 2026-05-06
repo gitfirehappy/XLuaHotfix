@@ -17,6 +17,20 @@ public static class SystemIdentifiers
     /// <summary>PackRule / BundleNameBuilder 的默认回退 packKey</summary>
     public const string DefaultPackKey = "default";
 
+    /// <summary>Bundle 名顶层段分隔符（package_group_packKey）</summary>
+    public const char SegmentSeparator = '_';
+
+    /// <summary>PackByLabel 标签连接符</summary>
+    public const char LabelSeparator = '~';
+
+    /// <summary>段值中不允许出现的保留字符（PackageName / GroupName / Labels 使用）</summary>
+    public static readonly char[] ReservedChars =
+        { '/', '\\', ':', '*', '?', '<', '>', '"', '|', '.', ' ', ';', '%', '~', '$', '_' };
+
+    /// <summary>PackKey 中不允许出现的保留字符（不含 ~，因为它是有意使用的标签连接符）</summary>
+    public static readonly char[] PackKeyReservedChars =
+        { '/', '\\', ':', '*', '?', '<', '>', '"', '|', '.', ' ', ';', '%', '$', '_' };
+
     /// <summary>检查给定值是否为系统保留标识符（以 $ 开头）</summary>
     public static bool IsSystemReserved(string value)
     {

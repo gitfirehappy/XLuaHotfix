@@ -19,13 +19,13 @@ public static class CollectionScanner
 
         if (setting == null)
         {
-            result.Messages.Add(Error(BuildErrorCodes.SettingNull, "CollectorSetting is null.", string.Empty));
+            result.Messages.Add(BuildMessage.SettingNull(string.Empty));
             return result;
         }
 
         if (setting.Packages == null || setting.Packages.Count == 0)
         {
-            result.Messages.Add(Warning(BuildErrorCodes.NoPackages, "CollectorSetting has no Packages configured.", string.Empty));
+            result.Messages.Add(BuildMessage.NoPackages(string.Empty));
             return result;
         }
 
@@ -42,8 +42,7 @@ public static class CollectionScanner
 
             if (package.Groups == null || package.Groups.Count == 0)
             {
-                result.Messages.Add(Warning(BuildErrorCodes.EmptyPackage,
-                    string.Concat("Package '", package.PackageName, "' has no Groups."), string.Empty));
+                result.Messages.Add(BuildMessage.EmptyPackage(package.PackageName, string.Empty));
                 continue;
             }
 
@@ -99,26 +98,20 @@ public static class CollectionScanner
                 // Same path across different Packages
                 if (string.Equals(pathI, pathJ, StringComparison.OrdinalIgnoreCase))
                 {
-                    result.Messages.Add(Error(BuildErrorCodes.CrossPackageOverlap,
-                        string.Concat("Cross-Package path conflict: ", pathI, " in Package '", pkgI, "' and '", pkgJ, "'."),
-                        pathI));
+                    result.Messages.Add(BuildMessage.CrossPackageOverlap(pathI, pkgI, pkgJ, pathI));
                     return false;
                 }
 
                 // Path containment across Packages
                 if (IsPathContained(pathI, pathJ))
                 {
-                    result.Messages.Add(Error(BuildErrorCodes.CrossPackageOverlap,
-                        string.Concat("Cross-Package path overlap: ", pathI, " (", pkgI, ") contains ", pathJ, " (", pkgJ, ")."),
-                        pathI));
+                    result.Messages.Add(BuildMessage.CrossPackageContainment(pathI, pkgI, pathJ, pkgJ, pathI));
                     return false;
                 }
 
                 if (IsPathContained(pathJ, pathI))
                 {
-                    result.Messages.Add(Error(BuildErrorCodes.CrossPackageOverlap,
-                        string.Concat("Cross-Package path overlap: ", pathJ, " (", pkgJ, ") contains ", pathI, " (", pkgI, ")."),
-                        pathJ));
+                    result.Messages.Add(BuildMessage.CrossPackageContainment(pathJ, pkgJ, pathI, pkgI, pathJ));
                     return false;
                 }
             }
@@ -207,17 +200,13 @@ public static class CollectionScanner
         // Validate collect path
         if (string.IsNullOrEmpty(collectPath))
         {
-            result.Messages.Add(Error(BuildErrorCodes.EmptyCollectPath,
-                string.Concat("Collector in Package '", packageName, "' Group '", ctx.ParentGroupName, "' has empty CollectPath."),
-                string.Empty));
+            result.Messages.Add(BuildMessage.EmptyCollectPath(string.Empty));
             return false;
         }
 
         if (!AssetDatabase.IsValidFolder(collectPath))
         {
-            result.Messages.Add(Warning(BuildErrorCodes.PathNotFound,
-                string.Concat("CollectPath not found: ", collectPath, " (Package '", packageName, "', Group '", ctx.ParentGroupName, "')."),
-                collectPath));
+            result.Messages.Add(BuildMessage.PathNotFound(collectPath, collectPath));
             return true; // Warning only — other Collectors in this Package may still be valid
         }
 
@@ -234,8 +223,7 @@ public static class CollectionScanner
         string[] guids = AssetDatabase.FindAssets(string.Empty, new[] { collectPath });
         if (guids == null || guids.Length == 0)
         {
-            result.Messages.Add(Warning(BuildErrorCodes.EmptyCollector,
-                string.Concat("No assets found for Collector: ", collectPath), collectPath));
+            result.Messages.Add(BuildMessage.EmptyCollector(collectPath, collectPath));
             return true; // Not an error — just empty
         }
 
@@ -313,6 +301,39 @@ public static class CollectionScanner
             };
 
             string packKey = packRule.GetPackKey(packCtx);
+
+            // Validate segment values against blacklist
+            string segErr = BundleNameBuilder.ValidateSegment(packageName)
+                         ?? BundleNameBuilder.ValidateSegment(targetGroupName)
+                         ?? BundleNameBuilder.ValidatePackKey(packKey);
+            if (segErr != null)
+            {
+                result.Messages.Add(BuildMessage.Error(
+                    BuildErrorCodes.RuleNotFound, segErr, assetPath));
+                continue;
+            }
+
+            // Validate individual labels
+            bool labelErr = false;
+            if (labels != null)
+            {
+                for (int li = 0; li < labels.Count; li++)
+                {
+                    string le = BundleNameBuilder.ValidateSegment(labels[li]);
+                    if (le != null)
+                    {
+                        result.Messages.Add(BuildMessage.Error(
+                            BuildErrorCodes.RuleNotFound,
+                            string.Concat("Label ", le), assetPath));
+                        labelErr = true;
+                        break;
+                    }
+                }
+            }
+
+            if (labelErr)
+                continue;
+
             string bundleName = BundleNameBuilder.Build(packageName, targetGroupName, packKey);
 
             // Assemble CollectedAssetInfo
@@ -380,9 +401,7 @@ public static class CollectionScanner
 
                 if (depthI == depthJ && string.Equals(pathI, pathJ, StringComparison.OrdinalIgnoreCase))
                 {
-                    result.Messages.Add(Error(BuildErrorCodes.SamePathConflict,
-                        string.Concat("Same-depth same-path conflict in Package '", packageName, "': ", pathI),
-                        pathI));
+                    result.Messages.Add(BuildMessage.SamePathConflict(pathI, pathI));
                     return false;
                 }
             }
@@ -506,7 +525,7 @@ public static class CollectionScanner
     {
         if (string.IsNullOrEmpty(className))
         {
-            result.Messages.Add(Error(BuildErrorCodes.RuleNotFound,
+            result.Messages.Add(BuildMessage.Error(BuildErrorCodes.RuleNotFound,
                 string.Concat("Empty ", ruleType, " class name for Collector: ", collectPath), collectPath));
             return null;
         }
@@ -524,11 +543,9 @@ public static class CollectionScanner
 
             return null;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            result.Messages.Add(Error(BuildErrorCodes.RuleNotFound,
-                string.Concat("Failed to resolve ", ruleType, " '", className, "' at ", collectPath, ": ", ex.Message),
-                collectPath));
+            result.Messages.Add(BuildMessage.RuleNotFound(className, collectPath));
             return null;
         }
     }
@@ -581,9 +598,7 @@ public static class CollectionScanner
 
             if (!seen.Add(guid))
             {
-                result.Messages.Add(Error(BuildErrorCodes.DuplicateGuid,
-                    string.Concat("Duplicate GUID in result: ", guid, " (", assets[i].AssetPath, ")."),
-                    assets[i].AssetPath));
+                result.Messages.Add(BuildMessage.DuplicateGuid(guid, assets[i].AssetPath));
                 return false;
             }
         }
@@ -626,27 +641,6 @@ public static class CollectionScanner
             return true;
 
         return false;
-    }
-
-    #endregion
-
-    #region Private — Helpers: Messages
-
-    /// <summary>
-    /// 私有 Error 包装器 —— 避免修改 20+ 处调用点的方法签名。
-    /// 等价于直接调用 BuildMessage.Error(code, message, source)。
-    /// </summary>
-    private static BuildMessage Error(string code, string message, string source)
-    {
-        return BuildMessage.Error(code, message, source);
-    }
-
-    /// <summary>
-    /// 私有 Warning 包装器 —— 同上。
-    /// </summary>
-    private static BuildMessage Warning(string code, string message, string source)
-    {
-        return BuildMessage.Warning(code, message, source);
     }
 
     #endregion

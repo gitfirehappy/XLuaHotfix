@@ -1,5 +1,3 @@
-using System.Text;
-
 /// <summary>
 /// Bundle 逻辑名组装工具 —— 将 PackRule 输出的分组键组装为标准化三段式名称。
 /// 输出不含 Hash 和 .bundle 扩展名，这些由 TaskBuildBundles 追加。
@@ -9,14 +7,48 @@ public static class BundleNameBuilder
     #region Public Methods
 
     /// <summary>
-    /// 组装标准化 Bundle 逻辑名：{packageName}_{groupName}_{packKey}（全小写）。
+    /// 校验 PackageName / GroupName / Label 是否包含保留字符。返回 null 表示合法。
+    /// </summary>
+    public static string ValidateSegment(string segment)
+    {
+        return ValidateAgainst(segment, SystemIdentifiers.ReservedChars);
+    }
+
+    /// <summary>
+    /// 校验 PackKey 是否包含保留字符（允许 ~ 标签连接符）。返回 null 表示合法。
+    /// </summary>
+    public static string ValidatePackKey(string packKey)
+    {
+        return ValidateAgainst(packKey, SystemIdentifiers.PackKeyReservedChars);
+    }
+
+    private static string ValidateAgainst(string value, char[] blacklist)
+    {
+        if (string.IsNullOrEmpty(value))
+            return null;
+
+        for (int i = 0; i < value.Length; i++)
+        {
+            char c = value[i];
+            for (int j = 0; j < blacklist.Length; j++)
+            {
+                if (c == blacklist[j])
+                    return string.Concat("'", value, "' contains reserved character '", c, "' at position ", i.ToString());
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// 组装标准化 Bundle 逻辑名：{package}_{group}_{packKey}（全小写）。
     /// </summary>
     public static string Build(string packageName, string groupName, string packKey)
     {
         string safePkg = SanitizeSegment(packageName);
         string safeGroup = SanitizeSegment(groupName);
         string safeKey = SanitizeSegment(packKey);
-        return string.Concat(safePkg, "_", safeGroup, "_", safeKey);
+        return string.Concat(safePkg, SystemIdentifiers.SegmentSeparator, safeGroup, SystemIdentifiers.SegmentSeparator, safeKey);
     }
 
     #endregion
@@ -28,20 +60,8 @@ public static class BundleNameBuilder
         if (string.IsNullOrEmpty(raw))
             return SystemIdentifiers.DefaultPackKey;
 
-        StringBuilder sb = new StringBuilder(raw.Length);
-        for (int i = 0; i < raw.Length; i++)
-        {
-            char c = raw[i];
-            if (c >= 'A' && c <= 'Z')
-                c = (char)(c + 32); // ToLowerInvariant for ASCII
-            if ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' || c == '$')
-                sb.Append(c);
-            else
-                sb.Append('_');
-        }
-
-        string result = sb.ToString();
-        return result.Length > 0 ? result : SystemIdentifiers.DefaultPackKey;
+        string lowered = raw.ToLowerInvariant();
+        return lowered.Length > 0 ? lowered : SystemIdentifiers.DefaultPackKey;
     }
 
     #endregion

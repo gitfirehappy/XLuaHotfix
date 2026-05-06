@@ -105,4 +105,63 @@ public class BuildMessage
     }
 
     #endregion
+
+    #region Semantic Factory Methods
+
+    public static BuildMessage SettingNull(string source)
+        => Error(BuildErrorCodes.SettingNull, "CollectorSetting is null.", source);
+
+    public static BuildMessage NoPackages(string source)
+        => Error(BuildErrorCodes.NoPackages, "CollectorSetting has no Packages configured.", source);
+
+    public static BuildMessage EmptyPackage(string packageName, string source)
+        => Warning(BuildErrorCodes.EmptyPackage,
+            string.Concat("Package '", packageName, "' has no Groups."), source);
+
+    public static BuildMessage EmptyPackageName(string source)
+        => Error(BuildErrorCodes.EmptyPackageName, "Package name is empty.", source);
+
+    public static BuildMessage DuplicatePackageName(string packageName, string source)
+        => Error(BuildErrorCodes.DuplicatePackageName,
+            string.Concat("Duplicate PackageName: ", packageName), source);
+
+    public static BuildMessage EmptyGroupName(string source)
+        => Error(BuildErrorCodes.EmptyGroupName, "Group name is empty.", source);
+
+    public static BuildMessage DuplicateGroupName(string groupName, string packageName, string source)
+        => Warning(BuildErrorCodes.DuplicateGroupName,
+            string.Concat("Duplicate GroupName '", groupName, "' in Package '", packageName, "'."), source);
+
+    public static BuildMessage EmptyCollectPath(string source)
+        => Error(BuildErrorCodes.EmptyCollectPath, "CollectPath is empty.", source);
+
+    public static BuildMessage PathNotFound(string path, string source)
+        => Warning(BuildErrorCodes.PathNotFound,
+            string.Concat("CollectPath not found: ", path), source);
+
+    public static BuildMessage CrossPackageOverlap(string path, string pkg1, string pkg2, string source)
+        => Error(BuildErrorCodes.CrossPackageOverlap,
+            string.Concat("Path '", path, "' is used in both Package '", pkg1, "' and '", pkg2, "'."), source);
+
+    public static BuildMessage CrossPackageContainment(string parentPath, string parentPkg, string childPath, string childPkg, string source)
+        => Error(BuildErrorCodes.CrossPackageOverlap,
+            string.Concat("Path '", parentPath, "' (", parentPkg, ") contains '", childPath, "' (", childPkg, ")."), source);
+
+    public static BuildMessage SamePathConflict(string path, string source)
+        => Error(BuildErrorCodes.SamePathConflict,
+            string.Concat("Same CollectPath used in two Collectors: ", path), source);
+
+    public static BuildMessage RuleNotFound(string ruleClassName, string source)
+        => Error(BuildErrorCodes.RuleNotFound,
+            string.Concat("Rule class '", ruleClassName, "' cannot be resolved."), source);
+
+    public static BuildMessage EmptyCollector(string collectorPath, string source)
+        => Warning(BuildErrorCodes.EmptyCollector,
+            string.Concat("Collector collected zero assets: ", collectorPath), source);
+
+    public static BuildMessage DuplicateGuid(string guid, string source)
+        => Error(BuildErrorCodes.DuplicateGuid,
+            string.Concat("Duplicate Asset GUID: ", guid), source);
+
+    #endregion
 }

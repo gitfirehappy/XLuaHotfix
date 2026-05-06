@@ -699,3 +699,32 @@
 [progress] 2026-05-02 Wave2 completed: CollectorPanel partitioned into top/middle/bottom rects and splitter math derived from middle content (working tree, uncommitted)
 [progress] 2026-05-02 Wave3 in-progress: Property panel bounded rendering, empty-state card, bottom result tabs and explicit Scan Preview UI added (working tree, uncommitted)
 [done] 2026-05-02 E1-4 rework SIGNED OFF — layout fixed (rect-driven composition, no overlap), Scan Preview wired to CollectionScanner.Scan (45 assets verified), CollectorPropertyPanel EndArea bug fixed, CollectorResultPanel simplified (no nested BeginArea), Reload button + CollectorTestSeeder added for phase validation. GUI Error resolved.
+
+[start] 2026-05-06 BuildMessage 语义化工厂对齐 — RuntimeMessage 有 9 个语义化工厂而 BuildMessage 只有通用工厂 Error/Warning，两层设计不一致。用户指出。
+[decision] 2026-05-06 plan-buildmessage-semantic-factories.md 写入并获批 — 14 个语义化工厂方法，跨包重叠拆为 CrossPackageOverlap + CrossPackageContainment
+[done] 2026-05-06 BuildMessage.cs 新增 14 个语义化工厂（SettingNull/NoPackages/EmptyPackage/EmptyPackageName/DuplicatePackageName/EmptyGroupName/DuplicateGroupName/EmptyCollectPath/PathNotFound/CrossPackageOverlap/CrossPackageContainment/SamePathConflict/RuleNotFound/EmptyCollector/DuplicateGuid）
+[done] 2026-05-06 CollectorSettingValidator.cs 15 处调用点全部替换为语义化工厂
+[done] 2026-05-06 CollectionScanner.cs 13 处调用点替换 + 私有 Error/Warning 包装器删除 + 2 处未使用 ex 变量清理
+[done] 2026-05-06 dotnet build 0 errors 3 warnings（全为预存在）
+[done] 2026-05-06 docs/FYAsset/错误处理.md 更新 — BuildMessage 使用指南补充 14 个语义化工厂列表
+[done] 2026-05-06 plan-buildmessage-semantic-factories.md → Realized
+
+[done] 2026-05-06 docs/FYAsset/collector-规则系统.md 编写完成 — 配置层级、资产分类、四规则接口详解、CollectionScanner 四步管线、BundleNameBuilder 命名规范、SystemIdentifiers、编写自定义规则指南、RuleResolver/AssetAddressGenerator/CollectorSettingValidator 辅助模块
+[done] 2026-05-06 docs/FYAsset/资源管理架构文档.md 索引表更新 — Collector 规则系统条目链接已加，状态改为已落地
+
+[start] 2026-05-06 Bundle 命名约定统一 — 发现 SanitizeSegment 用 _ 替换非法字符同时 _ 做分隔符，造成歧义。用户决定：_ 分隔符不变但进黑名单，非法字符直接报错不替换，标签用 ~ 连接
+[done] 2026-05-06 SystemIdentifiers.cs 新增 SegmentSeparator / LabelSeparator / ReservedChars / PackKeyReservedChars 常量
+[done] 2026-05-06 BundleNameBuilder.cs SanitizeSegment 改为纯小写 + 空值回退，新增 ValidateSegment / ValidatePackKey 黑名单校验方法
+[done] 2026-05-06 PackByLabel.cs 标签连接符 -- → ~，使用 SystemIdentifiers.LabelSeparator
+[done] 2026-05-06 CollectionScanner.cs Build 调用前添加段值 + Labels 黑名单校验，命中报错阻断
+[done] 2026-05-06 dotnet build 0 errors
+[done] 2026-05-06 docs/FYAsset/collector-规则系统.md 更新 — BundleNameBuilder 章节改为黑名单校验描述，SystemIdentifiers 表补充新常量，扫描步骤补充校验
+[done] 2026-05-06 plan-bundle-naming-convention.md → Realized
+
+[done] 2026-05-06 docs/FYAsset/build-pipeline-构建管线.md 编写完成 — IBuildTask 接口、BuildContext 数据总线、DAGScheduler 两阶段模型（Validate 四步校验 + Execute 批并行）、BuildPipelineConfig SO 配置、BuildTaskResolver 程序集扫描、BuildTaskResult/BuildResult、标准数据流 Key、现有 Task 列表
+[done] 2026-05-06 docs/FYAsset/ab-runtime-运行时加载.md 编写完成 — 清单加载、ABAssetIndex 四索引、双层引用计数、加载/卸载四步流程、AssetResolver 解析、AssetHandle 句柄模型、AssetPackageManager 入口、完整调用链
+[done] 2026-05-06 docs/FYAsset/资源管理架构文档.md 运行时章节精简为摘要+跳转链接，索引表更新
+[done] 2026-05-06 docs/FYAsset/资源管理架构文档.md 索引表更新 — Build Pipeline 条目链接已加，状态改为已落地
+
+[done] 2026-05-06 docs/FYAsset/dependency-analysis-依赖分析.md 编写完成 — BFS 依赖扫描算法、循环检测、Owned/Unowned 判定、隐式依赖发现、SharePolicy 决策矩阵、BundleDependencyGraph 结构、TaskAnalyzeDependencies IBuildTask 实现、AssetConflictRules
+[done] 2026-05-06 docs/FYAsset/资源管理架构文档.md 索引表更新 — 依赖分析条目链接已加，状态改为已落地

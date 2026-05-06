@@ -3,19 +3,17 @@ using System.Collections.Generic;
 
 /// <summary>
 /// 按标签打包规则 —— 相同标签组合的资源打入同一 Bundle。
-/// packKey = 标签排序后以 "--" 连接；无标签时返回 "__orphan__"。
+/// packKey = 标签排序后以 "~" 连接；无标签时返回 $orphan。
 /// </summary>
 public sealed class PackByLabel : IPackRule
 {
-    private const string OrphanSentinel = SystemIdentifiers.OrphanPackKey;
-
     #region Public Methods
 
-    /// <summary>返回排序后的 Labels 以 "--" 连接作为分组键；无 Labels 时返回 $orphan</summary>
+    /// <summary>返回排序后的 Labels 以 "~" 连接作为分组键；无 Labels 时返回 $orphan</summary>
     public string GetPackKey(PackRuleContext ctx)
     {
         if (ctx.Labels == null || ctx.Labels.Count == 0)
-            return OrphanSentinel;
+            return SystemIdentifiers.OrphanPackKey;
 
         List<string> sorted = new List<string>(ctx.Labels.Count);
         for (int i = 0; i < ctx.Labels.Count; i++)
@@ -26,10 +24,10 @@ public sealed class PackByLabel : IPackRule
         }
 
         if (sorted.Count == 0)
-            return OrphanSentinel;
+            return SystemIdentifiers.OrphanPackKey;
 
         sorted.Sort(StringComparer.Ordinal);
-        return string.Join("--", sorted);
+        return string.Join(SystemIdentifiers.LabelSeparator.ToString(), sorted);
     }
 
     #endregion

@@ -16,8 +16,7 @@ public static class CollectorSettingValidator
 
         if (setting == null || setting.Packages == null || setting.Packages.Count == 0)
         {
-            messages.Add(BuildMessage.Warning(
-                BuildErrorCodes.NoPackages, "CollectorSetting has no Packages.", "Setting"));
+            messages.Add(BuildMessage.NoPackages("Setting"));
             return messages;
         }
 
@@ -33,14 +32,12 @@ public static class CollectorSettingValidator
             // 1a. Empty PackageName
             if (string.IsNullOrEmpty(pkg.PackageName))
             {
-                messages.Add(BuildMessage.Error(BuildErrorCodes.EmptyPackageName,
-                    string.Concat("Package[", pi, "] name is empty."), pkgSrc));
+                messages.Add(BuildMessage.EmptyPackageName(pkgSrc));
             }
             else if (!seenPkg.Add(pkg.PackageName))
             {
                 // 8. Duplicate PackageName
-                messages.Add(BuildMessage.Error(BuildErrorCodes.DuplicatePackageName,
-                    string.Concat("Duplicate PackageName: ", pkg.PackageName), pkgSrc));
+                messages.Add(BuildMessage.DuplicatePackageName(pkg.PackageName, pkgSrc));
             }
 
             ValidatePackage(pkg, pi, messages);
@@ -61,8 +58,7 @@ public static class CollectorSettingValidator
         if (pkg.Groups == null || pkg.Groups.Count == 0)
         {
             string src = string.Concat("Package[", pkgIdx, "]");
-            messages.Add(BuildMessage.Warning(BuildErrorCodes.EmptyPackage,
-                string.Concat("Package '", pkg.PackageName ?? "(unnamed)", "' has no Groups."), src));
+            messages.Add(BuildMessage.EmptyPackage(pkg.PackageName ?? "(unnamed)", src));
             return;
         }
 
@@ -79,16 +75,12 @@ public static class CollectorSettingValidator
             // 2. Empty GroupName
             if (string.IsNullOrEmpty(grp.GroupName))
             {
-                messages.Add(BuildMessage.Error(BuildErrorCodes.EmptyGroupName,
-                    string.Concat("Group[", gi, "] name is empty in Package '",
-                        pkg.PackageName ?? "(unnamed)", "'."), grpSrc));
+                messages.Add(BuildMessage.EmptyGroupName(grpSrc));
             }
             else if (!seenGrp.Add(grp.GroupName))
             {
                 // 9. Duplicate GroupName
-                messages.Add(BuildMessage.Warning(BuildErrorCodes.DuplicateGroupName,
-                    string.Concat("Duplicate GroupName '", grp.GroupName, "' in Package '",
-                        pkg.PackageName, "'."), grpSrc));
+                messages.Add(BuildMessage.DuplicateGroupName(grp.GroupName, pkg.PackageName, grpSrc));
             }
 
             if (grp.Collectors == null)
@@ -104,10 +96,7 @@ public static class CollectorSettingValidator
                 // 3. Empty CollectPath
                 if (string.IsNullOrEmpty(col.CollectPath))
                 {
-                    messages.Add(BuildMessage.Error(BuildErrorCodes.EmptyCollectPath,
-                        string.Concat("Collector[", ci, "] CollectPath is empty in Package '",
-                            pkg.PackageName ?? "(unnamed)", "' Group '", grp.GroupName ?? "(unnamed)", "'."),
-                        colSrc));
+                    messages.Add(BuildMessage.EmptyCollectPath(colSrc));
                 }
                 else
                 {
@@ -117,9 +106,7 @@ public static class CollectorSettingValidator
                     // 4. Path not found
                     if (!UnityEditor.AssetDatabase.IsValidFolder(col.CollectPath))
                     {
-                        messages.Add(BuildMessage.Warning(BuildErrorCodes.PathNotFound,
-                            string.Concat("CollectPath not found: ", col.CollectPath, " (", colSrc, ")."),
-                            colSrc));
+                        messages.Add(BuildMessage.PathNotFound(col.CollectPath, colSrc));
                     }
                 }
 
@@ -176,22 +163,16 @@ public static class CollectorSettingValidator
 
                 if (string.Equals(pathI, pathJ, StringComparison.OrdinalIgnoreCase))
                 {
-                    messages.Add(BuildMessage.Error(BuildErrorCodes.CrossPackageOverlap,
-                        string.Concat("Cross-Package path conflict: ", pathI, " in '", pkgI, "' and '", pkgJ, "'."),
-                        srcI));
+                    messages.Add(BuildMessage.CrossPackageOverlap(pathI, pkgI, pkgJ, srcI));
                 }
 
                 if (IsPathContained(pathI, pathJ))
                 {
-                    messages.Add(BuildMessage.Error(BuildErrorCodes.CrossPackageOverlap,
-                        string.Concat("Cross-Package overlap: ", pathI, " (", pkgI, ") contains ", pathJ, " (", pkgJ, ")."),
-                        srcI));
+                    messages.Add(BuildMessage.CrossPackageContainment(pathI, pkgI, pathJ, pkgJ, srcI));
                 }
                 if (IsPathContained(pathJ, pathI))
                 {
-                    messages.Add(BuildMessage.Error(BuildErrorCodes.CrossPackageOverlap,
-                        string.Concat("Cross-Package overlap: ", pathJ, " (", pkgJ, ") contains ", pathI, " (", pkgI, ")."),
-                        srcJ));
+                    messages.Add(BuildMessage.CrossPackageContainment(pathJ, pkgJ, pathI, pkgI, srcJ));
                 }
             }
         }
@@ -206,10 +187,7 @@ public static class CollectorSettingValidator
             {
                 if (string.Equals(paths[i].path, paths[j].path, StringComparison.OrdinalIgnoreCase))
                 {
-                    messages.Add(BuildMessage.Error(BuildErrorCodes.SamePathConflict,
-                        string.Concat("Same CollectPath used in two Collectors in Package '",
-                            pkgName, "': ", paths[i].path),
-                        paths[i].src));
+                    messages.Add(BuildMessage.SamePathConflict(paths[i].path, paths[i].src));
                 }
             }
         }
@@ -232,14 +210,12 @@ public static class CollectorSettingValidator
         {
             if (!Resolver.CanResolve(className, ruleType))
             {
-                messages.Add(BuildMessage.Error(BuildErrorCodes.RuleNotFound,
-                    string.Concat(ruleType, " class '", className, "' cannot be resolved: ", source), source));
+                messages.Add(BuildMessage.RuleNotFound(className, source));
             }
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            messages.Add(BuildMessage.Error(BuildErrorCodes.RuleNotFound,
-                string.Concat(ruleType, " class '", className, "' resolution failed: ", source, " — ", ex.Message), source));
+            messages.Add(BuildMessage.RuleNotFound(className, source));
         }
     }
 
