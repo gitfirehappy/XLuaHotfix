@@ -79,18 +79,42 @@ public sealed class BuildPipelineWindow : EditorWindow
         GUILayout.BeginVertical();
         GUILayout.Space(12);
 
-        string[] areaNames = { "Collector", "Pipeline", "Builder", "Inspector", "Settings" };
+        string[] areaNames = { "Collector Settings", "Collector", "Pipeline", "Builder", "Inspector" };
         for (int i = 0; i < areaNames.Length; i++)
         {
-            bool wasActive = _activePanelIndex == i;
-            GUI.backgroundColor = wasActive ? new Color(0.4f, 0.6f, 0.9f) : Color.white;
+            bool isActive = _activePanelIndex == i;
+            Rect btnRect = EditorGUILayout.GetControlRect(false, 38);
+            
+            if (isActive)
+            {
+                EditorGUI.DrawRect(btnRect, new Color(0.17f, 0.36f, 0.53f, 1f));
+            }
+            else if (btnRect.Contains(Event.current.mousePosition))
+            {
+                EditorGUI.DrawRect(btnRect, new Color(0.3f, 0.3f, 0.3f, 0.5f));
+            }
 
-            // Slightly taller buttons and small margin between them for improved touch target and spacing
-            if (GUILayout.Button(areaNames[i], GUILayout.Height(38)))
+            GUIStyle labelStyle = new GUIStyle(EditorStyles.label)
+            {
+                alignment = TextAnchor.MiddleLeft,
+                fontSize = 13,
+                fontStyle = isActive ? FontStyle.Bold : FontStyle.Normal,
+                normal = { textColor = isActive ? Color.white : new Color(0.8f, 0.8f, 0.8f) }
+            };
+
+            Rect textRect = btnRect;
+            textRect.xMin += 12;
+
+            GUI.Label(textRect, areaNames[i], labelStyle);
+
+            if (Event.current.type == EventType.MouseDown && Event.current.button == 0 && btnRect.Contains(Event.current.mousePosition))
+            {
                 _activePanelIndex = i;
+                Event.current.Use();
+                GUI.FocusControl(null);
+            }
 
-            GUILayout.Space(6);
-            GUI.backgroundColor = Color.white;
+            GUILayout.Space(2);
         }
 
         GUILayout.EndVertical();
@@ -118,14 +142,13 @@ public sealed class BuildPipelineWindow : EditorWindow
     /// <summary>注册面板（T11 调用，将 CollectorPanel 装入 index 0）</summary>
     public void InitPanels(IBuildPipelinePanel collectorPanel)
     {
-        // Index 0 can be replaced with real CollectorPanel; other 4 stay placeholder
         _panels = new IBuildPipelinePanel[]
         {
+            new PlaceholderPanel("Collector Settings"),
             collectorPanel ?? new PlaceholderPanel("Collector"),
             new PlaceholderPanel("Pipeline"),
             new PlaceholderPanel("Builder"),
-            new PlaceholderPanel("Inspector"),
-            new PlaceholderPanel("Settings"),
+            new PlaceholderPanel("Inspector")
         };
 
         for (int i = 0; i < _panels.Length; i++)

@@ -1,0 +1,5 @@
+# editor-beautification-20260506 进度记录
+# 格式：[类型] YYYY-MM-DD 描述
+# 类型: start / done / decision / blocked / next
+
+[start] 2026-05-06 开始：创建需求文档和初步计划（brief.md, plan.md, progress.txt）
