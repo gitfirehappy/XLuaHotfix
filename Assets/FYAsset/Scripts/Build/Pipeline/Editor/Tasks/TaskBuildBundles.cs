@@ -132,34 +132,43 @@ public class TaskBuildBundles : IBuildTask
 
         if (unityManifest != null)
         {
+            // 正向映射：从已知的逻辑名匹配 Unity 产出的实际文件名
             string[] allBundles = unityManifest.GetAllAssetBundles();
-            for (int i = 0; i < allBundles.Length; i++)
+            foreach (var logicalName in groups.Keys)
             {
-                string fileName = allBundles[i];
-                string filePath = Path.Combine(tempDir, fileName);
-                var info = new FileInfo(filePath);
-                string hash = unityManifest.GetAssetBundleHash(fileName).ToString();
-
-                // 尝试从逻辑名反查资产路径列表
-                var assetPaths = new List<string>();
-                string logicalName = GetLogicalBundleName(fileName, groups.Keys);
-                if (logicalName != null && groups.TryGetValue(logicalName, out var logicalAssets))
+                string matchedFile = null;
+                for (int i = 0; i < allBundles.Length; i++)
                 {
-                    for (int a = 0; a < logicalAssets.Count; a++)
-                        assetPaths.Add(logicalAssets[a].AssetPath);
+                    if (allBundles[i].StartsWith(logicalName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        matchedFile = allBundles[i];
+                        break;
+                    }
                 }
+
+                if (matchedFile == null)
+                    continue;
+
+                string filePath = Path.Combine(tempDir, matchedFile);
+                var info = new FileInfo(filePath);
+                string hash = unityManifest.GetAssetBundleHash(matchedFile).ToString();
+
+                var groupAssets = groups[logicalName];
+                var assetPaths = new List<string>(groupAssets.Count);
+                for (int a = 0; a < groupAssets.Count; a++)
+                    assetPaths.Add(groupAssets[a].AssetPath);
 
                 results.Add(new BundleBuildInfo
                 {
-                    BundleName = logicalName ?? fileName,
-                    OutputFileName = fileName,
+                    BundleName = logicalName,
+                    OutputFileName = matchedFile,
                     Hash = hash,
                     Size = info.Exists ? info.Length : 0,
                     AssetPaths = assetPaths,
                     PayloadKind = EPayloadKind.Serialized
                 });
 
-                processedNames.Add(fileName);
+                processedNames.Add(matchedFile);
             }
         }
 
@@ -198,20 +207,5 @@ public class TaskBuildBundles : IBuildTask
         ctx.Set(BuildContextKeys.BundleBuildResults, results);
         return BuildTaskResult.Ok(new List<string>
             { $"[BUILD] {results.Count} bundle(s) produced in {tempDir}." });
-    }
-
-    /// <summary>
-    /// 尝试从 Unity 产出的文件名匹配回逻辑 BundleName。
-    /// Unity 产出的文件名形如 "hotfix_ui_abc123_md5hash.bundle"，
-    /// 需要匹配回 logicName = "hotfix_ui_abc123"。
-    /// </summary>
-    private static string GetLogicalBundleName(string fileName, IEnumerable<string> logicalNames)
-    {
-        foreach (var name in logicalNames)
-        {
-            if (fileName.StartsWith(name, StringComparison.OrdinalIgnoreCase))
-                return name;
-        }
-        return null;
     }
 }
