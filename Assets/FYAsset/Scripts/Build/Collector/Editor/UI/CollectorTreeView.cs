@@ -255,7 +255,7 @@ public sealed class CollectorTreeView : TreeView
     #endregion
 
     #region Context Menu (T6)
-    // TODO(E1-4-T6): 实现右键上下文菜单 — Add/Delete/Duplicate 节点（当前 base.OnGUI 已处理基础交互）
+    // 右键上下文菜单功能预留（Add/Delete/Duplicate 节点），当前 base.OnGUI 已处理基础交互
     #endregion
 
     #region Public API
