@@ -3,7 +3,7 @@
 > **Risk**: Medium (depends on E5-1 core + E1-3 CollectionScanner + E4 DependencyAnalyzer; actual AssetBundle building via Unity API has known edge cases)
 > **Dependencies**: E5-1 (IBuildTask + BuildContext + DAGScheduler + BuildPipelineConfig), E1-3 (CollectionScanner — TaskCollectAssets output), E4 (TaskAnalyzeDependencies output)
 > **Parent**: [plan-E5.md](plan-E5.md)
-> **Status**: Draft — discussion complete, pending approval
+> **Status**: Superseded — 已拆分为 [plan-E5-2a.md](plan-E5-2a.md) + [plan-E5-2b.md](plan-E5-2b.md)（因 E6 交叉依赖，TaskVerifyBuildResult 和 TaskOrganizeOutput 需要 ABManifest）
 
 ---
 

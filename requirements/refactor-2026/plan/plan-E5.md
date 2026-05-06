@@ -1,7 +1,7 @@
 # Plan E5: Build Pipeline Engine（父计划 — 总览）
 
 > **Risk**: High
-> **Status**: Draft — 拆分为 E5-1 + E5-2
+> **Status**: Draft — 拆分为 E5-1 + E5-2a + E5-2b（E5-2 因 E6 交叉依赖拆分）
 
 ---
 
@@ -10,7 +10,11 @@
 | 子计划 | 内容 | 文件 | 行数 | 依赖 |
 |--------|------|------|------|------|
 | **[plan-E5-1.md](plan-E5-1.md)** | 核心引擎：IBuildTask / BuildContext / BuildTaskResult / BuildPipelineConfig / DAGScheduler / BackendMode | 7 新 + 1 改 | ~490 | E1-1 |
-| **[plan-E5-2.md](plan-E5-2.md)** | 骨干 Task：TaskPrepareContext / TaskBuildBundles / TaskOrganizeOutput + BundleBuildInfo | 4 新 | ~385 | E5-1 + E1-3 + E4 |
+| **[plan-E5-2a.md](plan-E5-2a.md)** | 骨干 Phase 1：TaskPrepareContext / TaskCollectBuiltins / TaskBuildBundles + BundleBuildInfo | 4 新 | ~335 | E5-1 + E1-3 + E4 |
+| **[plan-E6.md](plan-E6.md)** | TaskGenerateManifest：组装 ABManifest + CRC32 校验 | 2 新 + 3 改 | ~240 | E5-2a |
+| **[plan-E5-2b.md](plan-E5-2b.md)** | 骨干 Phase 2：TaskVerifyBuildResult / TaskOrganizeOutput | 2 新 | ~180 | E6 |
+
+> E5-2 原计划已弃用，被 E5-2a + E5-2b 替代。执行顺序：E5-2a → E6 → E5-2b。
 
 ---
 
