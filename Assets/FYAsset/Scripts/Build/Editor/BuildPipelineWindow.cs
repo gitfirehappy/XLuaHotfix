@@ -2,20 +2,39 @@ using UnityEditor;
 using UnityEngine;
 
 /// <summary>
-/// 构建管线主窗口 —— 左侧边栏 5 区域路由 + 右侧内容面板。
-/// 菜单入口：XLua/Build Pipeline
+/// 包含构建管线各大模块面板
 /// </summary>
 public sealed class BuildPipelineWindow : EditorWindow
 {
+    #region Types
+
+    private struct SidebarGroup
+    {
+        public string Label;
+        public int StartIndex;
+        public int Count;
+    }
+
+    #endregion
+
     #region Fields
 
-    private const float SidebarWidth = 120f;
+    private float _sidebarWidth = 160f;
+    private bool _isDraggingSidebar;
 
     private IBuildPipelinePanel[] _panels;
     private int _activePanelIndex;
     private Rect _sidebarRect;
     private Rect _contentRect;
     private Rect _contentInnerRect;
+
+    // Sidebar groups in build-pipeline order
+    private static readonly SidebarGroup[] Groups = new[]
+    {
+        new SidebarGroup { Label = "COLLECT", StartIndex = 0, Count = 2 },
+        new SidebarGroup { Label = "BUILD",   StartIndex = 2, Count = 2 },
+        new SidebarGroup { Label = "MANAGE",  StartIndex = 4, Count = 1 },
+    };
 
     #endregion
 
@@ -37,29 +56,20 @@ public sealed class BuildPipelineWindow : EditorWindow
     private void OnEnable()
     {
         InitPanels(new CollectorPanel());
-        // 将 Pipeline 面板替换占位实现为 PipelinePanel，让侧边栏显示具体入口
-        // Panels array layout: Collector Settings, Collector, Pipeline, Builder, Inspector
-        if (_panels != null && _panels.Length >= 4)
-        {
-            _panels[2] = new PipelinePanel();
-            _panels[2].OnEnable(this);
-            _panels[3] = new BuilderPanel();
-            _panels[3].OnEnable(this);
-        }
     }
 
     private void OnDisable()
     {
+        if (_panels == null) return;
         for (int i = 0; i < _panels.Length; i++)
             _panels[i].OnDisable();
     }
 
     private void OnGUI()
     {
-        _sidebarRect = new Rect(0, 0, SidebarWidth, position.height);
-        _contentRect = new Rect(SidebarWidth, 0, position.width - SidebarWidth, position.height);
+        _sidebarRect = new Rect(0, 0, _sidebarWidth, position.height);
+        _contentRect = new Rect(_sidebarWidth, 0, position.width - _sidebarWidth, position.height);
 
-        // Add a small consistent padding inside the content area so panels have breathing room.
         const float contentPadding = 12f;
         _contentInnerRect = new Rect(
             _contentRect.x + contentPadding,
@@ -69,6 +79,31 @@ public sealed class BuildPipelineWindow : EditorWindow
         );
 
         DrawSidebar();
+
+        Rect splitterRect = new Rect(_sidebarWidth - 2, 0, 4, position.height);
+        EditorGUIUtility.AddCursorRect(splitterRect, MouseCursor.ResizeHorizontal);
+
+        if (Event.current.type == EventType.MouseDown && splitterRect.Contains(Event.current.mousePosition))
+        {
+            _isDraggingSidebar = true;
+            Event.current.Use();
+        }
+
+        if (_isDraggingSidebar)
+        {
+            if (Event.current.type == EventType.MouseDrag)
+            {
+                _sidebarWidth = Mathf.Clamp(Event.current.mousePosition.x, 100f, 300f);
+                Repaint();
+                Event.current.Use();
+            }
+            else if (Event.current.type == EventType.MouseUp)
+            {
+                _isDraggingSidebar = false;
+                Event.current.Use();
+            }
+        }
+
         DrawContent();
     }
 
@@ -82,48 +117,22 @@ public sealed class BuildPipelineWindow : EditorWindow
         EditorGUI.DrawRect(new Rect(0, 0, _sidebarRect.width, _sidebarRect.height),
             EditorGUIUtility.isProSkin ? new Color(0.18f, 0.18f, 0.18f) : new Color(0.76f, 0.76f, 0.76f));
 
-        // Inner padding so sidebar content doesn't touch the edges
         GUILayout.BeginHorizontal();
         GUILayout.Space(8);
         GUILayout.BeginVertical();
         GUILayout.Space(12);
 
-        string[] areaNames = { "Collector Settings", "Collector", "Pipeline", "Builder", "Inspector" };
-        for (int i = 0; i < areaNames.Length; i++)
+        foreach (var group in Groups)
         {
-            bool isActive = _activePanelIndex == i;
-            Rect btnRect = EditorGUILayout.GetControlRect(false, 38);
-            
-            if (isActive)
+            DrawGroupHeader(group.Label);
+
+            for (int i = group.StartIndex; i < group.StartIndex + group.Count; i++)
             {
-                EditorGUI.DrawRect(btnRect, new Color(0.17f, 0.36f, 0.53f, 1f));
-            }
-            else if (btnRect.Contains(Event.current.mousePosition))
-            {
-                EditorGUI.DrawRect(btnRect, new Color(0.3f, 0.3f, 0.3f, 0.5f));
+                if (_panels == null || i >= _panels.Length) continue;
+                DrawPanelButton(i, _panels[i].PanelName);
             }
 
-            GUIStyle labelStyle = new GUIStyle(EditorStyles.label)
-            {
-                alignment = TextAnchor.MiddleLeft,
-                fontSize = 13,
-                fontStyle = isActive ? FontStyle.Bold : FontStyle.Normal,
-                normal = { textColor = isActive ? Color.white : new Color(0.8f, 0.8f, 0.8f) }
-            };
-
-            Rect textRect = btnRect;
-            textRect.xMin += 12;
-
-            GUI.Label(textRect, areaNames[i], labelStyle);
-
-            if (Event.current.type == EventType.MouseDown && Event.current.button == 0 && btnRect.Contains(Event.current.mousePosition))
-            {
-                _activePanelIndex = i;
-                Event.current.Use();
-                GUI.FocusControl(null);
-            }
-
-            GUILayout.Space(2);
+            GUILayout.Space(6);
         }
 
         GUILayout.EndVertical();
@@ -133,13 +142,71 @@ public sealed class BuildPipelineWindow : EditorWindow
         GUILayout.EndArea();
     }
 
+    private void DrawGroupHeader(string label)
+    {
+        Rect headerRect = EditorGUILayout.GetControlRect(false, 20);
+
+        GUIStyle headerStyle = new GUIStyle(EditorStyles.miniLabel)
+        {
+            alignment = TextAnchor.MiddleLeft,
+            fontSize = 10,
+            fontStyle = FontStyle.Bold,
+            normal = { textColor = EditorGUIUtility.isProSkin ? new Color(0.5f, 0.5f, 0.5f) : new Color(0.4f, 0.4f, 0.4f) }
+        };
+
+        Rect textRect = headerRect;
+        textRect.xMin += 4;
+        GUI.Label(textRect, label, headerStyle);
+
+        // Separator line below header
+        float lineY = headerRect.yMax - 1;
+        EditorGUI.DrawRect(new Rect(headerRect.x + 4, lineY, headerRect.width - 8, 1),
+            EditorGUIUtility.isProSkin ? new Color(0.35f, 0.35f, 0.35f) : new Color(0.6f, 0.6f, 0.6f));
+    }
+
+    private void DrawPanelButton(int index, string panelName)
+    {
+        bool isActive = _activePanelIndex == index;
+        Rect btnRect = EditorGUILayout.GetControlRect(false, 34);
+
+        if (isActive)
+        {
+            EditorGUI.DrawRect(btnRect, new Color(0.17f, 0.36f, 0.53f, 1f));
+        }
+        else if (btnRect.Contains(Event.current.mousePosition))
+        {
+            EditorGUI.DrawRect(btnRect, new Color(0.3f, 0.3f, 0.3f, 0.5f));
+        }
+
+        GUIStyle labelStyle = new GUIStyle(EditorStyles.label)
+        {
+            alignment = TextAnchor.MiddleLeft,
+            fontSize = 12,
+            fontStyle = isActive ? FontStyle.Bold : FontStyle.Normal,
+            normal = { textColor = isActive ? Color.white : new Color(0.8f, 0.8f, 0.8f) },
+            wordWrap = true
+        };
+
+        Rect textRect = btnRect;
+        textRect.xMin += 16;
+        GUI.Label(textRect, panelName, labelStyle);
+
+        if (Event.current.type == EventType.MouseDown && Event.current.button == 0 && btnRect.Contains(Event.current.mousePosition))
+        {
+            _activePanelIndex = index;
+            Event.current.Use();
+            GUI.FocusControl(null);
+        }
+
+        GUILayout.Space(2);
+    }
+
     #endregion
 
     #region Content
 
     private void DrawContent()
     {
-        // Pass the padded inner rect to panels so their layout starts with consistent margins.
         if (_panels != null && _activePanelIndex >= 0 && _activePanelIndex < _panels.Length)
             _panels[_activePanelIndex].OnGUI(_contentInnerRect);
     }
@@ -148,16 +215,18 @@ public sealed class BuildPipelineWindow : EditorWindow
 
     #region Public API
 
-    /// <summary>注册面板（T11 调用，将 CollectorPanel 装入 index 0）</summary>
     public void InitPanels(IBuildPipelinePanel collectorPanel)
     {
         _panels = new IBuildPipelinePanel[]
         {
-            new PlaceholderPanel("Collector Settings"),
+            // COLLECT (index 0-1)
+            new CollectorSettingPanel(),
             collectorPanel ?? new PlaceholderPanel("Collector"),
-            new PlaceholderPanel("Pipeline"),
-            new PlaceholderPanel("Builder"),
-            new PlaceholderPanel("Inspector")
+            // BUILD (index 2-3)
+            new PipelinePanel(),
+            new BuilderPanel(),
+            // MANAGE (index 4)
+            new VersionPanel(),
         };
 
         for (int i = 0; i < _panels.Length; i++)

@@ -1,63 +1,97 @@
 using UnityEditor;
 using UnityEngine;
-using System.Linq;
 
-/// <summary>
-/// Pipeline 面板：显示 BuildPipelineConfig 的简单入口与预览（占位实现）。
-/// </summary>
-public sealed class PipelinePanel : IBuildPipelinePanel
+public class PipelinePanel : IBuildPipelinePanel
 {
-    private EditorWindow _window;
+    private BuildPipelineConfig _config;
+    private Editor _configEditor;
+    private Vector2 _scrollPos;
+
     public string PanelName => "Pipeline";
 
     public void OnEnable(EditorWindow window)
     {
-        _window = window;
+        LoadConfig();
     }
 
-    public void OnGUI(Rect rect)
+    public void OnDisable()
     {
-        GUILayout.BeginArea(rect);
-        GUILayout.Label("Build Pipeline Configuration", EditorStyles.boldLabel);
-        GUILayout.Space(8);
-
-        // 尝试查找名为 BuildPipelineConfig 的 ScriptableObject（占位逻辑）
-        string[] guids = AssetDatabase.FindAssets("t:BuildPipelineConfig");
-        if (guids != null && guids.Length > 0)
+        if (_configEditor != null)
         {
-            var path = AssetDatabase.GUIDToAssetPath(guids[0]);
-            var asset = AssetDatabase.LoadMainAssetAtPath(path);
-            GUILayout.Label($"Found: {asset.name}", EditorStyles.label);
-            if (GUILayout.Button("Open Config"))
-            {
-                Selection.activeObject = asset;
-                EditorGUIUtility.PingObject(asset);
-            }
+            Object.DestroyImmediate(_configEditor);
+            _configEditor = null;
+        }
+    }
+
+    public void OnGUI(Rect windowRect)
+    {
+        GUILayout.BeginArea(windowRect);
+        
+        EditorGUILayout.BeginHorizontal(EditorStyles.toolbar);
+        if (GUILayout.Button("Reload", EditorStyles.toolbarButton, GUILayout.Width(60)))
+        {
+            LoadConfig();
+        }
+        GUILayout.FlexibleSpace();
+        EditorGUILayout.EndHorizontal();
+
+        if (_config == null)
+        {
+            DrawNoConfig();
         }
         else
         {
-            GUILayout.Label("No BuildPipelineConfig asset found.", EditorStyles.helpBox);
-            if (GUILayout.Button("Create Placeholder Config"))
+            _scrollPos = GUILayout.BeginScrollView(_scrollPos);
+            if (_configEditor != null)
             {
-                // Create a placeholder ScriptableObject asset to guide the user.
-                var so = ScriptableObject.CreateInstance("BuildPipelineConfig");
-                if (so != null)
-                {
-                    string path = "Assets/BuildPipelineConfig.asset";
-                    AssetDatabase.CreateAsset(so, path);
-                    AssetDatabase.SaveAssets();
-                    Selection.activeObject = so;
-                }
-                else
-                {
-                    EditorUtility.DisplayDialog("Create Config", "无法创建 BuildPipelineConfig 类型的占位资源，请先在项目中定义该类型。", "OK");
-                }
+                _configEditor.OnInspectorGUI();
             }
+            GUILayout.EndScrollView();
         }
-
-        GUILayout.FlexibleSpace();
+        
         GUILayout.EndArea();
     }
 
-    public void OnDisable() { }
+    private void LoadConfig()
+    {
+        _config = AssetDatabase.LoadAssetAtPath<BuildPipelineConfig>("Assets/Build/BuildPipelineConfig.asset");
+        if (_config != null)
+        {
+            if (_configEditor != null) Object.DestroyImmediate(_configEditor);
+            _configEditor = Editor.CreateEditor(_config);
+        }
+    }
+
+    private void DrawNoConfig()
+    {
+        GUILayout.FlexibleSpace();
+        GUILayout.BeginHorizontal();
+        GUILayout.FlexibleSpace();
+        GUILayout.Label("No BuildPipelineConfig found at Assets/Build/BuildPipelineConfig.asset", EditorStyles.centeredGreyMiniLabel);
+        GUILayout.FlexibleSpace();
+        GUILayout.EndHorizontal();
+        
+        GUILayout.BeginHorizontal();
+        GUILayout.FlexibleSpace();
+        if (GUILayout.Button("Create BuildPipelineConfig", GUILayout.Width(200), GUILayout.Height(36)))
+        {
+            CreateConfig();
+        }
+        GUILayout.FlexibleSpace();
+        GUILayout.EndHorizontal();
+        GUILayout.FlexibleSpace();
+    }
+
+    private void CreateConfig()
+    {
+        if (!AssetDatabase.IsValidFolder("Assets/Build"))
+        {
+            AssetDatabase.CreateFolder("Assets", "Build");
+        }
+        var config = ScriptableObject.CreateInstance<BuildPipelineConfig>();
+        AssetDatabase.CreateAsset(config, "Assets/Build/BuildPipelineConfig.asset");
+        AssetDatabase.SaveAssets();
+        AssetDatabase.Refresh();
+        LoadConfig();
+    }
 }

@@ -1,48 +1,49 @@
 using UnityEditor;
 using UnityEngine;
 
-/// <summary>
-/// Builder 面板：Hotfix / Snapshot 配置入口的占位实现。
-/// </summary>
-public sealed class BuilderPanel : IBuildPipelinePanel
+public class BuilderPanel : IBuildPipelinePanel
 {
-    private EditorWindow _window;
     public string PanelName => "Builder";
 
     public void OnEnable(EditorWindow window)
     {
-        _window = window;
     }
 
-    public void OnGUI(Rect rect)
+    public void OnDisable()
     {
-        GUILayout.BeginArea(rect);
-        GUILayout.Label("Builder - Hotfix & Snapshot", EditorStyles.boldLabel);
-        GUILayout.Space(8);
+    }
 
-        GUILayout.Label("Hotfix / Snapshot 配置尚为占位实现。", EditorStyles.helpBox);
-        GUILayout.Space(6);
-
-        if (GUILayout.Button("Open Hotfix Config"))
-        {
-            // 试图打开名为 HotfixConfig 的 asset（如果存在）
-            string[] guids = AssetDatabase.FindAssets("t:HotfixConfig");
-            if (guids != null && guids.Length > 0)
-            {
-                var path = AssetDatabase.GUIDToAssetPath(guids[0]);
-                var asset = AssetDatabase.LoadMainAssetAtPath(path);
-                Selection.activeObject = asset;
-                EditorGUIUtility.PingObject(asset);
-            }
-            else
-            {
-                EditorUtility.DisplayDialog("Hotfix Config", "未发现 HotfixConfig 类型的资源。", "OK");
-            }
-        }
+    public void OnGUI(Rect windowRect)
+    {
+        GUILayout.BeginArea(windowRect);
+        
+        EditorGUILayout.BeginHorizontal(EditorStyles.toolbar);
+        GUILayout.FlexibleSpace();
+        EditorGUILayout.EndHorizontal();
 
         GUILayout.FlexibleSpace();
+        GUILayout.BeginHorizontal();
+        GUILayout.FlexibleSpace();
+        
+        GUILayout.BeginVertical("box", GUILayout.Width(400));
+        GUILayout.Space(10);
+        GUILayout.Label("Builder Settings (Hotfix & Snapshot)", EditorStyles.boldLabel);
+        GUILayout.Space(10);
+        GUILayout.Label("These settings will be integrated here.", EditorStyles.wordWrappedLabel);
+        GUILayout.Space(20);
+        
+        if (GUILayout.Button("Open Differential Processor Window", GUILayout.Height(30)))
+        {
+            EditorApplication.ExecuteMenuItem("XLua/Build Hotfix Patch"); // Placeholder or actual menu item
+        }
+        
+        GUILayout.Space(10);
+        GUILayout.EndVertical();
+        
+        GUILayout.FlexibleSpace();
+        GUILayout.EndHorizontal();
+        GUILayout.FlexibleSpace();
+        
         GUILayout.EndArea();
     }
-
-    public void OnDisable() { }
 }

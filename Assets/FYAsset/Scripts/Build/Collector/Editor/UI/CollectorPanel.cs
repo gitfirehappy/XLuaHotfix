@@ -4,29 +4,23 @@ using UnityEditor.IMGUI.Controls;
 using UnityEngine;
 
 /// <summary>
-/// Collector 区域面板 —— 顶部工具栏 + 中部 TreeView/属性面板 + 底部结果区（Validation / Scan Preview）。
+/// Collector 面板：树状图 + 底部扫描结果
 /// </summary>
 public sealed class CollectorPanel : IBuildPipelinePanel
 {
     #region Fields
 
-    private const float SplitterWidth = 4f;
-
     private EditorWindow _window;
     private CollectorSetting _setting;
-    private SerializedObject _settingSO;
 
     private CollectorTreeView _treeView;
     private TreeViewState _treeState;
-    private CollectorPropertyPanel _propertyPanel;
 
     private List<BuildMessage> _validationMessages;
-    private bool _isDraggingSplitter;
+    private bool _isDraggingBottomSplitter;
     private float _toolbarHeight = 22f;
     private float _bottomResultHeight = 120f;
-    private float _treeWidth = 320f;
-    private float _minTreeWidth = 200f;
-    private float _minInspectorWidth = 240f;
+    private float _minBottomHeight = 60f;
     private enum BottomMode { Validation, ScanPreview }
     private BottomMode _bottomMode = BottomMode.Validation;
     private ScanResult _lastScanResult;
@@ -44,7 +38,6 @@ public sealed class CollectorPanel : IBuildPipelinePanel
     {
         _window = window;
         LoadSetting();
-        _propertyPanel = new CollectorPropertyPanel();
     }
 
     public void OnGUI(Rect windowRect)
@@ -55,15 +48,17 @@ public sealed class CollectorPanel : IBuildPipelinePanel
             return;
         }
 
-        float reservedBottomHeight = Mathf.Min(_bottomResultHeight, Mathf.Max(0f, windowRect.height - _toolbarHeight));
+        float reservedBottomHeight = Mathf.Min(_bottomResultHeight, Mathf.Max(0f, windowRect.height - _toolbarHeight - _minBottomHeight));
         float middleHeight = Mathf.Max(0f, windowRect.height - _toolbarHeight - reservedBottomHeight);
 
         Rect topToolbarRect = new Rect(windowRect.x, windowRect.y, windowRect.width, _toolbarHeight);
         Rect middleContentRect = new Rect(windowRect.x, topToolbarRect.yMax, windowRect.width, middleHeight);
+        Rect bottomSplitterRect = new Rect(windowRect.x, middleContentRect.yMax - 2f, windowRect.width, 4f);
         Rect bottomResultRect = new Rect(windowRect.x, middleContentRect.yMax, windowRect.width, reservedBottomHeight);
 
         DrawToolbar(topToolbarRect);
-        DrawSplitView(middleContentRect);
+        DrawTree(middleContentRect);
+        DrawBottomSplitter(bottomSplitterRect, windowRect);
 
         const float tabStripHeight = 20f;
         Rect tabRect = new Rect(bottomResultRect.x, bottomResultRect.y, bottomResultRect.width, Mathf.Min(tabStripHeight, bottomResultRect.height));
@@ -80,9 +75,7 @@ public sealed class CollectorPanel : IBuildPipelinePanel
 
     private void LoadSetting()
     {
-        _setting = AssetDatabase.LoadAssetAtPath<CollectorSetting>(
-            FYAssetConstants.COLLECTOR_SETTING_ASSET_PATH);
-        _settingSO = _setting != null ? new SerializedObject(_setting) : null;
+        _setting = AssetDatabase.LoadAssetAtPath<CollectorSetting>(FYAssetConstants.COLLECTOR_SETTING_ASSET_PATH);
 
         if (_treeState == null)
             _treeState = new TreeViewState();
@@ -90,7 +83,8 @@ public sealed class CollectorPanel : IBuildPipelinePanel
         _treeView = new CollectorTreeView(_treeState, _setting);
         _treeView.Reload();
 
-        _validationMessages = CollectorSettingValidator.Validate(_setting);
+        if (_setting != null)
+            _validationMessages = CollectorSettingValidator.Validate(_setting);
     }
 
     private void DrawNoSetting(Rect rect)
@@ -111,7 +105,6 @@ public sealed class CollectorPanel : IBuildPipelinePanel
 
     private void CreateCollectorSetting()
     {
-        // Ensure directory exists
         string dir = System.IO.Path.GetDirectoryName(FYAssetConstants.COLLECTOR_SETTING_ASSET_PATH);
         if (!AssetDatabase.IsValidFolder(dir))
         {
@@ -119,12 +112,10 @@ public sealed class CollectorPanel : IBuildPipelinePanel
             string folderName = System.IO.Path.GetFileName(dir);
             AssetDatabase.CreateFolder(parent, folderName);
         }
-
         var newSetting = ScriptableObject.CreateInstance<CollectorSetting>();
         AssetDatabase.CreateAsset(newSetting, FYAssetConstants.COLLECTOR_SETTING_ASSET_PATH);
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
-
         LoadSetting();
     }
 
@@ -137,14 +128,10 @@ public sealed class CollectorPanel : IBuildPipelinePanel
         GUILayout.BeginArea(rect);
         EditorGUILayout.BeginHorizontal(EditorStyles.toolbar);
 
-        // Search field
         EditorGUI.BeginChangeCheck();
-        _searchFilter = EditorGUILayout.TextField(_searchFilter, EditorStyles.toolbarSearchField,
-            GUILayout.Width(200));
+        _searchFilter = EditorGUILayout.TextField(_searchFilter, EditorStyles.toolbarSearchField, GUILayout.Width(200));
         if (EditorGUI.EndChangeCheck())
-        {
             _treeView.searchString = _searchFilter;
-        }
 
         GUILayout.FlexibleSpace();
 
@@ -169,9 +156,6 @@ public sealed class CollectorPanel : IBuildPipelinePanel
                     _isScanning = true;
                     _lastScanResult = CollectionScanner.Scan(_setting);
                     _bottomMode = BottomMode.ScanPreview;
-                    Debug.Log("[CollectorPanel] Scan complete. Assets: " +
-                        (_lastScanResult?.Assets?.Count ?? 0) +
-                        ", Messages: " + (_lastScanResult?.Messages?.Count ?? 0));
                 }
                 catch (System.Exception ex)
                 {
@@ -191,48 +175,45 @@ public sealed class CollectorPanel : IBuildPipelinePanel
 
     #endregion
 
-    #region Split View
+    #region Tree
 
-    private void DrawSplitView(Rect middleContentRect)
+    private void DrawTree(Rect rect)
     {
-        // TreeView (may be null if ctor failed on first load)
-        if (_treeView == null || middleContentRect.width <= 0f || middleContentRect.height <= 0f)
-            return;
+        if (_treeView == null || rect.width <= 0f || rect.height <= 0f) return;
+        _treeView.OnGUI(rect);
+    }
 
-        // Splitter math is now derived from the middle content rect only, so the reserved
-        // bottom band never affects drag behavior and the inspector can clamp against its own space.
-        float treeWidth = ClampTreeWidth(_treeWidth, middleContentRect.width);
-        float inspectorWidth = Mathf.Max(0f, middleContentRect.width - treeWidth - SplitterWidth);
+    #endregion
 
-        Rect treeRect = new Rect(middleContentRect.x, middleContentRect.y, treeWidth, middleContentRect.height);
-        Rect splitterRect = new Rect(treeRect.xMax, middleContentRect.y, SplitterWidth, middleContentRect.height);
-        Rect propRect = new Rect(splitterRect.xMax, middleContentRect.y, inspectorWidth, middleContentRect.height);
+    #region Bottom Panel
 
-        _treeWidth = treeWidth;
-        _treeView.OnGUI(treeRect);
+    private void DrawBottomSplitter(Rect rect, Rect windowRect)
+    {
+        EditorGUIUtility.AddCursorRect(rect, MouseCursor.ResizeVertical);
 
-        // Selection change handling
-        var selected = _treeView.GetSelectedItem();
-        _propertyPanel.SetSelection(selected, _setting);
-
-        // Check if SO was modified (Undo or another panel)
-        if (_settingSO != null)
+        Event evt = Event.current;
+        if (evt.type == EventType.MouseDown && rect.Contains(evt.mousePosition))
         {
-            _settingSO.Update();
-            if (_settingSO.hasModifiedProperties)
-            {
-                _validationMessages = CollectorSettingValidator.Validate(_setting);
-                _settingSO.ApplyModifiedPropertiesWithoutUndo();
-            }
+            _isDraggingBottomSplitter = true;
+            evt.Use();
         }
 
-        // Splitter
-        EditorGUIUtility.AddCursorRect(splitterRect, MouseCursor.ResizeHorizontal);
-        DrawSplitter(splitterRect, middleContentRect);
+        if (_isDraggingBottomSplitter)
+        {
+            if (evt.type == EventType.MouseDrag)
+            {
+                float newBottomHeight = windowRect.yMax - evt.mousePosition.y;
+                _bottomResultHeight = Mathf.Clamp(newBottomHeight, _minBottomHeight, windowRect.height - _toolbarHeight - _minBottomHeight);
+                _window.Repaint();
+                evt.Use();
+            }
 
-        // Property Panel
-        _propertyPanel.OnGUI(propRect);
-
+            if (evt.type == EventType.MouseUp)
+            {
+                _isDraggingBottomSplitter = false;
+                evt.Use();
+            }
+        }
     }
 
     private void DrawBottomTabs(Rect rect)
@@ -249,52 +230,6 @@ public sealed class CollectorPanel : IBuildPipelinePanel
         GUILayout.FlexibleSpace();
         EditorGUILayout.EndHorizontal();
         GUILayout.EndArea();
-    }
-
-    private float ClampTreeWidth(float requestedWidth, float middleWidth)
-    {
-        float availableWidth = Mathf.Max(0f, middleWidth - SplitterWidth);
-        if (availableWidth <= 0f)
-            return 0f;
-
-        float maxTreeWidth = availableWidth - _minInspectorWidth;
-        if (maxTreeWidth >= _minTreeWidth)
-            return Mathf.Clamp(requestedWidth, _minTreeWidth, maxTreeWidth);
-
-        // If the host window becomes smaller than the combined minimum widths, keep all widths valid
-        // and prefer a stable split instead of allowing negative inspector sizes.
-        return Mathf.Clamp(requestedWidth, 0f, availableWidth);
-    }
-
-    private void DrawSplitter(Rect rect, Rect middleContentRect)
-    {
-        EditorGUI.DrawRect(rect, EditorGUIUtility.isProSkin
-            ? new Color(0.12f, 0.12f, 0.12f)
-            : new Color(0.55f, 0.55f, 0.55f));
-
-        Event evt = Event.current;
-        if (evt.type == EventType.MouseDown && rect.Contains(evt.mousePosition))
-        {
-            _isDraggingSplitter = true;
-            evt.Use();
-        }
-
-        if (_isDraggingSplitter)
-        {
-            if (evt.type == EventType.MouseDrag)
-            {
-                float localMouseX = evt.mousePosition.x - middleContentRect.x;
-                _treeWidth = ClampTreeWidth(localMouseX, middleContentRect.width);
-                _window.Repaint();
-                evt.Use();
-            }
-
-            if (evt.type == EventType.MouseUp)
-            {
-                _isDraggingSplitter = false;
-                evt.Use();
-            }
-        }
     }
 
     #endregion
