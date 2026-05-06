@@ -3,9 +3,10 @@ using UnityEditor;
 using UnityEngine;
 
 /// <summary>
-/// 引擎隐式资产自动收集 Task —— 对标 Addressables Built In Data 默认 Group。
-/// 扫描 Shader、Resources 目录资源、Built-in 额外资源，统一打入 "$shared" Group
-/// 并以每类独立的 PackKey 隔离为不同 Bundle。E4 BFS 遍历将其视为已归属资产。
+/// 引擎隐式资产自动收集 Task。
+/// 扫描 Shader（全项目）和 Resources 目录下所有资产，统一打入 "$shared" Group
+/// 并以每类独立的 PackKey 隔离为不同 Bundle。
+/// Unity 内置资源（Default-Material 等）已在 player build 中，无需额外收集。
 /// 在 TaskAnalyzeDependencies 之前执行。
 /// </summary>
 public class TaskCollectBuiltins : IBuildTask
@@ -18,9 +19,8 @@ public class TaskCollectBuiltins : IBuildTask
     /// <summary>可扩展的扫描类别：新增类型只需追加一行</summary>
     private static readonly BuiltinCategory[] Categories = new[]
     {
-        new BuiltinCategory { Filter = "t:Shader",                    Dir = null,                 PackKey = "shaders",   Label = "Shader" },
-        new BuiltinCategory { Filter = "t:Material t:Texture2D t:Mesh", Dir = "Assets/Resources", PackKey = "resources", Label = "Resources" },
-        new BuiltinCategory { Filter = "t:Material",                  Dir = "Resources",          PackKey = "builtin",   Label = "Builtin" },
+        new BuiltinCategory { Filter = "t:Shader", Dir = null,                 PackKey = "shaders",   Label = "Shader" },
+        new BuiltinCategory { Filter = "",         Dir = "Assets/Resources",    PackKey = "resources", Label = "Resources" },
     };
 
     private struct BuiltinCategory
