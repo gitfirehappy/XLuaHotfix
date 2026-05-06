@@ -3,6 +3,21 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
+/// Bundle 构建压缩模式。
+/// </summary>
+public enum BundleCompression
+{
+    /// <summary>ChunkBasedCompression — 默认，运行时加载最快</summary>
+    LZ4 = 0,
+
+    /// <summary>LZMA — 文件最小，但需整包解压</summary>
+    LZMA = 1,
+
+    /// <summary>无压缩 — 构建最快但体积大</summary>
+    Uncompressed = 2
+}
+
+/// <summary>
 /// Bundle 文件名的生成风格。
 /// </summary>
 public enum BundleFileNameStyle
@@ -29,6 +44,9 @@ public class BuildPipelineConfig : ScriptableObject
 
     /// <summary>Bundle 文件名格式</summary>
     public BundleFileNameStyle FileNameStyle = BundleFileNameStyle.BundleName_HashName;
+
+    /// <summary>Bundle 构建压缩模式（默认 LZ4）</summary>
+    public BundleCompression BundleCompression = BundleCompression.LZ4;
 
     /// <summary>Debug 回退模式：true → 忽略批并发，按拓扑序逐个串行执行</summary>
     public bool SequentialMode;
