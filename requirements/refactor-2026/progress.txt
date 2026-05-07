@@ -814,3 +814,5 @@
 [done] 2026-05-07 field-semantics-reference.md 创建 — 全链路 7 层数据模型字段语义覆盖（配置/SO/采集中间/构建中间/清单/运行时/Rule上下文/BuildContext Key），terminology-2026-04-27.md 标记过时
 [decision] 2026-05-07 E6 High#1（Version bypass）→ DEFERRED — 纳入 version 统一管理优化草案，耦合度较高
 [done] 2026-05-07 dotnet build 0 errors — Tags 清除后验证通过
+[start] 2026-05-07 全量代码审查 — FYAsset 已落地重构代码全面审计（107 文件/~16K 行），同步/异步冗余/架构/命名/错误处理/性能
+[done] 2026-05-07 review-full-landed-code-20260507.md 完成 — 7 CRITICAL + 18 HIGH + 45 MEDIUM + 55 LOW。署名 deepseekv4pro-claudecode
