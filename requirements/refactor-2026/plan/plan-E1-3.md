@@ -2,7 +2,7 @@
 
 > **Risk**: Low-Medium (Editor-only logic, no runtime impact, but scan output includes bundle logical names via BundleNameBuilder — directly touches build-product naming chain. This naming convention is internal to the new AB build pipeline only; existing Addressables build output and live hotfix bundles are not affected)
 > **Dependencies**: E1-1 (data model, enums, interfaces, **including IGroupRule** `[审计修正]`), E1-2 (Classifier, default rules, ForcePayloadKind), E2 (IPackRule.GetPackKey contract, PackRuleContext.Labels field, BundleNameBuilder.Build utility)
-> **Status**: ⚠️ Approved, needs plan update (2026-04-26 audit: scan pipeline must include GroupRule step) `[审计修正]`
+> **Status**: Realized — 2026-04-27, CollectionScanner + GlobMatcher + ScanResult landed
 
 ---
 

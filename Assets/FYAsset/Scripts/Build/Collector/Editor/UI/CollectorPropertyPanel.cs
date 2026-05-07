@@ -125,7 +125,8 @@ public sealed class CollectorPropertyPanel
                 break;
         }
 
-        _so.ApplyModifiedProperties();
+        if (_so.ApplyModifiedProperties())
+            CollectorReverseIndex.Instance.MarkDirty();
         GUILayout.EndScrollView();
         GUILayout.EndArea();
     }
@@ -193,13 +194,16 @@ public sealed class CollectorPropertyPanel
 
     #region Collector Fields
 
-    /// <summary>渲染 Collector 节点属性：CollectPath + 类型枚举 + 规则下拉 + Labels + IgnorePatterns</summary>
+    /// <summary>渲染 Collector 节点属性：CollectPath + PathType + 类型枚举 + 规则下拉 + Labels + IgnorePatterns</summary>
     private void DrawCollectorFields()
     {
         EditorGUILayout.LabelField("Collector", EditorStyles.boldLabel);
         EditorGUILayout.Space(4);
 
-        // CollectPath with folder picker
+        SerializedProperty pathTypeProp = _activeProperty.FindPropertyRelative("CollectPathType");
+        EditorGUILayout.PropertyField(pathTypeProp, new GUIContent("CollectPathType"));
+
+        // CollectPath with legacy folder picker
         SerializedProperty pathProp = _activeProperty.FindPropertyRelative("CollectPath");
         EditorGUILayout.BeginHorizontal();
         EditorGUILayout.PropertyField(pathProp, new GUIContent("CollectPath"));

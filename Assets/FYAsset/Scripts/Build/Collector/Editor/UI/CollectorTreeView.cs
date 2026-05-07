@@ -246,7 +246,8 @@ public sealed class CollectorTreeView : TreeView
 
         Undo.RecordObject(_so.targetObject, "Reorder TreeView Node");
         srcArray.MoveArrayElement(srcIndex, dstIndex);
-        _so.ApplyModifiedProperties();
+        if (_so.ApplyModifiedProperties())
+            CollectorReverseIndex.Instance.MarkDirty();
 
         Reload();
         SetSelection(new[] { target.id });

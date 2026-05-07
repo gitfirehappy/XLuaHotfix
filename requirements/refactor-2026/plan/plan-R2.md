@@ -2,7 +2,7 @@
 
 > **Risk**: Medium (HandleRegistry refcount logic change; ABPackageBackend public API signature change)
 > **Dependencies**: R1 (BuildMessage/RuntimeMessage infrastructure)
-> **Status**: Approved (2026-04-28, all 6 items confirmed, MJ-2 sync/async dedup excluded as over-engineering)
+> **Status**: Realized — HandleRegistry._entryActiveCounts + ABPackageBackend error contract unified + dedup landed
 > **Created**: 2026-04-28
 
 ---

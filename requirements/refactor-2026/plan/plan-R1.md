@@ -2,7 +2,7 @@
 
 > **Risk**: Medium (renames across ~15 files, but types are structurally identical — mechanical refactor)
 > **Dependencies**: None (cross-cutting infrastructure)
-> **Status**: Approved (2026-04-28, all 8 items confirmed, modified: +BuildErrorCodes.cs / +RuntimeErrorCodes.cs const files)
+> **Status**: Realized — 2026-05-06, BuildMessage/RuntimeMessage landed, ScanMessage/AssetLoadError retired
 
 ---
 

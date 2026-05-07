@@ -63,7 +63,7 @@ public static class ABManifestRoundTripTest
                     FileCRC = 12345678u,
                     FileSize = 1024000L,
                     Encrypted = false,
-                    BundleType = (int)EBundleType.Prefab,
+                    BundleType = "Prefab",
                     Tags = new List<string> { "Required" },
                     DependBundleIndices = new int[0]
                 },
@@ -74,7 +74,7 @@ public static class ABManifestRoundTripTest
                     FileCRC = 87654321u,
                     FileSize = 512000L,
                     Encrypted = true,
-                    BundleType = (int)EBundleType.Texture,
+                    BundleType = "Texture",
                     Tags = new List<string>(),
                     DependBundleIndices = new int[] { 0 }
                 }

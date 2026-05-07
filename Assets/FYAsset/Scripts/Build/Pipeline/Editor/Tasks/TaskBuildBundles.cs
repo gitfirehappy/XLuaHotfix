@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using UnityEditor;
@@ -128,56 +129,117 @@ public class TaskBuildBundles : IBuildTask
 
         // 收集 BundleBuildInfo
         var results = new List<BundleBuildInfo>();
-        var processedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var processedOutputs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        // 预计算每个逻辑名的资产路径分类
+        var groupSerializedPaths = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+        var groupScenePaths = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+        foreach (var kv in groups)
+        {
+            var serialized = new List<string>();
+            var scenes = new List<string>();
+            for (int i = 0; i < kv.Value.Count; i++)
+            {
+                var a = kv.Value[i];
+                switch (a.Classification.PayloadKind)
+                {
+                    case EPayloadKind.Scene:
+                        scenes.Add(a.AssetPath);
+                        break;
+                    case EPayloadKind.RawFile:
+                        break;
+                    default:
+                        serialized.Add(a.AssetPath);
+                        break;
+                }
+            }
+            groupSerializedPaths[kv.Key] = serialized;
+            groupScenePaths[kv.Key] = scenes;
+        }
+
+        // 构建 scene 输出名 → (logicalName, sceneIndex) 索引
+        var sceneOutputIndex = new Dictionary<string, (string logicalName, int sceneIndex)>(StringComparer.OrdinalIgnoreCase);
+        foreach (var kv in groupScenePaths)
+        {
+            for (int s = 0; s < kv.Value.Count; s++)
+                sceneOutputIndex[kv.Key + "_scene_" + s] = (kv.Key, s);
+        }
 
         if (unityManifest != null)
         {
-            // 正向映射：从已知的逻辑名匹配 Unity 产出的实际文件名
             string[] allBundles = unityManifest.GetAllAssetBundles();
-            foreach (var logicalName in groups.Keys)
+            foreach (var outputName in allBundles)
             {
-                string matchedFile = null;
-                for (int i = 0; i < allBundles.Length; i++)
+                string filePath = Path.Combine(tempDir, outputName);
+                var info = new FileInfo(filePath);
+                string hash = HashGenerator.GenerateFileHash(filePath);
+                long size = info.Exists ? info.Length : 0;
+
+                if (sceneOutputIndex.TryGetValue(outputName, out var sceneInfo))
                 {
-                    if (allBundles[i].StartsWith(logicalName, StringComparison.OrdinalIgnoreCase))
+                    var scenePaths = groupScenePaths[sceneInfo.logicalName];
+                    results.Add(new BundleBuildInfo
                     {
-                        matchedFile = allBundles[i];
-                        break;
+                        BundleName = sceneInfo.logicalName,
+                        OutputFileName = outputName,
+                        Hash = hash,
+                        Size = size,
+                        AssetPaths = new List<string> { scenePaths[sceneInfo.sceneIndex] },
+                        PayloadKind = EPayloadKind.Scene
+                    });
+                }
+                else
+                {
+                    // Serialized bundle — 按前缀匹配回逻辑名
+                    string matchedLogical = null;
+                    foreach (var logicalName in groups.Keys)
+                    {
+                        if (outputName.StartsWith(logicalName, StringComparison.OrdinalIgnoreCase))
+                        {
+                            matchedLogical = logicalName;
+                            break;
+                        }
+                    }
+
+                    if (matchedLogical != null)
+                    {
+                        results.Add(new BundleBuildInfo
+                        {
+                            BundleName = matchedLogical,
+                            OutputFileName = outputName,
+                            Hash = hash,
+                            Size = size,
+                            AssetPaths = new List<string>(groupSerializedPaths[matchedLogical]),
+                            PayloadKind = EPayloadKind.Serialized
+                        });
                     }
                 }
 
-                if (matchedFile == null)
-                    continue;
-
-                string filePath = Path.Combine(tempDir, matchedFile);
-                var info = new FileInfo(filePath);
-                string hash = unityManifest.GetAssetBundleHash(matchedFile).ToString();
-
-                var groupAssets = groups[logicalName];
-                var assetPaths = new List<string>(groupAssets.Count);
-                for (int a = 0; a < groupAssets.Count; a++)
-                    assetPaths.Add(groupAssets[a].AssetPath);
-
-                results.Add(new BundleBuildInfo
-                {
-                    BundleName = logicalName,
-                    OutputFileName = matchedFile,
-                    Hash = hash,
-                    Size = info.Exists ? info.Length : 0,
-                    AssetPaths = assetPaths,
-                    PayloadKind = EPayloadKind.Serialized
-                });
-
-                processedNames.Add(matchedFile);
+                processedOutputs.Add(outputName);
             }
         }
 
-        // RawFile 直接文件拷贝
+        // RawFile 直接文件拷贝（检测多文件冲突）
+        var rawBundleFileCount = new Dictionary<string, int>(StringComparer.Ordinal);
+        for (int r = 0; r < rawFileEntries.Count; r++)
+        {
+            string bundleName = rawFileEntries[r].bundleName;
+            if (!rawBundleFileCount.ContainsKey(bundleName))
+                rawBundleFileCount[bundleName] = 0;
+            rawBundleFileCount[bundleName]++;
+        }
+
         for (int r = 0; r < rawFileEntries.Count; r++)
         {
             var (bundleName, assetPath) = rawFileEntries[r];
-            if (processedNames.Contains(bundleName))
+
+            if (processedOutputs.Contains(bundleName))
                 continue;
+
+            if (rawBundleFileCount[bundleName] > 1)
+                return BuildTaskResult.Fail("RAWFILE_MULTI_ASSET",
+                    $"Bundle '{bundleName}' has {rawBundleFileCount[bundleName]} RawFile assets " +
+                    "but only one raw file per bundle is supported.", true);
 
             string destPath = Path.Combine(tempDir, bundleName);
             try
@@ -190,18 +252,18 @@ public class TaskBuildBundles : IBuildTask
                     $"Failed to copy '{assetPath}' → '{destPath}': {ex.Message}", true);
             }
 
-            var info = new FileInfo(destPath);
+            var destInfo = new FileInfo(destPath);
             results.Add(new BundleBuildInfo
             {
                 BundleName = bundleName,
                 OutputFileName = bundleName,
                 Hash = "",
-                Size = info.Exists ? info.Length : 0,
+                Size = destInfo.Exists ? destInfo.Length : 0,
                 AssetPaths = new List<string> { assetPath },
                 PayloadKind = EPayloadKind.RawFile
             });
 
-            processedNames.Add(bundleName);
+            processedOutputs.Add(bundleName);
         }
 
         ctx.Set(BuildContextKeys.BundleBuildResults, results);

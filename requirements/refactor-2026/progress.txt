@@ -743,3 +743,74 @@
 [fix] 2026-05-06 E8 文件夹支持：Inspector 勾选/TargetPickerPopup/ReverseIndex/ContextMenu 全部支持文件夹
 [fix] 2026-05-06 E8 性能：GUIStyle 缓存、ApplyChanges 改用 ApplyModifiedProperties 返回值、RuleDropdownHelper 缓存 string[]
 [fix] 2026-05-06 E8 UX：移除 Sel toggle 改为点击行选中；toolbar 精简为 Reload；Package/Group 操作改为侧栏右键菜单
+
+[start] 2026-05-07 E6 review — 审批 E6 计划，发现 ParseVersion 缺口（BuildVersion string → VersionNumber 无转换路径）
+[decision] 2026-05-07 E6 ParseVersion 方案选 B：TaskGenerateManifest 从 VersionDataBase SO 读取 CurrentVersion；回退 VersionNumber(1,0,0)
+[decision] 2026-05-07 VersionNumber 语义充分性识别为独立问题 —— 写草稿 plan-versionnumber-extension.md（Parse/TryParse/ToString/比较运算符），不改旧设计
+[done] 2026-05-07 E6 APPROVED — 计划整体可执行，VersionNumber 方案已定
+
+[start] 2026-05-07 E5-1 + E5-2a review-fix — GPT 生成 review-e5-1-20260507.md + review-e5-2a-20260507.md，共发现 5 问题（E5-1: 2 + E5-2a: 3）
+[done] 2026-05-07 E5-1 High#1 FIXED — DAGScheduler ValidateInternal Read-before-Write 校验漏洞：删除 !writeOwners.ContainsKey(key)，只用拓扑前缀 produced 判读
+[done] 2026-05-07 E5-1 Medium#2 FIXED — BuildTaskResolver 重复 TaskName 静默覆盖 → throw InvalidOperationException fail-fast
+[done] 2026-05-07 E5-2a High#1 FIXED — TaskBuildBundles Scene 输出折叠修复：按 Unity BuildPipeline 实际输出逐条收集；Scene 独立 BundleBuildInfo + PayloadKind.Scene；预计算 groupSerializedPaths/groupScenePaths/sceneOutputIndex 索引
+[done] 2026-05-07 E5-2a Medium#2 FIXED — TaskCollectBuiltins 文件夹注入：AssetDatabase.IsValidFolder(path) 守卫
+[done] 2026-05-07 E5-2a Medium#3 FIXED — TaskBuildBundles 多 RawFile 同 Bundle → fail-fast RAWFILE_MULTI_ASSET 报错
+[done] 2026-05-07 All 5 review fixes verified — dotnet build 0 errors
+
+[start] 2026-05-07 E6 execution — 5 tasks (T0-T5)
+[done] 2026-05-07 E6-T0 complete — ManifestBundleEntry.BundleType int→string=default("")；EBundleType 枚举删除；注释更新
+[done] 2026-05-07 E6-T1 complete — ManifestBundleEntry_BinarySerializer 无需改动（反射序列化器按 field.FieldType 运行时派发，int→string 自动适配）
+[done] 2026-05-07 E6-T2 complete — ABManifestRoundTripTest.cs (int)EBundleType.Xxx→"Xxx"
+[done] 2026-05-07 E6-T3 complete — CRC32Helper.cs 新建（~40 行，IEEE 802.3 多项式 0xEDB88320 静态查表，Compute(string filePath)→uint）
+[done] 2026-05-07 E6-T4 complete — TaskGenerateManifest.cs 新建（~170 行）：⑤ 5 资产映射 + BUNDLE_NOT_FOUND 校验 → ④ Bundle 映射 + FileCRC 计算 → ⑥ DependBundleIndices 从 BundleDependencyGraph.Edges 解析 → ⑦ BundleType >80% 阈值推断 → ⑧ Tags 聚合 → ⑨ ABManifest 组装（PackageName="MainPackage" + VersionDataBase SO 版本读取） → ⑩ Initialize() try/catch
+[done] 2026-05-07 E6-T5 complete — dotnet build 0 errors
+[done] 2026-05-07 E6 SIGNED OFF — 5/5 tasks completed, plan-E6.md → Realized
+
+[done] 2026-05-07 plan.md updated — Status 行 + Phase 6 表 E5-2 拆分为 E5-2a/E5-2b + E6→Realized + Change Log
+[done] 2026-05-07 plan-E5-2b.md unblocked — E6 realized，移除 "Blocked by: E6"
+[done] 2026-05-07 progress.txt aligned — E6 review + E5-1/E5-2a fixes + E6 execution entries written
+
+[start] 2026-05-07 E5-2b review — 审批 E5-2b 计划（TaskVerifyBuildResult + TaskOrganizeOutput）
+[decision] 2026-05-07 E5-2b Issue 1: Hash 算法改用自研 HashGenerator（已有 MD5），不用 Unity Hash128 不用外部 MD5。HashGenerator 扩展为统一类：HashAlgorithmType 枚举 + CRC32 合并 + 快捷方法 + SHA256 可扩展。TaskBuildBundles 的 GetAssetBundleHash→HashGenerator.GenerateFileHash
+[decision] 2026-05-07 E5-2b Issue 2: BuildVerificationResult 新建类型（bool Success + List<VerificationIssue>）。VerificationIssue { CheckName, IssueLevel, BundleName, Message }，IssueLevel enum { Error, Warning }
+[decision] 2026-05-07 E5-2b Issue 3: TaskOrganizeOutput ReadKeys 补充 BuildVersion
+[done] 2026-05-07 E5-2b APPROVED — 3 issues resolved, plan updated (T0 HashGenerator refactoring + 3 new files + 2 modified)
+[next] 2026-05-07 Awaiting decision: execute E5-2b or pause
+
+[start] 2026-05-07 E5-2b execution — 4 tasks (T0-T3)
+[done] 2026-05-07 E5-2b-T0 complete — HashGenerator 统一化：合并 CRC32 查表 + HashAlgorithmType 枚举 + GenerateFileCRC/ComputeFileHash。CRC32Helper.cs 删除。TaskBuildBundles Hash128→HashGenerator.GenerateFileHash。TaskGenerateManifest CRC32Helper.Compute→HashGenerator.GenerateFileCRC
+[done] 2026-05-07 E5-2b-T1 complete — BuildVerificationResult.cs 新建（Success+Issues+ErrorCount/WarningCount）+ VerificationIssue（CheckName/IssueLevel/BundleName/Message）+ IssueLevel enum。TaskVerifyBuildResult.cs 新建（6 项检查：FILE_EXISTENCE/FILE_INTEGRITY/ORPHAN_CHECK/HASH_RE_VERIFY/SIZE_ANOMALY/COUNT_CROSS_CHECK，Error→fatal abort，Warning→continue）
+[done] 2026-05-07 E5-2b-T2 complete — TaskOrganizeOutput.cs 新建（创建{OutputRoot}/{BuildVersion}/ 输出目录 + 拷贝 bundle + 序列化 ABManifest.json + 生成 build_summary.txt + 清理 _temp + 写入 OutputPath）。ReadKeys 含 BuildVersion
+[done] 2026-05-07 E5-2b-T3 complete — dotnet build 0 errors
+[done] 2026-05-07 E5-2b SIGNED OFF — 4/4 tasks completed, plan-E5-2b.md→Realized, E5 pipeline fully landed
+[done] 2026-05-07 plan.md + project_pipeline_status.md updated — E5-2b→Realized, E5 pipeline fully landed
+
+[start] 2026-05-07 文档偏离审计 — 交叉比对 8 个 plan 文件状态 vs 实际代码/进度
+[done] 2026-05-07 plan-R1.md: Approved→Realized（BuildMessage/RuntimeMessage 已落地）
+[done] 2026-05-07 plan-E8.md: Draft→Realized（E8 Phase 1-3 已执行）
+[done] 2026-05-07 plan-E4.md: Approved→Realized（DependencyAnalyzer 已落地）
+[done] 2026-05-07 plan-E1-3.md: Approved(needs update)→Realized（CollectionScanner 已落地）
+[done] 2026-05-07 plan-E1-4.md: Approved→Realized（E1-4 original+rework 已落地）
+[done] 2026-05-07 plan-E5.md: Draft→Container（拆分完成，子计划全部 Realized）
+[done] 2026-05-07 plan-E5-2a.md: 补 Status 行→Realized
+[done] 2026-05-07 plan-E2.md: 补 Status 行→Realized
+[done] 2026-05-07 草稿区归档: gap-analysis-yooasset.md + plan-E-draft.md → 📦 Archived（不删除）
+[done] 2026-05-07 plan-filehelper.md → Realized — 确认已落地：FileHelper.cs 在 Helpers/ 下（8 方法：+Exists），3 调用点全部已迁移（ManifestLoader.ReadAllBytesAsync + HotfixManager.ReadAllTextAsync + ABHotfixBackend.WriteAllBytesAtomic）。路径偏差：计划写 Helpers/Helper/，实际在 Helpers/
+
+[start] 2026-05-07 E5-2b review-fix — GPT 生成 review-e5-2b-20260507.md，发现 5 问题（2 High + 3 Medium）
+[done] 2026-05-07 E5-2b High#1 FIXED — *.bundle 硬编码 → 以 Manifest.BundleEntries + BundleBuildResults 为数据源逐文件校验/拷贝；目录扫描仅用于孤儿检查
+[done] 2026-05-07 E5-2b High#2 FIXED — FILE_INTEGRITY 补 UnityFS header magic 校验（非 RawFile）；RawFile 跳过 Unity header 检查
+[done] 2026-05-07 E5-2b Medium#3 FIXED — TaskOrganizeOutput ReadKeys 补 TargetPlatform + BackendMode；build_summary.txt 包含平台 + 后端模式
+[done] 2026-05-07 E5-2b Medium#4 FIXED — BuildVerificationResult.ErrorCount/WarningCount 改为构造时写入字段，移除 LINQ
+
+[start] 2026-05-07 E6 review-fix — GPT 生成 review-e6-20260507.md，发现 4 问题（2 High + 2 Medium）
+[done] 2026-05-07 E6 High#1 FIXED — ReadKeys 移除 BuildVersion（未消费）；版本来源唯一：VersionDataBase SO ResolveVersion()
+[done] 2026-05-07 E6 High#2 FIXED — CRC32 文件缺失 → Fail("BUNDLE_FILE_NOT_FOUND")，不再静默写 0
+[done] 2026-05-07 E6 Medium#3 FIXED — ManifestBundleEntry.Tags 注释更新：从 "不是 Asset Labels 聚合" → "构建管线从 Bundle 内 Labels 去重并集自动生成"
+[start] 2026-05-07 Review 审查归档 — 审查 13 份 review 报告，4 份最新（E5-1/E5-2a/E5-2b/E6 2026-05-07）+ 1 份已修（E4 2026-05-06）+ 5 份历史归档（plan-E1-E6/E1-E2-E13/R1-phase5/perf-E4-E5-1/full-20260430/full-20260502），标记已解决项避免理解偏差
+[done] 2026-05-07 Review 审查归档完成 — 4 份今日 review 标注解决状态：E5-1 2/3 解决、E5-2a 3/3 解决、E5-2b 4/5 解决、E6 2/4 解决。E4 全标记已解决。plan-E1-E6 标记 ARCHIVED。perf-E4-E5-1 标记 PARTIALLY ADDRESSED
+[start] 2026-05-07 Tags 语义纠正 — 用户确认 Tags = 纯下载策略标签。当前 TaskGenerateManifest 自动聚合 Labels → Tags 与 terminology doc 语义冲突
+[done] 2026-05-07 Tags 自动聚合清除 — TaskGenerateManifest 删除 Labels→Tags 聚合循环（~15 行）；ManifestBundleEntry.Tags 注释更新为纯下载策略标签语义；E6 review Medium#3 标记 ✅ RESOLVED
+[done] 2026-05-07 field-semantics-reference.md 创建 — 全链路 7 层数据模型字段语义覆盖（配置/SO/采集中间/构建中间/清单/运行时/Rule上下文/BuildContext Key），terminology-2026-04-27.md 标记过时
+[decision] 2026-05-07 E6 High#1（Version bypass）→ DEFERRED — 纳入 version 统一管理优化草案，耦合度较高
+[done] 2026-05-07 dotnet build 0 errors — Tags 清除后验证通过

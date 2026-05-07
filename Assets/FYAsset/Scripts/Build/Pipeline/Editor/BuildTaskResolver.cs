@@ -45,6 +45,11 @@ public static class BuildTaskResolver
                 if (string.IsNullOrEmpty(instance.TaskName))
                     continue;
 
+                if (_index.TryGetValue(instance.TaskName, out var existingType))
+                    throw new InvalidOperationException(
+                        $"Duplicate IBuildTask TaskName '{instance.TaskName}': " +
+                        $"'{existingType.FullName}' and '{type.FullName}'. TaskName must be unique.");
+
                 _index[instance.TaskName] = type;
             }
         }

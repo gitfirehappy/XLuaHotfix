@@ -9,12 +9,10 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 0}
-  m_Name: VersionDataBase
-  m_EditorClassIdentifier: Assembly-CSharp::VersionDataBase
-  CurrentVersion:
-    Major: 1
-    Minor: 0
-    Patch: 0
-  LastBuildTime: 
-  DailyBuildCount: 0
+  m_Script: {fileID: 11500000, guid: 232fb182b50132e4cab181aeeaa40389, type: 3}
+  m_Name: BuildPipelineConfig
+  m_EditorClassIdentifier: 
+  DefaultBackendMode: 1
+  FileNameStyle: 2
+  SequentialMode: 0
+  Tasks: []

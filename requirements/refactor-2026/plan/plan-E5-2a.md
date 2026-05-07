@@ -3,6 +3,7 @@
 > **Risk**: Medium
 > **Dependencies**: E5-1 (IBuildTask + BuildContext + DAGScheduler), E1-3 (CollectionScanner), E4 (DependencyAnalyzer)
 > **Parent**: [plan-E5.md](plan-E5.md)
+> **Status**: Realized — 2026-05-06, BundleBuildInfo + TaskPrepareContext + TaskCollectBuiltins + TaskBuildBundles + BundleCompression landed. Review fixes 2026-05-07 (scene output collapse + folder guard + rawfile multi-file)
 > **Status**: Approved — 2026-05-06, 4/4 checklist items confirmed with refinements
 > **Refinements**: TaskCollectBuiltins→extensible Categories array (Shader+Resources+Builtin, $shared GroupName + per-category PackKey); TaskBuildBundles→BundleCompression from BuildPipelineConfig SO (LZ4/LZMA/Uncompressed)
 > **Blocks**: E6 (TaskGenerateManifest needs BundleBuildInfo from TaskBuildBundles)

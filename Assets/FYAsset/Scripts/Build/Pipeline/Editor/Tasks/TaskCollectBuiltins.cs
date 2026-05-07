@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
@@ -74,6 +75,9 @@ public class TaskCollectBuiltins : IBuildTask
 
                 string path = AssetDatabase.GUIDToAssetPath(guid);
                 if (string.IsNullOrEmpty(path))
+                    continue;
+
+                if (AssetDatabase.IsValidFolder(path))
                     continue;
 
                 string primaryType = AssetDatabase.GetMainAssetTypeAtPath(path)?.Name ?? cat.Label;

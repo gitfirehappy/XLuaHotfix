@@ -2,7 +2,7 @@
 
 > **Risk**: Medium (UI 重写涉及多个面板，但数据模型改动最小)
 > **Dependencies**: E4 (CollectorPanel/TreeView/PropertyPanel), E5-1 (CollectionScanner)
-> **Status**: Draft — 2026-05-06
+> **Status**: Realized — 2026-05-06, Phase 1-3 executed (CollectorSettingPanel + CollectorPanel + Inspector + reverse index + folder/context-menu support)
 > **Scope**: 三阶段交付，Phase 1 基础设施+面板重做，Phase 2 Inspector 勾选，Phase 3 拖拽+右键
 
 ---

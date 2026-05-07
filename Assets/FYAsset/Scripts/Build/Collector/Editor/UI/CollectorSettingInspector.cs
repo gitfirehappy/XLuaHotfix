@@ -27,7 +27,10 @@ public class CollectorSettingInspector : Editor
         _showRawData = EditorGUILayout.Foldout(_showRawData, "Show Raw Serialized Fields");
         if (_showRawData)
         {
+            EditorGUI.BeginChangeCheck();
             base.OnInspectorGUI();
+            if (EditorGUI.EndChangeCheck())
+                CollectorReverseIndex.Instance.MarkDirty();
         }
     }
 }

@@ -4,6 +4,7 @@
 > **Scope**: DAGScheduler.cs, BuildTaskResolver.cs, DependencyAnalyzer.cs, BundleDependencyGraph.cs, BuildContext.cs, TaskAnalyzeDependencies.cs
 > **Methodology**: Static analysis of allocations, algorithmic complexity, and Unity Editor API usage in hot paths
 > **Context**: All code is Editor-only build pipeline, not runtime. Scale: ~100 Tasks max, ~10K assets typical collection.
+> **Archival status**: 📦 PARTIALLY ADDRESSED — P1-3 (WriteKeys.Contains), P1-4 (ReferencingBundles.Contains), P2-1 (bfsStack dead code), P2-2 (depType unused) were addressed in `af1eb53`. Other items may still apply; verify against current code.
 
 ---
 

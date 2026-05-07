@@ -2,7 +2,7 @@
 
 > **Risk**: Low (ABManifest runtime structure already implemented in B6; E6 only adds build-time assembly logic)
 > **Dependencies**: E5-1 (IBuildTask + BuildContext + BuildContextKeys), E5-2a (BundleBuildInfo from TaskBuildBundles), E4 (BundleDependencyGraph), B6 (ABManifest + ManifestAssetEntry + ManifestBundleEntry)
-> **Status**: Approved — 2026-05-06, 9/9 checklist items confirmed
+> **Status**: Realized — 2026-05-07, 5/5 tasks completed
 > **Task**: TaskGenerateManifest
 
 ---
@@ -75,7 +75,7 @@ CRC32 多项式 0xEDB88320（IEEE 802.3 标准），静态初始化 256 条目�
 ## TaskGenerateManifest Specification
 
 ```
-ReadKeys:  CollectedAssets, BundleBuildResults, BuildVersion, BundleDependencyGraph
+ReadKeys:  CollectedAssets, BundleBuildResults, BundleDependencyGraph
 WriteKeys: ABManifest
 DependsOn: [TaskBuildBundles]
 

@@ -1,9 +1,9 @@
 # Refactor Plan: XLuaHotfix Full Resource Management System Overhaul — Master Plan
 
-> **Status**: In progress (Phase 1-4 completed, Phase 5 E1-1/E1-2/E2 realized, E5-1 realized, Phase 6 E4/E5-2/E6/E7 pending)
+> **Status**: In progress (Phase 1-4 completed, Phase 5 E1-1/E1-2/E1-3/E1-4/E2 realized, Phase 6 E4/E5-1/E5-2a/E5-2b/E6 realized)
 > **Ultimate Goal**: Fully replace Addressables with custom runtime + build-time resource management system (referencing YooAsset architecture)
 > **Created**: 2026-03-16
-> **Updated**: 2026-04-30 — E5-1 core engine realized, Constants migrated to FYAssetConstants
+> **Updated**: 2026-05-07 — E5-2b realized, E5 pipeline fully landed
 
 ---
 
@@ -154,8 +154,9 @@ Phase 4 and Phase 6 must be coordinated (ABManifest runtime consumption + build-
 
 | File | Content | Status |
 |------|---------|--------|
-| plan-filehelper.md | FileHelper: cross-platform file I/O utility (7 methods: ReadAllBytesAsync/ReadAllTextAsync/WriteAllBytesAtomic/WriteAllTextAtomic/TryDelete/TryDeleteDirectory/EnsureDirectoryForFile). Fixes Android StreamingAssets read bug + adds atomic write + unified delete semantics. 1 new file, 3 modified | Draft |
-| plan-R1.md | R1: Unified error handling architecture — BuildMessage (Editor) + RuntimeMessage (Runtime) separated types, string Code with const files (BuildErrorCodes/RuntimeErrorCodes), Severity on both sides, factory-only construction, AssetLoadError/ScanMessage renamed, PATH_NOT_FOUND fixed to Warning | Approved (2026-04-28) |
+| plan-filehelper.md | FileHelper: cross-platform file I/O utility (8 methods: +Exists). Fixes Android StreamingAssets read bug + adds atomic write + unified delete semantics. 1 new file, 3 modified | DONE |
+| plan-R1.md | R1: Unified error handling architecture — BuildMessage (Editor) + RuntimeMessage (Runtime) separated types, string Code with const files (BuildErrorCodes/RuntimeErrorCodes), Severity on both sides, factory-only construction, AssetLoadError/ScanMessage renamed, PATH_NOT_FOUND fixed to Warning | DONE |
+| plan-R2.md | R2: Runtime Correctness + Error Contract Unification + Dedup — HandleRegistry._entryActiveCounts + ABPackageBackend error contract unified + code dedup | DONE |
 
 ### Phase 5: Build-Time - Asset Collection & Indexing
 
@@ -163,20 +164,21 @@ Phase 4 and Phase 6 must be coordinated (ABManifest runtime consumption + build-
 |----|---------|-----------|--------|
 | plan-E1-1.md | E1-1: Collector data model — CollectorSetting SO hierarchy (Setting→Package→Group→Collector) + enums (ECollectorType/EPayloadKind/EAssetRole) + AssetClassification struct + rule interfaces (IAddressRule/IPackRule/IFilterRule) + CollectedAssetInfo + RuleResolver. Runtime/Editor assembly split | YooAsset | DONE |
 | plan-E1-2.md | E1-2: Classifier (PayloadKind auto-inference + AssetRole mapping) + default rules (AddressByFileName, CollectAll, PackByCollectPath) + EForcePayloadKind enum | YooAsset | DONE |
-| plan-E1-3.md | E1-3: Collection scan engine — CollectionScanner static utility (AssetDatabase.FindAssets), Package-scoped deepest-path ownership dedup, IgnorePatterns (simplified gitignore subset: *.ext/dirname//*keyword*), FilterRule→IgnorePatterns execution order, GlobMatcher utility, ScanResult error reporting (7 conditions), Tags merge, PackKey→BundleNameBuilder bundle logical name assembly, GUID uniqueness validation. Depends on E1-1 + E1-2 + E2 (GetPackKey contract + PackRuleContext.Labels + BundleNameBuilder) | YooAsset | Approved |
-| plan-E1-4.md | E1-4: Editor UI — BuildPipelineWindow shell (sidebar 5-area routing) + CollectorPanel (IMGUI TreeView 3-level tree, drag reorder, right-click menus) + CollectorPropertyPanel (Package/Group/Collector field editors, rule dropdown via RuleDropdownHelper) + CollectorSettingValidator (9-rule save-time validation). 8 new files, 1 modified | YooAsset | Approved |
-| plan-E1-4-rework.md | E1-4 rework: repair landed Collector editor UI (layout overlap, bounded inspector rendering, empty-state hierarchy, Scan Preview tab) while keeping IMGUI and existing data/scan contracts | Internal follow-up | Realized |
-| plan-E2.md | E2: PackRule implementations (PackSeparately/PackByDirectory/PackByLabel) + BundleNameBuilder framework utility (3-segment logical name assembly: pkg_group_key) + IPackRule interface change (GetBundleName→GetPackKey, grouping key only) + PackRuleContext Labels field + separator convention (_ between segments, - between labels) + E1-2 PackByCollectPath semantic change (return collectDirName only) + E1-3 scan pipeline sync (labels before PackRule, PackRuleContext struct, BundleNameBuilder.Build). 4 new files, 5 modified (incl. E1-1/E1-2 plan updates + E1-3 scan pipeline sync) | YooAsset | Approved |
+| plan-E1-3.md | E1-3: Collection scan engine — CollectionScanner static utility (AssetDatabase.FindAssets), Package-scoped deepest-path ownership dedup, IgnorePatterns (simplified gitignore subset: *.ext/dirname//*keyword*), FilterRule→IgnorePatterns execution order, GlobMatcher utility, ScanResult error reporting (7 conditions), Tags merge, PackKey→BundleNameBuilder bundle logical name assembly, GUID uniqueness validation. Depends on E1-1 + E1-2 + E2 (GetPackKey contract + PackRuleContext.Labels + BundleNameBuilder) | YooAsset | DONE |
+| plan-E1-4.md | E1-4: Editor UI — BuildPipelineWindow shell (sidebar 5-area routing) + CollectorPanel (IMGUI TreeView 3-level tree, drag reorder, right-click menus) + CollectorPropertyPanel (Package/Group/Collector field editors, rule dropdown via RuleDropdownHelper) + CollectorSettingValidator (9-rule save-time validation). 8 new files, 1 modified | YooAsset | DONE |
+| plan-E1-4-rework.md | E1-4 rework: repair landed Collector editor UI (layout overlap, bounded inspector rendering, empty-state hierarchy, Scan Preview tab) while keeping IMGUI and existing data/scan contracts | Internal follow-up | DONE |
+| plan-E2.md | E2: PackRule implementations (PackSeparately/PackByDirectory/PackByLabel) + BundleNameBuilder framework utility (3-segment logical name assembly: pkg_group_key) + IPackRule interface change (GetBundleName→GetPackKey, grouping key only) + PackRuleContext Labels field + separator convention (_ between segments, - between labels) + E1-2 PackByCollectPath semantic change (return collectDirName only) + E1-3 scan pipeline sync (labels before PackRule, PackRuleContext struct, BundleNameBuilder.Build). 4 new files, 5 modified (incl. E1-1/E1-2 plan updates + E1-3 scan pipeline sync) | YooAsset | DONE |
 | E3 | CANCELLED — All content absorbed by E1-3 (deepest-path dedup, IgnorePatterns, conflict detection). Dev/CI severity policy deferred to E5 build pipeline fail-fast design | YooAsset | CANCELLED |
 
 ### Phase 6: Build-Time - Build Pipeline
 
 | ID | Content | Status |
 |----|---------|--------|
-| E4 | Dependency analysis + shared extraction (BFS + SharePolicy) | **Approved** (plan-E4.md) |
-| E5-1 | Build pipeline core engine — IBuildTask + BuildContext + BuildTaskResult + BuildPipelineConfig SO + BuildTaskResolver + DAGScheduler (Kahn topology + batch parallel + W-W/R-before-W validation + ValidatePair/ValidateAll + SequentialMode). 8 new files, 608 lines | **Realized** (plan-E5-1.md) |
-| E5-2 | Backbone Task implementations — TaskPrepareContext / TaskCollectBuiltins / TaskBuildBundles / TaskVerifyBuildResult / TaskOrganizeOutput + BundleBuildInfo. Depends on E5-1 + E1-3 + E4 | Draft (plan-E5-2.md) |
-| E6 | ABManifest build export (TaskGenerateManifest) | Draft (plan-E6.md) |
+| E4 | Dependency analysis + shared extraction (BFS + SharePolicy) | **Realized** (plan-E4.md) |
+| E5-1 | Build pipeline core engine — IBuildTask + BuildContext + BuildTaskResult + BuildPipelineConfig SO + BuildTaskResolver + DAGScheduler (Kahn topology + batch parallel + W-W/R-before-W validation + ValidatePair/ValidateAll + SequentialMode). 8 new files, 608 lines. **2026-05-07 review fixes: DAGScheduler Read-before-Write unsound + BuildTaskResolver duplicate TaskName fail-fast** | **Realized** (plan-E5-1.md) |
+| E5-2a | Backbone Tasks Phase 1 — TaskPrepareContext / TaskCollectBuiltins / TaskBuildBundles + BundleBuildInfo + BundleCompression. **2026-05-07 review fixes: scene output collapse + folder guard + rawfile multi-file** | **Realized** (plan-E5-2a.md) |
+| E5-2b | Backbone Tasks Phase 2 — TaskVerifyBuildResult (6 checks) / TaskOrganizeOutput (copy+serialize+summary+cleanup). Includes HashGenerator unification (CRC32 merge + enum) + BuildVerificationResult type | **Realized** (plan-E5-2b.md) |
+| E6 | ABManifest build export — TaskGenerateManifest + CRC32Helper + BundleType int→string | **Realized** (plan-E6.md) |
 | E7 | Diff snapshot adaptation (IDiffPipeline + Legacy/AB backends) | Draft (plan-E7.md) |
 
 ### Phase 7: Delivery & Download Strategy
@@ -259,4 +261,4 @@ Phase 4 and Phase 6 must be coordinated (ABManifest runtime consumption + build-
 | 2026-04-25 | **E1-1 completed**: Implemented Collector foundation under `Assets/FYAsset/Scripts/Build/Collector/` — runtime data model (`CollectorSetting`, `CollectorPackage`, `CollectorGroup`, `Collector`, enums, `AssetClassification`) + editor rule contracts (`IAddressRule`, `IPackRule.GetPackKey`, `IFilterRule`, `CollectedAssetInfo`, `RuleResolver`). `Constants.cs` gained collector asset path + built-in rule name constants. Verification also synced `Assembly-CSharp.csproj` / `Assembly-CSharp-Editor.csproj` so `dotnet build XLuaHotfix.sln` compiles the new files. Build passed with 0 errors, existing warnings only |
 | 2026-04-25 | **E1-2 completed**: Implemented `AssetClassifier` + three default rules (`AddressByFileName`, `CollectAll`, `PackByCollectPath`) under `Assets/FYAsset/Scripts/Build/Collector/Editor/`. `AssetAddressGenerator` added a shared `GenerateShortAddress(assetPath, primaryType, useTypeSuffix)` entry so collector address rules reuse the existing B5 naming contract instead of forking logic. External verification updated `Assembly-CSharp-Editor.csproj` to include the new editor files, and `dotnet build XLuaHotfix.sln` passed with 0 errors, existing warnings only |
 | 2026-04-28 | **Plan gap convergence**: (1) E7 precise sub-plan written (plan-E7.md): IDiffPipeline 5-method interface + LegacyDiffBackend/ABDiffBackend separation + BundleDigestList .bin/.json persistence + head.json per-version snapshot history + each backend produces own delta type. 10 design decisions, 12 tasks, 8 new files. (2) F-series renumbered: F1/F2/F3 now cover offline package / background download / A/B test. Original RawFile/SpriteAtlas/Compression absorbed into unified pipeline extension points. (3) G-series replaced with incremental insertion point strategy — editor tools built as validation closure after each phase, not a standalone series. (4) YooAsset gap analysis resolved: all 11 decision items closed. #1 Shader→TaskCollectBuiltins, #2 Verify→TaskVerifyBuildResult, #3 Tags→E6 union aggregation, #4 Cleanup→PackageCleaner already covered, #5 Report→TaskOrganizeOutput already covered, #6 Naming→E5-1 BundleFileNameStyle enum, #7 Toggle→E1-4 CollectorGroup.Enabled, #8 Retry→deferred to mobile testing |
-| 2026-04-28 | **plan-filehelper.md written**: Cross-platform file I/O utility (7 methods, 1 new file, 3 modified). Fills gap between PathManager / NetworkDownloader / SerializationUtility. Fixes Android StreamingAssets read bug in ManifestLoader + adds atomic write (WriteAllBytesAtomic) + unified safe delete (TryDelete). Positioned as cross-cutting utility alongside Phase S |
+| 2026-05-07 | **E5-2b realized + E5 pipeline fully landed**: TaskVerifyBuildResult (6 checks) + TaskOrganizeOutput + HashGenerator unification (CRC32 merge + HashAlgorithmType enum) + BuildVerificationResult type. E6 review fixes applied (BuildVersion removed from ReadKeys, CRC32 file-missing→fail-fast, Tags comment updated) |

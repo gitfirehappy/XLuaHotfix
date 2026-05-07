@@ -2,7 +2,7 @@
 
 > **Risk**: Medium (Editor-only logic, no runtime impact; but dependency graph correctness directly affects bundle completeness)
 > **Dependencies**: E1-1 (data model, enums, CollectedAssetInfo), E1-3 (CollectionScanner — provides `List<CollectedAssetInfo>` input), E5 (IBuildTask interface + BuildContext contract)
-> **Status**: Approved — 2026-04-30, all 12 checklist items confirmed with 3 refinements (SharePolicy conflict→Error, PackKey=PrimaryType no mapping table, cycle detection same/cross-Bundle severity split)
+> **Status**: Realized — 2026-04-30, DependencyAnalyzer + TaskAnalyzeDependencies + BundleDependencyGraph landed
 > **Execution order**: E5-1 already realized (IBuildTask + BuildContext + DAGScheduler). E4 can proceed immediately.
 
 ---

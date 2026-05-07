@@ -3,6 +3,7 @@
 > **Risk**: Low-Medium (Editor-only code, but defines bundle logical naming convention that propagates to E5 build output, diff snapshots, and hotfix distribution)
 > **Compatibility boundary**: This naming convention is internal to the new AB build pipeline only. It takes effect when E5 TaskBuildBundles runs under the new backend. Existing Addressables build output and live hotfix bundles are not affected — the legacy backend retains its own naming. No migration or rename of existing bundles is required.
 > **Dependencies**: E1-1 (data model, enums, IPackRule interface), E1-2 (PackByCollectPath default rule, Classifier)
+> **Status**: Realized — 2026-04-27, BundleNameBuilder + PackSeparately/PackByDirectory/PackByLabel landed
 > **Status**: Approved
 
 ---

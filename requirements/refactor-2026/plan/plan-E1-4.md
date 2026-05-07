@@ -2,7 +2,7 @@
 
 > **Risk**: Low (Editor-only UI, no runtime impact)
 > **Dependencies**: E1-1 (data model, enums, **including IGroupRule**), E1-2 (default rules for dropdown), E1-3 (IgnorePatterns field on Collector), R1 (BuildMessage/BuildSeverity unified types)
-> **Status**: Approved, plan synced (2026-04-27: aligned with R1 error handling + terminology unification + GroupRule audit)
+> **Status**: Realized — E1-4 original + rework (2026-05-02) landed: BuildPipelineWindow shell + CollectorPanel/PropertyPanel/ResultPanel IMGUI TreeView editor
 
 ---
 

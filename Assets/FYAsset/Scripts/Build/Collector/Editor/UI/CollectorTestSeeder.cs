@@ -59,6 +59,7 @@ public static class CollectorTestSeeder
 
         EditorUtility.SetDirty(setting);
         AssetDatabase.SaveAssets();
+        CollectorReverseIndex.Instance.MarkDirty();
         Debug.Log("[CollectorTestSeeder] Seeded 1 package, 2 groups, 2 collectors.");
     }
 }

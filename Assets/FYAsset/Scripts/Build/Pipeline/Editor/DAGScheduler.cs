@@ -160,7 +160,7 @@ public static class DAGScheduler
                 foreach (var key in instance.ReadKeys)
                 {
                     bool selfProduce = instance.WriteKeys != null && instance.WriteKeys.Contains(key);
-                    if (!selfProduce && !produced.Contains(key) && !writeOwners.ContainsKey(key))
+                    if (!selfProduce && !produced.Contains(key))
                     {
                         warnings.Add(BuildTaskResult.Fail("UNSATISFIED_READ_KEY",
                             $"'{taskName}' reads '{key}' but no preceding task produces it.", false));

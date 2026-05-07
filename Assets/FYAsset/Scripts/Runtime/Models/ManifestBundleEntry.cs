@@ -2,25 +2,6 @@ using System;
 using System.Collections.Generic;
 
 /// <summary>
-/// Bundle 内容类型枚举 — 由构建管线根据包内资源类型自动推断。
-/// 规则：如果 >80% 的资源属于同一类型，标为该类型；否则标为 Mixed。
-/// 预留字段，由构建管线 Task 赋值。
-/// TODO: 纯枚举是否方便？
-/// </summary>
-public enum EBundleType
-{
-    Unknown = 0,
-    Script = 1,
-    Scene = 2,
-    Prefab = 3,
-    Texture = 4,
-    Shader = 5,
-    Audio = 6,
-    Config = 7,
-    Mixed = 8,
-}
-
-/// <summary>
 /// 清单 Bundle 条目 — 描述一个 AssetBundle 文件的完整元数据。
 /// 包含完整性校验信息（Hash/CRC/Size）、依赖关系（int 索引）、分类标签。
 /// </summary>
@@ -55,17 +36,17 @@ public class ManifestBundleEntry
     #region 分类与依赖
 
     /// <summary>
-    /// Bundle 内容类型（预留，由构建管线自动推断赋值，默认 Unknown）。
-    /// 用途：差异化加载策略、压缩算法选择、下载优先级排序、可视化分组。
-    /// TODO：是否需要纯枚举？int 还是 EBundleType？
+    /// Bundle 内容类型字符串 — 由构建管线通过 >80% 阈值自动推断。
+    /// 主导类型占比 >80% → PrimaryType 名称（如 "Texture2D"）；否则 "Mixed"。
+    /// V1 不使用枚举，新增资产类型自动支持。
     /// </summary>
     [BinaryField(5)]
-    public int BundleType;
+    public string BundleType = "";
 
     /// <summary>
-    /// 分类标签（预留，用于按标签选择性下载，当前默认空）。
-    /// 语义：Bundle 级下载策略标签（如 "必装", "DLC-1"），不是 Asset Labels 的聚合。
-    /// 赋值规则在增量下载适配和构建导出时定义。
+    /// Bundle 级下载策略标签（如 "必装"/"DLC-1"/"语音包"）。
+    /// 语义与资产 Labels 完全不同：Labels 描述资产特征，Tags 描述 Bundle 的分包/下载策略。
+    /// 不从 asset Labels 自动聚合——Tags 由独立的 Bundle 级配置填入。
     /// </summary>
     [BinaryField(6)]
     public List<string> Tags = new();

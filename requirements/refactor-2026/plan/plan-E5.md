@@ -1,7 +1,7 @@
 # Plan E5: Build Pipeline Engine（父计划 — 总览）
 
 > **Risk**: High
-> **Status**: Draft — 拆分为 E5-1 + E5-2a + E5-2b（E5-2 因 E6 交叉依赖拆分）
+> **Status**: Container — 拆分为 E5-1 (Realized) + E5-2a (Realized) + E5-2b (Realized)。E5-2 原计划已 superseded
 
 ---
 

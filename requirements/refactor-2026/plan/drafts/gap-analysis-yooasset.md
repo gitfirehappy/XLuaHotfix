@@ -2,7 +2,7 @@
 
 > **Date**: 2026-04-27
 > **Source**: Systematic comparison of YooAsset full feature set vs our implemented + planned features
-> **Status**: Discussion input for subsequent planning sessions
+> **Status**: 📦 Archived 2026-05-07 — 11/12 gap items now resolved in realized sub-plans (Shader→TaskCollectBuiltins E5-2a, Verify→TaskVerifyBuildResult E5-2b, Tags→TaskGenerateManifest E6, Cleanup→TaskOrganizeOutput E5-2b)
 
 ---
 

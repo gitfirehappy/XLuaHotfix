@@ -2,7 +2,7 @@
 
 > **Risk**: Low (single static utility class, no architectural coupling)
 > **Dependencies**: None (standalone utility in Helpers/Helper/)
-> **Status**: Draft — 2026-04-28
+> **Status**: Realized — FileHelper.cs already landed at Helpers/FileHelper.cs (8 methods: +Exists). All 3 call sites migrated (ManifestLoader/HotfixManager/ABHotfixBackend)
 > **Positioning**: Cross-cutting infrastructure, same tier as NetworkDownloader / PathManager / SerializationUtility
 
 ---
