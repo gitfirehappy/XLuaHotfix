@@ -73,6 +73,7 @@ public class LegacyHotfixBackend : IHotfixPipeline
         try
         {
             var localVersionState = SerializationUtility.ReadFromFile<VersionState>(localVersionStatePath);
+            localVersionState?.MigrateLegacyVersionField();
             Debug.Log($"[LegacyHotfixBackend] 本地版本: {localVersionState?.Version.GetVersionString()}, Hash: {localVersionState?.FileHash}");
             return Task.FromResult(ToHotfixVersionInfo(localVersionState));
         }
@@ -100,6 +101,7 @@ public class LegacyHotfixBackend : IHotfixPipeline
         try
         {
             _remoteVersionState = SerializationUtility.DeserializeJson<VersionState>(_remoteVersionJson);
+            _remoteVersionState?.MigrateLegacyVersionField();
             Debug.Log($"[LegacyHotfixBackend] 远端版本: {_remoteVersionState?.Version.GetVersionString()}");
             return ToHotfixVersionInfo(_remoteVersionState);
         }

@@ -31,9 +31,23 @@ public class TaskPrepareContext : IBuildTask
                     $"Unknown backend '{cliBackend}'. Valid: LegacyAddressable, ABManifest.", true);
         }
 
-        // BuildVersion: CLI --version > 时间戳
+        // BuildVersionString: CLI --version > 时间戳（用于目录命名）
         string buildVersionString = GetCommandLineArg("--version")
             ?? DateTime.Now.ToString("yyyyMMdd-HHmmss");
+
+        // CLI --version 若为有效 SemVer → 写 SO 再读回（保持 SO 唯一来源）
+        var versionData = AssetDatabase.LoadAssetAtPath<VersionDataBase>(
+            "Assets/Build/VersionDataBase.asset");
+        string cliVersion = GetCommandLineArg("--version");
+        if (!string.IsNullOrEmpty(cliVersion) && VersionNumber.TryParse(cliVersion, out var cliVer))
+        {
+            if (versionData != null)
+            {
+                versionData.CurrentVersion = cliVer;
+                EditorUtility.SetDirty(versionData);
+                AssetDatabase.SaveAssets();
+            }
+        }
 
         // TargetPlatform: CLI --platform > Editor 当前设置
         BuildTarget platform;
@@ -53,9 +67,6 @@ public class TaskPrepareContext : IBuildTask
         string outputRoot = GetCommandLineArg("--output")
             ?? Path.Combine(Application.dataPath, "..", "Build", platform.ToString());
 
-        // VersionNumber: SO 唯一来源（CLI --version 已覆盖 buildVersionString，版本对象从 SO 读取）
-        var versionData = AssetDatabase.LoadAssetAtPath<VersionDataBase>(
-            "Assets/Build/VersionDataBase.asset");
         var version = versionData != null
             ? versionData.CurrentVersion
             : new VersionNumber { Major = 1, Minor = 0, Patch = 0 };

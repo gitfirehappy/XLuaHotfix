@@ -21,8 +21,8 @@ public class AssetPackageManager : Singleton<AssetPackageManager>
     private IPackageBackend _backend = new AddressablesBackend();
     private bool _isInitialized = false;
 
-    private readonly Dictionary<string, List<string>> _labelToKeys = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Dictionary<string, List<string>> _typeToKeys = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, string[]> _labelToKeys = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, string[]> _typeToKeys = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _addressSet = new(StringComparer.OrdinalIgnoreCase);
 
     public async Task Initialize()
@@ -96,9 +96,9 @@ public class AssetPackageManager : Singleton<AssetPackageManager>
         _index = null;
 
         foreach (var item in config.keysByType)
-            _typeToKeys[item.Type] = new List<string>(item.Keys);
+            _typeToKeys[item.Type] = new List<string>(item.Keys).ToArray();
         foreach (var item in config.keysByLabel)
-            _labelToKeys[item.Label] = new List<string>(item.Keys);
+            _labelToKeys[item.Label] = new List<string>(item.Keys).ToArray();
         for (int i = 0; i < config.allEntries.Count; i++)
             _addressSet.Add(config.allEntries[i].key);
 
@@ -109,6 +109,9 @@ public class AssetPackageManager : Singleton<AssetPackageManager>
 
     private void BuildQueryCaches(IReadOnlyList<RuntimeAssetEntry> entries)
     {
+        var typeListBuilder = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+        var labelListBuilder = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+
         for (int i = 0; i < entries.Count; i++)
         {
             var entry = entries[i];
@@ -116,10 +119,10 @@ public class AssetPackageManager : Singleton<AssetPackageManager>
 
             if (!string.IsNullOrEmpty(entry.PrimaryType))
             {
-                if (!_typeToKeys.TryGetValue(entry.PrimaryType, out var typeList))
+                if (!typeListBuilder.TryGetValue(entry.PrimaryType, out var typeList))
                 {
                     typeList = new List<string>();
-                    _typeToKeys[entry.PrimaryType] = typeList;
+                    typeListBuilder[entry.PrimaryType] = typeList;
                 }
                 typeList.Add(entry.Address);
             }
@@ -129,14 +132,19 @@ public class AssetPackageManager : Singleton<AssetPackageManager>
             {
                 string label = labels[j];
                 if (string.IsNullOrEmpty(label)) continue;
-                if (!_labelToKeys.TryGetValue(label, out var labelList))
+                if (!labelListBuilder.TryGetValue(label, out var labelList))
                 {
                     labelList = new List<string>();
-                    _labelToKeys[label] = labelList;
+                    labelListBuilder[label] = labelList;
                 }
                 labelList.Add(entry.Address);
             }
         }
+
+        foreach (var kv in typeListBuilder)
+            _typeToKeys[kv.Key] = kv.Value.ToArray();
+        foreach (var kv in labelListBuilder)
+            _labelToKeys[kv.Key] = kv.Value.ToArray();
     }
 
     #region 查询接口
