@@ -56,10 +56,37 @@ public static class BuildErrorCodes
 
     /// <summary>Package 内出现重复的 Asset GUID（内部逻辑错误）</summary>
     public const string DuplicateGuid = "DUPLICATE_GUID";
+
+    /// <summary>构建后端类型无效</summary>
+    public const string InvalidBackend = "INVALID_BACKEND";
+
+    /// <summary>目标平台不支持或未识别</summary>
+    public const string InvalidPlatform = "INVALID_PLATFORM";
+
+    /// <summary>AssetBundle 构建过程失败</summary>
+    public const string BuildFailed = "BUILD_FAILED";
+
+    /// <summary>RawFile 模式下单个文件产生多个 Asset（内部逻辑错误）</summary>
+    public const string RawfileMultiAsset = "RAWFILE_MULTI_ASSET";
+
+    /// <summary>RawFile 拷贝到输出目录失败</summary>
+    public const string RawfileCopyFailed = "RAWFILE_COPY_FAILED";
+
+    /// <summary>Bundle 文件在构建输出中未找到</summary>
+    public const string BundleFileNotFound = "BUNDLE_FILE_NOT_FOUND";
+
+    /// <summary>构建侧 Manifest 中未找到对应 Bundle 条目</summary>
+    public const string BundleNotFoundBuild = "BUNDLE_NOT_FOUND_BUILD";
+
+    /// <summary>ABManifest 初始化失败（数据为空或格式错误）</summary>
+    public const string ManifestInitFailed = "MANIFEST_INIT_FAILED";
+
+    /// <summary>构建结果校验失败</summary>
+    public const string VerificationFailed = "VERIFICATION_FAILED";
 }
 
 /// <summary>
-/// 构建时诊断消息 —— 替代旧的 ScanMessage。
+/// 构建时诊断消息
 /// 通过静态工厂方法构造，禁止裸 new。
 /// </summary>
 public class BuildMessage
@@ -106,7 +133,7 @@ public class BuildMessage
 
     #endregion
 
-    #region Semantic Factory Methods
+    #region 语义化工厂方法
 
     public static BuildMessage SettingNull(string source)
         => Error(BuildErrorCodes.SettingNull, "CollectorSetting is null.", source);

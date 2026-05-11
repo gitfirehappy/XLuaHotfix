@@ -97,7 +97,7 @@ public class ABPackageBackend : IPackageBackend
     public async Task<(T asset, RuntimeMessage error)> LoadAssetAsync<T>(string key) where T : UnityEngine.Object
     {
         if (string.IsNullOrEmpty(key))
-            return (null, RuntimeMessage.Error("INVALID_ARG", "[ABPackageBackend] LoadAssetAsync: key is null or empty"));
+            return (null, RuntimeMessage.Error(RuntimeErrorCodes.InvalidArgument, "[ABPackageBackend] LoadAssetAsync: key is null or empty"));
 
         var assetEntry = ResolveAssetEntryByAddress(key);
         if (assetEntry == null)
@@ -117,7 +117,7 @@ public class ABPackageBackend : IPackageBackend
     public async Task<(T asset, RuntimeMessage error)> LoadAssetAsync<T>(string key, string entryId) where T : UnityEngine.Object
     {
         if (string.IsNullOrEmpty(key))
-            return (null, RuntimeMessage.Error("INVALID_ARG", "[ABPackageBackend] LoadAssetAsync: key is null or empty"));
+            return (null, RuntimeMessage.Error(RuntimeErrorCodes.InvalidArgument, "[ABPackageBackend] LoadAssetAsync: key is null or empty"));
 
         var assetEntry = ResolveAssetEntry(key, entryId);
         if (assetEntry == null)
@@ -140,7 +140,7 @@ public class ABPackageBackend : IPackageBackend
     public (T asset, RuntimeMessage error) LoadAssetSync<T>(string key) where T : UnityEngine.Object
     {
         if (string.IsNullOrEmpty(key))
-            return (null, RuntimeMessage.Error("INVALID_ARG", "[ABPackageBackend] LoadAssetSync: key is null or empty"));
+            return (null, RuntimeMessage.Error(RuntimeErrorCodes.InvalidArgument, "[ABPackageBackend] LoadAssetSync: key is null or empty"));
 
         var assetEntry = ResolveAssetEntryByAddress(key);
         if (assetEntry == null)
@@ -159,7 +159,7 @@ public class ABPackageBackend : IPackageBackend
     public (T asset, RuntimeMessage error) LoadAssetSync<T>(string key, string entryId) where T : UnityEngine.Object
     {
         if (string.IsNullOrEmpty(key))
-            return (null, RuntimeMessage.Error("INVALID_ARG", "[ABPackageBackend] LoadAssetSync: key is null or empty"));
+            return (null, RuntimeMessage.Error(RuntimeErrorCodes.InvalidArgument, "[ABPackageBackend] LoadAssetSync: key is null or empty"));
 
         var assetEntry = ResolveAssetEntry(key, entryId);
         if (assetEntry == null)

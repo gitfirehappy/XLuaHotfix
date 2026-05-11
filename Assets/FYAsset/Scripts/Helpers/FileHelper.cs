@@ -111,6 +111,14 @@ public static class FileHelper
     }
 
     /// <summary>
+    /// 原子写入字符串。encoding 参数仅用于兼容旧调用点签名，内部始终使用 UTF-8。
+    /// </summary>
+    public static void WriteAllTextAtomic(string path, string text, System.Text.Encoding _)
+    {
+        WriteAllTextAtomic(path, text);
+    }
+
+    /// <summary>
     /// 跨平台文件存在性检查。
     /// Android StreamingAssets 路径（jar: URI）无法用 File.Exists 检测，直接返回 false。
     /// </summary>
@@ -184,5 +192,89 @@ public static class FileHelper
 
         if (!Directory.Exists(dir))
             Directory.CreateDirectory(dir);
+    }
+
+    /// <summary>
+    /// 确保目录存在。目录路径为空时无操作。
+    /// 与 EnsureDirectoryForFile 不同，本方法直接作用于目录路径而非文件路径。
+    /// </summary>
+    public static void EnsureDirectory(string dirPath)
+    {
+        if (string.IsNullOrEmpty(dirPath))
+            return;
+        if (!Directory.Exists(dirPath))
+            Directory.CreateDirectory(dirPath);
+    }
+
+    /// <summary>
+    /// 跨平台目录存在性检查。
+    /// </summary>
+    public static bool DirectoryExists(string path)
+    {
+        if (string.IsNullOrEmpty(path))
+            return false;
+        return Directory.Exists(path);
+    }
+
+    /// <summary>
+    /// 拷贝文件。默认覆盖已存在目标。
+    /// </summary>
+    public static void CopyFile(string src, string dest, bool overwrite = true)
+    {
+        if (string.IsNullOrEmpty(src))
+            throw new ArgumentNullException(nameof(src));
+        if (string.IsNullOrEmpty(dest))
+            throw new ArgumentNullException(nameof(dest));
+
+        EnsureDirectoryForFile(dest);
+        File.Copy(src, dest, overwrite);
+    }
+
+    /// <summary>
+    /// 拷贝文件，失败时返回 false 并输出警告日志。绝不抛异常。
+    /// </summary>
+    public static bool TryCopyFile(string src, string dest, bool overwrite = true)
+    {
+        if (string.IsNullOrEmpty(src) || string.IsNullOrEmpty(dest))
+            return false;
+        if (!File.Exists(src))
+        {
+            Debug.LogWarning($"[FileHelper] 拷贝源文件不存在: {src}");
+            return false;
+        }
+
+        try
+        {
+            EnsureDirectoryForFile(dest);
+            File.Copy(src, dest, overwrite);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Debug.LogWarning($"[FileHelper] 拷贝文件失败: {src} → {dest}, 原因: {ex.Message}");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// 枚举目录下的子目录（返回绝对路径）。跨平台安全。
+    /// </summary>
+    public static string[] GetDirectories(string path, string searchPattern = "*")
+    {
+        if (string.IsNullOrEmpty(path) || !Directory.Exists(path))
+            return new string[0];
+        return Directory.GetDirectories(path, searchPattern);
+    }
+
+    /// <summary>
+    /// 同步读取文件全部文本（UTF-8）。用于无法改为异步的同步调用点。
+    /// </summary>
+    public static string ReadAllText(string path)
+    {
+        if (string.IsNullOrEmpty(path))
+            throw new ArgumentNullException(nameof(path));
+        if (!File.Exists(path))
+            throw new FileNotFoundException($"[FileHelper] 文件不存在: {path}");
+        return File.ReadAllText(path, System.Text.Encoding.UTF8);
     }
 }

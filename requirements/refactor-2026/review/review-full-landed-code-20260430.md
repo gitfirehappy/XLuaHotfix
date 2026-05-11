@@ -4,6 +4,8 @@
 > Reviewer: GPT (Claude Code review agent)
 > Scope: 当前已落地的重构代码，重点覆盖 Runtime 资源加载链路、Collector/DependencyAnalysis、Build Pipeline Core（E4、E5-1 及其依赖模块）
 > Method: 静态代码审查，按正确性、架构、整洁度、耦合/内聚、性能与可维护性综合评估
+> **Processed**: 2026-05-11 · P1/P2 findings addressed in `c617631` + subsequent fix rounds
+> **Status**: 📦 Archived
 
 ---
 

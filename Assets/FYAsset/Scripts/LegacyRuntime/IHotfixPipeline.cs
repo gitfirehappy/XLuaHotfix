@@ -22,7 +22,7 @@ public interface IHotfixPipeline
     /// 后端初始化。
     /// Legacy: Addressables.InitializeAsync；AB: 无操作。
     /// </summary>
-    Task<bool> InitializeBackendAsync();
+    Task<HotfixStepResult> InitializeBackendAsync();
 
     /// <summary>
     /// 从当前生效目录读取本地版本信息。
@@ -46,7 +46,7 @@ public interface IHotfixPipeline
     /// Legacy: 下载 catalog + 写入 version_state + 加载外部 Catalog。
     /// AB: 写入缓存的 ABManifest 数据。
     /// </summary>
-    Task<bool> PostDownloadAsync(HotfixContext ctx);
+    Task<HotfixStepResult> PostDownloadAsync(HotfixContext ctx);
 }
 
 /// <summary>

@@ -848,3 +848,30 @@
 [decision] 2026-05-10 BuildProjectManager 接口分离记为欠账，单独 plan 处理（类比 B4B9 HotfixManager 分离），不在本轮范围
 [done] 2026-05-10 plan-post-review-fix-20260510.md 写入 — 6 任务 (T1-T6) + 8 不变式 + 8 审批清单项；draft-post-review-fix-20260509.md 已可标记 Promoted
 [next] 2026-05-10 等待开发者审批 plan-post-review-fix-20260510.md
+[start] 2026-05-11 E10 execution — BuildProjectManager dual-backend split (`IBuildBackend` + Legacy/AB backends)
+[done] 2026-05-11 E10-T1 complete — added `IBuildBackend.cs` + shared `BuildType` enum under `Assets/FYAsset/Scripts/Build/BuildManage/Editor/`
+[done] 2026-05-11 E10-T2 complete — added `LegacyAddressableBuildBackend.cs`; moved Addressables build/configure/version_state generation logic out of `BuildProjectManager`
+[done] 2026-05-11 E10-T3 complete — added `ABBuildBackend.cs`; routes build execution through `DAGScheduler`, reads `ABManifest`/`OutputPath`, and reorganizes package output to runtime-compatible `{PackageRoot}/bundles/`
+[done] 2026-05-11 E10-T4 complete — refactored `BuildProjectManager.cs` into orchestrator flow with `CreateBackend()`; `BuildCommandLine` public entry unchanged; `ConfirmReleaseHotfix` / `ResetGroupsToOriginal` guarded as Legacy-only operations when `USE_AB_BACKEND=true`
+[done] 2026-05-11 E10-T5 complete — `dotnet build XLuaHotfix.sln` passed with 0 errors (warnings only: existing `System.Net.Http` conflict warnings, `USG0001`, and `CS0162` on compile-time constant branches). `BuildCommandLine` call chain unchanged, csproj includes synced
+[done] 2026-05-11 plan-E10-buildbackend.md EXECUTED — T1~T5 landed, progress/plan synced
+[done] 2026-05-11 E10 review fix — ABBuildBackend.GenerateVersionState dedup: no longer overwrites manifest already copied by OrganizeOutput (fallback-only write)
+[done] 2026-05-11 plan-E10-buildbackend.md promoted from draft-buildprojectmanager-split.md — added CLI consistency requirement (BuildCommandLine walks same CreateBackend path)
+[start] 2026-05-11 draft-E11-settings.md created — FYAssetSettings SO (Runtime assembly) + BuildPipelineWindow sidebar restructure + USE_AB_BACKEND ownership migration
+[decision] 2026-05-11 E11: single SO in Runtime assembly (PROJECTNAME/HOTFIX_URL/USE_AB_BACKEND have Runtime references)
+[decision] 2026-05-11 E11: Collector panels are AB-exclusive (AA has its own Addressables Groups window)
+[decision] 2026-05-11 E11: SO path = Assets/FYAsset/FYAssetSettings.asset, auto-create on first access
+[decision] 2026-05-11 E11: USE_AB_BACKEND moves from FYAssetConstants hardcode + BuildPipelineConfig.DefaultBackendMode → FYAssetSettings SO
+[decision] 2026-05-11 E11: sidebar layout = SETTINGS → AB PIPELINE (Collector/Pipeline/Builder, greyed when AB off) → MANAGE (Version)
+[decision] 2026-05-11 E11: non-active area GUI.enabled=false (greyed, viewable but not editable)
+[next] 2026-05-11 Promote draft-E11-settings.md to plan-E11-settings.md with task breakdown
+[done] 2026-05-11 plan-E11-settings.md promoted — 6 tasks (T1: SO定义 → T2: 删除Constants+迁移引用 → T3: PipelineConfig清理 → T4: SettingsPanel → T5: 侧栏重组 → T6: 编译验证)
+[decision] 2026-05-11 E11: 完全合并 FYAssetConstants 到 FYAssetSettings — 删除 Constants，可配置字段为 SO 实例字段，纯常量为 static const 成员
+[next] 2026-05-11 等待开发者审批执行 plan-E11-settings.md
+[start] 2026-05-11 infrastructure-consistency review fix — P4 (constants) → P1 (FileHelper+Hotfix) → P3 (structured results) → P2 (BuildArtifactOrganizer), 17 subtasks, 4 priority tiers
+[done] 2026-05-11 P4 complete — FYAssetConstants.VERSION_DATABASE_ASSET_PATH + BuildErrorCodes 9 new codes + RuntimeErrorCodes.InvalidArgument; 6 hardcoded paths→constants + 9 bare error codes→BuildErrorCodes + 4 bare INVALID_ARG→RuntimeErrorCodes
+[done] 2026-05-11 P1 complete — FileHelper extended (EnsureDirectory/DirectoryExists/CopyFile/TryCopyFile/GetDirectories/ReadAllText/WriteAllTextAtomic 3-param); HotfixManager 8 raw IO→FileHelper; LegacyHotfixBackend 2 raw IO+atomic write; PackageCleaner 6 raw IO→FileHelper. version_state.json now atomic write
+[done] 2026-05-11 P3 complete — HotfixStepResult (struct, implicit bool) + BuildBackendResult (class, Diagnostics); IHotfixPipeline InitializeBackendAsync/PostDownloadAsync Task<HotfixStepResult>; IBuildBackend BuildAsync Task<BuildBackendResult> (BuildSummary removed); 4 implementations updated (ABHotfixBackend/LegacyHotfixBackend/ABBuildBackend/LegacyAddressableBuildBackend); HotfixManager/BuildProjectManager callers updated
+[done] 2026-05-11 P2 complete — TaskOrganizeOutput/ABBuildBackend/BuildPathCustomizer migrated to FileHelper directly. BuildArtifactOrganizer removed (pure 1:1 delegation to FileHelper, unjustified abstraction)
+[done] 2026-05-11 plan-infrastructure-consistency-20260511.md EXECUTED — 17/17 subtasks, 2 new files (HotfixStepResult.cs/BuildBackendResult.cs + 2 .csproj entries), 18 modified files, dotnet build 0 errors. BuildArtifactOrganizer removed as unjustified thin wrapper
+[done] 2026-05-11 20 review files archived — review/ outer dir cleaned, all reviews in requirements/refactor-2026/review/ with Processed+Archived metadata

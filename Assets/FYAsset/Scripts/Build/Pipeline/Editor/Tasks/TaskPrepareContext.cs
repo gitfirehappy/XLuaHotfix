@@ -19,7 +19,7 @@ public class TaskPrepareContext : IBuildTask
     {
         // 读取 SO 配置
         var config = AssetDatabase.LoadAssetAtPath<BuildPipelineConfig>(
-            "Assets/Build/BuildPipelineConfig.asset");
+            FYAssetConstants.PIPELINE_CONFIG_ASSET_PATH);
         BackendMode mode = config != null ? config.DefaultBackendMode : BackendMode.ABManifest;
 
         // CLI 覆盖: --backend LegacyAddressable | ABManifest
@@ -27,7 +27,7 @@ public class TaskPrepareContext : IBuildTask
         if (!string.IsNullOrEmpty(cliBackend))
         {
             if (!Enum.TryParse(cliBackend, true, out mode))
-                return BuildTaskResult.Fail("INVALID_BACKEND",
+                return BuildTaskResult.Fail(BuildErrorCodes.InvalidBackend,
                     $"Unknown backend '{cliBackend}'. Valid: LegacyAddressable, ABManifest.", true);
         }
 
@@ -37,7 +37,7 @@ public class TaskPrepareContext : IBuildTask
 
         // CLI --version 若为有效 SemVer → 写 SO 再读回（保持 SO 唯一来源）
         var versionData = AssetDatabase.LoadAssetAtPath<VersionDataBase>(
-            "Assets/Build/VersionDataBase.asset");
+            FYAssetConstants.VERSION_DATABASE_ASSET_PATH);
         string cliVersion = GetCommandLineArg("--version");
         if (!string.IsNullOrEmpty(cliVersion) && VersionNumber.TryParse(cliVersion, out var cliVer))
         {
@@ -55,7 +55,7 @@ public class TaskPrepareContext : IBuildTask
         if (!string.IsNullOrEmpty(platformStr))
         {
             if (!Enum.TryParse(platformStr, true, out platform))
-                return BuildTaskResult.Fail("INVALID_PLATFORM",
+                return BuildTaskResult.Fail(BuildErrorCodes.InvalidPlatform,
                     $"Unknown platform '{platformStr}'.", true);
         }
         else

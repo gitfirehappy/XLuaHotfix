@@ -3,6 +3,8 @@
 > Scope: 34 files across Build/Collector, Build/Editor, Runtime/Models, Runtime/Backends/AB
 > Method: Architecture design, code cleanliness, style consistency, redundancy, design patterns
 > Basis: ⬜ Jobs flavor — pixel-perfect, subtraction-first, DRI
+> **Processed**: 2026-05-11 · R1 + Phase 5 executed, fixes in `c617631`
+> **Status**: 📦 Archived
 
 ## CR-1 [Critical] HandleRegistry-to-AssetCache refcount desynchronization (use-after-free)
 

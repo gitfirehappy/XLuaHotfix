@@ -33,8 +33,8 @@ public class TaskOrganizeOutput : IBuildTask
         string outputDir = Path.Combine(outputRoot, buildVersion);
 
         // ① 创建输出目录
-        if (!Directory.Exists(outputDir))
-            Directory.CreateDirectory(outputDir);
+        if (!FileHelper.DirectoryExists(outputDir))
+            FileHelper.EnsureDirectory(outputDir);
 
         // ② 以 Manifest.BundleEntries 为源拷贝所有输出文件
         var copiedFiles = new List<string>();
@@ -44,14 +44,14 @@ public class TaskOrganizeOutput : IBuildTask
             string destPath = Path.Combine(outputDir, bundle.BundleName);
             if (File.Exists(srcPath))
             {
-                File.Copy(srcPath, destPath, true);
+                FileHelper.CopyFile(srcPath, destPath, true);
                 copiedFiles.Add(bundle.BundleName);
             }
         }
 
         // ③ 序列化 ABManifest
         string manifestPath = Path.Combine(outputDir, "ABManifest.json");
-        File.WriteAllText(manifestPath, manifest.SerializeToJson(), Encoding.UTF8);
+        FileHelper.WriteAllTextAtomic(manifestPath, manifest.SerializeToJson(), Encoding.UTF8);
 
         // ④ 生成构建摘要
         long totalSize = 0;
@@ -85,12 +85,12 @@ public class TaskOrganizeOutput : IBuildTask
         }
 
         string summaryPath = Path.Combine(outputDir, "build_summary.txt");
-        File.WriteAllText(summaryPath, summary.ToString(), Encoding.UTF8);
+        FileHelper.WriteAllTextAtomic(summaryPath, summary.ToString(), Encoding.UTF8);
 
         // ⑤ 清理临时构建产物
-        if (Directory.Exists(tempDir))
+        if (FileHelper.DirectoryExists(tempDir))
         {
-            try { Directory.Delete(tempDir, true); }
+            try { FileHelper.TryDeleteDirectory(tempDir, true); }
             catch (IOException) { /* best-effort */ }
         }
 

@@ -30,7 +30,7 @@ public class TaskBuildBundles : IBuildTask
 
         // 读取压缩配置
         var config = AssetDatabase.LoadAssetAtPath<BuildPipelineConfig>(
-            "Assets/Build/BuildPipelineConfig.asset");
+            FYAssetConstants.PIPELINE_CONFIG_ASSET_PATH);
         BundleCompression compression = config != null
             ? config.BundleCompression
             : BundleCompression.LZ4;
@@ -118,7 +118,7 @@ public class TaskBuildBundles : IBuildTask
         {
             unityManifest = BuildPipeline.BuildAssetBundles(tempDir, builds.ToArray(), options, platform);
             if (unityManifest == null)
-                return BuildTaskResult.Fail("BUILD_FAILED",
+                return BuildTaskResult.Fail(BuildErrorCodes.BuildFailed,
                     "BuildPipeline.BuildAssetBundles returned null.", true);
         }
         else
@@ -237,7 +237,7 @@ public class TaskBuildBundles : IBuildTask
                 continue;
 
             if (rawBundleFileCount[bundleName] > 1)
-                return BuildTaskResult.Fail("RAWFILE_MULTI_ASSET",
+                return BuildTaskResult.Fail(BuildErrorCodes.RawfileMultiAsset,
                     $"Bundle '{bundleName}' has {rawBundleFileCount[bundleName]} RawFile assets " +
                     "but only one raw file per bundle is supported.", true);
 
@@ -248,7 +248,7 @@ public class TaskBuildBundles : IBuildTask
             }
             catch (IOException ex)
             {
-                return BuildTaskResult.Fail("RAWFILE_COPY_FAILED",
+                return BuildTaskResult.Fail(BuildErrorCodes.RawfileCopyFailed,
                     $"Failed to copy '{assetPath}' → '{destPath}': {ex.Message}", true);
             }
 

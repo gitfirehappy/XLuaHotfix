@@ -23,14 +23,14 @@ public static class BuildPathCustomizer
     /// <param name="finalOutputDir">最终打包输出目录 (Project/HotfixOutput/Packages/ProjectName_...)</param>
     public static void OrganizeBuildOutput(string buildSourceDir, string finalOutputDir)
     {
-        if (Directory.Exists(finalOutputDir))
+        if (FileHelper.DirectoryExists(finalOutputDir))
         {
-            Directory.Delete(finalOutputDir, true);
+            FileHelper.TryDeleteDirectory(finalOutputDir, true);
         }
-        Directory.CreateDirectory(finalOutputDir);
+        FileHelper.EnsureDirectory(finalOutputDir);
 
         string bundleTargetDir = Path.Combine(finalOutputDir, "bundles");
-        Directory.CreateDirectory(bundleTargetDir);
+        FileHelper.EnsureDirectory(bundleTargetDir);
 
         var sourceFiles = Directory.GetFiles(buildSourceDir, "*", SearchOption.AllDirectories);
 
@@ -43,7 +43,7 @@ public static class BuildPathCustomizer
             if (fileName.StartsWith("catalog") && extension == ".json")
             {
                 string targetPath = Path.Combine(finalOutputDir, "catalog.json");
-                File.Copy(file, targetPath, true);
+                FileHelper.CopyFile(file, targetPath, true);
                 Debug.Log($"[PathCustomizer] Catalog 已复制并重命名: {targetPath}");
             }
             // 架构使用 version_state.json 进行版本比对，不需要 AA 自带的 hash 校验
@@ -57,13 +57,13 @@ public static class BuildPathCustomizer
             else if (extension == ".bundle")
             {
                 string targetPath = Path.Combine(bundleTargetDir, fileName);
-                File.Copy(file, targetPath, true);
+                FileHelper.CopyFile(file, targetPath, true);
             }
             // 其他文件 (如 bin 等，Addressable 默认 .bundle 扩展名，如果是 .bin 需自行适配)
             else if (extension == ".bin") 
             {
                 string targetPath = Path.Combine(bundleTargetDir, fileName);
-                File.Copy(file, targetPath, true);
+                FileHelper.CopyFile(file, targetPath, true);
             }
         }
         
@@ -78,11 +78,11 @@ public static class BuildPathCustomizer
         string platformSubDir = EditorUserBuildSettings.activeBuildTarget.ToString();
         string serverDataPath = Path.Combine(Directory.GetParent(Application.dataPath).FullName, "ServerData", platformSubDir);
         
-        if (Directory.Exists(serverDataPath))
+        if (FileHelper.DirectoryExists(serverDataPath))
         {
             try 
             {
-                Directory.Delete(serverDataPath, true);
+                FileHelper.TryDeleteDirectory(serverDataPath, true);
                 Debug.Log($"[BuildPathCustomizer] 已清空旧构建数据: {serverDataPath}");
             }
             catch (System.Exception e)
@@ -92,9 +92,9 @@ public static class BuildPathCustomizer
         }
         
         // 重新创建空目录（BuildPlayerContent 也会自动创建，为了保险起见）
-        if (!Directory.Exists(serverDataPath))
+        if (!FileHelper.DirectoryExists(serverDataPath))
         {
-            Directory.CreateDirectory(serverDataPath);
+            FileHelper.EnsureDirectory(serverDataPath);
         }
     }
 }

@@ -150,15 +150,15 @@ public static class HotfixManager
         // 尝试读取已保存的 manifest.json 来覆盖 GUID (断点续传/二次启动)
         // 使用 PathManager.HotfixRoot 确保读取路径与 StepApplyUpdate 的保存路径一致
         string localManifestPath = Path.Combine(PathManager.HotfixRoot, "manifest.json");
-        if (File.Exists(localManifestPath))
+        if (FileHelper.Exists(localManifestPath))
         {
             try
             {
                 var localManifest = SerializationUtility.ReadFromFile<Manifest>(localManifestPath);
-                if (!string.IsNullOrEmpty(localManifest.latestPackage))
+                if (!string.IsNullOrEmpty(localManifest.LatestPackage))
                 {
-                    Debug.Log($"[HotfixManager] 发现本地热更记录，重定向至: {localManifest.latestPackage}");
-                    buildIndex.BuildGUID = localManifest.latestPackage;
+                    Debug.Log($"[HotfixManager] 发现本地热更记录，重定向至: {localManifest.LatestPackage}");
+                    buildIndex.BuildGUID = localManifest.LatestPackage;
 
                     // 第二次初始化：应用新的 BuildGUID，将 CurrentGUIDRoot 修正为热更包目录
                     PathManager.Initialize(buildIndex);
@@ -181,10 +181,10 @@ public static class HotfixManager
     private static async Task<bool> StepInitializeBackendAsync(IHotfixPipeline pipeline)
     {
         BeginStep("Initialize backend", 1);
-        bool ok = await pipeline.InitializeBackendAsync();
-        if (!ok)
+        var initResult = await pipeline.InitializeBackendAsync();
+        if (!initResult.Success)
         {
-            ReportError("[HotfixManager] 热更后端初始化失败");
+            ReportError(initResult.Error != null ? initResult.Error.ToString() : "[HotfixManager] 热更后端初始化失败");
             return false;
         }
         CompleteStep();
@@ -205,14 +205,14 @@ public static class HotfixManager
             return false;
         }
         Manifest manifest = SerializationUtility.DeserializeJson<Manifest>(manifestJson);
-        if (string.IsNullOrEmpty(manifest.latestPackage))
+        if (string.IsNullOrEmpty(manifest.LatestPackage))
         {
             ReportError("[HotfixManager] manifest.json 无效，使用本地资源运行。");
             CompleteStep();
             return false;
         }
         
-        ctx.TargetPackageName = manifest.latestPackage;
+        ctx.TargetPackageName = manifest.LatestPackage;
         ctx.RemoteUrlRoot = $"{_hotfixUrl}/Packages/{ctx.TargetPackageName}";
         ctx.TargetGUIDRoot = Path.Combine(PathManager.HotfixRoot, ctx.TargetPackageName);
         
@@ -301,7 +301,7 @@ public static class HotfixManager
 
         // 目标 Bundles 目录
         string targetBundleRoot = Path.Combine(ctx.TargetGUIDRoot, "bundles");
-        if (!Directory.Exists(targetBundleRoot)) Directory.CreateDirectory(targetBundleRoot);
+        if (!FileHelper.DirectoryExists(targetBundleRoot)) FileHelper.EnsureDirectory(targetBundleRoot);
 
         int totalBundles = remoteBundles.Count;
         int completedBundles = 0;
@@ -334,11 +334,11 @@ public static class HotfixManager
             if (localBundleMap.TryGetValue(bundleInfo.FileHash, out string localName))
             {
                 string localPath = Path.Combine(PathManager.CurrentGUIDRoot, "bundles", localName);
-                if (File.Exists(localPath))
+                if (FileHelper.Exists(localPath))
                 {
                     try
                     {
-                        File.Copy(localPath, savePath, true);
+                        FileHelper.CopyFile(localPath, savePath);
                         copied = true;
                         Interlocked.Increment(ref skippedBundles);
                         int done = Interlocked.Increment(ref completedBundles);
@@ -387,10 +387,10 @@ public static class HotfixManager
     private static async Task<bool> StepPostDownloadAsync(IHotfixPipeline pipeline, HotfixContext ctx)
     {
         BeginStep("Post download", 8);
-        bool ok = await pipeline.PostDownloadAsync(ctx);
-        if (!ok)
+        var postResult = await pipeline.PostDownloadAsync(ctx);
+        if (!postResult.Success)
         {
-            ReportError("[HotfixManager] 热更后处理失败");
+            ReportError(postResult.Error != null ? postResult.Error.ToString() : "[HotfixManager] 热更后处理失败");
             return false;
         }
         CompleteStep();
@@ -408,8 +408,8 @@ public static class HotfixManager
         string manifestPath = Path.Combine(PathManager.HotfixRoot, "manifest.json");
         var manifest = new Manifest
         {
-            latestPackage = ctx.TargetPackageName,
-            latestversion = remoteVersionInfo.Version
+            LatestPackage = ctx.TargetPackageName,
+            LatestVersion = remoteVersionInfo.Version
         };
         
         SerializationUtility.WriteToFile(manifestPath, manifest);
@@ -454,11 +454,11 @@ public static class HotfixManager
         string lastGuid = "";
         
         // 从文件读取上次的 GUID
-        if (File.Exists(guidFilePath))
+        if (FileHelper.Exists(guidFilePath))
         {
             try
             {
-                lastGuid = File.ReadAllText(guidFilePath).Trim();
+                lastGuid = FileHelper.ReadAllText(guidFilePath).Trim();
             }
             catch (Exception ex)
             {
@@ -489,7 +489,7 @@ public static class HotfixManager
             {
                 if (Directory.Exists(aaCachePath))
                 {
-                    Directory.Delete(aaCachePath, true);
+                    FileHelper.TryDeleteDirectory(aaCachePath);
                 }
             }
             catch(Exception ex) { Debug.LogWarning(ex.Message); }
@@ -497,7 +497,7 @@ public static class HotfixManager
             // 4. 使用文件存储 GUID（替代 PlayerPrefs）
             try
             {
-                File.WriteAllText(guidFilePath, currentGuid);
+                FileHelper.WriteAllTextAtomic(guidFilePath, currentGuid);
             }
             catch (Exception ex)
             {

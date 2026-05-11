@@ -49,7 +49,7 @@ public static class FYAssetConstants
     public const string LUA_SCRIPTS_INDEX = "LuaScriptsIndex";
 
     /// <summary>默认的 XLua 三属性配置的 AA 标签</summary>
-    public const string DEAULT_XLUA_TYPE_CONFIG_LOAD_LABEL = "XLuaConfigs";
+    public const string DEFAULT_XLUA_TYPE_CONFIG_LOAD_LABEL = "XLuaConfigs";
 
     /// <summary>热更 AA Group 名</summary>
     public const string HOTFIX_GROUP_NAME = "HotfixGroup";
@@ -75,6 +75,9 @@ public static class FYAssetConstants
 
     /// <summary>BuildPipelineConfig SO 存储路径</summary>
     public const string PIPELINE_CONFIG_ASSET_PATH = "Assets/Build/BuildPipelineConfig.asset";
+
+    /// <summary>VersionDataBase SO 存储路径</summary>
+    public const string VERSION_DATABASE_ASSET_PATH = "Assets/Build/VersionDataBase.asset";
 
     #endregion
 

@@ -39,10 +39,9 @@ public class ABHotfixBackend : IHotfixPipeline
     #region IHotfixPipeline
 
     /// <inheritdoc/>
-    public Task<bool> InitializeBackendAsync()
+    public Task<HotfixStepResult> InitializeBackendAsync()
     {
-        // AB 方案无需初始化，直接返回成功
-        return Task.FromResult(true);
+        return Task.FromResult(HotfixStepResult.Ok);
     }
 
     /// <inheritdoc/>
@@ -118,12 +117,13 @@ public class ABHotfixBackend : IHotfixPipeline
     }
 
     /// <inheritdoc/>
-    public Task<bool> PostDownloadAsync(HotfixContext ctx)
+    public Task<HotfixStepResult> PostDownloadAsync(HotfixContext ctx)
     {
         if (_remoteManifestData == null || _remoteManifestData.Length == 0)
         {
             Debug.LogError("[ABHotfixBackend] 远端 ABManifest 缓存为空，无法写入本地");
-            return Task.FromResult(false);
+            return Task.FromResult(HotfixStepResult.Fail(
+                RuntimeMessage.Error(RuntimeErrorCodes.BundleNotFound, "[ABHotfixBackend] 远端 ABManifest 缓存为空")));
         }
 
         // 根据下载格式确定写入文件名
@@ -141,12 +141,13 @@ public class ABHotfixBackend : IHotfixPipeline
 
             FileHelper.WriteAllBytesAtomic(filePath, _remoteManifestData);
             Debug.Log($"[ABHotfixBackend] 已写入热更清单: {filePath}");
-            return Task.FromResult(true);
+            return Task.FromResult(HotfixStepResult.Ok);
         }
         catch (Exception ex)
         {
             Debug.LogError($"[ABHotfixBackend] 写入热更清单失败: {ex.Message}");
-            return Task.FromResult(false);
+            return Task.FromResult(HotfixStepResult.Fail(
+                RuntimeMessage.Error(RuntimeErrorCodes.AssetExtractionFailed, $"[ABHotfixBackend] 写入热更清单失败: {ex.Message}")));
         }
     }
 

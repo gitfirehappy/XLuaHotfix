@@ -43,7 +43,7 @@ public class TaskGenerateManifest : IBuildTask
             string fileName = b.OutputFileName ?? b.BundleName;
             string filePath = Path.Combine(outputDir, "_temp", fileName);
             if (!File.Exists(filePath))
-                return BuildTaskResult.Fail("BUNDLE_FILE_NOT_FOUND",
+                return BuildTaskResult.Fail(BuildErrorCodes.BundleFileNotFound,
                     $"Bundle output file not found: '{filePath}'.", true);
 
             uint crc = HashGenerator.GenerateFileCRC(filePath);
@@ -70,7 +70,7 @@ public class TaskGenerateManifest : IBuildTask
                 continue;
 
             if (!bundleNameToIndex.TryGetValue(a.BundleName, out int bundleIndex))
-                return BuildTaskResult.Fail("BUNDLE_NOT_FOUND",
+                return BuildTaskResult.Fail(BuildErrorCodes.BundleNotFoundBuild,
                     $"Asset '{a.AssetPath}' references bundle '{a.BundleName}' " +
                     "which is not in BundleBuildResults.", true);
 
@@ -163,7 +163,7 @@ public class TaskGenerateManifest : IBuildTask
         }
         catch (Exception ex)
         {
-            return BuildTaskResult.Fail("MANIFEST_INIT_FAILED",
+            return BuildTaskResult.Fail(BuildErrorCodes.ManifestInitFailed,
                 $"ABManifest.Initialize() threw: {ex.Message}", true);
         }
 

@@ -57,7 +57,7 @@ public class PipelinePanel : IBuildPipelinePanel
 
     private void LoadConfig()
     {
-        _config = AssetDatabase.LoadAssetAtPath<BuildPipelineConfig>("Assets/Build/BuildPipelineConfig.asset");
+        _config = AssetDatabase.LoadAssetAtPath<BuildPipelineConfig>(FYAssetConstants.PIPELINE_CONFIG_ASSET_PATH);
         if (_config != null)
         {
             if (_configEditor != null) Object.DestroyImmediate(_configEditor);
@@ -70,7 +70,7 @@ public class PipelinePanel : IBuildPipelinePanel
         GUILayout.FlexibleSpace();
         GUILayout.BeginHorizontal();
         GUILayout.FlexibleSpace();
-        GUILayout.Label("No BuildPipelineConfig found at Assets/Build/BuildPipelineConfig.asset", EditorStyles.centeredGreyMiniLabel);
+        GUILayout.Label("No BuildPipelineConfig found at " + FYAssetConstants.PIPELINE_CONFIG_ASSET_PATH, EditorStyles.centeredGreyMiniLabel);
         GUILayout.FlexibleSpace();
         GUILayout.EndHorizontal();
         
@@ -92,7 +92,7 @@ public class PipelinePanel : IBuildPipelinePanel
             AssetDatabase.CreateFolder("Assets", "Build");
         }
         var config = ScriptableObject.CreateInstance<BuildPipelineConfig>();
-        AssetDatabase.CreateAsset(config, "Assets/Build/BuildPipelineConfig.asset");
+        AssetDatabase.CreateAsset(config, FYAssetConstants.PIPELINE_CONFIG_ASSET_PATH);
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
         LoadConfig();

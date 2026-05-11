@@ -44,6 +44,9 @@ public static class RuntimeErrorCodes
 
     /// <summary>从 Bundle 中提取 Asset 失败（SourcePath 不正确或类型不匹配）</summary>
     public const string AssetExtractionFailed = "ASSET_EXTRACTION_FAILED";
+
+    /// <summary>参数无效（null / 空字符串 / 越界等）</summary>
+    public const string InvalidArgument = "INVALID_ARG";
 }
 
 /// <summary>
@@ -107,7 +110,7 @@ public class RuntimeMessage
 
     #endregion
 
-    #region 语义化工厂方法（保持与旧 AssetLoadError 同名 API，方便迁移）
+    #region 语义化工厂方法
 
     /// <summary>未找到匹配条目</summary>
     /// <param name="query">查询键（Address / TypeKey）</param>

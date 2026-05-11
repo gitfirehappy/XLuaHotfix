@@ -41,7 +41,7 @@ public class LegacyHotfixBackend : IHotfixPipeline
     /// Legacy: Addressables.InitializeAsync；AB: 无操作。
     /// </summary>
     /// <returns>初始化是否成功。</returns>
-    public async Task<bool> InitializeBackendAsync()
+    public async Task<HotfixStepResult> InitializeBackendAsync()
     {
         // 初始化 Addressables 本地包（不自动检查更新）
         var initHandle = Addressables.InitializeAsync(false);
@@ -49,12 +49,13 @@ public class LegacyHotfixBackend : IHotfixPipeline
         {
             await initHandle.Task;
             Debug.Log("[LegacyHotfixBackend] Addressables 本地包初始化成功");
-            return true;
+            return HotfixStepResult.Ok;
         }
         catch (Exception e)
         {
             Debug.LogError($"[LegacyHotfixBackend] Addressables 初始化异常: {e.Message}");
-            return false;
+            return HotfixStepResult.Fail(
+                RuntimeMessage.Error(RuntimeErrorCodes.LoadFailed, $"[LegacyHotfixBackend] Addressables 初始化异常: {e.Message}"));
         }
     }
 
@@ -67,7 +68,7 @@ public class LegacyHotfixBackend : IHotfixPipeline
     public Task<HotfixVersionInfo> LoadLocalVersionAsync(string currentGUIDRoot)
     {
         string localVersionStatePath = Path.Combine(currentGUIDRoot, "version_state.json");
-        if (!File.Exists(localVersionStatePath))
+        if (!FileHelper.Exists(localVersionStatePath))
             return Task.FromResult<HotfixVersionInfo>(null);
 
         try
@@ -127,7 +128,7 @@ public class LegacyHotfixBackend : IHotfixPipeline
     /// </summary>
     /// <param name="ctx">热更上下文，包含远程 URL、目标 GUID 根目录等信息。</param>
     /// <returns>热更操作是否成功。</returns>
-    public async Task<bool> PostDownloadAsync(HotfixContext ctx)
+    public async Task<HotfixStepResult> PostDownloadAsync(HotfixContext ctx)
     {
         // 下载 catalog.json
         string catalogUrl = $"{ctx.RemoteUrlRoot}/catalog.json";
@@ -136,17 +137,19 @@ public class LegacyHotfixBackend : IHotfixPipeline
         if (!catalogOk)
         {
             Debug.LogError("[LegacyHotfixBackend] catalog.json 下载失败");
-            return false;
+            return HotfixStepResult.Fail(
+                RuntimeMessage.Error(RuntimeErrorCodes.BundleNotFound, "[LegacyHotfixBackend] catalog.json 下载失败"));
         }
 
         // 写入 version_state.json
         if (string.IsNullOrEmpty(_remoteVersionJson))
         {
             Debug.LogError("[LegacyHotfixBackend] 远端 version_state 缓存为空，无法写入本地");
-            return false;
+            return HotfixStepResult.Fail(
+                RuntimeMessage.Error(RuntimeErrorCodes.BundleNotFound, "[LegacyHotfixBackend] 远端 version_state 缓存为空"));
         }
 
-        File.WriteAllText(
+        FileHelper.WriteAllTextAtomic(
             Path.Combine(ctx.TargetGUIDRoot, "version_state.json"),
             _remoteVersionJson);
 
@@ -156,11 +159,12 @@ public class LegacyHotfixBackend : IHotfixPipeline
         if (!catalogLoaded)
         {
             Debug.LogError("[LegacyHotfixBackend] 外部 Catalog 加载失败");
-            return false;
+            return HotfixStepResult.Fail(
+                RuntimeMessage.Error(RuntimeErrorCodes.LoadFailed, "[LegacyHotfixBackend] 外部 Catalog 加载失败"));
         }
 
         Debug.Log("[LegacyHotfixBackend] Catalog 下载并加载成功");
-        return true;
+        return HotfixStepResult.Ok;
     }
 
     #endregion

@@ -5,6 +5,8 @@
 **Scope**: 107 C# source files, approximately 16,441 lines across 7 architectural layers
 **Methodology**: Static analysis via parallel layer-specific deep review; each file read in full; cross-layer comparative analysis
 **Dimensions**: Correctness, redundancy, architecture design, naming, error handling, performance, maintainability
+**Processed**: 2026-05-11 · Most HIGH/MEDIUM addressed in `34e002b` + `a1aff30`. CR-1 (PackageName), CR-2 (Android ManifestLoader), CR-4 (key mismatch) remain as known debt.
+**Status**: 📦 Archived (partial — 3 CR open)
 
 ---
 

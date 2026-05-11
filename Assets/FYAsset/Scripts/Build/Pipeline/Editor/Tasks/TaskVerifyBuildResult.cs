@@ -156,7 +156,7 @@ public class TaskVerifyBuildResult : IBuildTask
         ctx.Set(BuildContextKeys.BuildVerificationResult, result);
 
         if (errorCount > 0)
-            return BuildTaskResult.Fail("VERIFICATION_FAILED",
+            return BuildTaskResult.Fail(BuildErrorCodes.VerificationFailed,
                 $"{errorCount} error(s), {warningCount} warning(s).", true);
 
         return BuildTaskResult.Ok(new List<string>

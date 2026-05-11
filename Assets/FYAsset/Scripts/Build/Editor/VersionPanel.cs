@@ -6,7 +6,7 @@ using UnityEngine;
 /// </summary>
 public class VersionPanel : IBuildPipelinePanel
 {
-    private const string VersionAssetPath = "Assets/Build/VersionDataBase.asset";
+    private static string VersionAssetPath => FYAssetConstants.VERSION_DATABASE_ASSET_PATH;
 
     private VersionDataBase _versionDB;
     private Editor _versionEditor;

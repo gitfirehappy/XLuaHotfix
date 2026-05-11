@@ -11,9 +11,9 @@ public static class PackageCleaner
     /// </summary>
     public static void ClearAllHotfix()
     {
-        if (Directory.Exists(PathManager.HotfixRoot))
+        if (FileHelper.DirectoryExists(PathManager.HotfixRoot))
         {
-            Directory.Delete(PathManager.HotfixRoot, true);
+            FileHelper.TryDeleteDirectory(PathManager.HotfixRoot, true);
             Debug.Log($"[PackageCleaner] 已清空热更根目录: {PathManager.HotfixRoot}");
         }
         PathManager.EnsureDirectories();
@@ -26,7 +26,7 @@ public static class PackageCleaner
     /// <param name="maxKeepCount">保留最近的包体数量（包括当前包），建议设为2以便进行差异比对</param>
     public static void CleanOldBuildPackages(int maxKeepCount = 2)
     {
-        if (!Directory.Exists(PathManager.HotfixRoot))
+        if (!FileHelper.DirectoryExists(PathManager.HotfixRoot))
         {
             Debug.Log("[PackageCleaner] HotfixRoot 不存在，无需清理旧包体");
             return;
@@ -39,7 +39,7 @@ public static class PackageCleaner
             string currentBuildDirName = new DirectoryInfo(PathManager.CurrentGUIDRoot).Name;
             
             // 获取所有 Build_xxxx 目录
-            var allBuildDirs = Directory.GetDirectories(PathManager.HotfixRoot, "Build_*")
+            var allBuildDirs = FileHelper.GetDirectories(PathManager.HotfixRoot, "Build_*")
                 .Select(path => new DirectoryInfo(path))
                 .ToList();
 
@@ -71,7 +71,7 @@ public static class PackageCleaner
                 try
                 {
                     long dirSize = GetDirectorySize(dirInfo.FullName);
-                    Directory.Delete(dirInfo.FullName, true);
+                    FileHelper.TryDeleteDirectory(dirInfo.FullName, true);
                     
                     cleanedCount++;
                     freedSpace += dirSize;
@@ -100,7 +100,7 @@ public static class PackageCleaner
     /// </summary>
     private static long GetDirectorySize(string dirPath)
     {
-        if (!Directory.Exists(dirPath)) return 0;
+        if (!FileHelper.DirectoryExists(dirPath)) return 0;
 
         long size = 0;
         try
