@@ -7,7 +7,7 @@ using System.Collections.Generic;
 /// 设计要点：
 /// - 持有 ABManifest 引用，但不访问其 private 索引字典
 /// - Initialize 时遍历 ABManifest.AssetEntries，调用 ToRuntimeEntry() 预转换为缓存数组
-/// - 自建 4 个索引字典，所有查询方法返回缓存的 RuntimeAssetEntry 引用（零分配热路径）
+/// - 自建 4 个索引字典 + 2 个预建结果数组，查询真正零分配热路径
 /// - 全部使用 for 循环，不使用 LINQ
 ///
 /// 内存预估：RuntimeAssetEntry ~600 bytes/entry，1000 entries ≈ 600KB，可接受。
@@ -33,6 +33,15 @@ public class ABAssetIndex : IAssetIndex
 
     /// <summary>Label -> 条目索引列表（大小写不敏感）</summary>
     private Dictionary<string, List<int>> _labelIndex;
+
+    /// <summary>Address -> 预建结果数组（零分配热路径）</summary>
+    private Dictionary<string, RuntimeAssetEntry[]> _addressResults;
+
+    /// <summary>PrimaryType -> 预建结果数组（零分配热路径）</summary>
+    private Dictionary<string, RuntimeAssetEntry[]> _typeResults;
+
+    /// <summary>(Address, PrimaryType) -> 预建结果数组（零分配热路径）</summary>
+    private Dictionary<(string, string), RuntimeAssetEntry[]> _addressTypeResults;
 
     #endregion
 
@@ -121,67 +130,64 @@ public class ABAssetIndex : IAssetIndex
                 list.Add(i);
             }
         }
+
+        // 6. 预建 Address -> 结果数组（零分配热路径）
+        _addressResults = new Dictionary<string, RuntimeAssetEntry[]>(_addressIndex.Count);
+        foreach (var kv in _addressIndex)
+        {
+            var indices = kv.Value;
+            var arr = new RuntimeAssetEntry[indices.Count];
+            for (int i = 0; i < indices.Count; i++)
+                arr[i] = _entries[indices[i]];
+            _addressResults[kv.Key] = arr;
+        }
+
+        // 7. 预建 PrimaryType -> 结果数组（零分配热路径）
+        _typeResults = new Dictionary<string, RuntimeAssetEntry[]>(_typeIndex.Count);
+        foreach (var kv in _typeIndex)
+        {
+            var indices = kv.Value;
+            var arr = new RuntimeAssetEntry[indices.Count];
+            for (int i = 0; i < indices.Count; i++)
+                arr[i] = _entries[indices[i]];
+            _typeResults[kv.Key] = arr;
+        }
+
+        // 8. 预建 (Address, PrimaryType) -> 结果数组（零分配热路径）
+        _addressTypeResults = new Dictionary<(string, string), RuntimeAssetEntry[]>();
+        foreach (var kv in _addressIndex)
+        {
+            string address = kv.Key;
+            var indices = kv.Value;
+            var typeGroups = new Dictionary<string, List<int>>(StringComparer.OrdinalIgnoreCase);
+            for (int i = 0; i < indices.Count; i++)
+            {
+                int idx = indices[i];
+                string type = _entries[idx].PrimaryType ?? "";
+                if (!typeGroups.TryGetValue(type, out var typeList))
+                {
+                    typeList = new List<int>();
+                    typeGroups[type] = typeList;
+                }
+                typeList.Add(idx);
+            }
+            foreach (var tg in typeGroups)
+            {
+                var arr = new RuntimeAssetEntry[tg.Value.Count];
+                for (int i = 0; i < tg.Value.Count; i++)
+                    arr[i] = _entries[tg.Value[i]];
+                _addressTypeResults[(address, tg.Key)] = arr;
+            }
+        }
     }
 
     #endregion
 
-    #region IAssetIndex — 原有方法（向后兼容 AddressableLabelsConfig）
-
-    /// <summary>
-    /// 获取指定 Label 下所有条目的 Address 列表。
-    /// Legacy 兼容：key = Address，不做去重（与 AddressableLabelsConfig 行为一致）。
-    /// </summary>
-    public List<string> GetKeysByLabel(string label)
-    {
-        if (string.IsNullOrEmpty(label) || !_labelIndex.TryGetValue(label, out var indices))
-            return new List<string>();
-
-        var result = new List<string>(indices.Count);
-        for (int i = 0; i < indices.Count; i++)
-            result.Add(_entries[indices[i]].Address);
-        return result;
-    }
-
-    /// <summary>
-    /// 获取指定 PrimaryType 下所有条目的 Address 列表。
-    /// </summary>
-    public List<string> GetKeysByType(string type)
-    {
-        if (string.IsNullOrEmpty(type) || !_typeIndex.TryGetValue(type, out var indices))
-            return new List<string>();
-
-        var result = new List<string>(indices.Count);
-        for (int i = 0; i < indices.Count; i++)
-            result.Add(_entries[indices[i]].Address);
-        return result;
-    }
-
-    /// <summary>
-    /// 获取所有已知 Label 列表。
-    /// </summary>
-    public List<string> GetLabels()
-    {
-        var result = new List<string>(_labelIndex.Count);
-        foreach (var key in _labelIndex.Keys)
-            result.Add(key);
-        return result;
-    }
-
-    /// <summary>
-    /// 检查是否存在指定 Address 的条目。
-    /// </summary>
-    public bool ContainsKey(string key)
-    {
-        if (string.IsNullOrEmpty(key)) return false;
-        return _addressIndex.ContainsKey(key);
-    }
-
-    #endregion
-
-    #region IAssetIndex — 条目级查询
+    #region IAssetIndex
 
     /// <summary>
     /// 通过 EntryId 获取条目（精确匹配）。返回 null 表示未找到。
+    /// 零分配热路径。
     /// </summary>
     public RuntimeAssetEntry GetEntryById(string entryId)
     {
@@ -193,36 +199,26 @@ public class ABAssetIndex : IAssetIndex
 
     /// <summary>
     /// 通过 Address 获取所有匹配条目（Address 允许重复）。
-    /// 返回缓存条目的引用列表 — 调用方不应修改返回列表内容。
+    /// 零分配热路径 — 返回预建缓存数组。
     /// </summary>
     public IReadOnlyList<RuntimeAssetEntry> GetEntriesByAddress(string address)
     {
-        if (string.IsNullOrEmpty(address) || !_addressIndex.TryGetValue(address, out var indices))
+        if (string.IsNullOrEmpty(address) || !_addressResults.TryGetValue(address, out var result))
             return Array.Empty<RuntimeAssetEntry>();
-
-        var result = new RuntimeAssetEntry[indices.Count];
-        for (int i = 0; i < indices.Count; i++)
-            result[i] = _entries[indices[i]];
         return result;
     }
 
     /// <summary>
     /// 通过 Address + PrimaryType 获取匹配条目。
-    /// 实现策略：先 Address 查找，再 type 过滤（同一 Address 通常 1-3 条目）。
+    /// 零分配热路径 — 返回预建缓存数组。
     /// </summary>
     public IReadOnlyList<RuntimeAssetEntry> GetEntriesByAddressAndType(string address, string primaryType)
     {
-        if (string.IsNullOrEmpty(address) || !_addressIndex.TryGetValue(address, out var indices))
+        if (string.IsNullOrEmpty(address))
             return Array.Empty<RuntimeAssetEntry>();
-
-        var result = new List<RuntimeAssetEntry>();
-        for (int i = 0; i < indices.Count; i++)
-        {
-            var entry = _entries[indices[i]];
-            if (string.Equals(entry.PrimaryType, primaryType, StringComparison.OrdinalIgnoreCase))
-                result.Add(entry);
-        }
-        return result;
+        if (_addressTypeResults.TryGetValue((address, primaryType ?? ""), out var result))
+            return result;
+        return Array.Empty<RuntimeAssetEntry>();
     }
 
     /// <summary>

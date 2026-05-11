@@ -73,7 +73,7 @@ public class LegacyHotfixBackend : IHotfixPipeline
         try
         {
             var localVersionState = SerializationUtility.ReadFromFile<VersionState>(localVersionStatePath);
-            Debug.Log($"[LegacyHotfixBackend] 本地版本: {localVersionState?.version.GetVersionString()}, Hash: {localVersionState?.hash}");
+            Debug.Log($"[LegacyHotfixBackend] 本地版本: {localVersionState?.Version.GetVersionString()}, Hash: {localVersionState?.FileHash}");
             return Task.FromResult(ToHotfixVersionInfo(localVersionState));
         }
         catch (Exception ex)
@@ -100,7 +100,7 @@ public class LegacyHotfixBackend : IHotfixPipeline
         try
         {
             _remoteVersionState = SerializationUtility.DeserializeJson<VersionState>(_remoteVersionJson);
-            Debug.Log($"[LegacyHotfixBackend] 远端版本: {_remoteVersionState?.version.GetVersionString()}");
+            Debug.Log($"[LegacyHotfixBackend] 远端版本: {_remoteVersionState?.Version.GetVersionString()}");
             return ToHotfixVersionInfo(_remoteVersionState);
         }
         catch (Exception ex)
@@ -173,26 +173,26 @@ public class LegacyHotfixBackend : IHotfixPipeline
         if (versionState == null)
             return null;
 
-        var bundles = new List<BundleDownloadItem>(versionState.bundles?.Count ?? 0);
-        if (versionState.bundles != null)
+        var bundles = new List<BundleDownloadItem>(versionState.Bundles?.Count ?? 0);
+        if (versionState.Bundles != null)
         {
-            for (int i = 0; i < versionState.bundles.Count; i++)
+            for (int i = 0; i < versionState.Bundles.Count; i++)
             {
-                var bundle = versionState.bundles[i];
+                var bundle = versionState.Bundles[i];
                 bundles.Add(new BundleDownloadItem
                 {
-                    BundleName = bundle.bundleName,
-                    FileHash = bundle.hash,
-                    FileSize = bundle.size
+                    BundleName = bundle.BundleName,
+                    FileHash = bundle.FileHash,
+                    FileSize = bundle.FileSize
                 });
             }
         }
 
         return new HotfixVersionInfo
         {
-            Version = versionState.version,
+            Version = versionState.Version,
             BundleCount = bundles.Count,
-            TotalSize = versionState.totalSize,
+            TotalSize = versionState.TotalSize,
             Bundles = bundles
         };
     }

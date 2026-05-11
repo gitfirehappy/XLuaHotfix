@@ -4,10 +4,7 @@
 /// </summary>
 public static class BuildContextKeys
 {
-    public const string BackendMode = "BackendMode";
-    public const string BuildVersion = "BuildVersion";
-    public const string OutputRoot = "OutputRoot";
-    public const string TargetPlatform = "TargetPlatform";
+    public const string BuildConfig = "BuildConfig";
     public const string CollectedAssets = "CollectedAssets";
     public const string SharePolicies = "SharePolicies";
     public const string BundleDependencyGraph = "BundleDependencyGraph";

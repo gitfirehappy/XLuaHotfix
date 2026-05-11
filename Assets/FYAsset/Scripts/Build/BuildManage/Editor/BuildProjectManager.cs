@@ -110,7 +110,7 @@ public static class BuildProjectManager
     
     private static bool ExecuteBuildFlow(VersionNumber version, BuildType buildType)
     { 
-        Debug.Log($"[BuildProjectManager] 开始构建热更包 Version: {version}");
+        Debug.Log($"[BuildProjectManager] 开始构建热更包 Version: {version.GetFullVersionString()}");
         
         var settings = AddressableAssetSettingsDefaultObject.Settings;
         if (settings == null)
@@ -157,7 +157,7 @@ public static class BuildProjectManager
                 EditorUserBuildSettings.activeBuildTarget.ToString()
             );
 
-            string currentPackageName = $"Build_{DateTime.Now:yyyyMMdd}_{version.GetVersionString()}";
+            string currentPackageName = $"Build_{DateTime.Now:yyyyMMdd}_{version.GetFullVersionString()}";
 
             string packagesDir = Path.Combine(OutputRoot, "Packages");
             Directory.CreateDirectory(packagesDir);
@@ -282,8 +282,8 @@ public static class BuildProjectManager
         
         var versionState = new VersionState
         {
-            version = version,
-            bundles = new List<BundleInfo>()
+            Version = version,
+            Bundles = new List<BundleInfo>()
         };
         
         // 扫描 bundles 目录下的所有文件
@@ -299,21 +299,21 @@ public static class BuildProjectManager
                 
                 var bundleInfo = new BundleInfo
                 {
-                    bundleName = Path.GetFileName(file),
-                    hash = HashGenerator.GenerateFileHash(file),
-                    size = fileInfo.Length
+                    BundleName = Path.GetFileName(file),
+                    FileHash = HashGenerator.GenerateFileHash(file),
+                    FileSize = fileInfo.Length
                 };
                 
-                versionState.bundles.Add(bundleInfo);
-                versionState.totalSize += bundleInfo.size;
+                versionState.Bundles.Add(bundleInfo);
+                versionState.TotalSize += bundleInfo.FileSize;
             }
         }
         
 
         // 包体大小预警
-        if (versionState.totalSize >= MaxHotfixSizeBytes)
+        if (versionState.TotalSize >= MaxHotfixSizeBytes)
         {
-            Debug.LogError($"[BuildProjectManager] 热更包大小过大，需缩减大小: {versionState.totalSize} >= {MaxHotfixSizeBytes}");
+            Debug.LogError($"[BuildProjectManager] 热更包大小过大，需缩减大小: {versionState.TotalSize} >= {MaxHotfixSizeBytes}");
 
             if (Application.isBatchMode)
             {
@@ -321,7 +321,7 @@ public static class BuildProjectManager
                 throw new Exception("热更包大小超过阈值");
             }
 
-            EditorUtility.DisplayDialog("热更包过大", $"热更包大小 ({versionState.totalSize / (1024 * 1024)} MB) 已超过阈值 ({MaxHotfixSizeBytes / (1024 * 1024)} MB)。请缩减资源大小。", "OK");
+            EditorUtility.DisplayDialog("热更包过大", $"热更包大小 ({versionState.TotalSize / (1024 * 1024)} MB) 已超过阈值 ({MaxHotfixSizeBytes / (1024 * 1024)} MB)。请缩减资源大小。", "OK");
             return;
         }
 
@@ -334,12 +334,12 @@ public static class BuildProjectManager
         }
 
         SerializationUtility.WriteToFile(tempVersionStatePath, versionState);
-        versionState.hash = HashGenerator.GenerateFileHash(tempVersionStatePath);
+        versionState.FileHash = HashGenerator.GenerateFileHash(tempVersionStatePath);
         File.Delete(tempVersionStatePath);
 
         SerializationUtility.WriteToFile(savePath, versionState);
         
-        Debug.Log($"[BuildProjectManager] version_state.json 生成完毕。Hash: {versionState.hash} BundleSize: {versionState.totalSize}");
+        Debug.Log($"[BuildProjectManager] version_state.json 生成完毕。Hash: {versionState.FileHash} BundleSize: {versionState.TotalSize}");
     }
     
     private static VersionDataBase LoadVersionDataBase()
@@ -362,13 +362,13 @@ public static class BuildProjectManager
 
         var data = new Manifest
         {
-            latestPackage = packageName,
-            latestversion = version
+            LatestPackage = packageName,
+            LatestVersion = version
         };
         
         // 生成 manifest内容（包含最新包体名）
         SerializationUtility.WriteToFile(manifestPath, data);
-        Debug.Log($"[BuildProjectManager] 更新 manifest.json 包体名: {packageName}，版本: {version.GetVersionString()}");
+        Debug.Log($"[BuildProjectManager] 更新 manifest.json 包体名: {packageName}，版本: {version.GetFullVersionString()}");
     }
 }
 #endif

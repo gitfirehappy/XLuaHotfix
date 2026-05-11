@@ -816,3 +816,36 @@
 [done] 2026-05-07 dotnet build 0 errors — Tags 清除后验证通过
 [start] 2026-05-07 全量代码审查 — FYAsset 已落地重构代码全面审计（107 文件/~16K 行），同步/异步冗余/架构/命名/错误处理/性能
 [done] 2026-05-07 review-full-landed-code-20260507.md 完成 — 7 CRITICAL + 18 HIGH + 45 MEDIUM + 55 LOW。署名 deepseekv4pro-claudecode
+
+[start] 2026-05-08 GPT 三维度独立 review — 数据结构 / 冗余架构 / 命名边界，署名 gpt-5.4/codex
+[done] 2026-05-08 review/fyasset-data-structures-review-20260508.md — 16 发现（7 P1 + 4 P2 + 1 P3 + 4 二次观察）。核心：RuntimeAssetEntry label cache 矛盾 + ABAssetIndex 注释/分配 drift + CollectorRef/AssetClassification/BundleDownloadItem/AssetHandle 缺 value semantics + BuildContext raw cast + public field 不变式风险
+[done] 2026-05-08 review/fyasset-redundancy-architecture-review-20260508.md — 14 发现（5 P1 + 5 P2 + 1 P3 + 3 正向确认）。核心：Collector 路径/规则 6+ 处重复 + Hotfix backend 模板重复 + ABManifest↔ABAssetIndex 索引重叠 + IAssetIndex 混合两代 API + AssetPackageManager AB/Legacy 分支重复
+[done] 2026-05-08 review/fyasset-naming-boundaries-maintainability-review-20260508.md — 14 发现（4 P1 + 5 P2 + 1 P3 + 4 正向确认）。核心：命名风格不统一 + DEAULT_*/ScriptObjectDataBse typo + PascalCase/camelCase 混用 + IPackageBackend/IAssetIndex 边界 porous + 结果对象设计不一致 + 文件夹名暴露迁移历史
+[start] 2026-05-09 GPT review 讨论 — 逐项评审 3 份 review 发现，确定修改方向
+[decision] 2026-05-09 T1 RuntimeAssetEntry → 方案 A（guarded model）：Labels 收口 IReadOnlyList<string>，SetLabels() 管缓存失效。工作量 ~15 行，1 文件
+[decision] 2026-05-09 T2+T3+T4 IAssetIndex → 砍 legacy 方法，ABAssetIndex 删 4 个 legacy 方法实现，AssetPackageManager 从 GetAllEntries() 自建缓存，AddressableLabelsConfig 去掉接口独立。6 文件
+[decision] 2026-05-09 T5 CollectorPathUtility → 提取 NormalizePath/PathDepth/IsPathContained/MatchesIgnorePattern，7 个文件各删私有副本改调用。1 新 + 7 改
+[decision] 2026-05-09 T6 CollectorRef + AssetClassification → 加 IEquatable<T>/GetHashCode/ToString。2 文件
+[decision] 2026-05-09 T7 ABAssetIndex → BuildIndex() 预建 _addressResults/_typeResults，真正零分配查询。注释保留"零分配热路径"
+[decision] 2026-05-09 T8 随 T7（注释保真，实现对齐）
+[decision] 2026-05-09 T9 DEAULT_XLUA_TYPE_CONFIG_LOAD_LABEL → DEFAULT。3 文件
+[decision] 2026-05-09 T10 ScriptObjectDataBse → ScriptObjectDataBase。类名+文件名+4 处引用。2 文件
+[decision] 2026-05-09 T11 PascalCase 命名规则：新代码 PascalCase，旧代码碰到改。FYAssetConstants.cs 范本
+[done] 2026-05-09 plan-review-fix-20260509.md 写入 — 11 任务，22 受影响文件，6 不变式。Status: Approved, awaiting execution
+[done] 2026-05-09 plan.md 更新 — Review-Driven Fixes 新增分类 + 2 条索引 + Status 行 + Change Log。Progress 对齐完成
+[done] 2026-05-09 plan-E9-version.md → Approved — 6 tasks, SemVer 2.0, IComparable, Parse/TryParse, operators
+[done] 2026-05-09 plan-naming-unification.md → Approved — drafts/ promoted to plan/, 5 tasks, 6 files, 9 fields camelCase→PascalCase
+[done] 2026-05-09 plan.md updated — E9 status Draft→Approved, naming-unification added to Review-Driven Fixes, Change Log entries
+[next] 2026-05-09 等待开发者批准执行
+[done] 2026-05-09 plan-naming-unification.md EXECUTED — N1-N5: VersionState/BundleInfo/Manifest fields camelCase→PascalCase (9 fields, 6 files), dotnet build 0 errors
+[done] 2026-05-09 plan-review-fix-20260509.md EXECUTED — T1-T10: IAssetIndex cut 4 legacy methods + AddressableLabelsConfig standalone + AssetPackageManager self-build cache + RuntimeAssetEntry Labels IReadOnlyList + CollectorPathUtility extract (1 new + 7 files) + CollectorRef/AssetClassification IEquatable + ABAssetIndex pre-build address/type results + DEAULT typo fix + ScriptObjectDataBse rename. T11 (policy) documented. dotnet build 0 errors
+[done] 2026-05-09 plan-E9-version.md EXECUTED — E9-T1~T6: VersionNumber SemVer 2.0 (Major.Minor.Patch-Channel+Build) + IComparable + Parse/TryParse + operators + IncrementVersion adaptation + BuildContextKeys.Version + TaskPrepareContext VersionNumber write + BuildProjectManager full-version output. dotnet build 0 errors
+[done] 2026-05-11 plan-post-review-fix-20260510.md EXECUTED — T1-T6: BuildConfig data lock (5 keys→1 struct, 1 new file + 7 files modified) + VersionNumber Channel whitelist (alpha/beta/rc/"") + negative guard + VersionState.version→Version rename + AssetPackageManager OrdinalIgnoreCase/defensive copy/IReadOnlyList/idempotency + ABAssetIndex zero-alloc address+type lookup + docs sync. dotnet build 0 errors
+
+[start] 2026-05-10 Draft post-review-fix promoted to plan — discussed H-1 BuildConfig boundary, CLI source unification, BuildProjectManager scope split
+[decision] 2026-05-10 H-1 BuildConfig: 全收 5 个 key (BackendMode/Version/BuildVersionString/OutputRoot/TargetPlatform)，readonly struct，TaskPrepareContext 唯一构建者
+[decision] 2026-05-10 CLI --version 语义统一: CLI 写 SO 后再读，SO 仍是唯一来源（与编辑器入口共享）；新管线侧落地，旧管线 BuildProjectManager 不动
+[decision] 2026-05-10 附加修复: TaskGenerateManifest ReadKeys 漏声明 OutputRoot，随 T1 BuildConfig 收口一并修
+[decision] 2026-05-10 BuildProjectManager 接口分离记为欠账，单独 plan 处理（类比 B4B9 HotfixManager 分离），不在本轮范围
+[done] 2026-05-10 plan-post-review-fix-20260510.md 写入 — 6 任务 (T1-T6) + 8 不变式 + 8 审批清单项；draft-post-review-fix-20260509.md 已可标记 Promoted
+[next] 2026-05-10 等待开发者审批 plan-post-review-fix-20260510.md

@@ -15,6 +15,7 @@ public class TaskGenerateManifest : IBuildTask
     public string[] DependsOn => new[] { "TaskBuildBundles" };
     public string[] ReadKeys => new[]
     {
+        BuildContextKeys.BuildConfig,
         BuildContextKeys.CollectedAssets,
         BuildContextKeys.BundleBuildResults,
         BuildContextKeys.BundleDependencyGraph
@@ -23,6 +24,7 @@ public class TaskGenerateManifest : IBuildTask
 
     public BuildTaskResult Execute(BuildContext ctx)
     {
+        var cfg = ctx.Require<BuildConfig>(BuildContextKeys.BuildConfig);
         var collected = ctx.Require<List<CollectedAssetInfo>>(BuildContextKeys.CollectedAssets);
         var buildResults = ctx.Require<List<BundleBuildInfo>>(BuildContextKeys.BundleBuildResults);
         var depGraph = ctx.Get<BundleDependencyGraph>(BuildContextKeys.BundleDependencyGraph);
@@ -37,7 +39,7 @@ public class TaskGenerateManifest : IBuildTask
         for (int i = 0; i < buildResults.Count; i++)
         {
             var b = buildResults[i];
-            string outputDir = ctx.Require<string>(BuildContextKeys.OutputRoot);
+            string outputDir = cfg.OutputRoot;
             string fileName = b.OutputFileName ?? b.BundleName;
             string filePath = Path.Combine(outputDir, "_temp", fileName);
             if (!File.Exists(filePath))
@@ -148,7 +150,7 @@ public class TaskGenerateManifest : IBuildTask
         var manifest = new ABManifest
         {
             PackageName = "MainPackage",
-            PackageVersion = ResolveVersion(),
+            PackageVersion = cfg.Version,
             BuildTimestamp = DateTime.UtcNow.ToString("o"),
             AssetEntries = assetEntries,
             BundleEntries = bundleEntries
@@ -174,12 +176,4 @@ public class TaskGenerateManifest : IBuildTask
         });
     }
 
-    private static VersionNumber ResolveVersion()
-    {
-        var db = AssetDatabase.LoadAssetAtPath<VersionDataBase>(
-            "Assets/Build/VersionDataBase.asset");
-        if (db != null)
-            return db.CurrentVersion;
-        return new VersionNumber { Major = 1, Minor = 0, Patch = 0 };
-    }
 }

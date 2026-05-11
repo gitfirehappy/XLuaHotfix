@@ -21,27 +21,22 @@ public class AssetPackageManager : Singleton<AssetPackageManager>
     private IPackageBackend _backend = new AddressablesBackend();
     private bool _isInitialized = false;
 
-    private readonly Dictionary<string, List<string>> _labelToKeys = new();
+    private readonly Dictionary<string, List<string>> _labelToKeys = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, List<string>> _typeToKeys = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _addressSet = new(StringComparer.OrdinalIgnoreCase);
 
     public async Task Initialize()
     {
+        if (_isInitialized) return;
+
+        _labelToKeys.Clear();
+        _typeToKeys.Clear();
+        _addressSet.Clear();
+
         if (FYAssetConstants.USE_AB_BACKEND)
-        {
             await InitializeWithABIndex();
-        }
         else
-        {
             await InitializeWithLegacyIndex();
-        }
-
-        if (_index == null) return;
-
-        // 共用：从 _index 构建 _labelToKeys 缓存
-        var labels = _index.GetLabels();
-        for (int i = 0; i < labels.Count; i++)
-        {
-            _labelToKeys[labels[i]] = _index.GetKeysByLabel(labels[i]);
-        }
 
         _isInitialized = true;
     }
@@ -73,6 +68,9 @@ public class AssetPackageManager : Singleton<AssetPackageManager>
         var abBackend = new ABPackageBackend(manifest, bundleLoader);
         _backend = abBackend;
 
+        // 从索引自建 query 缓存
+        BuildQueryCaches(_index.GetAllEntries());
+
         Debug.Log(
             $"[AssetPackageManager] AB 全链路初始化完成。" +
             $"Assets: {manifest.AssetCount}, Bundles: {manifest.BundleCount}, " +
@@ -95,32 +93,64 @@ public class AssetPackageManager : Singleton<AssetPackageManager>
             return;
         }
 
-        _index = config;
+        _index = null;
+
+        foreach (var item in config.keysByType)
+            _typeToKeys[item.Type] = new List<string>(item.Keys);
+        foreach (var item in config.keysByLabel)
+            _labelToKeys[item.Label] = new List<string>(item.Keys);
+        for (int i = 0; i < config.allEntries.Count; i++)
+            _addressSet.Add(config.allEntries[i].key);
+
         Debug.Log($"[AssetPackageManager] Legacy 索引初始化完成。Entries: {config.allEntries.Count}");
     }
 
     #endregion
 
-    public void SetIndex(IAssetIndex index)
+    private void BuildQueryCaches(IReadOnlyList<RuntimeAssetEntry> entries)
     {
-        _index = index;
-    }
+        for (int i = 0; i < entries.Count; i++)
+        {
+            var entry = entries[i];
+            _addressSet.Add(entry.Address);
 
-    public void SetBackend(IPackageBackend backend)
-    {
-        _backend = backend ?? throw new ArgumentNullException(nameof(backend));
+            if (!string.IsNullOrEmpty(entry.PrimaryType))
+            {
+                if (!_typeToKeys.TryGetValue(entry.PrimaryType, out var typeList))
+                {
+                    typeList = new List<string>();
+                    _typeToKeys[entry.PrimaryType] = typeList;
+                }
+                typeList.Add(entry.Address);
+            }
+
+            var labels = entry.Labels;
+            for (int j = 0; j < labels.Count; j++)
+            {
+                string label = labels[j];
+                if (string.IsNullOrEmpty(label)) continue;
+                if (!_labelToKeys.TryGetValue(label, out var labelList))
+                {
+                    labelList = new List<string>();
+                    _labelToKeys[label] = labelList;
+                }
+                labelList.Add(entry.Address);
+            }
+        }
     }
 
     #region 查询接口
 
-    public List<string> GetKeysByType(string type)
+    public IReadOnlyList<string> GetKeysByType(string type)
     {
-        return _isInitialized ? _index.GetKeysByType(type) : new List<string>();
+        if (!_isInitialized) return Array.Empty<string>();
+        return _typeToKeys.TryGetValue(type, out var list) ? list : Array.Empty<string>();
     }
 
-    public List<string> GetKeysByLabel(string label)
+    public IReadOnlyList<string> GetKeysByLabel(string label)
     {
-        return _isInitialized ? _index.GetKeysByLabel(label) : new List<string>();
+        if (!_isInitialized) return Array.Empty<string>();
+        return _labelToKeys.TryGetValue(label, out var list) ? list : Array.Empty<string>();
     }
 
     public List<string> GetKeysByLabels(string[] labels)
@@ -129,7 +159,7 @@ public class AssetPackageManager : Singleton<AssetPackageManager>
             return new List<string>();
 
         if (labels.Length == 1)
-            return GetKeysByLabel(labels[0]);
+            return new List<string>(GetKeysByLabel(labels[0]));
 
         var keys = new HashSet<string>(GetKeysByLabel(labels[0]));
 
@@ -151,8 +181,8 @@ public class AssetPackageManager : Singleton<AssetPackageManager>
     {
         if (!_isInitialized) return new List<string>();
 
-        var typeKeys = _index.GetKeysByType(type);
-        var labelKeys = new HashSet<string>(_index.GetKeysByLabel(label));
+        var typeKeys = GetKeysByType(type);
+        var labelKeys = new HashSet<string>(GetKeysByLabel(label));
 
         var result = new List<string>(typeKeys.Count);
         for (int i = 0; i < typeKeys.Count; i++)
@@ -167,7 +197,7 @@ public class AssetPackageManager : Singleton<AssetPackageManager>
 
     public bool ContainsKey(string key)
     {
-        return _isInitialized && _index.ContainsKey(key);
+        return _isInitialized && _addressSet.Contains(key);
     }
 
     #endregion
@@ -291,9 +321,9 @@ public class AssetPackageManager : Singleton<AssetPackageManager>
     /// </summary>
     public async Task<AssetHandle<T>> LoadByAddress<T>(string address) where T : UnityEngine.Object
     {
-        if (!_isInitialized)
+        if (!_isInitialized || _index == null)
             return new AssetHandle<T>(
-                RuntimeMessage.LoadFailed("", "AssetPackageManager 未初始化"));
+                RuntimeMessage.LoadFailed("", "AssetPackageManager 未初始化或不支持条目级查询"));
 
         var result = AssetResolver.ResolveByAddress<T>(_index, address);
         if (!result.IsSuccess)
@@ -307,9 +337,9 @@ public class AssetPackageManager : Singleton<AssetPackageManager>
     /// </summary>
     public AssetHandle<T> LoadByAddressSync<T>(string address) where T : UnityEngine.Object
     {
-        if (!_isInitialized)
+        if (!_isInitialized || _index == null)
             return new AssetHandle<T>(
-                RuntimeMessage.LoadFailed("", "AssetPackageManager 未初始化"));
+                RuntimeMessage.LoadFailed("", "AssetPackageManager 未初始化或不支持条目级查询"));
 
         var result = AssetResolver.ResolveByAddress<T>(_index, address);
         if (!result.IsSuccess)
@@ -325,9 +355,9 @@ public class AssetPackageManager : Singleton<AssetPackageManager>
     public async Task<AssetHandle<T>> LoadByTypeKey<T>(
         string key, IReadOnlyList<string> labels = null) where T : UnityEngine.Object
     {
-        if (!_isInitialized)
+        if (!_isInitialized || _index == null)
             return new AssetHandle<T>(
-                RuntimeMessage.LoadFailed("", "AssetPackageManager 未初始化"));
+                RuntimeMessage.LoadFailed("", "AssetPackageManager 未初始化或不支持条目级查询"));
 
         var result = AssetResolver.ResolveByTypeKey<T>(_index, key, labels);
         if (!result.IsSuccess)
@@ -342,9 +372,9 @@ public class AssetPackageManager : Singleton<AssetPackageManager>
     public AssetHandle<T> LoadByTypeKeySync<T>(
         string key, IReadOnlyList<string> labels = null) where T : UnityEngine.Object
     {
-        if (!_isInitialized)
+        if (!_isInitialized || _index == null)
             return new AssetHandle<T>(
-                RuntimeMessage.LoadFailed("", "AssetPackageManager 未初始化"));
+                RuntimeMessage.LoadFailed("", "AssetPackageManager 未初始化或不支持条目级查询"));
 
         var result = AssetResolver.ResolveByTypeKey<T>(_index, key, labels);
         if (!result.IsSuccess)

@@ -15,23 +15,24 @@ public class TaskVerifyBuildResult : IBuildTask
     public string[] DependsOn => new[] { "TaskGenerateManifest" };
     public string[] ReadKeys => new[]
     {
+        BuildContextKeys.BuildConfig,
         BuildContextKeys.ABManifest,
-        BuildContextKeys.BundleBuildResults,
-        BuildContextKeys.OutputRoot
+        BuildContextKeys.BundleBuildResults
     };
     public string[] WriteKeys => new[] { BuildContextKeys.BuildVerificationResult };
 
     private const long MinSizeBytes = 1024L;
     private const long MaxSizeBytes = 500_000_000L;
 
-    /// <summary>UnityFS bundle header magic</summary>
+    /// <summary>UnityFS bundle 文件头魔数</summary>
     private static readonly byte[] UnityFSMagic = { 0x55, 0x6E, 0x69, 0x74, 0x79, 0x46, 0x53 }; // "UnityFS"
 
     public BuildTaskResult Execute(BuildContext ctx)
     {
+        var cfg = ctx.Require<BuildConfig>(BuildContextKeys.BuildConfig);
         var manifest = ctx.Require<ABManifest>(BuildContextKeys.ABManifest);
         var buildResults = ctx.Require<List<BundleBuildInfo>>(BuildContextKeys.BundleBuildResults);
-        string outputRoot = ctx.Require<string>(BuildContextKeys.OutputRoot);
+        string outputRoot = cfg.OutputRoot;
         string tempDir = Path.Combine(outputRoot, "_temp");
 
         // 构建 bundleName → PayloadKind 索引

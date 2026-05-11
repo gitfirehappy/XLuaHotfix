@@ -13,23 +13,21 @@ public class TaskOrganizeOutput : IBuildTask
     public string[] DependsOn => new[] { "TaskVerifyBuildResult" };
     public string[] ReadKeys => new[]
     {
+        BuildContextKeys.BuildConfig,
         BuildContextKeys.ABManifest,
-        BuildContextKeys.BundleBuildResults,
-        BuildContextKeys.OutputRoot,
-        BuildContextKeys.BuildVersion,
-        BuildContextKeys.TargetPlatform,
-        BuildContextKeys.BackendMode
+        BuildContextKeys.BundleBuildResults
     };
     public string[] WriteKeys => new[] { BuildContextKeys.OutputPath };
 
     public BuildTaskResult Execute(BuildContext ctx)
     {
+        var cfg = ctx.Require<BuildConfig>(BuildContextKeys.BuildConfig);
         var manifest = ctx.Require<ABManifest>(BuildContextKeys.ABManifest);
         var buildResults = ctx.Require<List<BundleBuildInfo>>(BuildContextKeys.BundleBuildResults);
-        string outputRoot = ctx.Require<string>(BuildContextKeys.OutputRoot);
-        string buildVersion = ctx.Require<string>(BuildContextKeys.BuildVersion);
-        var platform = ctx.Require<UnityEditor.BuildTarget>(BuildContextKeys.TargetPlatform);
-        var backendMode = ctx.Require<BackendMode>(BuildContextKeys.BackendMode);
+        string outputRoot = cfg.OutputRoot;
+        string buildVersion = cfg.BuildVersionString;
+        var platform = cfg.TargetPlatform;
+        var backendMode = cfg.BackendMode;
 
         string tempDir = Path.Combine(outputRoot, "_temp");
         string outputDir = Path.Combine(outputRoot, buildVersion);

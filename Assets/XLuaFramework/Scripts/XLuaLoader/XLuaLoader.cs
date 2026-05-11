@@ -134,7 +134,7 @@ public static class XLuaLoader
         if (string.IsNullOrEmpty(label)) return;
 
         // 获取该 Label 对应的所有 Container Key
-        List<string> aaKeys = AssetPackageManager.Instance.GetKeysByLabel(label);
+        var aaKeys = AssetPackageManager.Instance.GetKeysByLabel(label);
 
         if (aaKeys.Count == 0) return;
         

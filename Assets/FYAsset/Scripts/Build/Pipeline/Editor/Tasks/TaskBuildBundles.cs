@@ -15,18 +15,18 @@ public class TaskBuildBundles : IBuildTask
     public string[] DependsOn => new[] { "TaskAnalyzeDependencies" };
     public string[] ReadKeys => new[]
     {
+        BuildContextKeys.BuildConfig,
         BuildContextKeys.CollectedAssets,
-        BuildContextKeys.BundleDependencyGraph,
-        BuildContextKeys.OutputRoot,
-        BuildContextKeys.TargetPlatform
+        BuildContextKeys.BundleDependencyGraph
     };
     public string[] WriteKeys => new[] { BuildContextKeys.BundleBuildResults };
 
     public BuildTaskResult Execute(BuildContext ctx)
     {
+        var cfg = ctx.Require<BuildConfig>(BuildContextKeys.BuildConfig);
         var assets = ctx.Require<List<CollectedAssetInfo>>(BuildContextKeys.CollectedAssets);
-        string outputRoot = ctx.Require<string>(BuildContextKeys.OutputRoot);
-        var platform = ctx.Require<BuildTarget>(BuildContextKeys.TargetPlatform);
+        string outputRoot = cfg.OutputRoot;
+        var platform = cfg.TargetPlatform;
 
         // 读取压缩配置
         var config = AssetDatabase.LoadAssetAtPath<BuildPipelineConfig>(
@@ -60,7 +60,7 @@ public class TaskBuildBundles : IBuildTask
 
         // 构建 AssetBundleBuild[] + 收集 RawFile
         var builds = new List<AssetBundleBuild>();
-        var rawFileEntries = new List<(string bundleName, string assetPath)>();
+        var rawFileEntries = new List<(string BundleName, string assetPath)>();
 
         foreach (var kv in groups)
         {
@@ -190,7 +190,7 @@ public class TaskBuildBundles : IBuildTask
                 }
                 else
                 {
-                    // Serialized bundle — 按前缀匹配回逻辑名
+                    // 序列化 bundle — 按前缀匹配回逻辑名
                     string matchedLogical = null;
                     foreach (var logicalName in groups.Keys)
                     {
@@ -223,7 +223,7 @@ public class TaskBuildBundles : IBuildTask
         var rawBundleFileCount = new Dictionary<string, int>(StringComparer.Ordinal);
         for (int r = 0; r < rawFileEntries.Count; r++)
         {
-            string bundleName = rawFileEntries[r].bundleName;
+            string bundleName = rawFileEntries[r].BundleName;
             if (!rawBundleFileCount.ContainsKey(bundleName))
                 rawBundleFileCount[bundleName] = 0;
             rawBundleFileCount[bundleName]++;
