@@ -37,7 +37,7 @@ public class BuilderPanel : IBuildPipelinePanel
         
         if (GUILayout.Button("Open Differential Processor Window", GUILayout.Height(30)))
         {
-            EditorApplication.ExecuteMenuItem("XLua/Build Hotfix Patch"); // Placeholder or actual menu item
+            EditorApplication.ExecuteMenuItem("XLua/Build Hotfix Patch"); // 占位或实际菜单项
         }
         
         GUILayout.Space(10);

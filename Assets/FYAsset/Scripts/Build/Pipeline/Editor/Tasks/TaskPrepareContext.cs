@@ -19,8 +19,8 @@ public class TaskPrepareContext : IBuildTask
     {
         // 读取 SO 配置
         var config = AssetDatabase.LoadAssetAtPath<BuildPipelineConfig>(
-            FYAssetConstants.PIPELINE_CONFIG_ASSET_PATH);
-        BackendMode mode = config != null ? config.DefaultBackendMode : BackendMode.ABManifest;
+            FYAssetSettings.Instance.PipelineConfigPath);
+        BackendMode mode = FYAssetSettings.Instance.UseABBackend ? BackendMode.ABManifest : BackendMode.LegacyAddressable;
 
         // CLI 覆盖: --backend LegacyAddressable | ABManifest
         string cliBackend = GetCommandLineArg("--backend");
@@ -33,11 +33,11 @@ public class TaskPrepareContext : IBuildTask
 
         // BuildVersionString: CLI --version > 时间戳（用于目录命名）
         string buildVersionString = GetCommandLineArg("--version")
-            ?? DateTime.Now.ToString("yyyyMMdd-HHmmss");
+            ?? DateTime.UtcNow.ToString("yyyyMMdd-HHmmss");
 
         // CLI --version 若为有效 SemVer → 写 SO 再读回（保持 SO 唯一来源）
         var versionData = AssetDatabase.LoadAssetAtPath<VersionDataBase>(
-            FYAssetConstants.VERSION_DATABASE_ASSET_PATH);
+            FYAssetSettings.Instance.VersionDataBasePath);
         string cliVersion = GetCommandLineArg("--version");
         if (!string.IsNullOrEmpty(cliVersion) && VersionNumber.TryParse(cliVersion, out var cliVer))
         {

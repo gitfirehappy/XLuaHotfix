@@ -14,5 +14,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   DefaultBackendMode: 1
   FileNameStyle: 2
+  BundleCompression: 0
   SequentialMode: 0
   Tasks: []

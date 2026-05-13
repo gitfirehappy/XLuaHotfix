@@ -33,15 +33,13 @@ public enum BundleFileNameStyle
 }
 
 /// <summary>
-/// 构建管线配置 ScriptableObject —— 定义 Task 编排、后端模式、文件名风格等全局选项。
+/// 构建管线配置 ScriptableObject —— 定义 Task 编排、文件名风格等管线执行选项。
+/// 后端模式开关已迁移至 FYAssetSettings.UseABBackend。
 /// 存储路径：Assets/Build/BuildPipelineConfig.asset。
 /// </summary>
 [CreateAssetMenu(fileName = "BuildPipelineConfig", menuName = "XLua/BuildPipelineConfig")]
 public class BuildPipelineConfig : ScriptableObject
 {
-    /// <summary>默认后端模式</summary>
-    public BackendMode DefaultBackendMode = BackendMode.ABManifest;
-
     /// <summary>Bundle 文件名格式</summary>
     public BundleFileNameStyle FileNameStyle = BundleFileNameStyle.BundleName_HashName;
 

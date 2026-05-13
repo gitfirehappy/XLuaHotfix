@@ -13,7 +13,7 @@ public class GameLauncher : MonoBehaviour
     
     [Header("XLua Configuration")]
     [Tooltip("Addressables标签名，用于加载XLua类型配置")]
-    public string xluaConfigLabel = FYAssetConstants.DEAULT_XLUA_TYPE_CONFIG_LOAD_LABEL;
+    public string xluaConfigLabel = FYAssetSettings.DEFAULT_XLUA_TYPE_CONFIG_LOAD_LABEL;
     
     [Header("Lua Loader Configuration")]
     [Tooltip("Lua加载模式")]

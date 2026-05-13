@@ -113,9 +113,9 @@ public static class PackageCleaner
                 size += file.Length;
             }
         }
-        catch
+        catch (Exception ex)
         {
-            // 如果遇到权限问题等，返回已计算的部分
+            Debug.LogWarning($"[PackageCleaner] 统计目录大小失败: {dirPath}, 已返回部分结果。原因: {ex.Message}");
         }
         
         return size;

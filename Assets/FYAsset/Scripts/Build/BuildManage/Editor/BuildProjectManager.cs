@@ -12,7 +12,7 @@ public static class BuildProjectManager
     private static string OutputRoot => Path.Combine(Directory.GetParent(Application.dataPath).FullName, "HotfixOutput");
     
     // 热更包体大小限制
-    private static string versionDataBasePath => FYAssetConstants.VERSION_DATABASE_ASSET_PATH;
+    private static string versionDataBasePath => FYAssetSettings.Instance.VersionDataBasePath;
     
     /// <summary>
     /// 构建完整包，用于大版本更新
@@ -71,7 +71,7 @@ public static class BuildProjectManager
     [MenuItem("Tools/Build/Confirm Release Hotfix",false, 3)]
     public static void ConfirmReleaseHotfix()
     {
-        if (FYAssetConstants.USE_AB_BACKEND)
+        if (FYAssetSettings.Instance.UseABBackend)
         {
             Debug.LogWarning("[BuildProjectManager] ConfirmReleaseHotfix 仅适用于 Legacy Addressables 构建链路，AB backend 下已跳过。");
             return;
@@ -87,7 +87,7 @@ public static class BuildProjectManager
     [MenuItem("Tools/Build/Reset Remote Groups to Original",false, 0)]
     public static void ResetGroupsToOriginal()
     {
-        if (FYAssetConstants.USE_AB_BACKEND)
+        if (FYAssetSettings.Instance.UseABBackend)
         {
             Debug.LogWarning("[BuildProjectManager] ResetGroupsToOriginal 仅适用于 Legacy Addressables 构建链路，AB backend 下已跳过。");
             return;
@@ -112,7 +112,7 @@ public static class BuildProjectManager
             HelperBuildDataExporter.ExportData();
             AssetDatabase.Refresh();
 
-            if (buildType == BuildType.Hotfix && !FYAssetConstants.USE_AB_BACKEND)
+            if (buildType == BuildType.Hotfix && !FYAssetSettings.Instance.UseABBackend)
             {
                 bool hasChanges = DifferentialProcessor.PrepareHotfix(version);
                 if (!hasChanges)
@@ -158,7 +158,7 @@ public static class BuildProjectManager
 
     private static IBuildBackend CreateBackend()
     {
-        return FYAssetConstants.USE_AB_BACKEND
+        return FYAssetSettings.Instance.UseABBackend
             ? new ABBuildBackend()
             : new LegacyAddressableBuildBackend();
     }

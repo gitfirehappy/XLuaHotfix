@@ -94,7 +94,7 @@ public class CollectorSettingPanel : IBuildPipelinePanel
             LoadSetting();
 
         GUILayout.FlexibleSpace();
-        GUILayout.Label(FYAssetConstants.COLLECTOR_SETTING_ASSET_PATH, EditorStyles.miniLabel);
+        GUILayout.Label(FYAssetSettings.Instance.CollectorSettingPath, EditorStyles.miniLabel);
         EditorGUILayout.EndHorizontal();
     }
 
@@ -411,7 +411,7 @@ public class CollectorSettingPanel : IBuildPipelinePanel
         GUILayout.Space(10f);
         GUILayout.Label("CollectorSetting not found", EditorStyles.boldLabel);
         GUILayout.Space(6f);
-        GUILayout.Label(FYAssetConstants.COLLECTOR_SETTING_ASSET_PATH, EditorStyles.wordWrappedMiniLabel);
+        GUILayout.Label(FYAssetSettings.Instance.CollectorSettingPath, EditorStyles.wordWrappedMiniLabel);
         GUILayout.Space(10f);
         if (GUILayout.Button("Create CollectorSetting", GUILayout.Height(36f)))
             CreateSetting();
@@ -426,7 +426,7 @@ public class CollectorSettingPanel : IBuildPipelinePanel
     {
         CollectorDataMigrator.EnsureDataFolder();
         CollectorDataMigrator.MigrateFromLegacyPath();
-        _setting = AssetDatabase.LoadAssetAtPath<CollectorSetting>(FYAssetConstants.COLLECTOR_SETTING_ASSET_PATH);
+        _setting = AssetDatabase.LoadAssetAtPath<CollectorSetting>(FYAssetSettings.Instance.CollectorSettingPath);
         _so = _setting != null ? new SerializedObject(_setting) : null;
         EnsureSelection();
     }
@@ -435,7 +435,7 @@ public class CollectorSettingPanel : IBuildPipelinePanel
     {
         CollectorDataMigrator.EnsureDataFolder();
         CollectorSetting asset = ScriptableObject.CreateInstance<CollectorSetting>();
-        AssetDatabase.CreateAsset(asset, FYAssetConstants.COLLECTOR_SETTING_ASSET_PATH);
+        AssetDatabase.CreateAsset(asset, FYAssetSettings.Instance.CollectorSettingPath);
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
         CollectorReverseIndex.Instance.MarkDirty();
@@ -493,10 +493,10 @@ public class CollectorSettingPanel : IBuildPipelinePanel
         collectorProp.FindPropertyRelative("CollectPathType").enumValueIndex = isFile ? (int)ECollectPathType.File : (int)ECollectPathType.Folder;
         collectorProp.FindPropertyRelative("CollectorType").enumValueIndex = (int)ECollectorType.Main;
         collectorProp.FindPropertyRelative("ForcePayloadKind").enumValueIndex = (int)EForcePayloadKind.Auto;
-        collectorProp.FindPropertyRelative("AddressRuleName").stringValue = FYAssetConstants.RULE_ADDRESS_BY_FILE_NAME;
-        collectorProp.FindPropertyRelative("PackRuleName").stringValue = isFile ? FYAssetConstants.RULE_PACK_SEPARATELY : FYAssetConstants.RULE_PACK_BY_DIRECTORY;
-        collectorProp.FindPropertyRelative("FilterRuleName").stringValue = FYAssetConstants.RULE_COLLECT_ALL;
-        collectorProp.FindPropertyRelative("GroupRuleName").stringValue = FYAssetConstants.RULE_GROUP_ALL;
+        collectorProp.FindPropertyRelative("AddressRuleName").stringValue = FYAssetSettings.RULE_ADDRESS_BY_FILE_NAME;
+        collectorProp.FindPropertyRelative("PackRuleName").stringValue = isFile ? FYAssetSettings.RULE_PACK_SEPARATELY : FYAssetSettings.RULE_PACK_BY_DIRECTORY;
+        collectorProp.FindPropertyRelative("FilterRuleName").stringValue = FYAssetSettings.RULE_COLLECT_ALL;
+        collectorProp.FindPropertyRelative("GroupRuleName").stringValue = FYAssetSettings.RULE_GROUP_ALL;
         collectorProp.FindPropertyRelative("Labels").arraySize = 0;
         collectorProp.FindPropertyRelative("IgnorePatterns").arraySize = 0;
         _selectedCollectorIndex = index;

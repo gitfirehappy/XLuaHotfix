@@ -13,9 +13,9 @@ using UnityEngine;
 /// </summary>
 public class HelperBuildDataExporter
 {
-    private const string _groupName = FYAssetConstants.HELPER_BUILD_DATA_GROUP_NAME;
-    private const string _labelsConfigAssetPath = FYAssetConstants.AA_LABELS_CONFIG_ASSETPATH;
-    private const string _luaScriptsIndexAssetPath = FYAssetConstants.LUA_SCRIPTS_INDEX_ASSETPATH;
+    private const string _groupName = FYAssetSettings.HELPER_BUILD_DATA_GROUP_NAME;
+    private const string _labelsConfigAssetPath = "Assets/Build/HelperBuildData/AddressableLabelsConfig.asset";
+    private const string _luaScriptsIndexAssetPath = "Assets/Build/HelperBuildData/LuaScriptsIndex.asset";
     
     /// <summary>
     /// 总导出入口
@@ -33,10 +33,10 @@ public class HelperBuildDataExporter
         var group = GetOrCreateGroup(settings, _groupName);
         
         ExportLuaScriptsIndex();
-        EnsureAssetInGroup(settings, group, _luaScriptsIndexAssetPath, FYAssetConstants.LUA_SCRIPTS_INDEX, FYAssetConstants.LUA_SCRIPTS_INDEX);
+        EnsureAssetInGroup(settings, group, _luaScriptsIndexAssetPath, FYAssetSettings.LUA_SCRIPTS_INDEX, FYAssetSettings.LUA_SCRIPTS_INDEX);
 
         GetOrCreateAsset<AddressableLabelsConfig>(_labelsConfigAssetPath);
-        EnsureAssetInGroup(settings, group, _labelsConfigAssetPath, FYAssetConstants.AA_LABELS_CONFIG, FYAssetConstants.AA_LABELS_CONFIG);
+        EnsureAssetInGroup(settings, group, _labelsConfigAssetPath, FYAssetSettings.AA_LABELS_CONFIG, FYAssetSettings.AA_LABELS_CONFIG);
         
         ExportAddressableLabels();
         EditorUtility.SetDirty(settings);

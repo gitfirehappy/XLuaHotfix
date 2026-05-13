@@ -169,7 +169,7 @@ public class LegacyAddressableBuildBackend : IBuildBackend
                 EditorUtility.SetDirty(group);
             }
 
-            if (group.Name == FYAssetConstants.HELPER_BUILD_DATA_GROUP_NAME)
+            if (group.Name == FYAssetSettings.HELPER_BUILD_DATA_GROUP_NAME)
                 SetSchemaPathToRemote(settings, schema);
         }
 

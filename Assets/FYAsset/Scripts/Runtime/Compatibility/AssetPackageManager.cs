@@ -33,7 +33,7 @@ public class AssetPackageManager : Singleton<AssetPackageManager>
         _typeToKeys.Clear();
         _addressSet.Clear();
 
-        if (FYAssetConstants.USE_AB_BACKEND)
+        if (FYAssetSettings.Instance.UseABBackend)
             await InitializeWithABIndex();
         else
             await InitializeWithLegacyIndex();
@@ -83,13 +83,13 @@ public class AssetPackageManager : Singleton<AssetPackageManager>
     private async Task InitializeWithLegacyIndex()
     {
         AsyncOperationHandle<AddressableLabelsConfig> handle =
-            Addressables.LoadAssetAsync<AddressableLabelsConfig>(FYAssetConstants.AA_LABELS_CONFIG);
+            Addressables.LoadAssetAsync<AddressableLabelsConfig>(FYAssetSettings.AA_LABELS_CONFIG);
 
         var config = await handle.Task;
 
         if (handle.Status != AsyncOperationStatus.Succeeded || config == null)
         {
-            Debug.LogError($"[AssetPackageManager] 关键配置加载失败: {FYAssetConstants.AA_LABELS_CONFIG}。管理器无法初始化。");
+            Debug.LogError($"[AssetPackageManager] 关键配置加载失败: {FYAssetSettings.AA_LABELS_CONFIG}。管理器无法初始化。");
             return;
         }
 
@@ -222,7 +222,7 @@ public class AssetPackageManager : Singleton<AssetPackageManager>
 
         var (asset, error) = await _backend.LoadAssetAsync<T>(key);
         if (error != null)
-            Debug.LogError(error.ToString());
+            LogRuntimeMessage(error);
         return asset;
     }
 
@@ -237,7 +237,7 @@ public class AssetPackageManager : Singleton<AssetPackageManager>
         var keys = GetKeysByLabel(label);
         if (keys.Count == 0)
         {
-            Debug.LogError($"[AssetPackageManager] 找不到标签: {label}");
+            Debug.LogWarning($"[AssetPackageManager] 找不到标签: {label}");
             return new List<T>();
         }
 
@@ -315,7 +315,7 @@ public class AssetPackageManager : Singleton<AssetPackageManager>
 
         var (asset, error) = _backend.LoadAssetSync<T>(key);
         if (error != null)
-            Debug.LogError(error.ToString());
+            LogRuntimeMessage(error);
         return asset;
     }
 
@@ -490,4 +490,15 @@ public class AssetPackageManager : Singleton<AssetPackageManager>
     }
 
     #endregion
+
+    private static void LogRuntimeMessage(RuntimeMessage message)
+    {
+        if (message == null)
+            return;
+
+        if (message.Severity == RuntimeSeverity.Warning)
+            Debug.LogWarning(message.ToString());
+        else
+            Debug.LogError(message.ToString());
+    }
 }

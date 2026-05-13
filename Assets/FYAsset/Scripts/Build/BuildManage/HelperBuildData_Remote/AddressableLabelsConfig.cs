@@ -8,7 +8,7 @@ using UnityEngine.Serialization;
 /// <summary>
 /// 构建期导出的 AA 条目配置
 /// </summary>
-public class AddressableLabelsConfig : ScriptableObject, IAssetIndex
+public class AddressableLabelsConfig : ScriptableObject
 {
     public List<PackageEntry> allEntries = new();   // 作用：查询
     

@@ -18,10 +18,10 @@ public class ABBuildBackend : IBuildBackend
 
     public Task<BuildBackendResult> BuildAsync(VersionNumber version, BuildType buildType)
     {
-        var config = AssetDatabase.LoadAssetAtPath<BuildPipelineConfig>(FYAssetConstants.PIPELINE_CONFIG_ASSET_PATH);
+        var config = AssetDatabase.LoadAssetAtPath<BuildPipelineConfig>(FYAssetSettings.Instance.PipelineConfigPath);
         if (config == null)
         {
-            Debug.LogError($"[ABBuildBackend] 未找到 BuildPipelineConfig: {FYAssetConstants.PIPELINE_CONFIG_ASSET_PATH}");
+            Debug.LogError($"[ABBuildBackend] 未找到 BuildPipelineConfig: {FYAssetSettings.Instance.PipelineConfigPath}");
             return Task.FromResult(BuildBackendResult.Fail(
                 BuildMessage.Error(BuildErrorCodes.SettingNull, "BuildPipelineConfig not found.", "ABBuildBackend")));
         }
@@ -76,7 +76,7 @@ public class ABBuildBackend : IBuildBackend
         }
 
         CopyFileIfExists(Path.Combine(_pipelineOutputDir, "build_summary.txt"), Path.Combine(outputDir, "build_summary.txt"));
-        CopyFileIfExists(Path.Combine(_pipelineOutputDir, FYAssetConstants.MANIFEST_FILE_NAME), Path.Combine(outputDir, FYAssetConstants.MANIFEST_FILE_NAME));
+        CopyFileIfExists(Path.Combine(_pipelineOutputDir, FYAssetSettings.MANIFEST_FILE_NAME), Path.Combine(outputDir, FYAssetSettings.MANIFEST_FILE_NAME));
 
         Debug.Log($"[ABBuildBackend] Output organized: {outputDir}, assets: {_manifest.AssetEntries.Count}, bundles: {_manifest.BundleEntries.Count}");
     }
@@ -86,7 +86,7 @@ public class ABBuildBackend : IBuildBackend
         if (_manifest == null)
             throw new InvalidOperationException("AB manifest is not ready. Call BuildAsync first.");
 
-        string manifestPath = Path.Combine(outputDir, FYAssetConstants.MANIFEST_FILE_NAME);
+        string manifestPath = Path.Combine(outputDir, FYAssetSettings.MANIFEST_FILE_NAME);
         if (!FileHelper.Exists(manifestPath))
         {
             if (!FileHelper.DirectoryExists(outputDir))

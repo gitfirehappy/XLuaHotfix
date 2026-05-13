@@ -29,19 +29,19 @@ public sealed class BuildPipelineWindow : EditorWindow
     private Rect _contentRect;
     private Rect _contentInnerRect;
 
-    // Sidebar groups in build-pipeline order
+    // 侧边栏分组：SETTINGS → AB PIPELINE → MANAGE
     private static readonly SidebarGroup[] Groups = new[]
     {
-        new SidebarGroup { Label = "COLLECT", StartIndex = 0, Count = 2 },
-        new SidebarGroup { Label = "BUILD",   StartIndex = 2, Count = 2 },
-        new SidebarGroup { Label = "MANAGE",  StartIndex = 4, Count = 1 },
+        new SidebarGroup { Label = "SETTINGS",    StartIndex = 0, Count = 1 },
+        new SidebarGroup { Label = "AB PIPELINE", StartIndex = 1, Count = 4 },
+        new SidebarGroup { Label = "MANAGE",      StartIndex = 5, Count = 1 },
     };
 
     #endregion
 
     #region Menu
 
-    [MenuItem(FYAssetConstants.BUILD_PIPELINE_WINDOW_MENU_PATH)]
+    [MenuItem(FYAssetSettings.BUILD_PIPELINE_WINDOW_MENU_PATH)]
     private static void Open()
     {
         BuildPipelineWindow window = GetWindow<BuildPipelineWindow>();
@@ -127,11 +127,20 @@ public sealed class BuildPipelineWindow : EditorWindow
         {
             DrawGroupHeader(group.Label);
 
+            bool isAbGroup = group.Label == "AB PIPELINE";
+            bool abEnabled = FYAssetSettings.Instance.UseABBackend;
+            bool prevEnabled = GUI.enabled;
+            if (isAbGroup && !abEnabled)
+                GUI.enabled = false;
+
             for (int i = group.StartIndex; i < group.StartIndex + group.Count; i++)
             {
                 if (_panels == null || i >= _panels.Length) continue;
                 DrawPanelButton(i, _panels[i].PanelName);
             }
+
+            if (isAbGroup && !abEnabled)
+                GUI.enabled = prevEnabled;
 
             GUILayout.Space(6);
         }
@@ -208,8 +217,30 @@ public sealed class BuildPipelineWindow : EditorWindow
 
     private void DrawContent()
     {
-        if (_panels != null && _activePanelIndex >= 0 && _activePanelIndex < _panels.Length)
+        if (_panels == null || _activePanelIndex < 0 || _activePanelIndex >= _panels.Length)
+            return;
+
+        // AB PIPELINE 面板（索引 1-4）在 UseABBackend=false 时灰显并显示提示条
+        bool isAbPanel = _activePanelIndex >= 1 && _activePanelIndex <= 4;
+        bool abEnabled = FYAssetSettings.Instance.UseABBackend;
+
+        if (isAbPanel && !abEnabled)
+        {
+            Rect hintRect = new Rect(_contentInnerRect.x, _contentInnerRect.y, _contentInnerRect.width, 28f);
+            EditorGUI.DrawRect(hintRect, new Color(0.6f, 0.4f, 0.1f, 0.25f));
+            GUI.Label(hintRect, "  AB Backend is disabled. Enable UseABBackend in Settings to edit.", EditorStyles.miniLabel);
+
+            Rect panelRect = new Rect(_contentInnerRect.x, _contentInnerRect.y + 30f,
+                _contentInnerRect.width, Mathf.Max(0f, _contentInnerRect.height - 30f));
+            bool prev = GUI.enabled;
+            GUI.enabled = false;
+            _panels[_activePanelIndex].OnGUI(panelRect);
+            GUI.enabled = prev;
+        }
+        else
+        {
             _panels[_activePanelIndex].OnGUI(_contentInnerRect);
+        }
     }
 
     #endregion
@@ -220,13 +251,14 @@ public sealed class BuildPipelineWindow : EditorWindow
     {
         _panels = new IBuildPipelinePanel[]
         {
-            // 采集阶段（索引 0-1）
+            // 设置（索引 0）
+            new SettingsPanel(),
+            // AB 管线（索引 1-4）
             new CollectorSettingPanel(),
             collectorPanel ?? new PlaceholderPanel("Collector"),
-            // 构建阶段（索引 2-3）
             new PipelinePanel(),
             new BuilderPanel(),
-            // 管理阶段（索引 4）
+            // 管理（索引 5）
             new VersionPanel(),
         };
 

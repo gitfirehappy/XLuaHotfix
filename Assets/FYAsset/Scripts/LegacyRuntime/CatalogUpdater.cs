@@ -19,7 +19,7 @@ public static class CatalogUpdater
     /// </summary>
     public static async Task<bool> LoadExternalCatalog(string catalogFullPath)
     {
-        if (!File.Exists(catalogFullPath))
+        if (!FileHelper.Exists(catalogFullPath))
         {
             Debug.LogError($"[CatalogUpdater] Catalog 文件不存在：{catalogFullPath}");
             return false;
@@ -82,7 +82,7 @@ public static class CatalogUpdater
                 string localPath = Path.Combine(PathManager.CurrentGUIDRoot, "bundles", fileName);
 
                 // 如果本地已有下载的包，则强制使用本地路径
-                if (File.Exists(localPath))
+                if (FileHelper.Exists(localPath))
                 {
                     // 必须转换为 URI 格式 (file://)，否则 Windows 平台下 AssetBundleProvider 创建 Uri 时会报 "Invalid port specified"
                     return new System.Uri(localPath).AbsoluteUri;

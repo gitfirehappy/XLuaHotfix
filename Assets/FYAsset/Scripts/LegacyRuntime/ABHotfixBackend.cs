@@ -47,21 +47,21 @@ public class ABHotfixBackend : IHotfixPipeline
     /// <inheritdoc/>
     public Task<HotfixVersionInfo> LoadLocalVersionAsync(string currentGUIDRoot)
     {
-        string manifestBinPath = Path.Combine(currentGUIDRoot, FYAssetConstants.MANIFEST_FILE_NAME_BIN);
-        string manifestJsonPath = Path.Combine(currentGUIDRoot, FYAssetConstants.MANIFEST_FILE_NAME);
+        string manifestBinPath = Path.Combine(currentGUIDRoot, FYAssetSettings.MANIFEST_FILE_NAME_BIN);
+        string manifestJsonPath = Path.Combine(currentGUIDRoot, FYAssetSettings.MANIFEST_FILE_NAME);
 
         try
         {
             ABManifest manifest = null;
 
             // 优先读取二进制格式（体积小、解析快）
-            if (File.Exists(manifestBinPath))
+            if (FileHelper.Exists(manifestBinPath))
             {
                 manifest = ABManifest.DeserializeFromFile(manifestBinPath);
                 Debug.Log($"[ABHotfixBackend] 从本地二进制清单加载版本: {manifest.PackageVersion?.GetVersionString()}");
             }
             // 回退到 JSON 格式
-            else if (File.Exists(manifestJsonPath))
+            else if (FileHelper.Exists(manifestJsonPath))
             {
                 manifest = ABManifest.DeserializeFromFile(manifestJsonPath);
                 Debug.Log($"[ABHotfixBackend] 从本地 JSON 清单加载版本: {manifest.PackageVersion?.GetVersionString()}");
@@ -80,14 +80,14 @@ public class ABHotfixBackend : IHotfixPipeline
     public async Task<HotfixVersionInfo> FetchRemoteVersionAsync(string remoteUrlRoot)
     {
         // 优先下载二进制格式
-        string manifestBinUrl = $"{remoteUrlRoot}/{FYAssetConstants.MANIFEST_FILE_NAME_BIN}";
+        string manifestBinUrl = $"{remoteUrlRoot}/{FYAssetSettings.MANIFEST_FILE_NAME_BIN}";
         _remoteManifestData = await NetworkDownloader.DownloadBytes(manifestBinUrl);
         _remoteManifestIsBinary = _remoteManifestData != null && _remoteManifestData.Length > 0;
 
         // 二进制下载失败，回退到 JSON 格式
         if (!_remoteManifestIsBinary)
         {
-            string manifestJsonUrl = $"{remoteUrlRoot}/{FYAssetConstants.MANIFEST_FILE_NAME}";
+            string manifestJsonUrl = $"{remoteUrlRoot}/{FYAssetSettings.MANIFEST_FILE_NAME}";
             string manifestJson = await NetworkDownloader.DownloadText(manifestJsonUrl);
             if (string.IsNullOrEmpty(manifestJson))
                 return null;
@@ -127,17 +127,16 @@ public class ABHotfixBackend : IHotfixPipeline
         }
 
         // 根据下载格式确定写入文件名
-        string fileName = _remoteManifestIsBinary ? FYAssetConstants.MANIFEST_FILE_NAME_BIN : FYAssetConstants.MANIFEST_FILE_NAME;
+        string fileName = _remoteManifestIsBinary ? FYAssetSettings.MANIFEST_FILE_NAME_BIN : FYAssetSettings.MANIFEST_FILE_NAME;
         string filePath = Path.Combine(ctx.TargetGUIDRoot, fileName);
 
         // 删除异格式旧文件（避免残留）
-        string alternateFileName = _remoteManifestIsBinary ? FYAssetConstants.MANIFEST_FILE_NAME : FYAssetConstants.MANIFEST_FILE_NAME_BIN;
+        string alternateFileName = _remoteManifestIsBinary ? FYAssetSettings.MANIFEST_FILE_NAME : FYAssetSettings.MANIFEST_FILE_NAME_BIN;
         string alternateFilePath = Path.Combine(ctx.TargetGUIDRoot, alternateFileName);
 
         try
         {
-            if (File.Exists(alternateFilePath))
-                File.Delete(alternateFilePath);
+            FileHelper.TryDelete(alternateFilePath);
 
             FileHelper.WriteAllBytesAtomic(filePath, _remoteManifestData);
             Debug.Log($"[ABHotfixBackend] 已写入热更清单: {filePath}");

@@ -113,7 +113,6 @@
     <Compile Include="Assets\FYAsset\Scripts\Build\AssetConflictRules.cs" />
     <Compile Include="Assets\FYAsset\Scripts\Helpers\PathManager.cs" />
     <Compile Include="Assets\XLua\Gen\UnityEngine_MonoBehaviourWrap.cs" />
-    <Compile Include="Assets\FYAsset\Scripts\LegacyRuntime\HotfixStepResult.cs" />
     <Compile Include="Assets\FYAsset\Scripts\LegacyRuntime\IHotfixPipeline.cs" />
     <Compile Include="Assets\FYAsset\Scripts\Build\BuildManage\HelperBuildData_Remote\PackageEntry.cs" />
     <Compile Include="Assets\UI\Scripts\UI\BasicTemplate\UIFormConfigSO.cs" />
@@ -174,6 +173,7 @@
     <Compile Include="Assets\Tools\Scripts\ConfigConvertTool\Reader\IConfigReader.cs" />
     <Compile Include="Assets\FYAsset\Scripts\Runtime\Models\RuntimeAssetEntry.cs" />
     <Compile Include="Assets\XLuaFramework\Scripts\Bridge\Utils\LuaScriptConfig.cs" />
+    <Compile Include="Assets\FYAsset\Scripts\FYAssetSettings.cs" />
     <Compile Include="Assets\Test\EventCentreTester.cs" />
     <Compile Include="Assets\XLuaFramework\Scripts\Bridge\Utils\IBridge.cs" />
     <Compile Include="Assets\Tools\Scripts\Serialization\Generated\ManifestBundleEntry_BinarySerializer.cs" />
@@ -181,7 +181,6 @@
     <Compile Include="Assets\XLuaFramework\Scripts\LabelBatchManagement\TypeMemberListSO.cs" />
     <Compile Include="Assets\XLuaFramework\Scripts\LuaDataBase.cs" />
     <Compile Include="Assets\XLuaFramework\Scripts\Bridge\Anime\AnimBridge.cs" />
-    <Compile Include="Assets\FYAsset\Scripts\FYAssetConstants.cs" />
     <Compile Include="Assets\XLuaFramework\Scripts\Bridge\Collision2DBridge.cs" />
     <Compile Include="Assets\XLuaFramework\Scripts\XLuaLoader\XLuaLoader.cs" />
     <Compile Include="Assets\XLua\Src\StaticLuaCallbacks.cs" />
@@ -222,6 +221,7 @@
     <Compile Include="Assets\FYAsset\Scripts\Build\AssetAddressGenerator.cs" />
     <Compile Include="Assets\XLuaFramework\Scripts\Bridge\ScriptObjectBridgeConfig.cs" />
     <Compile Include="Assets\XLua\Src\ObjectTranslatorPool.cs" />
+    <Compile Include="Assets\FYAsset\Scripts\LegacyRuntime\HotfixStepResult.cs" />
     <Compile Include="Assets\XLua\Gen\UnityEngine_ObjectWrap.cs" />
     <Compile Include="Assets\XLua\Src\ObjectTranslator.cs" />
     <Compile Include="Assets\FYAsset\Scripts\Interfaces\IAssetIndex.cs" />

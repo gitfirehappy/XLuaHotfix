@@ -63,6 +63,7 @@
     <Compile Include="Assets\FYAsset\Scripts\Build\Pipeline\Editor\Tasks\TaskVerifyBuildResult.cs" />
     <Compile Include="Assets\XLuaFramework\Scripts\LogSystem\Editor\LogViewerWindow.cs" />
     <Compile Include="Assets\FYAsset\Scripts\Build\Pipeline\Editor\Tasks\TaskPrepareContext.cs" />
+    <Compile Include="Assets\FYAsset\Scripts\Build\BuildManage\Editor\BuildBackendResult.cs" />
     <Compile Include="Assets\FYAsset\Scripts\Build\Collector\Editor\CollectedAssetInfo.cs" />
     <Compile Include="Assets\FYAsset\Scripts\Build\Collector\Editor\UI\CollectorPropertyPanel.cs" />
     <Compile Include="Assets\XLuaFramework\Scripts\Editor\Tools\AssetImportPipeline\Rules\LuaImporterRule.cs" />
@@ -81,7 +82,6 @@
     <Compile Include="Assets\XLuaFramework\Scripts\Editor\LuaFileCreatorWithName.cs" />
     <Compile Include="Assets\XLuaFramework\Scripts\Editor\Tools\AssetImportPipeline\Rules\UITextureImportRule.cs" />
     <Compile Include="Assets\Tools\Scripts\Serialization\Editor\BinarySerializerPrebuildCheck.cs" />
-    <Compile Include="Assets\FYAsset\Scripts\Build\BuildManage\Editor\BuildBackendResult.cs" />
     <Compile Include="Assets\FYAsset\Scripts\Build\BuildManage\Editor\IBuildBackend.cs" />
     <Compile Include="Assets\XLua\Src\Editor\Generator.cs" />
     <Compile Include="Assets\FYAsset\Scripts\Build\Editor\PipelinePanel.cs" />
@@ -103,6 +103,7 @@
     <Compile Include="Assets\FYAsset\Scripts\Build\Pipeline\Editor\Tasks\TaskBuildBundles.cs" />
     <Compile Include="Assets\FYAsset\Scripts\Build\Collector\Editor\Rules\PackByLabel.cs" />
     <Compile Include="Assets\FYAsset\Scripts\Build\BuildManage\Editor\BuildCommandLine.cs" />
+    <Compile Include="Assets\FYAsset\Scripts\Build\Editor\SettingsPanel.cs" />
     <Compile Include="Assets\XLuaFramework\Scripts\LabelBatchManagement\Editor\MemberSelectionWindow.cs" />
     <Compile Include="Assets\FYAsset\Scripts\Build\Collector\Editor\UI\CollectorSettingInspector.cs" />
     <Compile Include="Assets\FYAsset\Scripts\Build\BuildManage\Editor\LocalStatusExporter.cs" />

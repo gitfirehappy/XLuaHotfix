@@ -376,8 +376,9 @@ public class ABPackageBackend : IPackageBackend
                 await AssetBundleRequestToTask(request);
                 asset = request.asset as T;
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                Debug.LogWarning($"[ABPackageBackend] 资源提取异常: EntryId={assetEntry.EntryId}, Bundle={bundleName}, Path={assetEntry.SourcePath}, Error={ex.Message}");
                 _bundleLoader.UnloadBundle(bundleName);
                 return (null, bundleName,
                     RuntimeMessage.AssetExtractionFailed(assetEntry.EntryId, assetEntry.SourcePath, bundleName));

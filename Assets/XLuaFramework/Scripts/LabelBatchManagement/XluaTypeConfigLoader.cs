@@ -12,7 +12,7 @@ using UnityEngine.ResourceManagement.AsyncOperations;
 public static class XluaTypeConfigLoader
 {
     // 地址标签，用于在Addressables中识别TypeListSO资产
-    private const string _defaultConfigLabel = FYAssetConstants.DEAULT_XLUA_TYPE_CONFIG_LOAD_LABEL;
+    private const string _defaultConfigLabel = FYAssetSettings.DEFAULT_XLUA_TYPE_CONFIG_LOAD_LABEL;
     
     // 类型级配置
     public static List<Type> HotfixTypes { get; private set; }

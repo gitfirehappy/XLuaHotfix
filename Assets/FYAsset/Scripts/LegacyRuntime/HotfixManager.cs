@@ -12,10 +12,8 @@ using UnityEngine.Networking;
 /// </summary>
 public static class HotfixManager
 {
-    private static readonly string _hotfixUrl = FYAssetConstants.HOTFIX_URL;
-    
-    // 固定下载 manifest 动态获取路径
-    private static readonly string _manifestUrl = $"{_hotfixUrl}manifest.json";
+    private static string HotfixUrl => FYAssetSettings.Instance.HotfixUrl;
+    private static string ManifestUrl => $"{HotfixUrl}manifest.json";
     
     /// <summary>
     /// 当热更步骤发生改变时触发
@@ -140,7 +138,7 @@ public static class HotfixManager
         BuildIndexData buildIndex = await LoadBuildIndexFromStreamingAssets();
         if (buildIndex == null)
         {
-            ReportError("[HotfixManager] 致命错误：无法加载 BuildIndex！");
+            ReportError("[HotfixManager] 致命错误：无法加载 BuildIndex。");
             return null;
         }
 
@@ -197,7 +195,7 @@ public static class HotfixManager
     private static async Task<bool> StepDownloadManifestAsync(HotfixContext ctx)
     {
         BeginStep("Download manifest", 2);
-        string manifestJson = await NetworkDownloader.DownloadText(_manifestUrl);
+        string manifestJson = await NetworkDownloader.DownloadText(ManifestUrl);
         if (string.IsNullOrEmpty(manifestJson))
         {
             ReportError("[HotfixManager] 无法获取manifest.json，使用本地资源运行。");
@@ -213,7 +211,7 @@ public static class HotfixManager
         }
         
         ctx.TargetPackageName = manifest.LatestPackage;
-        ctx.RemoteUrlRoot = $"{_hotfixUrl}/Packages/{ctx.TargetPackageName}";
+        ctx.RemoteUrlRoot = $"{HotfixUrl}/Packages/{ctx.TargetPackageName}";
         ctx.TargetGUIDRoot = Path.Combine(PathManager.HotfixRoot, ctx.TargetPackageName);
         
         Debug.Log($"[HotfixManager] 获取最新包体: {ctx.TargetPackageName}，URL已更新: {ctx.RemoteUrlRoot}");
@@ -263,8 +261,8 @@ public static class HotfixManager
             }
             else
             {
-                ReportError("[HotfixManager] 检测到整包版本不一致，请下载最新整包");
-                Debug.LogError($"[HotfixManager] 本地版本:{buildIndex.Version.GetVersionString()},远端版本:{remoteInfo.Version.GetVersionString()}");
+                ReportError(
+                    $"[HotfixManager] 检测到整包版本不一致，请下载最新整包。本地版本:{buildIndex.Version.GetVersionString()}, 远端版本:{remoteInfo.Version.GetVersionString()}");
                 return Task.FromResult(false);
             }
         }
@@ -487,7 +485,7 @@ public static class HotfixManager
             string aaCachePath = Path.Combine(Application.persistentDataPath, "com.unity.addressables");
             try
             {
-                if (Directory.Exists(aaCachePath))
+                if (FileHelper.DirectoryExists(aaCachePath))
                 {
                     FileHelper.TryDeleteDirectory(aaCachePath);
                 }
@@ -526,7 +524,7 @@ public static class HotfixManager
         }
         catch (Exception e)
         {
-            Debug.LogError($"[HotfixManager] 读取 BuildIndex 异常: {e.Message}");
+            Debug.LogWarning($"[HotfixManager] 读取 BuildIndex 失败: {e.Message}");
             return null;
         }
     }
@@ -536,7 +534,7 @@ public static class HotfixManager
     /// </summary>
     private static IHotfixPipeline CreatePipeline()
     {
-        return FYAssetConstants.USE_AB_BACKEND
+        return FYAssetSettings.Instance.UseABBackend
             ? new ABHotfixBackend()
             : new LegacyHotfixBackend();
     }

@@ -9,9 +9,9 @@ using UnityEngine;
 /// </summary>
 public static class LocalStatusExporter
 {
-    private const string BUILD_INDEX_FILENAME = FYAssetConstants.BUILD_INDEX_FILENAME;
-    private const string MANIFEST_FILENAME_JSON = FYAssetConstants.MANIFEST_FILE_NAME;
-    private const string MANIFEST_FILENAME_BIN = FYAssetConstants.MANIFEST_FILE_NAME_BIN;
+    private const string BUILD_INDEX_FILENAME = FYAssetSettings.BUILD_INDEX_FILENAME;
+    private const string MANIFEST_FILENAME_JSON = FYAssetSettings.MANIFEST_FILE_NAME;
+    private const string MANIFEST_FILENAME_BIN = FYAssetSettings.MANIFEST_FILE_NAME_BIN;
 
     private static bool ExportBinaryManifest = true;
 
@@ -53,7 +53,7 @@ public static class LocalStatusExporter
 
         SerializationUtility.WriteToFile(BuildIndexStreamingPath, buildIndexData);
         
-        string projectPath = FYAssetConstants.BUILD_INDEX_JSON_PROJECT_PATH;
+        string projectPath = FYAssetSettings.Instance.BuildIndexJsonPath;
         string projectDir = Path.GetDirectoryName(projectPath);
         if (!Directory.Exists(projectDir))
         {

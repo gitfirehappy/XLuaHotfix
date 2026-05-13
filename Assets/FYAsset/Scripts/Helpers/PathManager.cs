@@ -8,7 +8,7 @@ using UnityEngine;
 /// </summary>
 public static class PathManager
 {
-    public static readonly string PersistentRoot = Path.Combine(Application.persistentDataPath, FYAssetConstants.PROJECTNAME);
+    public static string PersistentRoot => Path.Combine(Application.persistentDataPath, FYAssetSettings.Instance.ProjectName);
     
     // 运行时动态决定的路径
     public static string EnvRoot { get; private set; }    // .../[Platform]/[Debug]
@@ -73,13 +73,13 @@ public static class PathManager
 
     public static void EnsureDirectories()
     {
-        Directory.CreateDirectory(PersistentRoot);
-        Directory.CreateDirectory(HotfixRoot);
-        Directory.CreateDirectory(CurrentGUIDRoot); 
+        FileHelper.EnsureDirectory(PersistentRoot);
+        FileHelper.EnsureDirectory(HotfixRoot);
+        FileHelper.EnsureDirectory(CurrentGUIDRoot);
         // Bundles 目录由下载逻辑创建，或者是 Build 流程生成
         
-        Directory.CreateDirectory(CacheRoot);
-        Directory.CreateDirectory(SaveRoot);
-        Directory.CreateDirectory(LogRoot);
+        FileHelper.EnsureDirectory(CacheRoot);
+        FileHelper.EnsureDirectory(SaveRoot);
+        FileHelper.EnsureDirectory(LogRoot);
     }
 }

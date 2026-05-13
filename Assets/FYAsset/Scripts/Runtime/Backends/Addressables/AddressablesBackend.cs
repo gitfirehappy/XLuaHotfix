@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using UnityEngine;
@@ -59,7 +58,6 @@ public class AddressablesBackend : IPackageBackend
             return (result, null);
         }
 
-        Debug.LogError($"[AddressablesBackend] 同步加载失败: {key}");
         Addressables.Release(handle);
         return (null, RuntimeMessage.LoadFailed(key, $"[AddressablesBackend] 同步加载失败: {key}"));
     }
