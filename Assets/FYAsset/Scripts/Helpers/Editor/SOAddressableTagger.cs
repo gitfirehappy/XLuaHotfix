@@ -8,7 +8,7 @@ using UnityEngine;
 
 public class SOAddressableTagger : EditorWindow
 {
-    private ScriptObjectDataBse _soDatabase;
+    private ScriptObjectDataBase _soDatabase;
     private List<ScriptObjectContainer> _additionalContainers = new();
     private Vector2 _scrollPos;
     private Dictionary<ScriptObjectContainer, bool> _containerFoldouts = new();
@@ -29,10 +29,10 @@ public class SOAddressableTagger : EditorWindow
 
         // 数据库选择
         EditorGUILayout.BeginHorizontal();
-        _soDatabase = (ScriptObjectDataBse)EditorGUILayout.ObjectField(
+        _soDatabase = (ScriptObjectDataBase)EditorGUILayout.ObjectField(
             "SO数据库",
             _soDatabase,
-            typeof(ScriptObjectDataBse),
+            typeof(ScriptObjectDataBase),
             false
         );
 
@@ -271,7 +271,7 @@ public class SOAddressableTagger : EditorWindow
 
         if (!string.IsNullOrEmpty(path))
         {
-            ScriptObjectDataBse newDatabase = CreateInstance<ScriptObjectDataBse>();
+            ScriptObjectDataBase newDatabase = CreateInstance<ScriptObjectDataBase>();
             AssetDatabase.CreateAsset(newDatabase, path);
             AssetDatabase.SaveAssets();
             _soDatabase = newDatabase;

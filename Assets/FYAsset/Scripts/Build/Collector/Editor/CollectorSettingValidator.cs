@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using UnityEngine;
 
 /// <summary>
 /// CollectorSetting 保存时校验器 —— 9 条规则，返回 BuildMessage 列表。
@@ -20,7 +21,7 @@ public static class CollectorSettingValidator
             return messages;
         }
 
-        // 1. Duplicate PackageName
+        // 1. 重复的 PackageName
         HashSet<string> seenPkg = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         for (int pi = 0; pi < setting.Packages.Count; pi++)
         {
@@ -29,14 +30,14 @@ public static class CollectorSettingValidator
 
             string pkgSrc = string.Concat("Package[", pi, "]");
 
-            // 1a. Empty PackageName
+            // 1a. 空的 PackageName
             if (string.IsNullOrEmpty(pkg.PackageName))
             {
                 messages.Add(BuildMessage.EmptyPackageName(pkgSrc));
             }
             else if (!seenPkg.Add(pkg.PackageName))
             {
-                // 8. Duplicate PackageName
+                // 8. 重复的 PackageName
                 messages.Add(BuildMessage.DuplicatePackageName(pkg.PackageName, pkgSrc));
             }
 
@@ -72,14 +73,14 @@ public static class CollectorSettingValidator
 
             string grpSrc = string.Concat("Package[", pkgIdx, "].Group[", gi, "]");
 
-            // 2. Empty GroupName
+            // 2. 空的 GroupName
             if (string.IsNullOrEmpty(grp.GroupName))
             {
                 messages.Add(BuildMessage.EmptyGroupName(grpSrc));
             }
             else if (!seenGrp.Add(grp.GroupName))
             {
-                // 9. Duplicate GroupName
+                // 9. 重复的 GroupName
                 messages.Add(BuildMessage.DuplicateGroupName(grp.GroupName, pkg.PackageName, grpSrc));
             }
 
@@ -93,24 +94,24 @@ public static class CollectorSettingValidator
 
                 string colSrc = string.Concat("Package[", pkgIdx, "].Group[", gi, "].Collector[", ci, "]");
 
-                // 3. Empty CollectPath
+                // 3. 空的 CollectPath
                 if (string.IsNullOrEmpty(col.CollectPath))
                 {
                     messages.Add(BuildMessage.EmptyCollectPath(colSrc));
                 }
                 else
                 {
-                    string normalized = NormalizePath(col.CollectPath);
+                    string normalized = CollectorPathUtility.NormalizePath(col.CollectPath);
                     allCollectPaths.Add((normalized, colSrc));
 
-                    // 4. Path not found
+                    // 4. 路径未找到
                     if (!CollectPathExists(col))
                     {
                         messages.Add(BuildMessage.PathNotFound(col.CollectPath, colSrc));
                     }
                 }
 
-                // 7. Rule class name cannot be resolved
+                // 7. 规则类名无法解析
                 ValidateRule(col.AddressRuleName, "AddressRule", colSrc, messages);
                 ValidateRule(col.PackRuleName, "PackRule", colSrc, messages);
                 ValidateRule(col.FilterRuleName, "FilterRule", colSrc, messages);
@@ -118,7 +119,7 @@ public static class CollectorSettingValidator
             }
         }
 
-        // 6. Same-depth same-path within Package
+        // 6. Package 内同深度同路径冲突
         CheckSameDepthConflicts(allCollectPaths, pkg.PackageName ?? "(unnamed)", messages);
     }
 
@@ -146,7 +147,7 @@ public static class CollectorSettingValidator
                     if (col == null || string.IsNullOrEmpty(col.CollectPath)) continue;
 
                     string src = string.Concat("Package[", pi, "].Group[", gi, "].Collector[", ci, "]");
-                    all.Add((NormalizePath(col.CollectPath), pkg.PackageName, src));
+                    all.Add((CollectorPathUtility.NormalizePath(col.CollectPath), pkg.PackageName, src));
                 }
             }
         }
@@ -166,11 +167,11 @@ public static class CollectorSettingValidator
                     messages.Add(BuildMessage.CrossPackageOverlap(pathI, pkgI, pkgJ, srcI));
                 }
 
-                if (IsPathContained(pathI, pathJ))
+                if (CollectorPathUtility.IsPathContained(pathI, pathJ))
                 {
                     messages.Add(BuildMessage.CrossPackageContainment(pathI, pkgI, pathJ, pkgJ, srcI));
                 }
-                if (IsPathContained(pathJ, pathI))
+                if (CollectorPathUtility.IsPathContained(pathJ, pathI))
                 {
                     messages.Add(BuildMessage.CrossPackageContainment(pathJ, pkgJ, pathI, pkgI, srcJ));
                 }
@@ -213,8 +214,9 @@ public static class CollectorSettingValidator
                 messages.Add(BuildMessage.RuleNotFound(className, source));
             }
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            Debug.LogWarning($"[CollectorSettingValidator] 规则解析失败: {ruleType}={className}, Source={source}, Error={ex.Message}");
             messages.Add(BuildMessage.RuleNotFound(className, source));
         }
     }
@@ -239,22 +241,6 @@ public static class CollectorSettingValidator
     #endregion
 
     #region Private — Path Utilities
-
-    private static string NormalizePath(string path)
-    {
-        if (string.IsNullOrEmpty(path)) return string.Empty;
-        return path.Replace('\\', '/').TrimEnd('/');
-    }
-
-    private static bool IsPathContained(string parent, string child)
-    {
-        if (string.Equals(parent, child, StringComparison.OrdinalIgnoreCase)) return true;
-        if (child.Length > parent.Length &&
-            child[parent.Length] == '/' &&
-            child.StartsWith(parent, StringComparison.OrdinalIgnoreCase))
-            return true;
-        return false;
-    }
 
     private static bool CollectPathExists(Collector collector)
     {

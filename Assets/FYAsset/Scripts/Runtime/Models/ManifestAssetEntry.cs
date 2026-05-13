@@ -88,15 +88,16 @@ public class ManifestAssetEntry
     /// </summary>
     public RuntimeAssetEntry ToRuntimeEntry()
     {
-        return new RuntimeAssetEntry
+        var entry = new RuntimeAssetEntry
         {
             EntryId = EntryId,
             Address = Address,
             PrimaryType = PrimaryType,
-            Labels = new List<string>(Labels),
             SourcePath = SourcePath,
             Group = Group,
             AutoAddress = AutoAddress
         };
+        entry.SetLabels(Labels);
+        return entry;
     }
 }

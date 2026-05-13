@@ -169,7 +169,7 @@ public static class DependencyAnalyzer
                     // 判断归属
                     if (ownedGUIDs.TryGetValue(depGuid, out var ownedAsset))
                     {
-                        // Owned → 记录 Bundle 边（排除同 Bundle）
+                        // 已归属 → 记录 Bundle 边（排除同 Bundle）
                         if (asset.BundleName != ownedAsset.BundleName)
                         {
                             string depType = AssetDatabase.GetMainAssetTypeAtPath(dep)?.Name ?? "Unknown";
@@ -178,7 +178,7 @@ public static class DependencyAnalyzer
                         continue;
                     }
 
-                    // Unowned → 隐式依赖候选
+                    // 未归属 → 隐式依赖候选
                     if (!implicitCandidates.TryGetValue(depGuid, out var candidate))
                     {
                         string primaryType = AssetDatabase.GetMainAssetTypeAtPath(dep)?.Name ?? "Unknown";
@@ -186,7 +186,7 @@ public static class DependencyAnalyzer
                         {
                             AssetPath = dep,
                             PrimaryType = primaryType,
-                            PackageName = string.Empty // filled by caller
+                            PackageName = string.Empty // 由调用方填充
                         };
                         implicitCandidates[depGuid] = candidate;
                     }

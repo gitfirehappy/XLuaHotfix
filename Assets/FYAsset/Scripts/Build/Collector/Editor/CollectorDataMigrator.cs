@@ -11,7 +11,7 @@ public static class CollectorDataMigrator
     /// <summary>确保 CollectorData 目录存在。</summary>
     public static void EnsureDataFolder()
     {
-        EnsureFolder(FYAssetConstants.COLLECTOR_DATA_FOLDER);
+        EnsureFolder(FYAssetSettings.Instance.CollectorDataFolder);
     }
 
     /// <summary>
@@ -22,17 +22,17 @@ public static class CollectorDataMigrator
     {
         EnsureDataFolder();
 
-        if (AssetDatabase.LoadAssetAtPath<CollectorSetting>(FYAssetConstants.COLLECTOR_SETTING_ASSET_PATH) != null)
+        if (AssetDatabase.LoadAssetAtPath<CollectorSetting>(FYAssetSettings.Instance.CollectorSettingPath) != null)
             return;
 
         CollectorSetting legacyAsset = AssetDatabase.LoadAssetAtPath<CollectorSetting>(LegacyCollectorSettingAssetPath);
         if (legacyAsset == null)
             return;
 
-        string error = AssetDatabase.MoveAsset(LegacyCollectorSettingAssetPath, FYAssetConstants.COLLECTOR_SETTING_ASSET_PATH);
+        string error = AssetDatabase.MoveAsset(LegacyCollectorSettingAssetPath, FYAssetSettings.Instance.CollectorSettingPath);
         if (!string.IsNullOrEmpty(error))
         {
-            AssetDatabase.CopyAsset(LegacyCollectorSettingAssetPath, FYAssetConstants.COLLECTOR_SETTING_ASSET_PATH);
+            AssetDatabase.CopyAsset(LegacyCollectorSettingAssetPath, FYAssetSettings.Instance.CollectorSettingPath);
         }
 
         AssetDatabase.SaveAssets();

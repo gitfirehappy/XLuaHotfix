@@ -106,7 +106,7 @@ public static class RuleDropdownHelper
                     continue;
                 if (!interfaceType.IsAssignableFrom(type))
                     continue;
-                // Must have parameterless constructor
+                // 必须有无参构造函数
                 if (type.GetConstructor(Type.EmptyTypes) == null)
                     continue;
 

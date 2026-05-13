@@ -30,7 +30,7 @@ public class TaskBuildBundles : IBuildTask
 
         // 读取压缩配置
         var config = AssetDatabase.LoadAssetAtPath<BuildPipelineConfig>(
-            FYAssetConstants.PIPELINE_CONFIG_ASSET_PATH);
+            FYAssetSettings.Instance.PipelineConfigPath);
         BundleCompression compression = config != null
             ? config.BundleCompression
             : BundleCompression.LZ4;

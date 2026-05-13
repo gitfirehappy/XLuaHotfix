@@ -57,7 +57,7 @@ public static class CollectorContextMenu
                 : collector.CollectPathType == ECollectPathType.File;
             if (!isDirectMatch)
                 continue;
-            if (!string.Equals(NormalizePath(collector.CollectPath), assetPaths[i], StringComparison.OrdinalIgnoreCase))
+            if (!string.Equals(CollectorPathUtility.NormalizePath(collector.CollectPath), assetPaths[i], StringComparison.OrdinalIgnoreCase))
                 continue;
 
             CollectorGroup group = GetGroup(setting, collectorRef);
@@ -100,7 +100,7 @@ public static class CollectorContextMenu
                 : collector.CollectPathType == ECollectPathType.File;
             if (!isDirectMatch)
                 return false;
-            if (!string.Equals(NormalizePath(collector.CollectPath), assetPaths[i], StringComparison.OrdinalIgnoreCase))
+            if (!string.Equals(CollectorPathUtility.NormalizePath(collector.CollectPath), assetPaths[i], StringComparison.OrdinalIgnoreCase))
                 return false;
         }
 
@@ -113,7 +113,7 @@ public static class CollectorContextMenu
         string[] guids = Selection.assetGUIDs;
         for (int i = 0; i < guids.Length; i++)
         {
-            string assetPath = NormalizePath(AssetDatabase.GUIDToAssetPath(guids[i]));
+            string assetPath = CollectorPathUtility.NormalizePath(AssetDatabase.GUIDToAssetPath(guids[i]));
             if (string.IsNullOrEmpty(assetPath))
                 continue;
             if (!includeFolders && AssetDatabase.IsValidFolder(assetPath))
@@ -134,7 +134,7 @@ public static class CollectorContextMenu
     {
         CollectorDataMigrator.EnsureDataFolder();
         CollectorDataMigrator.MigrateFromLegacyPath();
-        return AssetDatabase.LoadAssetAtPath<CollectorSetting>(FYAssetConstants.COLLECTOR_SETTING_ASSET_PATH);
+        return AssetDatabase.LoadAssetAtPath<CollectorSetting>(FYAssetSettings.Instance.CollectorSettingPath);
     }
 
     private static Collector GetCollector(CollectorSetting setting, CollectorReverseIndex.CollectorRef collectorRef)
@@ -158,11 +158,4 @@ public static class CollectorContextMenu
         return package.Groups[collectorRef.GroupIndex];
     }
 
-    private static string NormalizePath(string path)
-    {
-        if (string.IsNullOrEmpty(path))
-            return string.Empty;
-
-        return path.Replace('\\', '/').TrimEnd('/');
-    }
 }

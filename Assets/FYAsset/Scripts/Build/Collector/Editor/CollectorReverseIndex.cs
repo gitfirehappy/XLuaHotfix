@@ -1,13 +1,14 @@
 using System;
 using System.Collections.Generic;
 using UnityEditor;
+using UnityEngine;
 
 /// <summary>
 /// Collector 反向索引：将资产路径映射回 Package / Group / Collector。
 /// </summary>
 public sealed class CollectorReverseIndex
 {
-    public struct CollectorRef
+    public struct CollectorRef : IEquatable<CollectorRef>
     {
         public int PackageIndex;
         public int GroupIndex;
@@ -19,6 +20,20 @@ public sealed class CollectorReverseIndex
             GroupIndex = groupIndex;
             CollectorIndex = collectorIndex;
         }
+
+        public bool Equals(CollectorRef other) =>
+            PackageIndex == other.PackageIndex &&
+            GroupIndex == other.GroupIndex &&
+            CollectorIndex == other.CollectorIndex;
+
+        public override bool Equals(object obj) =>
+            obj is CollectorRef other && Equals(other);
+
+        public override int GetHashCode() =>
+            HashCode.Combine(PackageIndex, GroupIndex, CollectorIndex);
+
+        public override string ToString() =>
+            $"[{PackageIndex}][{GroupIndex}][{CollectorIndex}]";
     }
 
     private struct CollectorBuildEntry
@@ -56,7 +71,7 @@ public sealed class CollectorReverseIndex
         {
             CollectorDataMigrator.EnsureDataFolder();
             CollectorDataMigrator.MigrateFromLegacyPath();
-            actualSetting = AssetDatabase.LoadAssetAtPath<CollectorSetting>(FYAssetConstants.COLLECTOR_SETTING_ASSET_PATH);
+            actualSetting = AssetDatabase.LoadAssetAtPath<CollectorSetting>(FYAssetSettings.Instance.CollectorSettingPath);
         }
 
         if (actualSetting != null)
@@ -72,7 +87,7 @@ public sealed class CollectorReverseIndex
     public bool TryGetCollector(string assetPath, out CollectorRef result)
     {
         RebuildIfDirty(null);
-        return _map.TryGetValue(NormalizePath(assetPath), out result);
+        return _map.TryGetValue(CollectorPathUtility.NormalizePath(assetPath), out result);
     }
 
     public bool IsAssetCollected(string assetPath)
@@ -131,7 +146,7 @@ public sealed class CollectorReverseIndex
 
     private void IndexFileCollector(CollectorRef collectorRef, Collector collector)
     {
-        string collectPath = NormalizePath(collector.CollectPath);
+        string collectPath = CollectorPathUtility.NormalizePath(collector.CollectPath);
         if (!IsValidFileCollectPath(collectPath))
             return;
 
@@ -143,7 +158,7 @@ public sealed class CollectorReverseIndex
 
     private void IndexFolderCollector(CollectorRef collectorRef, Collector collector)
     {
-        string collectPath = NormalizePath(collector.CollectPath);
+        string collectPath = CollectorPathUtility.NormalizePath(collector.CollectPath);
         if (!AssetDatabase.IsValidFolder(collectPath))
             return;
 
@@ -159,7 +174,7 @@ public sealed class CollectorReverseIndex
             if (string.IsNullOrEmpty(assetPath) || AssetDatabase.IsValidFolder(assetPath))
                 continue;
 
-            assetPath = NormalizePath(assetPath);
+            assetPath = CollectorPathUtility.NormalizePath(assetPath);
             if (ShouldSkipAsset(collector, assetPath))
                 continue;
 
@@ -175,8 +190,9 @@ public sealed class CollectorReverseIndex
         {
             filterRule = RuleResolver.GetFilterRule(collector.FilterRuleName);
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            Debug.LogWarning($"[CollectorReverseIndex] 过滤规则解析失败，跳过资源: {assetPath}, Rule={collector.FilterRuleName}, Error={ex.Message}");
             return true;
         }
 
@@ -193,7 +209,7 @@ public sealed class CollectorReverseIndex
         if (!filterRule.IsCollectable(context))
             return true;
 
-        return MatchesIgnorePattern(assetPath, collector.CollectPath, collector.IgnorePatterns);
+        return CollectorPathUtility.MatchesIgnorePattern(assetPath, collector.CollectPath, collector.IgnorePatterns);
     }
 
     private void AddIfMissing(string assetPath, CollectorRef collectorRef)
@@ -204,7 +220,7 @@ public sealed class CollectorReverseIndex
 
     private static int CompareEntries(CollectorBuildEntry a, CollectorBuildEntry b)
     {
-        int depthCompare = PathDepth(b.Collector.CollectPath).CompareTo(PathDepth(a.Collector.CollectPath));
+        int depthCompare = CollectorPathUtility.PathDepth(b.Collector.CollectPath).CompareTo(CollectorPathUtility.PathDepth(a.Collector.CollectPath));
         if (depthCompare != 0)
             return depthCompare;
 
@@ -214,106 +230,11 @@ public sealed class CollectorReverseIndex
         return string.Compare(a.Collector.CollectPath, b.Collector.CollectPath, StringComparison.OrdinalIgnoreCase);
     }
 
-    private static bool MatchesIgnorePattern(string assetPath, string collectPath, List<string> patterns)
-    {
-        if (patterns == null || patterns.Count == 0)
-            return false;
-
-        string normalizedAsset = NormalizePath(assetPath);
-        string normalizedCollect = NormalizePath(collectPath);
-        string relativePath;
-
-        if (normalizedAsset.Length > normalizedCollect.Length + 1 &&
-            normalizedAsset.StartsWith(normalizedCollect, StringComparison.OrdinalIgnoreCase) &&
-            normalizedAsset[normalizedCollect.Length] == '/')
-        {
-            relativePath = normalizedAsset.Substring(normalizedCollect.Length + 1);
-        }
-        else if (string.Equals(normalizedAsset, normalizedCollect, StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-        else
-        {
-            return false;
-        }
-
-        for (int i = 0; i < patterns.Count; i++)
-        {
-            string pattern = patterns[i];
-            if (string.IsNullOrEmpty(pattern))
-                continue;
-
-            if (pattern.EndsWith("/"))
-            {
-                string dirName = pattern.Substring(0, pattern.Length - 1);
-                if (ContainsPathSegment(relativePath, dirName))
-                    return true;
-            }
-            else if (GlobMatcher.IsMatch(relativePath, pattern))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private static bool ContainsPathSegment(string path, string segment)
-    {
-        int start = 0;
-        int len = path.Length;
-        int segLen = segment.Length;
-
-        while (start <= len)
-        {
-            int slash = path.IndexOf('/', start);
-            int end = slash < 0 ? len : slash;
-            int currentLen = end - start;
-
-            if (currentLen == segLen &&
-                string.Compare(path, start, segment, 0, segLen, StringComparison.OrdinalIgnoreCase) == 0)
-            {
-                return true;
-            }
-
-            start = end + 1;
-            if (slash < 0)
-                break;
-        }
-
-        return false;
-    }
-
     private static bool IsValidFileCollectPath(string collectPath)
     {
         if (string.IsNullOrEmpty(collectPath) || AssetDatabase.IsValidFolder(collectPath))
             return false;
 
         return !string.IsNullOrEmpty(AssetDatabase.AssetPathToGUID(collectPath));
-    }
-
-    private static string NormalizePath(string path)
-    {
-        if (string.IsNullOrEmpty(path))
-            return string.Empty;
-
-        return path.Replace('\\', '/').TrimEnd('/');
-    }
-
-    private static int PathDepth(string path)
-    {
-        string normalized = NormalizePath(path);
-        if (normalized.Length == 0)
-            return 0;
-
-        int depth = 0;
-        for (int i = 0; i < normalized.Length; i++)
-        {
-            if (normalized[i] == '/')
-                depth++;
-        }
-
-        return depth;
     }
 }

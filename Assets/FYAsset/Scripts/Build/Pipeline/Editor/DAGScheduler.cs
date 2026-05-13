@@ -3,11 +3,11 @@ using System.Collections.Generic;
 using System.Linq;
 
 /// <summary>
-/// DAG 任务调度器 —— 基于 Kahn 拓扑排序算法实现分批并行执行和事前校验。
+/// DAG 任务调度器 —— 基于 Kahn 拓扑排序算法实现分批确定性执行和事前校验。
 ///
 /// 两阶段模型：
 ///   Validate — 依赖存在性、循环依赖、Write-Write 冲突、Read-before-Write 警告
-///   Execute — 入度表驱动批循环，批内字母序确定性执行，Fatal 中止传播
+///   Execute — 入度表驱动批循环，批内字母序确定性执行（单线程串行），Fatal 中止传播
 ///
 /// 预留 ValidatePair / ValidateAll 公共 API，供编辑器蓝图连线时实时校验。
 /// SequentialMode 关闭批并发，所有 Task 按拓扑序逐个串行执行。

@@ -22,7 +22,7 @@ public static class CollectorAssetInspectorGUI
         if (target == null)
             return;
 
-        string assetPath = NormalizePath(AssetDatabase.GetAssetPath(target));
+        string assetPath = CollectorPathUtility.NormalizePath(AssetDatabase.GetAssetPath(target));
         if (string.IsNullOrEmpty(assetPath))
             return;
         if (string.IsNullOrEmpty(AssetDatabase.AssetPathToGUID(assetPath)))
@@ -35,7 +35,7 @@ public static class CollectorAssetInspectorGUI
         Collector collector = isCollected ? GetCollector(collectorRef) : null;
         bool canToggleOff = collector != null
             && ((isFolder && collector.CollectPathType == ECollectPathType.Folder) || (!isFolder && collector.CollectPathType == ECollectPathType.File))
-            && string.Equals(NormalizePath(collector.CollectPath), assetPath, System.StringComparison.OrdinalIgnoreCase);
+            && string.Equals(CollectorPathUtility.NormalizePath(collector.CollectPath), assetPath, System.StringComparison.OrdinalIgnoreCase);
 
         GUILayout.Space(4f);
         GUILayout.BeginVertical(EditorStyles.helpBox);
@@ -87,7 +87,7 @@ public static class CollectorAssetInspectorGUI
     {
         CollectorDataMigrator.EnsureDataFolder();
         CollectorDataMigrator.MigrateFromLegacyPath();
-        return AssetDatabase.LoadAssetAtPath<CollectorSetting>(FYAssetConstants.COLLECTOR_SETTING_ASSET_PATH);
+        return AssetDatabase.LoadAssetAtPath<CollectorSetting>(FYAssetSettings.Instance.CollectorSettingPath);
     }
 
     private static Collector GetCollector(CollectorReverseIndex.CollectorRef collectorRef)
@@ -153,11 +153,4 @@ public static class CollectorAssetInspectorGUI
         AssetDatabase.SaveAssets();
     }
 
-    private static string NormalizePath(string path)
-    {
-        if (string.IsNullOrEmpty(path))
-            return string.Empty;
-
-        return path.Replace('\\', '/').TrimEnd('/');
-    }
 }

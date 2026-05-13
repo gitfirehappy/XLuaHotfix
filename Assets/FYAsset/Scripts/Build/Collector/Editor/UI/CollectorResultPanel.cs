@@ -39,7 +39,7 @@ public static class CollectorResultPanel
             return;
         }
 
-        // Estimate content height for scroll view inner rect
+        // 估算滚动视图内部矩形的內容高度
         float rowHeight = EditorGUIUtility.singleLineHeight + 2f;
         float contentHeight = messages.Count * rowHeight;
         Rect viewRect = new Rect(0, 0, rect.width - 16f, contentHeight);

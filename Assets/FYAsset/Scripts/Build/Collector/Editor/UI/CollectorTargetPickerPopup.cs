@@ -73,7 +73,7 @@ public sealed class CollectorTargetPickerPopup : PopupWindowContent
     {
         CollectorDataMigrator.EnsureDataFolder();
         CollectorDataMigrator.MigrateFromLegacyPath();
-        _setting = AssetDatabase.LoadAssetAtPath<CollectorSetting>(FYAssetConstants.COLLECTOR_SETTING_ASSET_PATH);
+        _setting = AssetDatabase.LoadAssetAtPath<CollectorSetting>(FYAssetSettings.Instance.CollectorSettingPath);
         _selectedPackageIndex = 0;
         _selectedGroupIndex = 0;
     }
@@ -126,7 +126,7 @@ public sealed class CollectorTargetPickerPopup : PopupWindowContent
 
         for (int i = 0; i < _assetPaths.Length; i++)
         {
-            string assetPath = NormalizePath(_assetPaths[i]);
+            string assetPath = CollectorPathUtility.NormalizePath(_assetPaths[i]);
             if (string.IsNullOrEmpty(assetPath))
                 continue;
             if (string.IsNullOrEmpty(AssetDatabase.AssetPathToGUID(assetPath)))
@@ -141,10 +141,10 @@ public sealed class CollectorTargetPickerPopup : PopupWindowContent
                 CollectPathType = isFolder ? ECollectPathType.Folder : ECollectPathType.File,
                 CollectorType = _collectorType,
                 ForcePayloadKind = _forcePayloadKind,
-                AddressRuleName = FYAssetConstants.RULE_ADDRESS_BY_FILE_NAME,
-                PackRuleName = isFolder ? FYAssetConstants.RULE_PACK_BY_COLLECT_PATH : FYAssetConstants.RULE_PACK_SEPARATELY,
-                FilterRuleName = FYAssetConstants.RULE_COLLECT_ALL,
-                GroupRuleName = FYAssetConstants.RULE_GROUP_ALL,
+                AddressRuleName = FYAssetSettings.RULE_ADDRESS_BY_FILE_NAME,
+                PackRuleName = isFolder ? FYAssetSettings.RULE_PACK_BY_COLLECT_PATH : FYAssetSettings.RULE_PACK_SEPARATELY,
+                FilterRuleName = FYAssetSettings.RULE_COLLECT_ALL,
+                GroupRuleName = FYAssetSettings.RULE_GROUP_ALL,
                 Labels = new List<string>(),
                 IgnorePatterns = new List<string>()
             });
@@ -157,11 +157,4 @@ public sealed class CollectorTargetPickerPopup : PopupWindowContent
         editorWindow.Close();
     }
 
-    private static string NormalizePath(string path)
-    {
-        if (string.IsNullOrEmpty(path))
-            return string.Empty;
-
-        return path.Replace('\\', '/').TrimEnd('/');
-    }
 }

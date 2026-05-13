@@ -29,11 +29,11 @@ public static class CollectionScanner
             return result;
         }
 
-        // 第〇步：跨 Package 路径重叠检测
+        // 跨 Package 路径重叠检测
         if (!CheckCrossPackageOverlaps(setting, result))
             return result;
 
-        // Per-Package scan
+        // 逐 Package 扫描
         for (int pkgIdx = 0; pkgIdx < setting.Packages.Count; pkgIdx++)
         {
             CollectorPackage package = setting.Packages[pkgIdx];
@@ -55,7 +55,7 @@ public static class CollectionScanner
 
     #endregion
 
-    #region Private — Step 0: Cross-Package Overlap
+    #region Private — 跨 Package 路径重叠检测
 
     private static bool CheckCrossPackageOverlaps(CollectorSetting setting, ScanResult result)
     {
@@ -79,7 +79,7 @@ public static class CollectionScanner
                     if (col == null || string.IsNullOrEmpty(col.CollectPath))
                         continue;
 
-                    string normalized = NormalizePath(col.CollectPath);
+                    string normalized = CollectorPathUtility.NormalizePath(col.CollectPath);
                     allCollectors.Add((normalized, pkg.PackageName));
                 }
             }
@@ -95,21 +95,21 @@ public static class CollectionScanner
                 if (string.Equals(pkgI, pkgJ, StringComparison.Ordinal))
                     continue;
 
-                // Same path across different Packages
+                // 跨 Package 相同路径
                 if (string.Equals(pathI, pathJ, StringComparison.OrdinalIgnoreCase))
                 {
                     result.Messages.Add(BuildMessage.CrossPackageOverlap(pathI, pkgI, pkgJ, pathI));
                     return false;
                 }
 
-                // Path containment across Packages
-                if (IsPathContained(pathI, pathJ))
+                // 跨 Package 路径包含
+                if (CollectorPathUtility.IsPathContained(pathI, pathJ))
                 {
                     result.Messages.Add(BuildMessage.CrossPackageContainment(pathI, pkgI, pathJ, pkgJ, pathI));
                     return false;
                 }
 
-                if (IsPathContained(pathJ, pathI))
+                if (CollectorPathUtility.IsPathContained(pathJ, pathI))
                 {
                     result.Messages.Add(BuildMessage.CrossPackageContainment(pathJ, pkgJ, pathI, pkgI, pathJ));
                     return false;
@@ -122,28 +122,29 @@ public static class CollectionScanner
 
     #endregion
 
-    #region Private — Per-Package Scan
+    #region Private — 逐 Package 扫描
 
     private static bool ScanPackage(CollectorPackage package, ScanResult result)
     {
         string packageName = package.PackageName;
 
-        // Flatten all Collectors with their parent Group context
+        // 扁平化所有 Collectors，构建归属映射
         List<CollectorContext> contexts = FlattenCollectors(package);
         if (contexts.Count == 0)
             return true;
 
         // 第一步：构建归属映射 —— 最深路径优先
-        contexts.Sort((a, b) => PathDepth(b.Collector.CollectPath).CompareTo(PathDepth(a.Collector.CollectPath)));
+        contexts.Sort((a, b) => CollectorPathUtility.PathDepth(b.Collector.CollectPath).CompareTo(CollectorPathUtility.PathDepth(a.Collector.CollectPath)));
 
         // 检查同深度同路径冲突
         if (!CheckSameDepthConflicts(contexts, packageName, result))
             return false;
 
-        // Build excluded paths per Collector (deeper Collectors claim ownership)
+        // 第二步：构建排除路径
+        // 每个 Collector 都需要排除更浅的路径（更浅的路径被更深的路径包含）
         List<string> currentPaths = new List<string>();
         for (int i = 0; i < contexts.Count; i++)
-            currentPaths.Add(NormalizePath(contexts[i].Collector.CollectPath));
+            currentPaths.Add(CollectorPathUtility.NormalizePath(contexts[i].Collector.CollectPath));
 
         for (int i = 0; i < contexts.Count; i++)
         {
@@ -152,14 +153,14 @@ public static class CollectionScanner
             {
                 // i 是更浅的路径（后排序），j 是更深的路径（先排序）
                 // 检查更浅路径 i 是否包含更深路径 j —— 若是，j 应从 i 的扫描范围中排除
-                if (IsPathContained(currentPaths[i], currentPaths[j]))
+                if (CollectorPathUtility.IsPathContained(currentPaths[i], currentPaths[j]))
                     excluded.Add(currentPaths[j]);
             }
 
             contexts[i].ExcludedPaths = excluded;
         }
 
-        // Build Group name → Group lookup for Tags merge
+        // 第三步：构建 Group 名称 → Group 映射，用于Tags合并
         Dictionary<string, CollectorGroup> groupLookup = new Dictionary<string, CollectorGroup>(
             StringComparer.OrdinalIgnoreCase);
         for (int gi = 0; gi < package.Groups.Count; gi++)
@@ -169,7 +170,7 @@ public static class CollectionScanner
                 groupLookup[grp.GroupName] = grp;
         }
 
-        // 第二步：逐 Collector 扫描
+        // 逐 Collector 扫描
         List<CollectedAssetInfo> packageAssets = new List<CollectedAssetInfo>();
 
         for (int ci = 0; ci < contexts.Count; ci++)
@@ -179,7 +180,7 @@ public static class CollectionScanner
                 return false;
         }
 
-        // 第三步：GUID 唯一性校验
+        // GUID 唯一性校验
         if (!CheckGuidUniqueness(packageAssets, result))
             return false;
 
@@ -197,7 +198,7 @@ public static class CollectionScanner
         Collector collector = ctx.Collector;
         string collectPath = collector.CollectPath;
 
-        // Validate collect path
+        // 校验采集路径
         if (string.IsNullOrEmpty(collectPath))
         {
             result.Messages.Add(BuildMessage.EmptyCollectPath(string.Empty));
@@ -210,20 +211,20 @@ public static class CollectionScanner
             return true; // 仅 Warning —— Package 内其他 Collector 可能仍有效
         }
 
-        // Resolve rules
+        // 解析规则
         IFilterRule filterRule = ResolveRuleSafe<IFilterRule>(collector.FilterRuleName, "FilterRule", collectPath, result);
         IGroupRule groupRule = ResolveRuleSafe<IGroupRule>(collector.GroupRuleName, "GroupRule", collectPath, result);
         IAddressRule addressRule = ResolveRuleSafe<IAddressRule>(collector.AddressRuleName, "AddressRule", collectPath, result);
         IPackRule packRule = ResolveRuleSafe<IPackRule>(collector.PackRuleName, "PackRule", collectPath, result);
 
         if (filterRule == null || groupRule == null || addressRule == null || packRule == null)
-            return false; // Error already added by ResolveRuleSafe
+            return false; // 错误已由 ResolveRuleSafe 添加
 
         List<string> assetPaths = CollectAssetPaths(collector, collectPath);
         if (assetPaths.Count == 0)
         {
             result.Messages.Add(BuildMessage.EmptyCollector(collectPath, collectPath));
-            return true; // Not an error — just empty
+            return true; // 非错误 —— 仅表示空结果
         }
 
         for (int gi = 0; gi < assetPaths.Count; gi++)
@@ -250,7 +251,7 @@ public static class CollectionScanner
 
     private static bool IsExcludedByOwnership(string assetPath, List<string> excludedPaths)
     {
-        string normalized = NormalizePath(assetPath);
+        string normalized = CollectorPathUtility.NormalizePath(assetPath);
         for (int i = 0; i < excludedPaths.Count; i++)
         {
             if (IsPathOwnedBy(normalized, excludedPaths[i]))
@@ -278,13 +279,13 @@ public static class CollectionScanner
     {
         for (int i = 0; i < contexts.Count; i++)
         {
-            string pathI = NormalizePath(contexts[i].Collector.CollectPath);
-            int depthI = PathDepth(pathI);
+            string pathI = CollectorPathUtility.NormalizePath(contexts[i].Collector.CollectPath);
+            int depthI = CollectorPathUtility.PathDepth(pathI);
 
             for (int j = i + 1; j < contexts.Count; j++)
             {
-                string pathJ = NormalizePath(contexts[j].Collector.CollectPath);
-                int depthJ = PathDepth(pathJ);
+                string pathJ = CollectorPathUtility.NormalizePath(contexts[j].Collector.CollectPath);
+                int depthJ = CollectorPathUtility.PathDepth(pathJ);
 
                 if (depthI == depthJ && string.Equals(pathI, pathJ, StringComparison.OrdinalIgnoreCase))
                 {
@@ -295,85 +296,6 @@ public static class CollectionScanner
         }
 
         return true;
-    }
-
-    #endregion
-
-    #region Private — IgnorePatterns
-
-    private static bool MatchesIgnorePattern(string assetPath, string collectPath, List<string> patterns)
-    {
-        if (patterns == null || patterns.Count == 0)
-            return false;
-
-        // 相对路径 = assetPath 去掉 collectPath 前缀
-        string normalizedAsset = NormalizePath(assetPath);
-        string normalizedCollect = NormalizePath(collectPath);
-        string relativePath;
-
-        if (normalizedAsset.Length > normalizedCollect.Length + 1 &&
-            normalizedAsset.StartsWith(normalizedCollect, StringComparison.OrdinalIgnoreCase) &&
-            normalizedAsset[normalizedCollect.Length] == '/')
-        {
-            relativePath = normalizedAsset.Substring(normalizedCollect.Length + 1);
-        }
-        else if (string.Equals(normalizedAsset, normalizedCollect, StringComparison.OrdinalIgnoreCase))
-        {
-            // Asset 就是 CollectPath 本身（不太可能，但处理一下）
-            return false;
-        }
-        else
-        {
-            // Asset 在 collectPath 之外 —— 不应发生，但跳过
-            return false;
-        }
-
-        for (int i = 0; i < patterns.Count; i++)
-        {
-            string pattern = patterns[i];
-            if (string.IsNullOrEmpty(pattern))
-                continue;
-
-            if (pattern.EndsWith("/"))
-            {
-                // 目录匹配：任意路径段等于目录名
-                string dirName = pattern.Substring(0, pattern.Length - 1);
-                if (ContainsPathSegment(relativePath, dirName))
-                    return true;
-            }
-            else
-            {
-                // Glob 匹配：* 通配符模式
-                if (GlobMatcher.IsMatch(relativePath, pattern))
-                    return true;
-            }
-        }
-
-        return false;
-    }
-
-    private static bool ContainsPathSegment(string path, string segment)
-    {
-        int start = 0;
-        int len = path.Length;
-        int segLen = segment.Length;
-
-        while (start <= len)
-        {
-            int slash = path.IndexOf('/', start);
-            int end = slash < 0 ? len : slash;
-            int currentLen = end - start;
-
-            if (currentLen == segLen &&
-                string.Compare(path, start, segment, 0, segLen, StringComparison.OrdinalIgnoreCase) == 0)
-                return true;
-
-            start = end + 1;
-            if (slash < 0)
-                break;
-        }
-
-        return false;
     }
 
     #endregion
@@ -464,7 +386,7 @@ public static class CollectionScanner
         if (!filterRule.IsCollectable(filterCtx))
             return;
 
-        if (MatchesIgnorePattern(assetPath, collectPath, collector.IgnorePatterns))
+        if (CollectorPathUtility.MatchesIgnorePattern(assetPath, collectPath, collector.IgnorePatterns))
             return;
 
         AssetClassification classification = AssetClassifier.Classify(
@@ -659,46 +581,9 @@ public static class CollectionScanner
         return true;
     }
 
-    private static string NormalizePath(string path)
-    {
-        if (string.IsNullOrEmpty(path))
-            return string.Empty;
-
-        return path.Replace('\\', '/').TrimEnd('/');
-    }
-
-    private static int PathDepth(string path)
-    {
-        if (string.IsNullOrEmpty(path))
-            return 0;
-
-        int count = 0;
-        string normalized = NormalizePath(path);
-        for (int i = 0; i < normalized.Length; i++)
-        {
-            if (normalized[i] == '/')
-                count++;
-        }
-
-        return count;
-    }
-
-    private static bool IsPathContained(string parent, string child)
-    {
-        if (string.Equals(parent, child, StringComparison.OrdinalIgnoreCase))
-            return true;
-
-        if (child.Length > parent.Length &&
-            child[parent.Length] == '/' &&
-            child.StartsWith(parent, StringComparison.OrdinalIgnoreCase))
-            return true;
-
-        return false;
-    }
-
     #endregion
 
-    #region Private — Nested Types
+    #region Private — 嵌套类型 — Collector 上下文
 
     private class CollectorContext
     {

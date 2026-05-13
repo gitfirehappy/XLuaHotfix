@@ -29,7 +29,7 @@ public class RuntimeAssetEntry
     public string Address;
 
     /// <summary>
-    /// V1 唯一公开 Type 字段。
+    /// 公开 Type 字段。
     /// 默认自动推导资源类型；ScriptableObject 使用具体类名。
     /// 允许手动修改，但必须兼容实际类型。
     /// </summary>
@@ -39,7 +39,8 @@ public class RuntimeAssetEntry
     /// 无序唯一标签集合。
     /// 存储时保留原始输入大小写；匹配时使用归一化（小写）比较。
     /// </summary>
-    public List<string> Labels = new();
+    private List<string> _labels = new();
+    public IReadOnlyList<string> Labels => _labels;
 
     #endregion
 
@@ -65,7 +66,7 @@ public class RuntimeAssetEntry
 
     #endregion
 
-    #region 归一化查询辅助（运行时性能优化：避免 LINQ，使用 for 循环）
+    #region 归一化查询辅助（避免 LINQ，使用 for 循环）
 
     /// <summary>
     /// 缓存归一化后的 Labels 集合（全部小写），避免每次查询重复创建。
@@ -90,9 +91,17 @@ public class RuntimeAssetEntry
     }
 
     /// <summary>
-    /// 当 Labels 列表发生变化时，调用此方法使缓存失效。
+    /// 设置标签集合并使缓存失效。
     /// </summary>
-    public void InvalidateLabelCache()
+    public void SetLabels(IEnumerable<string> labels)
+    {
+        _labels.Clear();
+        if (labels != null)
+            _labels.AddRange(labels);
+        InvalidateLabelCache();
+    }
+
+    private void InvalidateLabelCache()
     {
         _normalizedLabelsCache = null;
     }

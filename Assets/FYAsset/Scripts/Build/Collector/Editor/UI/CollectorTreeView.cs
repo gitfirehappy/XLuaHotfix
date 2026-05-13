@@ -176,7 +176,7 @@ public sealed class CollectorTreeView : TreeView
         var dragged = draggedItems[0];
         var target = args.parentItem as CollectorTreeViewItem;
 
-        // Determine target parent based on drag type
+        // 根据拖拽类型确定目标父节点
         if (args.dragAndDropPosition == DragAndDropPosition.BetweenItems || args.dragAndDropPosition == DragAndDropPosition.UponItem)
         {
             if (!IsValidDropTarget(dragged, target))
@@ -196,15 +196,15 @@ public sealed class CollectorTreeView : TreeView
         if (dragged == null || target == null)
             return false;
 
-        // Must be same node type (same-level only)
+        // 必须是相同节点类型（仅限同级）
         if (dragged.Type != target.Type)
             return false;
 
-        // Groups must belong to the same Package
+        // Group 必须属于同一个 Package
         if (dragged.Type == CollectorTreeViewItem.NodeType.Group)
             return dragged.PackageIndex == target.PackageIndex;
 
-        // Collectors must belong to the same Group within the same Package
+        // Collector 必须属于同一个 Package 内的同一个 Group
         if (dragged.Type == CollectorTreeViewItem.NodeType.Collector)
             return dragged.PackageIndex == target.PackageIndex && dragged.GroupIndex == target.GroupIndex;
 

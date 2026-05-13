@@ -159,7 +159,7 @@ public static class AssetResolver
         }
         catch (NotSupportedException)
         {
-            Debug.LogError(string.Concat(
+            Debug.LogWarning(string.Concat(
                 "[AssetResolver] 索引 ", index.GetType().Name, " 不支持 GetAllEntries。"));
             return new List<RuntimeAssetEntry>();
         }
@@ -185,7 +185,7 @@ public static class AssetResolver
     /// <summary>
     /// 字符串优先的热路径类型匹配。
     /// Exact：PrimaryType 必须等于 requestedType（不区分大小写）。
-    /// 非 Exact（V1）：同名匹配，或 requestedType 为 "Object"。
+    /// 非 Exact：同名匹配，或 requestedType 为 "Object"。
     /// 完整 assignable 判断需解析 System.Type；如后续需要，应在字符串快路径后追加缓存化 Type 匹配。
     /// </summary>
     private static bool IsTypeMatch(string primaryType, string requestedType, bool exactType)

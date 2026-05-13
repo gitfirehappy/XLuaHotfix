@@ -19,7 +19,7 @@ public class CollectorSettingInspector : Editor
         
         if (GUILayout.Button("Open Build Pipeline Window", buttonStyle, GUILayout.Height(40)))
         {
-            EditorApplication.ExecuteMenuItem(FYAssetConstants.BUILD_PIPELINE_WINDOW_MENU_PATH);
+            EditorApplication.ExecuteMenuItem(FYAssetSettings.BUILD_PIPELINE_WINDOW_MENU_PATH);
         }
         
         EditorGUILayout.Space(10);

@@ -203,7 +203,7 @@ public sealed class CollectorPropertyPanel
         SerializedProperty pathTypeProp = _activeProperty.FindPropertyRelative("CollectPathType");
         EditorGUILayout.PropertyField(pathTypeProp, new GUIContent("CollectPathType"));
 
-        // CollectPath with legacy folder picker
+        // CollectPath 附带文件夹选择器
         SerializedProperty pathProp = _activeProperty.FindPropertyRelative("CollectPath");
         EditorGUILayout.BeginHorizontal();
         EditorGUILayout.PropertyField(pathProp, new GUIContent("CollectPath"));
@@ -231,7 +231,7 @@ public sealed class CollectorPropertyPanel
 
         EditorGUILayout.Space(4);
 
-        // Rule dropdowns
+        // 规则下拉菜单
         SerializedProperty addrRule = _activeProperty.FindPropertyRelative("AddressRuleName");
         addrRule.stringValue = RuleDropdownHelper.AddressRulePopup(
             EditorGUILayout.GetControlRect(), addrRule.stringValue);

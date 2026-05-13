@@ -5,9 +5,6 @@ using UnityEngine;
 /// <summary>
 /// AB 资源清单 — 完整描述一次构建产出的所有资源与 Bundle 的映射关系。
 /// 
-/// 设计参考 YooAsset PackageManifest，简化为 Bundle 级依赖。
-/// 当前使用 JsonUtility 序列化；后续可升级为 Protobuf 等二进制格式。
-/// 
 /// 使用流程：
 /// 1. DeserializeFromJson() 反序列化得到实例
 /// 2. Initialize() 自动被调用，构建运行时索引

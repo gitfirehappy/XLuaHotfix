@@ -8,7 +8,7 @@ using System.Linq;
 /// 
 /// 规则：
 /// 1. 自动短名 = 文件名去扩展（如 "Player.prefab" → "Player"）
-/// 2. 短名冲突时升级为 Filename_Type 格式（如 "Player_Sprite"）
+/// 2. 短名冲突时升级为 Filename_Type 格式（如 "Player_Prefab"）
 /// 3. 自动项可重建；手动覆写项保持锁定，除非显式切回 Auto
 /// </summary>
 public static class AssetAddressGenerator
@@ -33,7 +33,7 @@ public static class AssetAddressGenerator
     /// <summary>
     /// 生成带类型后缀的升级 Address。
     /// 格式：{shortName}_{primaryType}
-    /// 示例：player_idle → player_idle_Sprite
+    /// 示例：player-idle → player-idle_Sprite
     /// </summary>
     public static string GenerateTypeSuffixAddress(string shortName, string primaryType)
     {
@@ -78,8 +78,6 @@ public static class AssetAddressGenerator
     /// <summary>
     /// 为一组条目批量生成自动 Address，处理冲突升级。
     /// 仅修改 AutoAddress = true 的条目；手动覆写项保持不变。
-    /// 
-    /// 编辑器/构建期使用，允许 LINQ。
     /// </summary>
     public static void GenerateAddresses(IList<RuntimeAssetEntry> entries)
     {
