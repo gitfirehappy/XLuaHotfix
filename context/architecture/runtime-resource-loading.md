@@ -1,6 +1,6 @@
 # Runtime Resource Loading
 
-Last reviewed: 2026-04-29
+Last reviewed: 2026-05-12
 
 ## Scope
 
@@ -21,7 +21,7 @@ New runtime code should prefer `AssetPackageManager` instead of calling Addressa
 
 ## One Flag Controls Two Dimensions
 
-`Constants.USE_AB_BACKEND` controls both:
+`FYAssetSettings.Instance.UseABBackend` controls both:
 
 - the asset index source
 - the loading backend implementation
@@ -33,7 +33,7 @@ There is intentionally no supported mixed mode such as:
 
 ## Legacy Runtime Path
 
-When `Constants.USE_AB_BACKEND` is `false`:
+When `FYAssetSettings.Instance.UseABBackend` is `false`:
 
 - index source: `AddressableLabelsConfig`
 - backend: `AddressablesBackend`
@@ -43,7 +43,7 @@ This is still the default assumption unless code explicitly selects the AB path.
 
 ## AB Runtime Path
 
-When `Constants.USE_AB_BACKEND` is `true`:
+When `FYAssetSettings.Instance.UseABBackend` is `true`:
 
 - `ManifestLoader.LoadAsync()` loads the AB manifest via `FileHelper.ReadAllBytesAsync`
 - `ABAssetIndex` becomes the active `IAssetIndex`

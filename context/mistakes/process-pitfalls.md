@@ -1,0 +1,141 @@
+# Process Pitfalls
+
+> Plan-implementation divergence, documentation drift, and cross-plan coordination failures.
+
+## PP-01: Implementation Silently Drops Approved Interface
+
+**Symptom:** Plan approved interfaces/rules; implementation delivered a subset without detection.
+
+**Root cause:** No post-execution audit step verified that all approved items exist in the final codebase.
+
+**Prevention:** Every execution plan must include a verification step that checks ALL approved interfaces, rules, and types exist in the codebase. Never rely on memory.
+
+---
+
+## PP-02: Implementation Changes Plan-Approved Severity Without Flagging
+
+**Symptom:** Plan specified `Warning`; code implemented `Error`. Severity change was neither flagged nor approved.
+
+**Root cause:** Implemented from memory instead of checking the plan's specification table row-by-row.
+
+**Prevention:** When implementing enumeration tables (error codes, config tables, state machines), verify each row against the source spec. Never implement from memory.
+
+---
+
+## PP-03: Plan Internally Contradictory
+
+**Symptom:** Plan's task table and modified-files table disagree on a field name. Implementation followed one branch; the other contradicts.
+
+**Root cause:** Tables were not cross-checked before plan approval.
+
+**Prevention:** Cross-check the task table against the modified-files table before execution. Where they disagree, the plan is not ready.
+
+---
+
+## PP-04: Plan File Paths Not Updated After Code Relocation
+
+**Symptom:** Plan references `Assets/AboutXLua/` but code was moved to `Assets/FYAsset/`.
+
+**Root cause:** Plan documents not synchronized when code was relocated.
+
+**Prevention:** Plan and design documents must be synchronized with actual code paths before execution.
+
+---
+
+## PP-05: Plan Step Contradicts Plan Invariant
+
+**Symptom:** Step says a context read is optional (`Get<T>`); invariant says the value must be populated. Cannot both be true.
+
+**Root cause:** Step descriptions and invariant list written independently, not cross-checked.
+
+**Prevention:** Every plan must cross-check step descriptions against its invariant list.
+
+---
+
+## PP-06: Cross-Plan Enum Extension Without Upstream Update
+
+**Symptom:** Downstream plan adds a value to an enum defined upstream. Upstream plan unaware — numbering may conflict.
+
+**Root cause:** No communication back to the upstream plan.
+
+**Prevention:** When extending an enum defined upstream, add a forward-reference note in the upstream plan, or reserve the value at the upstream level immediately.
+
+---
+
+## PP-07: Cross-Plan Contract as Code Comment
+
+**Symptom:** `// public SharePolicyConfig SharePolicy;` is a commented-out placeholder that a downstream plan depends on. If name/type drifts, contract silently breaks.
+
+**Root cause:** Cross-plan contract encoded as source comment rather than formal spec.
+
+**Prevention:** Cross-plan contracts must be in the plan document or a shared interface. Commented-out placeholders are not contracts.
+
+---
+
+## PP-08: Monolithic Task With Excessive Dependencies
+
+**Symptom:** One task depends on 7+ upstream tasks and combines 10 sub-steps. Any upstream delay blocks everything.
+
+**Root cause:** Task not split along natural sub-step boundaries.
+
+**Prevention:** Any task depending on more than 3 upstream tasks should be split into independently schedulable units.
+
+---
+
+## PP-09: Ownership Comment Not Updated After Config Migration
+
+**Symptom:** Comments say "configured by `BuildPipelineConfig.DefaultBackendMode`" but that field was deleted; ownership moved to `FYAssetSettings`.
+
+**Root cause:** Source comments not updated when ownership transferred.
+
+**Prevention:** When transferring ownership of a config value, update ALL source comments referencing the old owner. Stale ownership comments mislead maintenance.
+
+---
+
+## PP-10: Performance Claim in API Docs Contradicted by Implementation
+
+**Symptom:** Comments claim "zero allocation" and "cached references"; methods allocate new arrays/lists per call.
+
+**Root cause:** Comments written during design; implementation evolved but comments did not.
+
+**Prevention:** Performance claims in comments must be verified against the final implementation. Either deliver the claim or soften the docs.
+
+---
+
+## PP-11: Field Semantics Docs Stale After Plan Execution
+
+**Symptom:** Reference table documents field types/status from pre-plan reality. Several fields already changed; several "pending" items already unified.
+
+**Root cause:** Documentation sync not included as plan acceptance criterion.
+
+**Prevention:** Every execution plan must include documentation sync as a formal acceptance criterion.
+
+---
+
+## PP-12: Naming Inconsistency Across Same-Category Types
+
+**Symptom:** `PackSeparately`, `PackByDirectory`, `PackByLabel` — no consistent naming pattern. New additions must guess.
+
+**Root cause:** No naming convention established for the category.
+
+**Prevention:** Define a naming pattern before the third variant appears. Public API types in the same category must follow a consistent convention.
+
+---
+
+## PP-13: Language Mixing in Code Regions/Docs
+
+**Symptom:** Collector files use Chinese regions; Editor files use English. No consistent policy.
+
+**Root cause:** Mixed developer language preferences during implementation.
+
+**Prevention:** Pick one language for regions/xmldoc and enforce across all files.
+
+---
+
+## PP-14: Typo/Drift in Public API Names
+
+**Symptom:** `DEAULT_XLUA_TYPE_CONFIG_LOAD_LABEL` (typo). `ScriptObjectDataBse` (typo). Constants mix Pascal, UPPER, and mixed styles.
+
+**Root cause:** Multiple generations of code with no enforced standard.
+
+**Prevention:** Define one naming policy for constants and types. Fix high-surface mistakes first.

@@ -1,6 +1,6 @@
 # System Overview
 
-Last reviewed: 2026-04-29
+Last reviewed: 2026-05-12
 
 ## Purpose
 
@@ -12,7 +12,7 @@ This document gives AI agents the current architectural map of `XLuaHotfix`. It 
 - Primary languages: C# and Lua
 - Lua integration: XLua
 - Current shipping runtime resource path: Unity Addressables-based flow behind `AssetPackageManager`
-- In-progress runtime alternative: custom AB backend behind `Constants.USE_AB_BACKEND`
+- In-progress runtime alternative: custom AB backend behind `FYAssetSettings.Instance.UseABBackend`
 - Build output roots:
   - `Assets/StreamingAssets/` for packaged data
   - `HotfixOutput/` for generated hotfix payloads
@@ -93,7 +93,7 @@ This repository contains both the current production-oriented path and an in-pro
 
 ### Current default runtime path
 
-- `AssetPackageManager` uses the Legacy index and Legacy backend when `Constants.USE_AB_BACKEND` is `false`
+- `AssetPackageManager` uses the Legacy index and Legacy backend when `FYAssetSettings.Instance.UseABBackend` is `false`
 - `HotfixManager` still orchestrates startup and chooses `LegacyHotfixBackend` or `ABHotfixBackend`
 - direct Addressables usage still exists in hotfix and legacy loading code
 

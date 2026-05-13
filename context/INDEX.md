@@ -17,11 +17,13 @@ Start here before any task.
 ## Conventions
 - `conventions/INDEX.md` - coding, git, testing, and collaboration conventions
 - `conventions/collaboration.md` - project workflow and resource-management rules
+- `conventions/field-semantics.md` - field naming semantics reference (Labels vs Tags, Address vs AssetPath, etc.)
 
 ## Dependencies
 - `dependencies/INDEX.md` - dependency domain index
 - `dependencies/integration/INDEX.md` - direct project dependency notes
 - `dependencies/reference/INDEX.md` - external framework, protocol, and research references
+  - `dependencies/reference/zhihu-resource-management/INDEX.md` - Zhihu column: Unity resource management deep-dive (10/17 chapters)
 
 ## Mistakes
 - `mistakes/INDEX.md` - verified historical errors, troubleshooting notes, and prevention rules

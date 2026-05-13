@@ -1,4 +1,9 @@
-# 问题排查经验
+# Troubleshooting (Superseded)
+
+> **Status: Superseded (2026-05-13).** Content migrated to English thematic files in this directory. This file retained for git history reference only.
+> Active mistake records: `INDEX.md` → `plan-drift.md`, `silent-failure.md`, `dual-truth.md`, `infrastructure-bypass.md`, `editor-runtime-boundary.md`, `documentation-drift.md`, `data-structure-contracts.md`, `performance-pitfalls.md`.
+
+# 问题排查经验 (Legacy — Chinese, superseded)
 
 > 记录开发过程中遇到的坑和解决方案，只记录已验证的信息。
 

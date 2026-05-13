@@ -1,6 +1,6 @@
 # Resource Build And Release
 
-Last reviewed: 2026-04-25
+Last reviewed: 2026-05-12
 
 ## Scope
 
@@ -32,29 +32,71 @@ The hotfix build flow relies on snapshot comparison instead of manual group main
 
 ## Release Operations
 
-`BuildProjectManager` exposes the main release operations.
+`BuildProjectManager` exposes the main release operations and now acts as an orchestrator over two build backends.
 
 ### `BuildFullPackage`
 
 - increments the major version
 - requires hotfix groups to be reset to original grouping first
 - represents a packaged baseline refresh
+- always goes through `BuildProjectManager.CreateBackend()`
+- runs shared post-build steps in the orchestrator: package manifest update, `LocalStatusExporter.ExportData`, and snapshot rebuild
 
 ### `BuildHotfix`
 
 - increments the patch version
 - relies on `DifferentialProcessor` to detect changed assets automatically
 - produces incremental content for hotfix distribution
+- uses `DifferentialProcessor.PrepareHotfix()` only on the Legacy Addressables backend path
+- routes actual package generation through the backend selected by `FYAssetSettings.Instance.UseABBackend`
 
 ### `ConfirmRelease`
 
 - promotes the staged snapshot into the published head snapshot
 - should be called only after a release is accepted as the new baseline
+- remains a Legacy-only operation; AB backend mode logs and skips it
 
 ### `ResetGroupsToOriginal`
 
 - restores assets from hotfix groups back to their original groups
 - is a prerequisite for correct full-package publishing
+- remains a Legacy-only operation; AB backend mode logs and skips it
+
+## Build Backend Split
+
+The build entry point is now split with the same orchestration pattern already used by runtime hotfix and asset loading.
+
+### Shared orchestrator
+
+- `BuildProjectManager` owns version increment, helper-data export, package naming, `manifest.json` update, and full-build post steps
+- `BuildCommandLine` still calls `BuildProjectManager.BuildFullPackage()` / `BuildHotfix()` and does not bypass backend selection
+- backend selection is centralized in `BuildProjectManager.CreateBackend()` using `FYAssetSettings.Instance.UseABBackend`
+
+### Legacy backend
+
+- `LegacyAddressableBuildBackend` owns Addressables-specific setup (`BuildRemoteCatalog`, `PackTogetherByLabel`, helper group remote path fix)
+- it still builds through `AddressableAssetSettings.BuildPlayerContent`
+- it still exports `version_state.json` by scanning `{PackageRoot}/bundles/*.bundle`
+
+### AB backend
+
+- `ABBuildBackend` runs the already-landed E5/E6 task graph through `DAGScheduler.Execute()`
+- it consumes `ABManifest` and `OutputPath` produced by the pipeline tasks
+- it reorganizes package output into `{PackageRoot}/bundles/` so the runtime contracts stay aligned with `HotfixManager` download layout and `ABBundleLoader` lookup rules
+- it exports `ABManifest.json` at the package root as the AB-side version descriptor
+
+## FYAssetSettings
+
+`FYAssetSettings` is a `ScriptableObject` (Runtime assembly) that replaced the deleted `FYAssetConstants` static class.
+
+- Asset path: `Assets/Resources/FYAssetSettings.asset` (versioned in repo; `LoadOrCreate()` creates it there on the Editor path if missing)
+- Singleton access: `FYAssetSettings.Instance`
+- Editor: `LoadOrCreate()` searches `Assets/Resources/FYAssetSettings.asset`, creates the asset if missing, and saves it through `AssetDatabase`
+- Player: `LoadOrCreate()` loads the asset through `Resources.Load<FYAssetSettings>("FYAssetSettings")`; only if that fails does it fall back to `CreateInstance<FYAssetSettings>()`
+- Instance fields (configurable in Inspector): `ProjectName`, `HotfixUrl`, `UseABBackend`, `VersionDataBasePath`, `AddressableLabelsConfigPath`, `LuaScriptsIndexPath`, `SnapshotAssetPath`, `BuildIndexJsonPath`, `CollectorDataFolder`, `CollectorSettingPath`, `PipelineConfigPath`
+- Runtime consumers read configuration via `FYAssetSettings.Instance` at use sites; no `static readonly` settings snapshots remain in `PathManager` / `HotfixManager`
+- Static `const` members: all rule name strings (`RULE_*`), group/label identifiers (`AA_LABELS_CONFIG`, `HELPER_BUILD_DATA_GROUP_NAME`, `LUA_SCRIPTS_INDEX`, `HOTFIX_GROUP_NAME`, `DEFAULT_XLUA_TYPE_CONFIG_LOAD_LABEL`), file names (`MANIFEST_FILE_NAME`, `MANIFEST_FILE_NAME_BIN`, `BUILD_INDEX_FILENAME`), and editor paths (`BUILD_PIPELINE_WINDOW_MENU_PATH`, `BINARY_SERIALIZER_GENERATE_PATH`)
+- `UseABBackend` is the single source of truth for backend selection — `BuildPipelineConfig.DefaultBackendMode` was removed
 
 ## Build-Time Architectural Decisions
 
