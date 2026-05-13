@@ -11,10 +11,7 @@
 
 Create `FileHelper`, a general-purpose static utility class for file I/O operations. Fills the gap between path construction (PathManager), download (NetworkDownloader), and serialization (SerializationUtility) — the one missing primitive in the helper layer.
 
-Addresses three concrete problems:
-1. **Android StreamingAssets read** — `File.ReadAllBytes` fails on Android APK paths. ManifestLoader has a documented but un-fixed bug (comment: "deferred for multi-platform discussion").
-2. **Partial write safety** — no atomic write guarantee during hotfix. Process killed mid-write → corrupt file with no recovery.
-3. **Inconsistent error handling** — delete failures are sometimes thrown, sometimes swallowed, sometimes logged. No single contract.
+Addresses three problems: Android StreamingAssets read (File.ReadAllBytes fails on APK), partial write safety (process killed mid-write = corrupt file), and inconsistent error handling (delete failures have no single contract).
 
 ---
 

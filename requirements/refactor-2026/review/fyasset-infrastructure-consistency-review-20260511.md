@@ -3,7 +3,7 @@
 > **Date**: 2026-05-11
 > **Reviewer**: GPT-5.5 Codex (automated grep audit)
 > **Processed**: 2026-05-11 → `requirements/refactor-2026/plan/plan-infrastructure-consistency-20260511.md`
-> **Status**: Archived
+> **Status**: Archived · Streamlined 2026-05-11
 
 ## Scope
 
@@ -27,7 +27,7 @@ Method:
 
 **Why this matters**
 
-The project already established `FileHelper` as the cross-platform file I/O layer, with atomic writes and no-throw delete helpers. The hotfix path is exactly the place where partial writes, stale files, and platform-specific path handling are most dangerous, but it still uses raw `File.*` / `Directory.*` in several places.
+The project established `FileHelper` as the cross-platform file I/O layer with atomic writes and no-throw deletes, but the hotfix path -- where partial writes and platform-specific path handling are most dangerous -- still uses raw `File.*` / `Directory.*`.
 
 **Evidence**
 
@@ -70,7 +70,7 @@ The project already established `FileHelper` as the cross-platform file I/O laye
 
 **Why this matters**
 
-The codebase now has three separate artifact-organization implementations, all manually doing path creation, deletion, copy, and manifest/summary writing. This is already the kind of duplication that caused the AB package layout drift and required a follow-up fix.
+Three separate artifact-organization implementations all manually handle path creation, deletion, copy, and manifest/summary writing. This duplication already caused AB package layout drift requiring a follow-up fix.
 
 **Evidence**
 
@@ -112,7 +112,7 @@ The codebase now has three separate artifact-organization implementations, all m
 
 **Why this matters**
 
-The project already introduced `RuntimeMessage`, `BuildMessage`, `BuildTaskResult`, `RuntimeErrorCodes`, and `BuildErrorCodes`, but two important orchestration surfaces still expose only `bool` and free-form strings. That means the top-level flows cannot carry structured diagnostics, severity, source, or machine-readable codes.
+The project introduced `RuntimeMessage`, `BuildMessage`, `BuildTaskResult`, `RuntimeErrorCodes`, and `BuildErrorCodes`, but two orchestration surfaces still expose only `bool` and free-form strings. Top-level flows cannot carry structured diagnostics.
 
 **Evidence**
 
@@ -149,7 +149,7 @@ The project already introduced `RuntimeMessage`, `BuildMessage`, `BuildTaskResul
 
 **Why this matters**
 
-The conventions explicitly require centralized error-code constants, but newer FYAsset code still introduces raw string codes directly inside tasks and backends. That breaks taxonomy consistency and makes code search / aggregation incomplete.
+Conventions require centralized error-code constants, but newer code introduces raw string codes directly inside tasks and backends, breaking taxonomy consistency and making code search/aggregation incomplete.
 
 **Evidence**
 
@@ -188,7 +188,7 @@ The conventions explicitly require centralized error-code constants, but newer F
 
 **Why this matters**
 
-The repository already has `FYAssetConstants.PIPELINE_CONFIG_ASSET_PATH`, but several consumers still embed raw asset paths. This is a lighter-weight issue than file I/O drift, but it is the same category of bypass: independent code instead of shared infrastructure.
+`FYAssetConstants.PIPELINE_CONFIG_ASSET_PATH` exists, but several consumers still embed raw asset paths -- the same category of bypass: independent code instead of shared infrastructure.
 
 **Evidence**
 

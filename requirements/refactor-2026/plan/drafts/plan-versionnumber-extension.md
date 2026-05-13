@@ -1,6 +1,9 @@
 # Draft: VersionNumber Extension Plan
 
-> **Status**: Draft — 2026-05-07，发现 E6 ParseVersion 缺口后提取
+> **Status**: ~~Draft~~ **Superseded** by `plan-E9-version.md` (2026-05-08)
+> **Reason**: E9 扩充范围更大（SemVer+Build+Channel），包含本草稿的 FR-1~FR-3 全部内容
+> 
+> Original status: Draft — 2026-05-07，发现 E6 ParseVersion 缺口后提取
 > **Risk**: Low — 扩展已有类，不改变现有字段和序列化格式
 > **Motivation**: E6 审批发现 `ABManifest.PackageVersion` (VersionNumber) 没有从 `BuildVersion` (string) 构造的路径；`ParseVersion()` 不存在。同时 VersionNumber 语义和配套函数不充分。
 

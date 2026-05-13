@@ -8,9 +8,7 @@
 
 ## Objective
 
-Create the BuildPipelineWindow editor window shell with sidebar navigation (5 functional areas), and fully implement the Collector area. The other 4 areas (Pipeline, Builder, Inspector, Settings) are placeholder panels for future sub-plans.
-
-The Collector area provides a three-level tree editor (Package → Group → Collector) with drag-and-drop reordering, right-click context menus, property panel, rule dropdown selection, and save-time configuration validation.
+Create the BuildPipelineWindow editor window shell with 5-area sidebar (Collector area fully implemented; other 4 placeholder). The Collector area provides a three-level tree editor (Package -> Group -> Collector) with drag-and-drop reordering, context menus, property panel, rule dropdowns, and save-time validation.
 
 ---
 

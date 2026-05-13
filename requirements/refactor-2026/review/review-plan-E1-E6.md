@@ -3,7 +3,7 @@
 > **Review date**: 2026-04-26
 > **Scope**: All E-series sub-plans (E1-1/E1-2/E1-3/E1-4/E2/E4/E5/E5-1/E5-2/E6)
 > **Review type**: Pre-execution readiness audit
-> **Archival status**: 📦 ARCHIVED — All E1~E6 plans have since been executed/landed. This was a pre-execution gate review; findings were addressed in implementation commits.
+> **Archival status**: 📦 ARCHIVED — All E1~E6 plans have since been executed/landed. This was a pre-execution gate review; findings were addressed in implementation commits. · Streamlined 2026-05-11
 
 ---
 

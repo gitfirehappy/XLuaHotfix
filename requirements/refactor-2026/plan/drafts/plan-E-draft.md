@@ -53,7 +53,7 @@
 |------|------|------|------|
 | G1（E1+E2） | ✅ | 三规则；ECollectorType 与 PayloadKind 正交；AssetClassification 2 字段；PackRule 并列可选；命名 `pkg_group_packKey`；空标签 `$orphan`；Label join `--` | — |
 | G2（E1-3+E4） | ✅ | E1-3 管归属（含 GroupRule 路由）、E4 管共享；依赖分析仅补写不覆盖；SharePolicy：AutoShare + NoShare，仅处理 ImplicitDependency | 冲突级别策略归入 E5 |
-| G3（E5） | ✅ | DAG Sequence+Parallel；IBuildTask 4 字段契约；6 骨干节点+扩展节点；HelperBuildData 已取消 | — |
+| G3（E5） | ✅ | DAG topological sort + deterministic batch execution (single-threaded)；IBuildTask 4 字段契约；6 骨干节点+扩展节点；HelperBuildData 已取消 | — |
 | G4（E6+E7） | 收敛 | BuildContext 统一版本源；Digest 在快照；ConfirmRelease 固化；version_state 仅旧后端 | 回滚机制 |
 | G5（E7） | 非优先 | 旧后端可停放，不强制退场 | — |
 | G6（E8） | 延期 | 文件系统 5 类接口；异步统一 Task 语义 | Android StreamingAssets 治理 |

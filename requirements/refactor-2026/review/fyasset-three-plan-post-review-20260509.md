@@ -8,19 +8,17 @@ Scope:
 
 Author: `gpt-5.5`
 **Processed**: 2026-05-11 · All 3 plans executed. Fixes for review findings (Version→SO write-back, Channel whitelist, naming sync) landed in `34e002b` + `a1aff30`.
-**Status**: 📦 Archived
+**Status**: 📦 Archived · Streamlined 2026-05-11
 
 ## Executive Summary
 
-本次审查覆盖刚执行完毕的三个计划：review 修复、E9 VersionNumber 扩展、旧管线命名统一。整体方向是正确的：`IAssetIndex` 边界明显收窄，`RuntimeAssetEntry.Labels` 的可变暴露被控制，Collector 路径工具重复代码被集中，typo 修复也已落到主要引用点。
-
-但当前结果还不建议无条件进入依赖版本语义的后续计划，尤其是 E7。主要原因有三类：
+审查三个已执行计划：review 修复、E9 VersionNumber 扩展、旧管线命名统一。方向正确但有三类问题：
 
 1. `BuildContextKeys.Version` 已写入但下游未消费，版本来源仍然分裂。
 2. `VersionNumber.CompareTo` 与 `Equals` 在未知 Channel 上可能产生不一致结果。
-3. 命名统一与文档同步没有闭环，`VersionState.version` 仍保留小写，字段语义文档仍标记旧字段“待统一”。
+3. 命名统一与文档同步没有闭环。
 
-进度记录显示三项计划执行后均有 `dotnet build 0 errors`，本报告没有重新执行构建；结论基于代码与文档静态审查。
+结论基于代码与文档静态审查（三项计划执行后均有 `dotnet build 0 errors`）。
 
 ## Review Dimensions
 
@@ -47,10 +45,7 @@ Files:
 
 `TaskPrepareContext` declares and writes `BuildContextKeys.Version`, but `TaskGenerateManifest` does not declare it in `ReadKeys`; it still calls `ResolveVersion()` and reloads `VersionDataBase.asset` directly. This means the DAG cannot validate the version dependency and the pipeline still has two sources of truth.
 
-Why this matters:
-- E9 explicitly added `BuildContextKeys.Version` so downstream tasks can consume one `VersionNumber`.
-- E7 documentation already assumes `BuildContext` holds the unified current build version.
-- CLI `--version` still only writes the string `BuildVersion`; no implemented path converts it into `VersionNumber`.
+Why this matters: E9 added `BuildContextKeys.Version` for unified version consumption, but E7 docs already assume it exists, and CLI `--version` still only writes string `BuildVersion` with no conversion to `VersionNumber`.
 
 Recommendation:
 - Make `TaskPrepareContext` parse `--version` into `VersionNumber` when present, otherwise read the SO.
@@ -66,10 +61,7 @@ Files:
 
 `GetChannelRank()` maps any unknown channel to rank `3`, the same rank as release. Therefore `1.2.3-dev` and `1.2.3` compare as equal, but `Equals()` returns false because it compares the actual channel string.
 
-Why this matters:
-- `CompareTo == 0` while `Equals == false` breaks expectations in sorted collections and update-decision logic.
-- Version comparison is planned as a dependency for diff/update decisions.
-- Unknown channels are easy to introduce later through CLI or editor UI.
+Why this matters: `CompareTo == 0` while `Equals == false` breaks expectations in sorted collections and update-decision logic. Unknown channels are easy to introduce later through CLI or editor UI.
 
 Recommendation:
 - Either reject unknown channels in `TryParse` / setters, or compare unknown channels deterministically after known channel rank.
@@ -87,10 +79,7 @@ Files:
 
 The task table says `VersionState.version -> Version`, while the modified-files table says the version field remains lowercase. The implementation keeps `public VersionNumber version;` and runtime references still use `versionState.version`.
 
-Why this matters:
-- The plan title promises PascalCase unification, but the highest-level field in `VersionState` remains camelCase.
-- If the lowercase field is intentional for JSON compatibility, that contradicts the plan decision that old data can be discarded.
-- If it is not intentional, this is a missed rename.
+Why this matters: The plan promises PascalCase unification, but `VersionState.version` remains camelCase. Either it is intentional (contradicting the plan's "old data can be discarded" decision) or a missed rename.
 
 Recommendation:
 - Decide explicitly: either rename `version` to `Version`, or mark it as a deliberate legacy exception.
@@ -106,10 +95,7 @@ Files:
 
 The manager now owns `_labelToKeys` and `_typeToKeys`, which is the right architectural direction after cutting legacy methods from `IAssetIndex`. However, both dictionaries use default string comparers and the public query methods return the stored `List<string>` directly.
 
-Why this matters:
-- Label matching elsewhere is documented and implemented as case-insensitive.
-- External callers can mutate the returned list and corrupt manager caches.
-- Legacy path assigns `config.keysByType/item.Keys` and `config.keysByLabel/item.Keys` directly into manager caches, so the manager also aliases SO-owned lists.
+Why this matters: Label matching elsewhere is case-insensitive. External callers can mutate returned lists and corrupt caches. Legacy path assigns SO-owned lists directly into manager caches (aliasing).
 
 Recommendation:
 - Use `StringComparer.OrdinalIgnoreCase` for label and type dictionaries unless type semantics must remain case-sensitive.
@@ -125,10 +111,7 @@ Files:
 
 `Initialize()` does not clear `_labelToKeys`, `_typeToKeys`, or `_addressSet`. The singleton may normally initialize once, but the method itself is public and async, and AB initialization can fall back to legacy initialization.
 
-Why this matters:
-- Re-initialization after backend mode changes can leave stale query data.
-- Tests or editor play-mode reload flows can call initialization more than once.
-- Fallback after a previous successful AB initialization could mix AB and legacy query caches.
+Why this matters: Re-initialization after backend mode changes, editor play-mode reloads, or AB-to-Legacy fallback can mix stale query data across backends.
 
 Recommendation:
 - Clear all query caches at the start of `Initialize()`, before choosing backend path.

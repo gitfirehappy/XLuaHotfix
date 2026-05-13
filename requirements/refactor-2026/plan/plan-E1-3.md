@@ -8,9 +8,7 @@
 
 ## Objective
 
-Implement the collection scan engine that transforms a `CollectorSetting` SO into a flat `List<CollectedAssetInfo>`. Covers directory scanning via `AssetDatabase.FindAssets`, deepest-path ownership deduplication, IgnorePatterns matching, Tag merge, and per-asset classification/address/pack rule execution.
-
-Also adds `IgnorePatterns` field to `Collector` data class (E1-1 addendum) and a simple glob matcher utility.
+Implement `CollectionScanner`: transform `CollectorSetting` SO into `List<CollectedAssetInfo>` via `AssetDatabase.FindAssets`, deepest-path dedup, IgnorePatterns matching, labels merge, and per-asset rule execution. Also adds `IgnorePatterns` field to Collector class.
 
 ---
 

@@ -4,7 +4,7 @@
 > **Scope**: Commits `d105127` + `3fd23b7` — 10 new .cs files, 4 modified .cs files
 > **Review type**: Post-execution code quality audit (plan vs implementation)
 > **Processed**: 2026-05-11 · E1-E3 plans executed, fixes in `c617631` + `af1eb53`
-> **Status**: 📦 Archived
+> **Status**: 📦 Archived · Streamlined 2026-05-11
 
 ---
 
@@ -230,4 +230,4 @@ Editor code path, not hot runtime path — LINQ is acceptable per project conven
 | P1 Plan Deviation | 5 | PATH_NOT_FOUND severity (⚠️), PrimaryType (✅), ParentGroupName (✅), $ preservation (✅), EMPTY_PACKAGE (✅) |
 | P2 Quality | 4 | Silent skip (⚠️), Label case (minor), typeof chain (OK), LINQ in ScanResult (OK) |
 
-**Overall**: Implementation quality is high. Code structure follows plan execution order precisely. Error handling is comprehensive. The single critical bug (P0-1) is a 1-character parameter swap with clear root cause — fixed during review. Plan deviations are all in the "sensible enhancement" category except PATH_NOT_FOUND severity change which needs explicit confirmation.
+**Overall**: Implementation quality is high. The single critical bug (P0-1) is a 1-character parameter swap — fixed during review. Plan deviations are sensible enhancements except PATH_NOT_FOUND severity change which needs explicit confirmation.

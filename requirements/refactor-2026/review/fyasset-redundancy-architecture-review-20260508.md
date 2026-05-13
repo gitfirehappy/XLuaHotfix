@@ -5,21 +5,11 @@ Scope: `Assets/FYAsset`
 Focus: code redundancy, architecture redundancy, and opportunities to make the landed FYAsset implementation leaner and more elegant without changing the already-established behavior surface.
 Author: `gpt-5.4/codex`
 **Processed**: 2026-05-11 · Duplication partially addressed in E10 (BuildBackend split) and review-fix-20260509 (Collector path tools dedup). Full redundancy elimination remains ongoing (infra-consistency plan P2 targets build artifact duplication).
-**Status**: 📦 Archived
+**Status**: 📦 Archived · Streamlined 2026-05-11
 
 ## Summary
 
-FYAsset's current shape is not chaotic, but it does show a clear "feature landed in stages" signature:
-
-1. the new AB path and the legacy Addressables path are both abstracted, but still duplicate a lot of mechanical work internally;
-2. the runtime indexing layer currently keeps both a legacy string-key model and a newer entry-centric model, which is necessary for migration, but is still carrying more duplication than it should;
-3. the collector/editor side has several utilities that independently re-implement the same path and rule logic.
-
-The most valuable simplification work is not micro-cleanup. It is collapsing repeated logic around:
-- hotfix backend data loading/conversion,
-- manifest/index query surfaces,
-- collector path/rule utilities,
-- AB/Legacy branching inside `AssetPackageManager`.
+FYAsset shows a "feature landed in stages" signature. Key duplication areas: hotfix backend data loading/conversion, manifest/index query surfaces, collector path/rule utilities, AB/Legacy branching inside `AssetPackageManager`.
 
 ## Findings
 
@@ -41,10 +31,7 @@ What is redundant:
 - ignore-pattern matching logic is duplicated between `CollectionScanner` and `CollectorReverseIndex`.
 - file/folder collect-path existence checks also reappear in multiple places.
 
-Why this matters:
-- these are not passive helpers; they encode real collector semantics.
-- once these copies drift, editor validation, scan result, and reverse-index behavior will stop matching exactly.
-- the redundancy is already expensive to maintain because these classes are all in active responsibility zones.
+Why this matters: These encode real collector semantics. Once copies drift, editor validation, scan result, and reverse-index behavior will stop matching.
 
 Recommendation:
 - extract a single editor-only `CollectorPathUtility` / `CollectorPathRules` helper set.
@@ -113,13 +100,7 @@ What is redundant:
   - `_labelIndex`
 - and first converts every `ManifestAssetEntry` into a new `RuntimeAssetEntry`.
 
-Why this matters:
-- this is not just duplicate code; it is duplicate indexing architecture over the same manifest payload.
-- one layer is manifest-oriented, the other runtime-entry-oriented, but the query dimensions are mostly the same.
-- the result is:
-  - extra initialization cost,
-  - duplicated query logic,
-  - two places to evolve when index semantics change.
+Why this matters: Duplicate indexing architecture over the same manifest payload. One layer is manifest-oriented, the other runtime-entry-oriented, but query dimensions mostly overlap. Result: extra init cost, duplicated query logic, two places to evolve when index semantics change.
 
 Recommendation:
 - decide which layer is the true owner of runtime query indexing.
@@ -152,9 +133,7 @@ What is redundant:
 - old implementation (`AddressableLabelsConfig`) supports only the first set;
 - new implementation (`ABAssetIndex`) supports both by rebuilding two conceptual views.
 
-Why this matters:
-- this is a migration bridge that has become a structural burden.
-- callers such as `AssetPackageManager` still maintain key-based APIs and extra label caches because the interface still privileges the old query model.
+Why this matters: A migration bridge that has become a structural burden. Callers such as `AssetPackageManager` maintain key-based APIs and extra label caches because the interface privileges the old query model.
 
 Recommendation:
 - define explicit layers instead of one hybrid interface:
@@ -185,9 +164,7 @@ What is redundant:
   - `CreateABHandle`
   - `CreateLegacyHandle`
 
-Why this matters:
-- the subsystem already has `IPackageBackend`, but `AssetPackageManager` still knows too much about concrete backend flavor.
-- the manager ends up becoming a second dispatch layer instead of a thin orchestrator.
+Why this matters: The subsystem has `IPackageBackend`, but `AssetPackageManager` still knows too much about concrete backend flavor, becoming a second dispatch layer instead of a thin orchestrator.
 
 Recommendation:
 - push backend-specific handle-release policy behind an interface or adapter so `AssetPackageManager` does not need four resolved-load variants.
@@ -232,9 +209,7 @@ What is redundant:
 - `ABPackageBackend` needed to grow extra overloads and extra unload entry points (`UnloadByEntryId`) that `AddressablesBackend` conceptually does not share.
 - `AssetPackageManager` then compensates with type checks and separate AB/Legacy handling.
 
-Why this matters:
-- this is a sign that the current `IPackageBackend` abstraction is not carrying enough semantics for the evolved AB path.
-- the result is redundancy through side channels rather than explicit abstraction.
+Why this matters: The current `IPackageBackend` abstraction does not carry enough semantics for the evolved AB path, creating redundancy through side channels.
 
 Recommendation:
 - either enrich the backend contract with an explicit "resolved entry load" concept;
@@ -326,13 +301,6 @@ The target should be:
 
 ## Overall assessment
 
-FYAsset's landed implementation is already serviceable, but it is carrying a noticeable amount of migration-era redundancy. The code is not failing because of that redundancy yet; the cost is mainly in clarity, maintenance load, and architectural elegance.
-
-The main simplification opportunity is not "shorter methods". It is removing repeated semantic logic and repeated dispatch layers so that:
-
-- collector behavior is defined once,
-- backend differences live in backends instead of leaking upward,
-- manifest/index responsibilities stop overlapping,
-- compatibility layers stop shaping the whole architecture.
+FYAsset's landed implementation is serviceable but carries noticeable migration-era redundancy. The main simplification opportunity: removing repeated semantic logic and dispatch layers so collector behavior is defined once, backend differences stay in backends, manifest/index responsibilities stop overlapping, and compatibility layers stop shaping the whole architecture.
 
 Signature: `gpt-5.4/codex`

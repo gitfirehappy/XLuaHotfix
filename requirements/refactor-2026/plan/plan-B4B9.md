@@ -8,35 +8,9 @@
 
 ## Objective
 
-Refactor HotfixManager from a monolithic Addressables-coupled static class into an orchestrator + backend architecture (matching AssetPackageManager's pattern), and implement the AB hotfix backend that replaces Addressables catalog/version_state with ABManifest.
+Refactor HotfixManager from a monolithic Addressables-coupled static class into an orchestrator + backend architecture, and implement the AB hotfix backend.
 
-After B4+B9:
-- HotfixManager becomes a pure orchestrator (shared steps only)
-- IHotfixPipeline interface defines backend-specific hooks
-- LegacyHotfixBackend wraps existing Addressables flow (zero behavioral change)
-- ABHotfixBackend implements full hotfix flow using ABManifest
-- `Constants.USE_AB_BACKEND` controls the entire pipeline (hotfix + index + loading backend)
-- NetworkDownloader relocated to shared infrastructure
-
----
-
-## Background
-
-Current HotfixManager (554 lines, static class) executes a 9-step hotfix flow tightly coupled with Addressables:
-
-```
-Step 0: LoadBuildIndex + PathManager init
-Step 1: Addressables.InitializeAsync          ← Addressables-only
-Step 2: Download manifest.json (package pointer)
-Step 3: Download version_state.json + version compare
-Step 4: Download bundles (hash-copy optimization)
-Step 5: Download catalog.json + save version_state  ← Addressables-only
-Step 6: Apply update (manifest pointer + PathManager.Switch)
-Step 7: CatalogUpdater.LoadExternalCatalog     ← Addressables-only
-Step 8: AssetPackageManager.Initialize
-```
-
-Steps 1, 5, 7 are Addressables-exclusive. Steps 3, 4 use VersionState as data source (replaceable by ABManifest). Steps 0, 2, 6, 8 are fully shared.
+After B4+B9: HotfixManager becomes a pure orchestrator; IHotfixPipeline defines hooks; LegacyHotfixBackend preserves existing flow; ABHotfixBackend uses ABManifest; `Constants.USE_AB_BACKEND` is the single global switch.
 
 ---
 

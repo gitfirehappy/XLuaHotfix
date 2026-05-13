@@ -79,6 +79,17 @@
 # 签收格式: [done] YYYY-MM-DD plan-XX SIGNED OFF - {摘要}
 ```
 
+### Drafts Workflow
+
+Use `requirements/{id}/plan/drafts/` for non-executable planning material: rough direction convergence, idea capture, option comparison before a precise formal plan exists.
+
+Rules:
+- Drafts are not executable plans and do not authorize implementation.
+- Drafts can be partial, fuzzy, or exploratory.
+- When a direction becomes precise and approved, promote into a proper plan.
+- When promoting: condense and annotate the original entry — never delete, always leave a trace.
+- Do not copy draft language into `context/`.
+
 ## 会话恢复
 当你说"继续 {需求ID}"时，我会：
 1. 读取 `requirements/{需求ID}/progress.txt` 了解上次进度
@@ -95,6 +106,44 @@
 - Use `context/dependencies/integration/` for direct project dependency notes.
 - Use `context/dependencies/reference/` for external framework, engine, protocol, or paper references.
 - Use `context/mistakes/` for verified historical errors, troubleshooting, and prevention rules.
+
+### File & Directory Discipline
+
+- **Survey first, create later.** Before creating a file or folder, inspect the project root and relevant subdirectories. Adapt to the existing layout — never impose your own.
+- **No freelancing outside the workspace.** All file creation must happen within the project's existing directory tree.
+- **Reuse, don't duplicate.** If a directory already serves the target purpose, use it. Do not create redundant variants.
+- **Flat over nested when it fits.** Don't introduce deep folder hierarchies unless existing project conventions already use them.
+- **Ask before restructuring.** Moving or renaming existing directories requires explicit developer approval.
+
+### Web Search Credibility
+
+When sourcing from web results, prioritize:
+1. **Official documentation** — docs, specs, man pages, vendor sources.
+2. **Reputable technical blogs** — recognized engineers, verified accuracy.
+3. **Community / unvetted posts** — treat as hints, not facts. Flag to developer before relying on them.
+
+Never source from pages with poor reputations, negative reviews, or known misinformation.
+
+### Module Design Principles (Paradigm-Rule-System)
+
+When designing any module, organize thinking in three layers:
+
+- **Paradigm**: Core mechanisms and data structures — what capabilities does this module have?
+- **Rule**: Activation conditions, ordering, constraints, and recovery behavior — when and under what preconditions?
+- **System**: Public API, integration points, lifecycle, and error boundaries — what does this module expose?
+
+Benefits: Paradigm ensures completeness; Rule ensures controllability; System ensures simple integration. When a module changes, revisit all three layers rather than patching only the part that broke.
+
+### Mistake Prevention Protocol
+
+When the project has `context/mistakes/` files:
+
+- **Before significant tasks**: Read `context/mistakes/INDEX.md`, then scan relevant thematic files for prevention rules that apply to the planned work.
+- **When a review finds errors**: Re-read relevant mistake records. Reviews discovering repeated patterns indicate the records were not consulted.
+- **When the developer expresses dissatisfaction**: Check whether a known prevention rule was violated.
+- **After fixing a bug**: If the root cause is reusable knowledge, write a concise entry to the appropriate `context/mistakes/{topic}.md` file (English, AI-facing, structured as: symptom → root cause → fix → prevention rule).
+
+Thematic files follow: `context/mistakes/{topic}.md`.
 ## 项目特定规则
 
 ### 代码规范

@@ -5,7 +5,7 @@
 > **Methodology**: Static analysis of allocations, algorithmic complexity, and Unity Editor API usage in hot paths
 > **Context**: All code is Editor-only build pipeline, not runtime. Scale: ~100 Tasks max, ~10K assets typical collection.
 > **Archival status**: 📦 Archived — P1-3/P1-4/P2-1/P2-2 addressed in `af1eb53`. Remaining perf items (P1-1, P1-2, P2-3) are Editor-only, low-impact at current scale (~100 Tasks / ~10K assets). No further action planned.
-> **Processed**: 2026-05-11
+> **Processed**: 2026-05-11 · Streamlined 2026-05-11
 
 ---
 
@@ -268,4 +268,4 @@ result.Add(sharedEntry);  // augmented entries appended
 
 ## Verdict
 
-No blocking performance issues. All hot-path concerns are in Editor-only code with single-digit to thousand-scale inputs. The three P1 fixes worth taking are low-effort (< 5 lines each) and have educational value for future pipeline code. The two P2 fixes remove dead code that confuses readers. Recommended: apply P1-4 + P2-1 + P2-2 immediately; P1-1/P1-2/P1-3 at next cleanup pass.
+No blocking performance issues (Editor-only code, single-digit to thousand-scale inputs). Recommended: apply P1-4 + P2-1 + P2-2 immediately; P1-1/P1-2/P1-3 at next cleanup pass.

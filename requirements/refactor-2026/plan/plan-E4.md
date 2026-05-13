@@ -9,13 +9,7 @@
 
 ## Objective
 
-Implement `TaskAnalyzeDependencies`, the E4 build pipeline task that runs after `TaskCollectAssets` (E1-3) and before `TaskBuildBundles` (E5). It performs three responsibilities in a single BFS pass:
-
-1. **Bundle Dependency Graph Construction** — for all collected assets, trace Unity dependencies to build Bundle-level dependency edges
-2. **Implicit Dependency Discovery** — find assets referenced by collected assets that are NOT in any Collector
-3. **Shared Extraction Decision** — apply SharePolicy (per-Package) to decide whether each implicit dependency goes into a shared bundle or is duplicated into referencing bundles
-
-Also detects asset-level circular dependencies (Error → abort build).
+Implement E4's build pipeline task: single-pass BFS that (1) constructs Bundle-level dependency edges, (2) discovers implicit dependencies, (3) applies SharePolicy (per-Package) to decide shared vs. duplicated placement. Detects asset-level circular dependencies (Error -> abort build).
 
 ---
 

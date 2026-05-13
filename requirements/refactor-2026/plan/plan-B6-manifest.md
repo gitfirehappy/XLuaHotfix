@@ -8,20 +8,7 @@
 
 ---
 
-## 1. Problems This Manifest Solves
-
-| # | Problem | Description | Consumer |
-|---|---------|-------------|----------|
-| P1 | Asset-to-Bundle mapping | Given an Address/EntryId, find which Bundle contains it | ABAssetIndex (runtime) |
-| P2 | Bundle dependency graph | Before loading a Bundle, know all dependent Bundles to load first | ABBundleLoader (runtime) |
-| P3 | Bundle integrity verification | Hash + CRC + FileSize to verify downloaded/cached files | Runtime + Hotfix downloader |
-| P4 | Incremental update comparison | Compare two Manifest versions to find changed/added/deleted Bundles | HotfixManager |
-| P5 | Download manifest generation | Know each Bundle size for download list + progress estimation | Hotfix downloader |
-| P6 | Multi-dimensional asset lookup | Lookup by Address, by TypeKey, by Labels | AssetResolver (runtime) |
-
----
-
-## 2. Design Decisions (Approved)
+## 1. Design Decisions (Approved)
 
 | # | Decision | Choice | Rationale |
 |---|----------|--------|-----------|
@@ -35,9 +22,9 @@
 
 ---
 
-## 3. Data Model
+## 2. Data Model
 
-### 3.1 ABManifest (Top-Level)
+### 2.1 ABManifest (Top-Level)
 
 The root object representing a complete resource manifest for one build.
 
@@ -59,7 +46,7 @@ The root object representing a complete resource manifest for one build.
 | _labelIndex | Dictionary<string, List<int>> | Label -> AssetEntry indices |
 | _bundleNameIndex | Dictionary<string, int> | BundleName -> BundleEntry index |
 
-### 3.2 ManifestAssetEntry (Per-Asset Record)
+### 2.2 ManifestAssetEntry (Per-Asset Record)
 
 Maps directly to RuntimeAssetEntry after deserialization, with added Bundle binding.
 
@@ -74,7 +61,7 @@ Maps directly to RuntimeAssetEntry after deserialization, with added Bundle bind
 | AutoAddress | bool | Yes | Whether Address was auto-generated |
 | BundleIndex | int | Yes | Index into ABManifest.BundleEntries[] |
 
-### 3.3 ManifestBundleEntry (Per-Bundle Record)
+### 2.3 ManifestBundleEntry (Per-Bundle Record)
 
 | Field | Type | Serialized | Description |
 |-------|------|------------|-------------|
@@ -96,7 +83,7 @@ Maps directly to RuntimeAssetEntry after deserialization, with added Bundle bind
 
 ---
 
-## 4. Initialization Flow
+## 3. Initialization Flow
 
 After deserialization, `ABManifest.Initialize()` builds runtime lookup structures:
 
@@ -115,9 +102,9 @@ All lookups use for-loops (no LINQ) to avoid runtime GC pressure.
 
 ---
 
-## 5. Key Operations
+## 4. Key Operations
 
-### 5.1 Asset Resolution (consumed by AssetResolver)
+### 4.1 Asset Resolution (consumed by AssetResolver)
 
 ```
 ResolveByAddress(address):
@@ -141,7 +128,7 @@ ResolveByLabels(labels):
   3. Return matching entries
 ```
 
-### 5.2 Bundle Dependency Resolution (consumed by ABBundleLoader)
+### 4.2 Bundle Dependency Resolution (consumed by ABBundleLoader)
 
 ```
 GetBundleForAsset(assetEntry):
@@ -155,7 +142,7 @@ GetAllDependencies(bundleEntry):
   // Note: recursive expansion handled by ABBundleLoader, not Manifest
 ```
 
-### 5.3 Incremental Update Comparison (consumed by HotfixManager)
+### 4.3 Incremental Update Comparison (consumed by HotfixManager)
 
 ```
 CompareManifests(localManifest, remoteManifest):
@@ -170,7 +157,7 @@ CompareManifests(localManifest, remoteManifest):
 
 ---
 
-## 6. Serialization Format (Phase 3: JSON)
+## 5. Serialization Format (Phase 3: JSON)
 
 Using Unity `JsonUtility` for serialization. The manifest file is named `ABManifest_{PackageVersion}.json`.
 
@@ -210,9 +197,9 @@ Example JSON structure:
 
 ---
 
-## 7. Relationship to Existing Data Structures
+## 6. Relationship to Existing Data Structures
 
-### 7.1 ManifestAssetEntry vs RuntimeAssetEntry
+### 6.1 ManifestAssetEntry vs RuntimeAssetEntry
 
 `ManifestAssetEntry` is the **serialized form** of `RuntimeAssetEntry` with an added `BundleIndex` field.
 
@@ -223,7 +210,7 @@ ManifestAssetEntry -> RuntimeAssetEntry:
   - BundleIndex: consumed by ABAssetIndex to build Asset->Bundle mapping, not stored in RuntimeAssetEntry
 ```
 
-### 7.2 ManifestBundleEntry vs BundleInfo (existing)
+### 6.2 ManifestBundleEntry vs BundleInfo (existing)
 
 `ManifestBundleEntry` **supersedes** the existing `BundleInfo` class:
 
@@ -238,7 +225,7 @@ ManifestAssetEntry -> RuntimeAssetEntry:
 | - | DependBundleIndices (new) |
 | - | BundleType (new, reserved — assigned by Phase 6 build pipeline) |
 
-### 7.3 ABManifest vs VersionState (existing)
+### 6.3 ABManifest vs VersionState (existing)
 
 `ABManifest` **supersedes** `VersionState` by containing both version info AND full asset/bundle data:
 
@@ -253,7 +240,7 @@ ManifestAssetEntry -> RuntimeAssetEntry:
 
 ---
 
-## 8. File Locations
+## 7. File Locations
 
 | File | Location | Purpose |
 |------|----------|---------|
@@ -264,7 +251,7 @@ ManifestAssetEntry -> RuntimeAssetEntry:
 
 ---
 
-## 9. Migration Path
+## 8. Migration Path
 
 ### Phase 3 (Current)
 - Implement ABManifest.cs, ManifestAssetEntry.cs, ManifestBundleEntry.cs as C# classes
@@ -283,7 +270,7 @@ ManifestAssetEntry -> RuntimeAssetEntry:
 
 ---
 
-## 10. Approval Checklist (All Approved 2026-03-30)
+## 9. Approval Checklist (All Approved 2026-03-30)
 
 - [x] ManifestAssetEntry fields: **current fields sufficient** (RuntimeAssetEntry + BundleIndex)
 - [x] ManifestBundleEntry.FileHash: **MD5 first** (consistent with existing HashGenerator); easy to swap to SHA256 later via interface

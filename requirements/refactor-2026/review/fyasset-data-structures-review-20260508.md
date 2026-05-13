@@ -5,17 +5,11 @@ Scope: `Assets/FYAsset`
 Focus: review the supporting completeness of already-landed important data structures, especially value semantics, equality/hash behavior, mutable exposure, string/allocation patterns, and diagnostic friendliness.
 Author: `gpt-5.4/codex`
 **Processed**: 2026-05-11 · Structural issues (IReadOnlyList exposure, zero-alloc claims) addressed in `34e002b` + `a1aff30`. Value-type equality contracts partially addressed.
-**Status**: 📦 Archived
+**Status**: 📦 Archived · Streamlined 2026-05-11
 
 ## Summary
 
-This review did not find one single catastrophic bug concentrated in one file, but it did find a recurring pattern: several important FYAsset data structures already carry real business semantics, while their supporting facilities are still uneven. The most notable gaps are:
-
-1. some `struct` types already behave like semantic value objects, but do not explicitly define equality/hash/to-string contracts;
-2. several central model classes expose mutable collections directly while simultaneously introducing caches or indexes that assume those collections stay stable;
-3. some index/query APIs claim "zero allocation" or "read-only view", but still allocate fresh arrays/lists on each call, making the contract easy to misuse later.
-
-Below are the concrete findings, ordered by severity.
+Recurring pattern: important data structures carry real business semantics but their supporting facilities are uneven. Key gaps: `struct` types lack explicit equality/hash/ToString; model classes expose mutable collections while maintaining caches that assume stability; index/query APIs claiming "zero allocation" still allocate fresh containers per call.
 
 ## Findings
 
@@ -261,9 +255,4 @@ If the goal is to harden FYAsset's important data structures systematically, I w
 
 ## Overall assessment
 
-FYAsset's important data structures are already meaningful enough to deserve stronger supporting contracts than they currently have. The subsystem is not "messy"; the bigger issue is that it sits in an in-between state:
-
-- more advanced than plain DTOs,
-- but not yet fully treated as value objects / immutable snapshots / guarded runtime models.
-
-That gap is where most of the review findings came from.
+FYAsset's data structures sit in an in-between state: more advanced than plain DTOs, but not yet fully treated as value objects / immutable snapshots / guarded runtime models. That gap is where most findings originated.

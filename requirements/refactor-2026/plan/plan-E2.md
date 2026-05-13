@@ -33,7 +33,7 @@ PackRule outputs a semantic grouping key (e.g. `"prefabs"`, `"icons"`, `"panel-c
 
 **Rationale**: Separating grouping logic from naming format ensures all rules produce consistent names. Changing naming format requires modifying only BundleNameBuilder, not every rule.
 
-**Impact on E1-1/E1-2**: IPackRule.cs interface signature changes. PackByCollectPath.cs (E1-2) requires both method rename AND return value semantic change: the old `GetBundleName` returned a full logical name `{packageName}_{groupName}_{collectDirName}`, but the new `GetPackKey` must return only the grouping key `{collectDirName}` (last segment of CollectPath). The framework's BundleNameBuilder.Build() handles the pkg/group prefix. If E1-1/E1-2 are already implemented when E2 executes, apply both changes; if not yet implemented, update the plan definitions directly.
+**Impact**: PackByCollectPath.cs return value changes from full logical name to grouping key `{collectDirName}` only. BundleNameBuilder.Build() now handles the pkg/group prefix. (E1-1/E1-2 proactively adopted this during implementation.)
 
 ### D2: BundleNameBuilder — Framework-Side Name Assembly
 

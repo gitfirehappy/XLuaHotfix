@@ -5,21 +5,11 @@ Scope: `Assets/FYAsset`
 Focus: naming quality, interface boundary clarity, and maintainability consistency across the landed FYAsset implementation.
 Author: `gpt-5.4/codex`
 **Processed**: 2026-05-11 · Naming normalization partially addressed (naming-unification plan executed). Interface boundary improvements in E10 (IBuildBackend). Remaining style inconsistencies tracked as tech debt.
-**Status**: 📦 Archived
+**Status**: 📦 Archived · Streamlined 2026-05-11
 
 ## Summary
 
-From this angle, FYAsset's main issue is not raw correctness. It is that the subsystem is carrying multiple generations of style at once:
-
-1. naming is mostly understandable, but not fully normalized;
-2. several interfaces exist, yet concrete semantics still leak through them;
-3. similar concepts are modeled with different conventions depending on which phase of the refactor they came from.
-
-The result is maintainable code in the short term, but rising cognitive cost in the medium term. New contributors have to infer too much from history:
-- which names are legacy,
-- which boundaries are real,
-- which abstractions are transitional,
-- which style should be copied for the next file.
+FYAsset carries multiple generations of style at once: naming is not fully normalized, several interfaces leak concrete semantics, and similar concepts use different conventions depending on refactor phase. This produces rising cognitive cost: new contributors must infer which names are legacy, which boundaries are real, and which style to copy.
 
 ## Findings
 
@@ -272,13 +262,7 @@ Recommendation:
 
 ## Positive notes
 
-There are clear signs that FYAsset is already converging toward a better style:
-
-- `RuntimeMessage` and `BuildMessage` show deliberate error-model design.
-- `RuntimeAssetEntry`, `ResolveResult`, `ABManifest`, and the collector rule context types are much easier to reason about than older helper-era types.
-- newer comments are generally strong and explain intent, not just mechanics.
-
-That is useful because it means the subsystem already contains the style worth standardizing around.
+FYAsset is already converging toward a better style: `RuntimeMessage`/`BuildMessage` show deliberate error-model design; `RuntimeAssetEntry`/`ResolveResult`/`ABManifest` are clearer than older helper-era types; newer comments explain intent. The subsystem already contains the style worth standardizing around.
 
 ## Suggested cleanup order
 
@@ -299,13 +283,6 @@ That is useful because it means the subsystem already contains the style worth s
 
 ## Overall assessment
 
-FYAsset's naming and maintainability story is directionally improving, but the subsystem still exposes too much of its migration history. The main problem is not that any one name is terrible. It is that the system does not yet present a single, confident architectural vocabulary.
-
-That shows up as:
-- inconsistent naming grammar,
-- interfaces that are more transitional than they look,
-- similar concepts modeled with different patterns depending on age.
-
-The next quality jump will come from standardizing the language of the subsystem, not just adding more abstractions.
+FYAsset's naming is directionally improving but still exposes too much migration history: inconsistent naming grammar, interfaces more transitional than they look, similar concepts modeled with different patterns. The next quality jump comes from standardizing the subsystem's language, not adding more abstractions.
 
 Signature: `gpt-5.4/codex`

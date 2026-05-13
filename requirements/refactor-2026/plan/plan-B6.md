@@ -18,27 +18,6 @@ This phase only replaces the **index source / query construction logic**. It doe
 
 ---
 
-## Background
-
-The project has already completed:
-
-- B5-1: `RuntimeAssetEntry` and runtime index rules
-- B5-2: `Resolve / Load / AssetHandle` contract
-- ABManifest data layer: `ABManifest`, `ManifestAssetEntry`, `ManifestBundleEntry`
-
-Previously, B5-3 and B5-4 were deferred because there was no real runtime index source for `RuntimeAssetEntry`.
-Now that the manifest data layer exists, B6 becomes the missing bridge:
-
-`ABManifest.json -> ABManifest -> ABAssetIndex -> AssetResolver -> AssetPackageManager`
-
-The first B6 round is intentionally scoped as a relatively independent phase:
-
-- replace index source only
-- keep `AddressablesBackend` unchanged
-- do not expand into bundle loading handoff, ref-count pool, or full hotfix-core replacement
-
----
-
 ## Confirmed Scope Boundaries
 
 1. B6 only replaces the runtime **index source**, not the runtime backend

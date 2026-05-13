@@ -18,28 +18,6 @@ Implement `ABPackageBackend` as a full `IPackageBackend` replacement for `Addres
 
 This is the **direct equivalent** of `AddressablesBackend` — same external behavior, zero Addressables dependency.
 
-### Addressables Counterpart (what we're replacing)
-
-```
-AddressablesBackend:
-  _resourceCache: Dictionary<string, ResourceEntry>  // key → {Handle, RefCount}
-  LoadAssetAsync<T>(key):
-    → cache HIT: refcount++, return cached
-    → cache MISS: Addressables.LoadAssetAsync<T>(key) → cache → return
-  UnloadAsset(key):
-    → refcount-- → 0: Addressables.Release(handle), remove cache
-
-ABPackageBackend (replacement):
-  _assetCache: Dictionary<string, AssetCacheEntry>  // key → {Object, BundleName, RefCount}
-  LoadAssetAsync<T>(key):
-    → cache HIT: refcount++, return cached
-    → cache MISS: ABManifest resolve → ABBundleLoader.LoadBundle → bundle.LoadAsset → cache → return
-  UnloadAsset(key):
-    → refcount-- → 0: remove from asset cache → ABBundleLoader.UnloadBundle(bundleName)
-```
-
----
-
 ## Confirmed Design Decisions
 
 ### A. Asset Resolution Chain

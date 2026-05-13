@@ -9,12 +9,7 @@
 
 ## Objective
 
-优化构建编辑器的资产分配体验。当前唯一入口是 Collector 节点的文件夹选择器，不支持单资产、拖拽、批量操作。目标：
-
-1. 参考 Addressables Groups 窗口重做 CollectorSettingPanel（横向列式布局）
-2. 参考 YooAsset Collector 重做 CollectorPanel（纯表格，高信息密度）
-3. 新增三种资产分配入口：Inspector 勾选 / 拖拽进表格 / Project 右键菜单
-4. 支持单文件级别的 Collector 指定
+重做构建编辑器 UX：参考 Addressables Groups 重构 CollectorSettingPanel（横向列式布局），参考 YooAsset 重构 CollectorPanel（纯表格），新增 Inspector 勾选/拖拽/Project 右键菜单三种资产分配入口，支持单文件级 Collector。
 
 ---
 

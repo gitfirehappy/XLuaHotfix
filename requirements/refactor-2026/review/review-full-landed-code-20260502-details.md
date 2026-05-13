@@ -5,7 +5,7 @@
 > **Scope**: Landed refactor code across runtime asset loading, AB/Legacy backend split, manifest/index loading, handle lifecycle, and differential build tooling
 > **Method**: Static code review, targeted file inspection, repository search, and architecture consultation
 > **Processed**: 2026-05-11 · Findings addressed in `34e002b` + `a1aff30` fix rounds
-> **Status**: 📦 Archived
+> **Status**: 📦 Archived · Streamlined 2026-05-11
 
 ---
 
@@ -188,34 +188,11 @@
 
 ## System-Level Assessment
 
-### Code Quality
-
-- Overall quality is solid in the runtime refactor area.
-- Comments are abundant and mostly useful.
-- The main weakness is not messy code; it is that a few critical runtime contracts remain softer than the surrounding architecture suggests.
-
-### Architecture
-
-- The AB-vs-Legacy split is now credible and easy to follow.
-- `AssetPackageManager` still works as a compatibility facade, which keeps migration risk under control.
-- The current architecture does not need redesign; it needs stronger behavioral guarantees.
-
-### Cleanliness
-
-- The runtime side is cleaner than the editor build side.
-- `ABAssetIndex`, `RuntimeMessage`, and `BuildMessage` are especially clean.
-- The main cleanliness debt is hidden contract coupling, not formatting or naming.
-
-### Coupling / Cohesion
-
-- Runtime cohesion improved substantially.
-- The remaining coupling is mostly lifecycle coupling: handle state, backend release, and bundle release are still coordinated across layers.
-
-### Performance
-
-- Runtime hot paths are generally acceptable for the current stage.
-- The immediate performance concern is concurrency duplication in async load paths.
-- The next performance concern is editor-side cost in `DifferentialProcessor`, not runtime indexing.
+- **Code Quality**: Solid in runtime refactor area; comments abundant. Main weakness: a few critical runtime contracts remain softer than the architecture suggests.
+- **Architecture**: AB-vs-Legacy split is credible; `AssetPackageManager` works as compatibility facade. Needs stronger behavioral guarantees, not redesign.
+- **Cleanliness**: Runtime side cleaner than editor/build side. Main debt: hidden contract coupling.
+- **Coupling/Cohesion**: Runtime cohesion improved. Remaining coupling: handle state, backend release, bundle release coordinated across layers.
+- **Performance**: Runtime hot paths acceptable. Immediate concern: concurrency duplication in async load paths. Next: editor-side cost in `DifferentialProcessor`.
 
 ---
 
@@ -231,6 +208,4 @@
 
 ## Final Assessment
 
-The landed codebase is in a better state than the earlier refactor snapshots. The major win is that the runtime architecture now has understandable boundaries instead of only future intent. The remaining issues are narrow but important: startup failure semantics, duplicate-address identity handling, and implicit lifetime/concurrency contracts.
-
-That is a good review outcome. It means the system is close to being dependable, not far from being viable.
+The runtime architecture now has understandable boundaries. Remaining issues are narrow but important: startup failure semantics, duplicate-address identity handling, and implicit lifetime/concurrency contracts.

@@ -246,7 +246,7 @@ E7 declares expected keys; exact API follows E5 BuildContext contract.
 | `BundleDelta` | `BundleDelta` | Write (TaskPrepareDiff) | Hotfix diff output |
 | `DiffResult` | `DiffResult` | Write (LegacyDiffBackend) | Legacy Asset-level diff output |
 
-Note: `DiffResult` is the existing type name from legacy code. Not renamed to avoid cascading changes.
+Note: `DiffResult` is a new type created by E7 (LegacyDiffBackend's PrepareDiff return value). It wraps the legacy diff output into a BuildContext-compatible structure.
 
 ---
 
@@ -262,10 +262,12 @@ Note: `DiffResult` is the existing type name from legacy code. Not renamed to av
 | E7-T6 | Create `ABDiffBackend.cs` — `GenerateSnapshot`: scan built bundles → BundleDigestList; `PrepareDiff`: compare with head.bin → BundleDelta; `ApplyDiff`: write BundleDelta to BuildContext; `ConfirmRelease`: staged→history+update head.json; `RollbackHotfix`: delete staged | T2, T3, T4 |
 | E7-T7 | Create `TaskGenerateSnapshot.cs` — E5 IBuildTask, Full build only. Reads TaskBuildBundles output, generates BundleDigestList, writes to BuildContext + saves to disk | T6 |
 | E7-T8 | Create `TaskPrepareDiff.cs` — E5 IBuildTask, Hotfix only. Reads head.bin, compares with current bundles, produces BundleDelta, writes to BuildContext | T6 |
-| E7-T9 | Refactor `BuildProjectManager.cs` — switch from `DifferentialProcessor` static calls to `IDiffPipeline` interface. Select backend via BackendMode | T5, T6 |
-| E7-T10 | Add Constants entries: `SNAPSHOT_DIR`, snapshot file names, `BDLS` Magic | — |
-| E7-T11 | Compilation verification (`dotnet build XLuaHotfix.sln`) | All above |
-| E7-T12 | (Optional) Legacy BuildSnapshots SO → .bin/.json migration. Deferred decision — execute only if legacy backend retirement timeline extends | T5 |
+| E7-T9 | Modify `TaskBuildBundles.cs` — add `BuildContextKeys.BundleDelta` to ReadKeys; when BundleDelta present, only rebuild changed bundles (skip unchanged) | T8 |
+| E7-T10 | Refactor `BuildProjectManager.cs` — switch from `DifferentialProcessor` static calls to `IDiffPipeline` interface. Select backend via BackendMode | T5, T6 |
+| E7-T11 | Wire `DAGScheduler` into `BuildCommandLine.cs` — new pipeline entry point routes through DAGScheduler.Execute instead of BuildProjectManager directly. Legacy path preserved via BackendMode check | T10 |
+| E7-T12 | Add Constants entries: `SNAPSHOT_DIR`, snapshot file names, `BDLS` Magic | — |
+| E7-T13 | Compilation verification (`dotnet build XLuaHotfix.sln`) | All above |
+| E7-T14 | (Optional) Legacy BuildSnapshots SO → .bin/.json migration. Deferred decision — execute only if legacy backend retirement timeline extends | T5 |
 
 ---
 
@@ -289,7 +291,7 @@ Hotfix Build:
 2. `LegacyDiffBackend` preserves all existing `DifferentialProcessor` behavior (PrepareHotfix, ConfirmRelease, RestoreOriginalGroups, ReBuildSnapShots)
 3. `ABDiffBackend.GenerateSnapshot()` produces a `BundleDigestList` that round-trips through SerializationUtility (.bin ↔ .json)
 4. `ABDiffBackend.PrepareDiff()` correctly identifies added/modified/removed bundles by comparing bundle name + hash against `head.bin`
-5. `ABDiffBackend.ConfirmRelease()` moves `staged.bin` → `history/{version}.bin` and updates `head.json`
+5. `ABDiffBackend.ConfirmRelease()` moves `staged.bin` → `history/{version}.bin` and updates `head.json`. If `history/{version}.bin` already exists, ConfirmRelease MUST fail with an error (prevents silent overwrite of historical snapshots)
 6. `ABDiffBackend.RollbackHotfix()` deletes `staged.bin` and resets build output without touching Head snapshot or history
 7. `BuildProjectManager` uses `IDiffPipeline` via BackendMode selection — no direct `DifferentialProcessor` static calls remain
 8. Existing `version_state.json` generation (BuildProjectManager.GenerateVersionStateFile) is unchanged — it is legacy backend scope
@@ -315,3 +317,4 @@ Hotfix Build:
 | Date | Change |
 |------|--------|
 | 2026-04-28 | Initial version: 10 design decisions, 12 tasks (T12 optional), 8 new files, 3 modified files. All decisions converged from plan-E-draft.md G4/G5 direction + deep-dive discussion (interface granularity, diff unit, persistence, rollback, ConfirmRelease) |
+| 2026-05-08 | Audit fixes: (1) Added T9 — TaskBuildBundles must read BundleDelta key for incremental rebuild; (2) Added T11 — DAGScheduler integration into BuildCommandLine entry point; (3) Fixed DiffResult description (new type, not existing); (4) Added ConfirmRelease guard against history file overwrite; (5) Renumbered T9→T10, T10→T12, T11→T13, T12→T14 |

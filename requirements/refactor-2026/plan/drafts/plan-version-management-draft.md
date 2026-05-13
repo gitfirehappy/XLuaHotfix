@@ -1,8 +1,11 @@
 # Draft: 版本管理优化（VersionDataBase + 构建历史 + 一键化）
 
-> **Status**: Draft — 2026-05-06
+> **Status**: Draft — 2026-05-06, updated 2026-05-08
 > **Scope**: 优化现有 VersionDataBase 系统，新旧管线共用
 > **原则**: 不破坏现有功能，渐进增强
+> **部分吸收**: VersionNumber 扩充 → 已移入 `plan-E9-version.md`（精确子计划）
+> **后续方案**: 智能版本建议 → 已移入 `drafts/plan-smart-versioning-draft.md`
+> **本草稿剩余范围**: BuildMetadata 丰富化 + BuildHistory 记录 + VersionPanel 重做 + 一键构建流程
 
 ---
 

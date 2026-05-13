@@ -6,17 +6,13 @@
 **Methodology**: Static analysis via parallel layer-specific deep review; each file read in full; cross-layer comparative analysis
 **Dimensions**: Correctness, redundancy, architecture design, naming, error handling, performance, maintainability
 **Processed**: 2026-05-11 · Most HIGH/MEDIUM addressed in `34e002b` + `a1aff30`. CR-1 (PackageName), CR-2 (Android ManifestLoader), CR-4 (key mismatch) remain as known debt.
-**Status**: 📦 Archived (partial — 3 CR open)
+**Status**: 📦 Archived (partial — 3 CR open) · Streamlined 2026-05-11
 
 ---
 
 ## Executive Summary
 
-The FYAsset refactor demonstrates a coherent architectural vision -- a custom resource management pipeline replacing Unity Addressables with a YooAsset-inspired design. The layered architecture (Configuration -> Scan -> Analyze -> Build -> Verify -> Organize -> Runtime) is well-conceived, and the DAGScheduler with Read/Write key validation is a notable strength.
-
-However, the implementation quality is uneven. Significant code duplication exists across collector UI panels (approximately 300 lines duplicated) and path utility functions (approximately 150 lines duplicated across 3 files). Two latent correctness bugs were identified that could manifest under specific pipeline configurations. The runtime layer contains a platform blocker for Android first-time installs. Several design decisions -- such as the two-source dependency topology in the build pipeline and the dual UI-over-same-data-model pattern in the editor -- introduce maintenance hazards that will compound as the codebase grows.
-
-The review identified 7 CRITICAL, 18 HIGH, 45 MEDIUM, and 55 LOW severity findings across 107 files.
+Review of 107 C# source files across 7 architectural layers. Identified 7 CRITICAL, 18 HIGH, 45 MEDIUM, and 55 LOW severity findings. Key issues: duplicated collector UI logic (~300 lines), duplicated path utilities (~150 lines), latent correctness bugs under specific pipeline configurations, and Android platform blocker for first-time installs.
 
 ---
 
@@ -389,17 +385,17 @@ A detailed listing of all 45 MEDIUM findings is recorded in the per-agent report
 
 ### Strengths
 
-1. **Pipeline DAG Design**: The DAGScheduler with Kahn topological sort, Write-Write conflict detection, and Read-before-Write warning is a textbook implementation of defensive data-flow validation. The four-phase validation (MissingDep -> Circular -> W-W -> R-before-W) correctly orders by severity.
+1. **Pipeline DAG Design**: DAGScheduler with Kahn topological sort, Write-Write conflict detection, and Read-before-Write warning. Four-phase validation (MissingDep -> Circular -> W-W -> R-before-W) correctly orders by severity.
 
-2. **Layered Separation**: The clear separation between configuration (CollectorSetting SO), scan (CollectionScanner), analysis (DependencyAnalyzer), build (TaskBuildBundles), verification (TaskVerifyBuildResult), and organization (TaskOrganizeOutput) is well-defined. Each layer's output is typed and traceable through BuildContext keys.
+2. **Layered Separation**: Configuration (CollectorSetting SO) -> Scan (CollectionScanner) -> Analyze (DependencyAnalyzer) -> Build (TaskBuildBundles) -> Verify (TaskVerifyBuildResult) -> Organize (TaskOrganizeOutput). Each layer's output is typed and traceable through BuildContext keys.
 
-3. **Error Model Consistency**: BuildMessage and RuntimeMessage use a consistent pattern: string error codes with factory methods that encapsulate message formatting. The separation between Editor and Runtime error types is architecturally sound.
+3. **Error Model Consistency**: BuildMessage and RuntimeMessage use consistent pattern: string error codes with factory methods that encapsulate message formatting.
 
-4. **Interface-Backend Pattern**: The consistent use of interface-backend separation (IAssetIndex, IPackageBackend, IHotfixPipeline) across the runtime layer enables the dual Legacy/AB backend strategy. This pattern is applied uniformly and correctly.
+4. **Interface-Backend Pattern**: IAssetIndex, IPackageBackend, IHotfixPipeline separation enables dual Legacy/AB backend strategy.
 
-5. **Handler Lifecycle Model**: The AssetHandle struct with generation-based invalidation and HandleRegistry provides a zero-GC ownership model for loaded assets. The design is clean and well-isolated.
+5. **Handle Lifecycle Model**: AssetHandle struct with generation-based invalidation and HandleRegistry provides a zero-GC ownership model.
 
-6. **SharePolicy Decision Matrix**: The DependencyAnalyzer's share policy (ForceShare/NoShare/MinReferenceCount/MinAssetSizeBytes) with explicit conflict reporting (ForceShare in NoShare -> Error) is well-designed.
+6. **SharePolicy Decision Matrix**: ForceShare/NoShare/MinReferenceCount/MinAssetSizeBytes with explicit conflict reporting.
 
 ### Structural Concerns
 
@@ -467,11 +463,7 @@ The following table quantifies the most significant duplication hotspots across 
 
 ## Conclusion
 
-The FYAsset refactor is architecturally sound and directionally correct. The pipeline DAG design, interface-backend separation, and Handle lifecycle model are well-executed. The primary quality concerns are not in the architecture but in the implementation details: duplicated code, latent bugs in edge-case handling, and maintenance hazards from unenforced invariants.
-
-The seven critical findings should be addressed before the pipeline enters production use. The redundancy hotspots -- particularly the duplicated editor panels and path utilities -- represent the highest-leverage cleanup opportunities for reducing future maintenance burden.
-
-The codebase would benefit from establishing and enforcing three conventions going forward: (a) shared utility extraction for any logic appearing in more than one file, (b) consistent error handling patterns across sync and async code paths, and (c) automated test coverage for pipeline invariants (cycle detection, key validation, bundle output correctness).
+The seven critical findings should be addressed before production use. The redundancy hotspots -- duplicated editor panels and path utilities -- are the highest-leverage cleanup opportunities. Conventions going forward: (a) shared utility extraction for any logic appearing in more than one file, (b) consistent error handling across sync/async code paths, (c) automated test coverage for pipeline invariants.
 
 ---
 

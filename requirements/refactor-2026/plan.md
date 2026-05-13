@@ -1,9 +1,9 @@
 # Refactor Plan: XLuaHotfix Full Resource Management System Overhaul — Master Plan
 
-> **Status**: In progress (Phase 1-4 completed, Phase 5 E1-1/E1-2/E1-3/E1-4/E2 realized, Phase 6 E4/E5-1/E5-2a/E5-2b/E6 realized)
+> **Status**: In progress (Phase 1-4 completed, Phase 5 E1-1/E1-2/E1-3/E1-4/E2 realized, Phase 6 E4/E5-1/E5-2a/E5-2b/E6/E9/E10/E11 realized, review-fix-20260509 and naming-unification executed, E7 pending)
 > **Ultimate Goal**: Fully replace Addressables with custom runtime + build-time resource management system (referencing YooAsset architecture)
 > **Created**: 2026-03-16
-> **Updated**: 2026-05-07 — E5-2b realized, E5 pipeline fully landed
+> **Updated**: 2026-05-12 — E11 FYAssetSettings SO executed; FYAssetConstants deleted
 
 ---
 
@@ -158,6 +158,14 @@ Phase 4 and Phase 6 must be coordinated (ABManifest runtime consumption + build-
 | plan-R1.md | R1: Unified error handling architecture — BuildMessage (Editor) + RuntimeMessage (Runtime) separated types, string Code with const files (BuildErrorCodes/RuntimeErrorCodes), Severity on both sides, factory-only construction, AssetLoadError/ScanMessage renamed, PATH_NOT_FOUND fixed to Warning | DONE |
 | plan-R2.md | R2: Runtime Correctness + Error Contract Unification + Dedup — HandleRegistry._entryActiveCounts + ABPackageBackend error contract unified + code dedup | DONE |
 
+### Review-Driven Fixes
+
+| File | Content | Status |
+|------|---------|--------|
+| plan-review-fix-20260506.md | 2026-05-06 E4 editor code quality review: 7 fixes — DependencyAnalyzer HashSet O(1) + catch log + method split + warning simplify + TreeView dead code + RuleResolver.GetRule<T> + DAGScheduler.BuildAdjacencyGraph. net -30 lines | DONE |
+| plan-review-fix-20260509.md | 2026-05-09 Three-dimension GPT review fix: 11 tasks — RuntimeAssetEntry Labels guard + IAssetIndex legacy cut + Manager self-cache + CollectorPathUtility extraction + CollectorRef/AssetClassification value semantics + ABAssetIndex zero-alloc + typo fixes + PascalCase convention | **Executed** |
+| plan-naming-unification.md | 2026-05-09 Old-pipeline field naming PascalCase unification: VersionState/BundleInfo/Manifest camelCase→PascalCase (9 fields). Complements review-fix T9/T10/T11 | **Executed** |
+
 ### Phase 5: Build-Time - Asset Collection & Indexing
 
 | ID | Content | Reference | Status |
@@ -175,11 +183,15 @@ Phase 4 and Phase 6 must be coordinated (ABManifest runtime consumption + build-
 | ID | Content | Status |
 |----|---------|--------|
 | E4 | Dependency analysis + shared extraction (BFS + SharePolicy) | **Realized** (plan-E4.md) |
-| E5-1 | Build pipeline core engine — IBuildTask + BuildContext + BuildTaskResult + BuildPipelineConfig SO + BuildTaskResolver + DAGScheduler (Kahn topology + batch parallel + W-W/R-before-W validation + ValidatePair/ValidateAll + SequentialMode). 8 new files, 608 lines. **2026-05-07 review fixes: DAGScheduler Read-before-Write unsound + BuildTaskResolver duplicate TaskName fail-fast** | **Realized** (plan-E5-1.md) |
+| E5-1 | Build pipeline core engine — IBuildTask + BuildContext + BuildTaskResult + BuildPipelineConfig SO + BuildTaskResolver + DAGScheduler (Kahn topology + deterministic batch execution + W-W/R-before-W validation + ValidatePair/ValidateAll + SequentialMode). Note: "batch" means logically-independent tasks grouped by topological level, executed sequentially on main thread (Unity Editor single-threaded). 8 new files, 608 lines. **2026-05-07 review fixes: DAGScheduler Read-before-Write unsound + BuildTaskResolver duplicate TaskName fail-fast** | **Realized** (plan-E5-1.md) |
 | E5-2a | Backbone Tasks Phase 1 — TaskPrepareContext / TaskCollectBuiltins / TaskBuildBundles + BundleBuildInfo + BundleCompression. **2026-05-07 review fixes: scene output collapse + folder guard + rawfile multi-file** | **Realized** (plan-E5-2a.md) |
 | E5-2b | Backbone Tasks Phase 2 — TaskVerifyBuildResult (6 checks) / TaskOrganizeOutput (copy+serialize+summary+cleanup). Includes HashGenerator unification (CRC32 merge + enum) + BuildVerificationResult type | **Realized** (plan-E5-2b.md) |
 | E6 | ABManifest build export — TaskGenerateManifest + CRC32Helper + BundleType int→string | **Realized** (plan-E6.md) |
-| E7 | Diff snapshot adaptation (IDiffPipeline + Legacy/AB backends) | Draft (plan-E7.md) |
+| E7 | Diff snapshot adaptation (IDiffPipeline + Legacy/AB backends) | Draft (plan-E7.md) — 2026-05-08 audit fixes: +T9 TaskBuildBundles BundleDelta, +T11 DAGScheduler integration, DiffResult/ConfirmRelease corrections |
+| E9 | VersionNumber SemVer+Build extension (Major.Minor.Patch + Build + Channel, IComparable, Parse/TryParse, operator overloads). Prerequisite for E7 | **Realized** (plan-E9-version.md) |
+| E10 | BuildProjectManager dual-backend split — `IBuildBackend` + `LegacyAddressableBuildBackend` + `ABBuildBackend` + orchestrator-style `BuildProjectManager`. `BuildCommandLine` kept on the same public API path. AB output layout aligned to `{PackageRoot}/bundles/` to match hotfix/runtime contracts | **Realized** (plan-E10-buildbackend.md) |
+| E11 | FYAssetSettings SO — new `FYAssetSettings` ScriptableObject (Runtime assembly) replaces `FYAssetConstants`; all configurable fields (ProjectName, HotfixUrl, UseABBackend, paths) become SO instance fields; `static const` members preserved on SO type; `BuildPipelineConfig.DefaultBackendMode` removed; `SettingsPanel` added; `BuildPipelineWindow` sidebar reorganized to SETTINGS → AB PIPELINE → MANAGE; AB PIPELINE grayed-out when `UseABBackend=false`; `FYAssetConstants.cs` deleted | **Realized** (plan-E11-settings.md) |
+| E12 | BuilderPanel BuildGraph editor — staged GraphView upgrade for AB pipeline. E12-1 approved: read-only DAG visualization from `BuildPipelineConfig.Tasks` + `BuildTaskResolver`, code/SO/data-flow edge display, Reload, and `DAGScheduler.Validate()` summary. E12-2 editing and E12-3 build trigger/status require separate approval | **Approved** (plan-E12-buildgraph-editor.md) |
 
 ### Phase 7: Delivery & Download Strategy
 
@@ -198,7 +210,7 @@ Phase 4 and Phase 6 must be coordinated (ABManifest runtime consumption + build-
 > | After | Editor Delivery |
 > |-------|----------------|
 > | Phase 5 (E1-1~E1-4 + E2 complete) | Collector panel (E1-4, Approved) + scan result preview |
-> | Phase 6 E5-1/E5-2 | Pipeline panel (DAG visualization) + Builder panel (build execution) |
+> | Phase 6 E5-1/E5-2 | BuilderPanel BuildGraph editor (E12: E12-1 read-only visualization approved; E12-2 editing and E12-3 build execution pending separate approval) |
 > | Phase 6 E4+E6 | Inspector panel (Bundle table + asset search) |
 > | Phase 6 closed | Settings panel finalization |
 >
@@ -262,3 +274,9 @@ Phase 4 and Phase 6 must be coordinated (ABManifest runtime consumption + build-
 | 2026-04-25 | **E1-2 completed**: Implemented `AssetClassifier` + three default rules (`AddressByFileName`, `CollectAll`, `PackByCollectPath`) under `Assets/FYAsset/Scripts/Build/Collector/Editor/`. `AssetAddressGenerator` added a shared `GenerateShortAddress(assetPath, primaryType, useTypeSuffix)` entry so collector address rules reuse the existing B5 naming contract instead of forking logic. External verification updated `Assembly-CSharp-Editor.csproj` to include the new editor files, and `dotnet build XLuaHotfix.sln` passed with 0 errors, existing warnings only |
 | 2026-04-28 | **Plan gap convergence**: (1) E7 precise sub-plan written (plan-E7.md): IDiffPipeline 5-method interface + LegacyDiffBackend/ABDiffBackend separation + BundleDigestList .bin/.json persistence + head.json per-version snapshot history + each backend produces own delta type. 10 design decisions, 12 tasks, 8 new files. (2) F-series renumbered: F1/F2/F3 now cover offline package / background download / A/B test. Original RawFile/SpriteAtlas/Compression absorbed into unified pipeline extension points. (3) G-series replaced with incremental insertion point strategy — editor tools built as validation closure after each phase, not a standalone series. (4) YooAsset gap analysis resolved: all 11 decision items closed. #1 Shader→TaskCollectBuiltins, #2 Verify→TaskVerifyBuildResult, #3 Tags→E6 union aggregation, #4 Cleanup→PackageCleaner already covered, #5 Report→TaskOrganizeOutput already covered, #6 Naming→E5-1 BundleFileNameStyle enum, #7 Toggle→E1-4 CollectorGroup.Enabled, #8 Retry→deferred to mobile testing |
 | 2026-05-07 | **E5-2b realized + E5 pipeline fully landed**: TaskVerifyBuildResult (6 checks) + TaskOrganizeOutput + HashGenerator unification (CRC32 merge + HashAlgorithmType enum) + BuildVerificationResult type. E6 review fixes applied (BuildVersion removed from ReadKeys, CRC32 file-missing→fail-fast, Tags comment updated) |
+| 2026-05-08 | **E7+E9 audit fixes**: External review identified 8 findings (6 valid, 1 partial, 1 non-issue). E7: added T9 (TaskBuildBundles reads BundleDelta for incremental rebuild), T11 (DAGScheduler→BuildCommandLine integration), fixed DiffResult description, added ConfirmRelease history-overwrite guard. E9: corrected version format to SemVer 2.0 (`X.Y.Z-channel+build`), clarified binary compat (no fallback, delete old .bin), added T6 (TaskPrepareContext writes VersionNumber), added Expected Consumers table |
+| 2026-05-09 | **Three-dimension GPT review fix plan approved**: 11 tasks covering data-structure hardening (RuntimeAssetEntry Labels guard + CollectorRef/AssetClassification value semantics + ABAssetIndex zero-alloc), architecture redundancy removal (IAssetIndex legacy cut + Manager self-cache + CollectorPathUtility extraction), naming stabilization (typo fixes + PascalCase convention). 22 files affected. Awaiting execution approval |
+| 2026-05-09 | **E9 VersionNumber approved**: 6 tasks, ~80 lines net. SemVer 2.0 format (Major.Minor.Patch-channel+build), IComparable, Parse/TryParse, operators |
+| 2026-05-09 | **naming-unification plan promoted**: drafts→plan, 5 tasks, 6 files. VersionState/BundleInfo/Manifest camelCase→PascalCase |
+| 2026-05-11 | **E10 executed**: `BuildProjectManager` split into orchestrator + `IBuildBackend` implementations (`LegacyAddressableBuildBackend` / `ABBuildBackend`), `BuildCommandLine` kept on unchanged public API path, AB package layout aligned to runtime `bundles/` contract. Sandbox blocked external `dotnet build` confirmation because access to `C:\Users\cfy\AppData\Local\Microsoft SDKs` was denied |
+| 2026-05-13 | **E12 BuildGraph editor approved**: promoted `draft-buildgraph-visualization.md` to `plan-E12-buildgraph-editor.md`; first executable slice is read-only BuilderPanel DAG visualization + Validate only. Editing and build-trigger phases require separate approval |

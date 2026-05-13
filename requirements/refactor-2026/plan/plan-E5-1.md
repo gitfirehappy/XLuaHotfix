@@ -9,9 +9,7 @@
 
 ## Objective
 
-Implement the build pipeline core infrastructure: `IBuildTask` interface, `BuildContext` type-safe data bus, `BuildTaskResult`/`BuildResult` result types, `BuildPipelineConfig` SO + `TaskEntry` for task wiring, `BuildTaskResolver` (assembly scan for TaskName → Type mapping), `BackendMode` enum with DAG-guaranteed exclusivity, `DAGScheduler` (Kahn topological sort + batch parallel execution + wiring validation + conflict detection + pairwise check API), and `BuildContextKeys` constants.
-
-This sub-plan contains ZERO Task implementations. It defines the contract that E1-3/E4/E5-2/E6 implement against.
+Implement build pipeline core: `IBuildTask` 4-field contract, `BuildContext` type-safe store, `BuildTaskResult`/`BuildResult`, `BuildPipelineConfig` SO + `TaskEntry`, `BuildTaskResolver` assembly scan, `BackendMode` enum with DAG-guaranteed exclusivity, `DAGScheduler` (Kahn sort + batch execution + validation + conflict detection), and `BuildContextKeys`. Contains ZERO Task implementations.
 
 ---
 
