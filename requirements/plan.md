@@ -155,6 +155,9 @@ Phase 4 and Phase 6 must be coordinated (ABManifest runtime consumption + build-
 | File | Content | Status |
 |------|---------|--------|
 | plan-filehelper.md | FileHelper: cross-platform file I/O utility (8 methods: +Exists). Fixes Android StreamingAssets read bug + adds atomic write + unified delete semantics. 1 new file, 3 modified | DONE |
+| folder-cleanup-20260518/plan/plan-folder-cleanup.md | FYAsset Hotfix + Runtime folder boundary cleanup: LegacyRuntime retired, Hotfix/Backends split by AB vs Addressables, Runtime/Facade and Runtime/Contracts introduced, empty Helpers/Helper removed | Executed, awaiting sign-off |
+| folder-cleanup-20260518/plan/plan-build-folder-cleanup.md | FYAsset Build folder path cleanup: BuildManage retired into Release/Manifests/Bootstrap/Snapshots/Versioning, with Collector/Pipeline/Build UI unchanged | Executed, awaiting sign-off |
+| folder-cleanup-20260518/plan/plan-build-aa-ab-boundary-fix.md | Corrective Build AA/AB boundary cleanup: runtime manifests aligned under Runtime/Manifests, LuaScriptsIndex moved to XLuaFramework, Build Release/Editor split by Shared/Addressables/AB responsibilities, Manifest type renamed to PackageIndex | Executed, awaiting sign-off |
 | plan-R1.md | R1: Unified error handling architecture — BuildMessage (Editor) + RuntimeMessage (Runtime) separated types, string Code with const files (BuildErrorCodes/RuntimeErrorCodes), Severity on both sides, factory-only construction, AssetLoadError/ScanMessage renamed, PATH_NOT_FOUND fixed to Warning | DONE |
 | plan-R2.md | R2: Runtime Correctness + Error Contract Unification + Dedup — HandleRegistry._entryActiveCounts + ABPackageBackend error contract unified + code dedup | DONE |
 
