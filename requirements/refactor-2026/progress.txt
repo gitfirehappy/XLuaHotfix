@@ -976,3 +976,6 @@
 [done] 2026-05-18 HU-1 executed — added AA `BundleInfo.FileCRC`, propagated `FileCRC` through `BundleDownloadItem` for AA/AB, added copy/download CRC verification in `HotfixManager`, and moved `HashGenerator` to runtime-visible helpers while keeping `GenerateDeepHash` Editor-only
 [done] 2026-05-18 HU-1 verification — `dotnet build XLuaHotfix.sln` passed with 0 errors; remaining warnings are pre-existing System.Net.Http conflicts and AdditionalFile analyzer warnings
 [next] 2026-05-18 Awaiting developer sign-off for HU-1
+[start] 2026-05-18 AAM planning — promote VersionState rename and HelperBuildData fusion from AA-AB alignment draft into a large split plan
+[done] 2026-05-18 AAM master plan promoted — `plan-aamanifest-helperbuilddata-20260518.md` split into AAM-1 rename shell, AAM-2 embedded index, AAM-3 runtime source switch, AAM-4 binary manifest, AAM-5 HelperBuildData retirement
+[next] 2026-05-18 Awaiting developer approval for AAM-1 only before code changes
