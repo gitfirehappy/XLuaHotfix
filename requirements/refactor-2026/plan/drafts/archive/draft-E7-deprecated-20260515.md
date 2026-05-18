@@ -1,9 +1,23 @@
 # Sub-Plan E7: Diff Snapshot Adaptation
 
-> **Risk**: Medium (Editor-only build logic, no runtime impact; but snapshot correctness directly affects hotfix bundle selection)
-> **Dependencies**: E5-1 (IBuildTask + BuildContext + DAGScheduler), E5-2 (TaskBuildBundles — provides per-bundle hash source), E6 (ABManifest structure — Bundle-level naming reference)
-> **Status**: Draft — 2026-04-28
-> **Execution order**: E7 executes after E5-1 + E5-2 + E6 are all landed. E7 sub-plan written now; execution deferred.
+> **Status**: ❌ DEPRECATED — 2026-05-17 归档至 drafts。8 设计问题 + 2 combined review findings 已吸收至 `draft-E7-diff-snapshot-20260517.md`（E13 独立，已执行 plan-E13-legacy-sidebar.md）
+> **Superseded by**: `plan/drafts/draft-E7-diff-snapshot-20260517.md`
+> **Archived reviews**: `review/archive/review-E7-E13-plan-20260515.md`
+> **保留原因**: 原始设计讨论历史 + mistake absorption 追溯
+>
+> ## 2026-05-15 Review 结论：打回重写
+>
+> 8 个设计问题需要重新讨论后重写：
+> 1. **DiffResult 多态不自洽** — 接口返回 DiffResult 但两个 backend 产出不同类型 delta，ApplyDiff 方法存在意义存疑
+> 2. **BundleDigest/BundleDigestList 错误放 Runtime assembly** — 当前只有构建期用，应放 Editor
+> 3. **文件路径错误** — Diff 是 Pipeline 关注点，不应放 Collector 目录
+> 4. **Hash 算法未对齐** — 指定 MD5 但项目已有 HashGenerator + HashAlgorithmType 统一基础设施
+> 5. **D5d 多渠道参数过度设计** — 为未实现功能污染接口签名
+> 6. **MaxHistoryVersions 归属不当** — 混入 BuildPipelineConfig（执行配置）不合适
+> 7. **E7-T9 可选 ReadKeys** — DAGScheduler 是否支持可选读取未确认
+> 8. **E7-T11 与 E12-2 边界模糊** — CLI vs Editor 入口未澄清
+>
+> 以下原始设计保留作为参考，重写时需逐一解决上述问题。
 
 ---
 
@@ -82,12 +96,13 @@ New pipeline does NOT physically relocate assets between groups. Group is a scan
 
 ABDiffBackend.RollbackHotfix: delete `staged.bin`, delete built bundles (if any), reset BuildContext diff entries. Head snapshot untouched.
 
-### D5: ConfirmRelease — head.json + Per-Version History Files
+### D5: ConfirmRelease — head.json + Per-Version History Files + Storage Enhancements
 
 ```
 BuildData/Snapshots/
   ├── head.json             ← {"Head": "v4.0.2", "Staged": "v4.0.3"}  or Staged:null
   ├── staged.bin            ← pending release snapshot (absent when no pending)
+  ├── changelog.jsonl       ← append-only operation audit log
   └── history/
         ├── v4.0.0.bin      ← BundleDigestList per version
         ├── v4.0.1.bin
@@ -103,21 +118,55 @@ BuildData/Snapshots/
 }
 ```
 
+#### D5a: Atomic Write
+
+All writes to `head.json` and `staged.bin` use `FileHelper.WriteAllBytesAtomic` (write to `.tmp` → rename). This prevents state corruption if the process is interrupted mid-write. `ConfirmRelease` and `RollbackHotfix` are both multi-step — if any step fails, earlier steps are safe because each file is atomically consistent.
+
+#### D5b: Operation Audit Log (changelog.jsonl)
+
+Append-only JSONL file recording every state-changing operation:
+
+```jsonl
+{"ts":"2026-05-15T10:30:00Z","op":"GenerateSnapshot","version":"v4.0.3","user":"cfy"}
+{"ts":"2026-05-15T11:00:00Z","op":"ConfirmRelease","version":"v4.0.3","from":"v4.0.2","user":"cfy"}
+{"ts":"2026-05-16T09:00:00Z","op":"RollbackHotfix","version":"v4.0.4","user":"cfy"}
+```
+
+Fields: `ts` (ISO 8601), `op` (GenerateSnapshot/PrepareDiff/ConfirmRelease/RollbackHotfix), `version`, `from` (previous Head, ConfirmRelease only), `user` (Environment.UserName).
+
+Not read by any pipeline logic — purely diagnostic. Append via `File.AppendAllText`.
+
+#### D5c: History GC Strategy
+
+`ConfirmRelease` runs GC after successful commit:
+- Configurable retention count `MaxHistoryVersions` (default 10, stored on `BuildPipelineConfig` SO)
+- When `history/` contains more than `MaxHistoryVersions` .bin files, delete the oldest (by VersionNumber comparison)
+- GC is best-effort: failure to delete does not fail the release
+
+#### D5d: Multi-Channel Extension Point (Interface Only)
+
+`IDiffPipeline` methods accept an optional `channel` parameter (default `null` → single-channel behavior). The current implementation ignores it — all operations go to the single `BuildData/Snapshots/` directory.
+
+Future multi-channel expansion: `BuildData/Snapshots/{channel}/` subdirectories, each with its own `head.json` + `history/`. Not implemented in E7.
+
 **ConfirmRelease flow**:
 1. Read head.json → get Staged version
-2. Move `staged.bin` → `history/{version}.bin`
-3. Update head.json: `Head = version`, `Staged = null`
-4. (Full build only) Optionally clean old history entries
+2. Move `staged.bin` → `history/{version}.bin` (atomic rename)
+3. Write head.json atomically: `Head = version`, `Staged = null`
+4. Append changelog.jsonl entry
+5. Run history GC (retain most recent `MaxHistoryVersions`)
 
 **RollbackHotfix flow**:
 1. Read head.json → get Staged version
 2. Delete `staged.bin`
-3. Update head.json: `Staged = null`
-4. (Head and history untouched)
+3. Write head.json atomically: `Staged = null`
+4. Append changelog.jsonl entry
+5. (Head and history untouched)
 
 **Rollback to historical version** (ops):
-1. Update head.json: `Head = "v4.0.1"` (must exist in history/)
-2. Next hotfix diff uses v4.0.1 as baseline
+1. Update head.json atomically: `Head = "v4.0.1"` (must exist in history/)
+2. Append changelog.jsonl entry
+3. Next hotfix diff uses v4.0.1 as baseline
 
 ### D6: BuildContext Version Source
 
@@ -306,7 +355,7 @@ Hotfix Build:
 - `version_state.json` modification or removal (legacy backend artifact)
 - `BuildSnapshots` SO format change (legacy backend, not migrated)
 - CDN upload or deployment orchestration (separate build step, outside diff pipeline)
-- Historical snapshot cleanup/archival policy (future enhancement)
+- Historical snapshot cleanup/archival policy beyond simple count-based GC (time-based, size-based)
 - Inspector UI for snapshot history visualization (G-series editor tool, Phase 6+)
 - Cross-backend delta merging (two backends never run simultaneously)
 
@@ -318,3 +367,4 @@ Hotfix Build:
 |------|--------|
 | 2026-04-28 | Initial version: 10 design decisions, 12 tasks (T12 optional), 8 new files, 3 modified files. All decisions converged from plan-E-draft.md G4/G5 direction + deep-dive discussion (interface granularity, diff unit, persistence, rollback, ConfirmRelease) |
 | 2026-05-08 | Audit fixes: (1) Added T9 — TaskBuildBundles must read BundleDelta key for incremental rebuild; (2) Added T11 — DAGScheduler integration into BuildCommandLine entry point; (3) Fixed DiffResult description (new type, not existing); (4) Added ConfirmRelease guard against history file overwrite; (5) Renumbered T9→T10, T10→T12, T11→T13, T12→T14 |
+| 2026-05-15 | D5 storage layer enhancements: (1) D5a atomic write via FileHelper; (2) D5b changelog.jsonl append-only audit log; (3) D5c history GC strategy (MaxHistoryVersions count-based, configurable on BuildPipelineConfig); (4) D5d multi-channel extension point (interface parameter only, implementation deferred). ConfirmRelease/RollbackHotfix flows updated to include audit + GC steps |

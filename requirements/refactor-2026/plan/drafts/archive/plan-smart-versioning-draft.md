@@ -1,8 +1,9 @@
 # Draft: 智能版本管理 — 基于 Git 的自动化版本建议
 
-> **Status**: Draft — 2026-05-08 讨论记录
+> **Status**: ~~Draft (Deferred)~~ → **Archived 2026-05-18** — Superseded by `draft-build-repository-20260518.md`（版本建议逻辑作为 SourceDiffSummary 纳入统一 Build Repository）
 > **Depends on**: E9 (VersionNumber 扩充) 完成后可实施
 > **Insertion Point**: E7 (Diff snapshot) 或 VersionPanel 重做时考虑纳入
+> **2026-05-15 结论**: 锦上添花功能，非紧迫。版本管理概念分离后确认：Version 只管发布语义，git 信息属于 Build Log 归属产物。Smart Versioning 作为未来 VersionPanel 重做的子功能延后。
 
 ---
 

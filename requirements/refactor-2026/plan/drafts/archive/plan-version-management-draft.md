@@ -1,11 +1,24 @@
 # Draft: 版本管理优化（VersionDataBase + 构建历史 + 一键化）
 
-> **Status**: Draft — 2026-05-06, updated 2026-05-08
+> **Status**: Archived — 2026-05-15
 > **Scope**: 优化现有 VersionDataBase 系统，新旧管线共用
 > **原则**: 不破坏现有功能，渐进增强
-> **部分吸收**: VersionNumber 扩充 → 已移入 `plan-E9-version.md`（精确子计划）
-> **后续方案**: 智能版本建议 → 已移入 `drafts/plan-smart-versioning-draft.md`
+> **部分吸收**: VersionNumber 扩充 → 已移入 `plan-E9-version.md`（精确子计划，已实现）
+> **后续方案**: 智能版本建议 → 已移入 `drafts/plan-smart-versioning-draft.md`（延后）
 > **本草稿剩余范围**: BuildMetadata 丰富化 + BuildHistory 记录 + VersionPanel 重做 + 一键构建流程
+>
+> ## 2026-05-15 归档结论
+>
+> 概念分离审查后确认：
+> - **Version（VersionDataBase）只管发布语义**（Major.Minor.Patch.Channel），不混入 git/构建信息
+> - **BuildMetadata（git commit/branch/platform）属于 Build Log**，归属构建产物（build_summary.txt / BuildIndex.json），不进 VersionDataBase
+> - **GlobalBuildNumber 属于 Build Log**，不归 Version
+> - **BuildHistory** 由 E7 changelog.jsonl + build_summary.txt 覆盖
+> - **一键构建** 已被 E12-2 Pipeline Build 按钮覆盖
+> - **VersionPanel 重做** 非紧迫，延后
+> - **Smart Versioning** 锦上添花，延后
+>
+> 有价值的部分（git 信息写入产物）作为构建管线自然增强，不需要独立 plan。
 
 ---
 

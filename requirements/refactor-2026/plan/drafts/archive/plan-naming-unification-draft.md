@@ -1,6 +1,6 @@
 # Draft: 旧管线字段命名 PascalCase 统一
 
-> **Status**: Draft — 2026-05-08
+> **Status**: ~~Draft~~ → **Archived 2026-05-18** — Promoted to `plan-naming-unification.md` and executed
 > **Priority**: Low — 纯命名重构，不影响功能
 > **Trigger**: field-semantics.md 审查发现旧管线 camelCase 与新管线 PascalCase 不一致
 > **Depends on**: 无前置依赖，可独立执行

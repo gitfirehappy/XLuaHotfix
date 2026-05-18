@@ -1,6 +1,6 @@
 # Forward-Looking Ideas (Draft Notes)
 
-> **Status**: Draft notes — 2026-04-26
+> **Status**: ~~Draft notes~~ → **Archived 2026-05-18** — 大部分内容已被后续 plan 吸收，仅 A/B 测试未纳入
 > **Principle**: 尽量依赖现有架构能力完成，不过度扩充。每个 idea 标注最小增量改动。
 
 ---
