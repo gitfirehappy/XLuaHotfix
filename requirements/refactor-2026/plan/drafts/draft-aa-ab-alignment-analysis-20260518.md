@@ -265,18 +265,15 @@ ABBuildBackend.BuildAsync 完成后:
 
 ## 命名统一决策
 
+> Promotion note: the VersionState rename and HelperBuildData fusion direction has been promoted into executable master plan `../plan-aamanifest-helperbuilddata-20260518.md`. This draft remains the analysis trace.
+
 ### 已确认
 
 | 当前名 | 新名 | 职责 | 状态 |
 |---|---|---|---|
 | `Manifest`（类名 + manifest.json） | `PackageIndex` | 下载入口定位（LatestPackage + LatestVersion） | 可执行 |
 | `ABManifest` | 保持不变 | AB 完整资源清单（Asset + Bundle 映射） | 不动 |
-
-### 延后讨论
-
-| 当前名 | 候选新名 | 问题 |
-|---|---|---|
-| `VersionState`（类名 + version_state.json） | `BundleIndex` 或其他 | 涉及 HelperBuildData 索引体系，改动范围需评估 |
+| `VersionState`（类名 + version_state.json） | `AAManifest` (AAManifest.json) | AA 完整资源清单（Bundle 列表 + 资源索引），对标 ABManifest | 与 HelperBuildData 融合同步执行 |
 
 ### 命名歧义消除后的全景
 
@@ -286,14 +283,25 @@ ABBuildBackend.BuildAsync 完成后:
     → 定位最新包名 + 版本号
     → 拼接 CDN URL
 
-  AA: version_state.json (VersionState)
-    → Bundle 下载清单 (BundleName + Hash + Size)
-    → 配合 catalog.json 做资源定位
+  AA: AAManifest.json (原 version_state.json)
+    → Bundle 下载清单 (BundleName + Hash + CRC + Size)
+    → 资源索引 (key/type/labels) — 原 AddressableLabelsConfig 融入
+    → 配合 catalog.json 做 Addressables 资源定位
 
   AB: ABManifest.json/.bin (ABManifest)
     → 完整资源清单 (Asset→Bundle 映射 + 依赖 + Labels)
     → 同时承担下载清单 + 资源定位双职责
 ```
+
+### 对称性
+
+| | AA | AB |
+|---|---|---|
+| 清单类名 | `AAManifest` | `ABManifest` |
+| 清单文件 | `AAManifest.json` | `ABManifest.json` |
+| Bundle 条目 | `BundleInfo` | `ManifestBundleEntry` |
+| 资源条目 | `PackageEntry` | `ManifestAssetEntry` |
+| 下载入口 | `PackageIndex.json` | `PackageIndex.json` |
 
 ---
 
@@ -389,12 +397,154 @@ public class ArtifactDigest
 
 ---
 
+## HelperBuildData 融合决策
+
+### 背景
+
+HelperBuildData 是 AA 管线的补丁机制 — Addressables 原生不提供的索引能力，通过 SO 打包进独立 bundle 来补充。AB 管线的 ABManifest 已内置等价能力，不需要 HelperBuildData。
+
+### 当前 HelperBuildData 组成
+
+| SO | 内容 | 运行时消费方 | 语义 |
+|---|---|---|---|
+| `AddressableLabelsConfig` | 所有 AA entry 的 key/type/labels 索引 | `AssetPackageManager`（Legacy 路径） | 资源索引（对标 ABManifest.AssetEntries） |
+| `LuaScriptsIndex` | Lua 脚本名 → Container 地址映射 | `XLuaLoader` | Lua 路由表（与构建辅助无关） |
+
+### 决策
+
+| # | 改动 | 理由 |
+|---|------|------|
+| H1 | `AddressableLabelsConfig` 数据融入 `version_state.json` | 让 AA 管线也变为"一个清单文件自包含"，对标 ABManifest。消除 SO 依赖，简化热更链路 |
+| H2 | `LuaScriptsIndex` 保留为独立 SO，移出 HelperBuildData Group | 语义是"Lua 路由表"，不是"构建辅助数据"。移到 Default 或专用 Lua Group |
+| H3 | 删除 HelperBuildData Group | 融合后不再需要 |
+| H4 | 删除 `HelperBuildDataExporter`（或大幅简化） | 索引导出逻辑移入 `LegacyAddressableBuildBackend.GenerateVersionState` |
+
+### 融合后 version_state.json 结构
+
+```json
+{
+  "Version": { "Major": 4, "Minor": 0, "Patch": 2 },
+  "FileHash": "abc123...",
+  "TotalSize": 12345678,
+  "Bundles": [
+    { "BundleName": "...", "FileHash": "...", "FileCRC": 0, "FileSize": 0 }
+  ],
+  "AssetEntries": [
+    { "key": "UI/MainPanel", "Type": "Prefab", "Labels": ["UI", "Startup"] }
+  ],
+  "KeysByType": [
+    { "Type": "Prefab", "Keys": ["UI/MainPanel", ...] }
+  ],
+  "KeysByLabel": [
+    { "Label": "UI", "Keys": ["UI/MainPanel", ...] }
+  ]
+}
+```
+
+### 对标关系
+
+| AA (version_state.json 融合后) | AB (ABManifest) |
+|---|---|
+| `Bundles` (BundleInfo 列表) | `BundleEntries` (ManifestBundleEntry 列表) |
+| `AssetEntries` (PackageEntry 列表) | `AssetEntries` (ManifestAssetEntry 列表) |
+| `KeysByType` / `KeysByLabel` | Labels 索引查询 API |
+| `Version` | 外部管理 |
+| `FileHash` + `TotalSize` | 运行时计算 |
+
+### 改动范围
+
+| 改动 | 位置 | 风险 |
+|---|---|---|
+| `VersionState` 类加入索引字段 | `VersionState.cs` | 低 — 新增字段，旧 JSON 反序列化为空列表 |
+| 构建时导出索引到 version_state | `LegacyAddressableBuildBackend.GenerateVersionState` | 中 — 需要读 AddressableAssetSettings |
+| 运行时从 version_state 读索引 | `AssetPackageManager.cs`（Legacy 路径） | 高 — 加载时序变化 |
+| `XLuaLoader` 不受影响 | — | — LuaScriptsIndex 仍通过 AssetPackageManager 加载 |
+| 删除 `HelperBuildDataExporter` 的 Labels 导出 | `HelperBuildDataExporter.cs` | 低 |
+| LuaScriptsIndex 导出保留（移到独立工具或简化） | `HelperBuildDataExporter.cs` | 低 |
+| 删除 HelperBuildData Group | Addressables 配置 | 低 — 确认无其他 SO 依赖 |
+
+### 运行时加载时序变化
+
+```
+当前（AA）:
+  HotfixManager 下载 version_state.json → 获取 bundle 列表 → 下载 bundles
+  → Addressables 初始化 → 加载 AddressableLabelsConfig SO → 索引可用
+
+融合后（AA）:
+  HotfixManager 下载 version_state.json → 获取 bundle 列表 + 索引数据（同时可用）
+  → 下载 bundles → Addressables 初始化（索引已提前可用）
+```
+
+融合后索引**更早可用**（不需要等 Addressables 初始化），是正向改进。
+
+### 执行时机
+
+延后执行。与 VersionState 改名讨论关联 — VersionState 改名为 `AAManifest`，融合后结构对标 ABManifest。
+
+---
+
+## Bundle 条目统一决策
+
+### 分析
+
+| 字段 | AA `BundleInfo` | AB `ManifestBundleEntry` | 原因 |
+|---|---|---|---|
+| BundleName + FileHash + FileCRC + FileSize | ✓ | ✓ | 下载清单必需 |
+| Encrypted / BundleType / Tags / DependBundleIndices | ✗ | ✓ | AB 手搓体系需要自己管理依赖/加载/策略；AA 由 Addressables 自动管理 |
+
+### 决策：保持独立
+
+- `BundleInfo`：AA 的"下载清单条目"（只回答"下载什么"）
+- `ManifestBundleEntry`：AB 的"运行时资源管理条目"（还回答"怎么加载"）
+- `BundleDownloadItem`：热更统一消费视图（两条管线的 Backend 各自转换）
+
+**不做基类抽取**。理由：
+1. 语义不同（下载清单 vs 运行时管理）
+2. 变化方向不同（AB 会继续扩展，AA 不会）
+3. 节省代码量极少（~15 行）
+4. BundleDownloadItem 已是统一消费层，耦合风险 > 收益
+
+---
+
+## 序列化格式统一决策
+
+### 当前状态
+
+| | AA | AB |
+|---|---|---|
+| 格式 | JSON only | JSON + Binary |
+| 热更下载 | 下载 .json | 优先 .bin，回退 .json |
+
+### 决策：AA 也支持 Binary
+
+融合 HelperBuildData 后 AAManifest 体积增大（~30-50KB），支持 Binary 可减半。且 `[BinarySerializable]` + `SerializationUtility` 已有现成工具。
+
+**改动**：
+1. `AAManifest` 类（原 VersionState）加 `[BinarySerializable]` 标记 + `[BinaryField]` 注解
+2. 构建时同时输出 `AAManifest.json` + `AAManifest.bin`
+3. `LegacyHotfixBackend` 优先读 `.bin`，回退 `.json`（与 ABHotfixBackend 对称）
+
+**对称性**：
+
+| | AA | AB |
+|---|---|---|
+| 清单文件 | `AAManifest.json` / `.bin` | `ABManifest.json` / `.bin` |
+| 优先格式 | Binary | Binary |
+| 回退格式 | JSON | JSON |
+| 序列化工具 | SerializationUtility | SerializationUtility |
+
+---
+
 ## Change Log
 
 | Date | Change |
 |------|--------|
 | 2026-05-18 | 初始草稿：系统分析 AA-AB 统一与差异，确认 Build Repository 设计决策 |
-| 2026-05-18 | 补充命名统一决策：Manifest→PackageIndex 确认；VersionState 改名延后（HelperBuildData 索引问题） |
+| 2026-05-18 | 补充命名统一决策：Manifest→PackageIndex 确认；VersionState→AAManifest 确认 |
 | 2026-05-18 | 补充 Hash 统一决策：方案 A 确认（统一添加 CRC32），MD5=内容标识 + CRC32=快速校验 |
 | 2026-05-18 | Hash 统一决策部分提升为正式小任务计划：`../plan-hash-unification-20260518.md` |
 | 2026-05-18 | 补充路径管理精简决策：删 BuildPathCustomizer + 新建 BuildPathManager + PathManager 改名 |
+| 2026-05-18 | 补充 HelperBuildData 融合决策：AddressableLabelsConfig 融入 AAManifest，LuaScriptsIndex 独立为普通 SO，删除 HelperBuildData Group |
+| 2026-05-18 | 补充 Bundle 条目决策：保持独立（语义不同、变化方向不同），不做基类抽取 |
+| 2026-05-18 | 补充序列化格式决策：AA 也支持 Binary（对标 AB），AAManifest.json + .bin 双输出 |
+| 2026-05-18 | VersionState→AAManifest + HelperBuildData 融合方向提升为正式分步计划：`../plan-aamanifest-helperbuilddata-20260518.md` |
