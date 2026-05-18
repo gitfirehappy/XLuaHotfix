@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
@@ -10,29 +11,32 @@ using UnityEngine.AddressableAssets;
 ///
 /// 设计说明：
 /// - 保持与重构前 HotfixManager 完全相同的行为（零变更）
-/// - 使用 version_state.json 记录版本和 Bundle 信息
+/// - 使用 AAManifest.bin/json 记录版本、Bundle 信息和 AA 资产索引
 /// - 使用 catalog.json 作为 Addressables 资源索引
 /// - 依赖 Addressables 初始化和外部 Catalog 加载
 ///
 /// 热更流程：
 /// 1. InitializeBackendAsync → Addressables.InitializeAsync（初始化本地包）
-/// 2. LoadLocalVersionAsync → 从 currentGUIDRoot 读取 version_state.json
-/// 3. FetchRemoteVersionAsync → 下载远端 version_state.json 并缓存
-/// 4. GetBundleDownloadList → 从 VersionState 提取 Bundle 列表
-/// 5. PostDownloadAsync → 下载 catalog.json + 写入 version_state + 加载外部 Catalog
+/// 2. LoadLocalVersionAsync → 从 currentGUIDRoot 读取 AAManifest.bin/json
+/// 3. FetchRemoteVersionAsync → 下载远端 AAManifest.bin，失败时回退 AAManifest.json 并缓存
+/// 4. GetBundleDownloadList → 从 AAManifest 提取 Bundle 列表
+/// 5. PostDownloadAsync → 下载 catalog.json + 写入 AAManifest + 加载外部 Catalog
 ///
 /// 与 AB 后端的差异：
 /// - 需要 Addressables.InitializeAsync 初始化
 /// - 需要下载 catalog.json 并加载外部 Catalog
-/// - 元数据文件为 2 个（version_state + catalog）
+/// - 元数据文件为 2 类（manifest + catalog）
 /// </summary>
 public class LegacyHotfixBackend : IHotfixPipeline
 {
-    /// <summary>远端 version_state.json 原始内容，用于 PostDownload 写入本地</summary>
-    private string _remoteVersionJson;
+    /// <summary>远端 AAManifest 原始内容，用于 PostDownload 写入本地</summary>
+    private byte[] _remoteManifestData;
 
-    /// <summary>解析后的远端 VersionState 对象，用于 GetBundleDownloadList</summary>
-    private VersionState _remoteVersionState;
+    /// <summary>标记远端数据是否为二进制格式，用于确定写入文件名</summary>
+    private bool _remoteManifestIsBinary;
+
+    /// <summary>解析后的远端 AAManifest 对象，用于 GetBundleDownloadList</summary>
+    private AAManifest _remoteManifest;
 
     #region IHotfixPipeline
 
@@ -67,20 +71,15 @@ public class LegacyHotfixBackend : IHotfixPipeline
     /// <returns>本地版本信息视图。</returns>
     public Task<HotfixVersionInfo> LoadLocalVersionAsync(string currentGUIDRoot)
     {
-        string localVersionStatePath = Path.Combine(currentGUIDRoot, "version_state.json");
-        if (!FileHelper.Exists(localVersionStatePath))
-            return Task.FromResult<HotfixVersionInfo>(null);
-
         try
         {
-            var localVersionState = SerializationUtility.ReadFromFile<VersionState>(localVersionStatePath);
-            localVersionState?.MigrateLegacyVersionField();
-            Debug.Log($"[LegacyHotfixBackend] 本地版本: {localVersionState?.Version.GetVersionString()}, Hash: {localVersionState?.FileHash}");
-            return Task.FromResult(ToHotfixVersionInfo(localVersionState));
+            var localManifest = LoadLocalManifest(currentGUIDRoot);
+            Debug.Log($"[LegacyHotfixBackend] 本地版本: {localManifest?.Version.GetVersionString()}, Hash: {localManifest?.FileHash}");
+            return Task.FromResult(ToHotfixVersionInfo(localManifest));
         }
         catch (Exception ex)
         {
-            Debug.LogWarning($"[LegacyHotfixBackend] 本地 version_state 读取失败: {ex.Message}");
+            Debug.LogWarning($"[LegacyHotfixBackend] 本地 AAManifest 读取失败: {ex.Message}");
             return Task.FromResult<HotfixVersionInfo>(null);
         }
     }
@@ -93,22 +92,29 @@ public class LegacyHotfixBackend : IHotfixPipeline
     /// <returns>远端版本信息视图。</returns>
     public async Task<HotfixVersionInfo> FetchRemoteVersionAsync(string remoteUrlRoot)
     {
-        // 下载远端 version_state.json
-        string remoteVersionUrl = $"{remoteUrlRoot}/version_state.json";
-        _remoteVersionJson = await NetworkDownloader.DownloadText(remoteVersionUrl);
-        if (string.IsNullOrEmpty(_remoteVersionJson))
-            return null;
+        string remoteManifestBinUrl = $"{remoteUrlRoot}/{FYAssetSettings.AA_MANIFEST_FILE_NAME_BIN}";
+        _remoteManifestData = await NetworkDownloader.DownloadBytes(remoteManifestBinUrl);
+        _remoteManifestIsBinary = _remoteManifestData != null && _remoteManifestData.Length > 0;
+
+        if (!_remoteManifestIsBinary)
+        {
+            string remoteManifestUrl = $"{remoteUrlRoot}/{FYAssetSettings.AA_MANIFEST_FILE_NAME}";
+            string remoteManifestJson = await NetworkDownloader.DownloadText(remoteManifestUrl);
+            if (string.IsNullOrEmpty(remoteManifestJson))
+                return null;
+
+            _remoteManifestData = Encoding.UTF8.GetBytes(remoteManifestJson);
+        }
 
         try
         {
-            _remoteVersionState = SerializationUtility.DeserializeJson<VersionState>(_remoteVersionJson);
-            _remoteVersionState?.MigrateLegacyVersionField();
-            Debug.Log($"[LegacyHotfixBackend] 远端版本: {_remoteVersionState?.Version.GetVersionString()}");
-            return ToHotfixVersionInfo(_remoteVersionState);
+            _remoteManifest = SerializationUtility.Deserialize<AAManifest>(_remoteManifestData);
+            Debug.Log($"[LegacyHotfixBackend] 远端版本: {_remoteManifest?.Version.GetVersionString()}");
+            return ToHotfixVersionInfo(_remoteManifest);
         }
         catch (Exception ex)
         {
-            Debug.LogError($"[LegacyHotfixBackend] 远端 version_state 解析失败: {ex.Message}");
+            Debug.LogError($"[LegacyHotfixBackend] 远端 AAManifest 解析失败: {ex.Message}");
             return null;
         }
     }
@@ -141,17 +147,18 @@ public class LegacyHotfixBackend : IHotfixPipeline
                 RuntimeMessage.Error(RuntimeErrorCodes.BundleNotFound, "[LegacyHotfixBackend] catalog.json 下载失败"));
         }
 
-        // 写入 version_state.json
-        if (string.IsNullOrEmpty(_remoteVersionJson))
+        // 写入 AAManifest
+        if (_remoteManifestData == null || _remoteManifestData.Length == 0)
         {
-            Debug.LogError("[LegacyHotfixBackend] 远端 version_state 缓存为空，无法写入本地");
+            Debug.LogError("[LegacyHotfixBackend] 远端 AAManifest 缓存为空，无法写入本地");
             return HotfixStepResult.Fail(
-                RuntimeMessage.Error(RuntimeErrorCodes.BundleNotFound, "[LegacyHotfixBackend] 远端 version_state 缓存为空"));
+                RuntimeMessage.Error(RuntimeErrorCodes.BundleNotFound, "[LegacyHotfixBackend] 远端 AAManifest 缓存为空"));
         }
 
-        FileHelper.WriteAllTextAtomic(
-            Path.Combine(ctx.TargetGUIDRoot, "version_state.json"),
-            _remoteVersionJson);
+        string fileName = _remoteManifestIsBinary ? FYAssetSettings.AA_MANIFEST_FILE_NAME_BIN : FYAssetSettings.AA_MANIFEST_FILE_NAME;
+        string alternateFileName = _remoteManifestIsBinary ? FYAssetSettings.AA_MANIFEST_FILE_NAME : FYAssetSettings.AA_MANIFEST_FILE_NAME_BIN;
+        FileHelper.TryDelete(Path.Combine(ctx.TargetGUIDRoot, alternateFileName));
+        FileHelper.WriteAllBytesAtomic(Path.Combine(ctx.TargetGUIDRoot, fileName), _remoteManifestData);
 
         // 加载外部 Catalog（使 Addressables 识别热更资源）
         string localCatalogPath = Path.Combine(ctx.TargetGUIDRoot, "catalog.json");
@@ -172,19 +179,19 @@ public class LegacyHotfixBackend : IHotfixPipeline
     #region Helpers
 
     /// <summary>
-    /// 将旧版 VersionState 数据模型转换为统一热更版本视图。
+    /// 将 AAManifest 数据模型转换为统一热更版本视图。
     /// </summary>
-    private static HotfixVersionInfo ToHotfixVersionInfo(VersionState versionState)
+    private static HotfixVersionInfo ToHotfixVersionInfo(AAManifest manifest)
     {
-        if (versionState == null)
+        if (manifest == null)
             return null;
 
-        var bundles = new List<BundleDownloadItem>(versionState.Bundles?.Count ?? 0);
-        if (versionState.Bundles != null)
+        var bundles = new List<BundleDownloadItem>(manifest.Bundles?.Count ?? 0);
+        if (manifest.Bundles != null)
         {
-            for (int i = 0; i < versionState.Bundles.Count; i++)
+            for (int i = 0; i < manifest.Bundles.Count; i++)
             {
-                var bundle = versionState.Bundles[i];
+                var bundle = manifest.Bundles[i];
                 bundles.Add(new BundleDownloadItem
                 {
                     BundleName = bundle.BundleName,
@@ -197,11 +204,24 @@ public class LegacyHotfixBackend : IHotfixPipeline
 
         return new HotfixVersionInfo
         {
-            Version = versionState.Version,
+            Version = manifest.Version,
             BundleCount = bundles.Count,
-            TotalSize = versionState.TotalSize,
+            TotalSize = manifest.TotalSize,
             Bundles = bundles
         };
+    }
+
+    private static AAManifest LoadLocalManifest(string currentGUIDRoot)
+    {
+        string localManifestBinPath = Path.Combine(currentGUIDRoot, FYAssetSettings.AA_MANIFEST_FILE_NAME_BIN);
+        if (FileHelper.Exists(localManifestBinPath))
+            return SerializationUtility.ReadFromFile<AAManifest>(localManifestBinPath);
+
+        string localManifestJsonPath = Path.Combine(currentGUIDRoot, FYAssetSettings.AA_MANIFEST_FILE_NAME);
+        if (FileHelper.Exists(localManifestJsonPath))
+            return SerializationUtility.ReadFromFile<AAManifest>(localManifestJsonPath);
+
+        return null;
     }
 
     #endregion

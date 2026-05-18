@@ -9,7 +9,7 @@ using UnityEngine;
 ///
 /// 设计说明：
 /// - 直接替代 LegacyHotfixBackend，无需 Addressables 依赖
-/// - 使用 ABManifest 替代 version_state.json + catalog.json 双文件结构
+/// - 使用 ABManifest 替代 AAManifest.json + catalog.json 双文件结构
 /// - 通过 SerializationUtility 支持二进制(.bin)和 JSON 两种格式
 /// - 优先读取二进制格式（体积更小、解析更快），回退到 JSON 格式
 ///

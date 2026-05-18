@@ -16,6 +16,7 @@ public static class SerializationUtility
     {
         RegisterCodec(new JsonCodec());
         RegisterCodec(_binaryCodec);
+        BinarySerializerInitializer.Initialize();
     }
 
     public static BinaryCodec GetBinaryCodec() => _binaryCodec;

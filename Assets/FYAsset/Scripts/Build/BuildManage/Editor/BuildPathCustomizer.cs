@@ -9,7 +9,7 @@ using UnityEngine;
 /// 将 AA 的构建结果整理为：
 /// OutputRoot/
 ///   ├─ catalog.json
-///   ├─ version_state.json （这步还没生成）
+///   ├─ AAManifest.json （这步还没生成）
 ///   └─ bundles/
 ///        ├─ bundle_a.bundle
 ///        └─ bundle_b.bundle
@@ -46,14 +46,14 @@ public static class BuildPathCustomizer
                 FileHelper.CopyFile(file, targetPath, true);
                 Debug.Log($"[PathCustomizer] Catalog 已复制并重命名: {targetPath}");
             }
-            // 架构使用 version_state.json 进行版本比对，不需要 AA 自带的 hash 校验
+            // 架构使用 AAManifest.json 进行版本比对，不需要 AA 自带的 hash 校验
             else if (fileName.StartsWith("catalog") && extension == ".hash")
             {
                // 直接跳过，不复制到 finalOutputDir
                 continue;
             }
             // 处理 Bundles (.bundle)
-            // 全量导出，下载时再通过 version_state.json 优化
+            // 全量导出，下载时再通过 AAManifest.json 优化
             else if (extension == ".bundle")
             {
                 string targetPath = Path.Combine(bundleTargetDir, fileName);

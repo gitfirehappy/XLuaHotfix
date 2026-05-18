@@ -10,13 +10,28 @@ using UnityEngine.UIElements;
 /// </summary>
 public class BuildTaskNode : Node
 {
+    #region Ports
+
+    /// <summary>执行依赖输入端口（上游 Task -> 本 Task）</summary>
     public Port ExecInput { get; private set; }
+    /// <summary>执行依赖输出端口（本 Task -> 下游 Task）</summary>
     public Port ExecOutput { get; private set; }
+    /// <summary>数据依赖输入端口（上游写入 -> 本 Task 读取）</summary>
     public Port DataInput { get; private set; }
+    /// <summary>数据依赖输出端口（本 Task 写入 -> 下游读取）</summary>
     public Port DataOutput { get; private set; }
 
+    #endregion
+
+    #region Properties
+
     public string TaskName { get; }
+    /// <summary>Task 是否已解析到有效 IBuildTask 实现</summary>
     public bool IsValid { get; }
+
+    #endregion
+
+    #region Colors
 
     private static readonly Color DisabledColor = new(0.35f, 0.35f, 0.35f);
     private static readonly Color InvalidColor = new(0.55f, 0.2f, 0.2f);
@@ -28,9 +43,22 @@ public class BuildTaskNode : Node
     private static readonly Color FailedColor = new(0.65f, 0.18f, 0.18f);
     private static readonly Color SkippedColor = new(0.32f, 0.32f, 0.32f);
 
+    #endregion
+
+    #region State
+
     private readonly Label _statusLabel;
     private readonly bool _isEnabled;
 
+    #endregion
+
+    #region Construction
+
+    /// <summary>
+    /// 构造 Node 并组装 UI 结构：标题、端口（Exec In/Out、Data In/Out）、
+    /// 信息面板（Disabled 提示 / 解析失败 / ReadKeys / WriteKeys / SO Deps）、视觉状态。
+    /// 端口统一设为只读（pickingMode=Ignore），由 BuildGraphView.GetCompatiblePorts 控制连线匹配。
+    /// </summary>
     public BuildTaskNode(TaskEntry entry, IBuildTask task)
     {
         TaskName = entry.TaskName;
@@ -149,6 +177,15 @@ public class BuildTaskNode : Node
         // 只读模式：所有端口连接性由 BuildGraphView.GetCompatiblePorts 控制，用户无法拖线
     }
 
+    #endregion
+
+    #region Execution Status
+
+    /// <summary>
+    /// 设置节点执行状态颜色。通过 titleContainer 背景色区分：
+    /// Pending（深灰）、Running（橙黄）、Success（绿）、Failed（红）、Skipped（灰）。
+    /// StatusLabel 显示状态名 + ErrorCode（如有）。
+    /// </summary>
     public void SetExecutionStatus(BuildTaskExecutionStatus status, BuildTaskResult result = null)
     {
         if (!_isEnabled || !IsValid)
@@ -182,6 +219,9 @@ public class BuildTaskNode : Node
         MarkDirtyRepaint();
     }
 
+    /// <summary>
+    /// 重置节点为 Idle 初始状态（深灰背景，无状态文字）。
+    /// </summary>
     public void ResetExecutionStatus()
     {
         if (!_isEnabled || !IsValid)
@@ -193,6 +233,13 @@ public class BuildTaskNode : Node
         MarkDirtyRepaint();
     }
 
+    #endregion
+
+    #region Helpers
+
+    /// <summary>
+    /// 配置端口为只读：设置颜色 + 禁用 pickingMode / Selectable / Deletable / Movable。
+    /// </summary>
     private static void ConfigureReadOnlyPort(Port port, Color color)
     {
         port.portColor = color;
@@ -201,4 +248,6 @@ public class BuildTaskNode : Node
         port.capabilities &= ~Capabilities.Deletable;
         port.capabilities &= ~Capabilities.Movable;
     }
+
+    #endregion
 }

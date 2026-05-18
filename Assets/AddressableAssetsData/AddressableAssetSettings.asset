@@ -53,7 +53,6 @@ MonoBehaviour:
   - {fileID: 11400000, guid: ea572c62a180ea24091d7ae5f324b58a, type: 2}
   - {fileID: 11400000, guid: de95651730e394248981b302d2c9b7d6, type: 2}
   - {fileID: 11400000, guid: 681ccb5418d021f418d1c6661d7c6592, type: 2}
-  - {fileID: 11400000, guid: 6daef6fd84a9f5a4ea0ec40a06a173ef, type: 2}
   m_BuildSettings:
     m_CompileScriptsInVirtualMode: 0
     m_CleanupStreamingAssetsAfterBuilds: 1
@@ -108,13 +107,11 @@ MonoBehaviour:
     - TypeMemberListSO
     - UIFormConfigSO
     - UIResourceConfigSO
-    - AddressableLabelsConfig
     - BuildIndex
     - LuaScriptContainer
     - LuaBehaviourConfig
     - LuaBehaviourConfigSO
     - StateAnimationConfigSO
-    - Assets/Build/HelperBuildData/AddressableLabelsConfig.asset
     - LuaScriptsIndex
     - PlayerControllerSO
     - ScriptObjectBridgeConfig

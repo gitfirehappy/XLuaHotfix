@@ -12,7 +12,10 @@ using UnityEngine;
 
 /// <summary>
 /// Legacy Addressables 构建后端。
-/// 仅搬运原 BuildProjectManager 的 Addressables 构建逻辑，不改变运行行为。
+/// 保留 Addressables 构建链路，并生成 Legacy AA package manifest。
+///
+/// 构建流程：配置 AddressableAssetSettings -> AddressableAssetSettings.BuildPlayerContent ->
+/// 从 ServerData 目录搬运产物 -> 生成 AAManifest.json/.bin。
 /// </summary>
 public class LegacyAddressableBuildBackend : IBuildBackend
 {
@@ -22,11 +25,17 @@ public class LegacyAddressableBuildBackend : IBuildBackend
     private string _lastOutputDir;
     private int _bundleCount;
 
+    /// <summary>
+    /// 便捷重载，无额外执行选项。
+    /// </summary>
     public Task<BuildBackendResult> BuildAsync(VersionNumber version, BuildType buildType)
     {
         return BuildAsync(version, buildType, null);
     }
 
+    /// <summary>
+    /// 配置 AddressableAssetSettings -> 执行 Addressables BuildPlayerContent -> 记录 ServerData 路径。
+    /// </summary>
     public Task<BuildBackendResult> BuildAsync(VersionNumber version, BuildType buildType, BuildExecutionOptions options)
     {
         var settings = AddressableAssetSettingsDefaultObject.Settings;
@@ -67,6 +76,9 @@ public class LegacyAddressableBuildBackend : IBuildBackend
         }
     }
 
+    /// <summary>
+    /// 从 ServerData 目录搬运产物到目标发布目录，统计 .bundle 文件数量。
+    /// </summary>
     public void OrganizeOutput(string outputDir, VersionNumber version)
     {
         if (string.IsNullOrEmpty(_serverDataPath))
@@ -82,15 +94,25 @@ public class LegacyAddressableBuildBackend : IBuildBackend
         Debug.Log($"[LegacyAddressableBuildBackend] Output organized: {outputDir}, bundles: {_bundleCount}");
     }
 
-    public void GenerateVersionState(string outputDir, VersionNumber version)
+    /// <summary>
+    /// 扫描输出目录生成 AAManifest.json/.bin（含 BundleName / Hash / CRC / Size 列表和 AA 资产索引）。
+    /// 如热更包总大小超阈值则在 BatchMode 下抛异常，编辑器模式下弹窗警告。
+    /// </summary>
+    public void GeneratePackageManifest(string outputDir, VersionNumber version)
     {
-        Debug.Log("[LegacyAddressableBuildBackend] 正在生成 version_state.json...");
+        Debug.Log("[LegacyAddressableBuildBackend] 正在生成 AAManifest.json...");
 
-        var versionState = new VersionState
+        var manifest = new AAManifest
         {
             Version = version,
             Bundles = new List<BundleInfo>()
         };
+
+        var settings = AddressableAssetSettingsDefaultObject.Settings;
+        var indexData = AAAssetIndexBuilder.Build(settings);
+        manifest.AssetEntries = indexData.AssetEntries;
+        manifest.KeysByType = indexData.KeysByType;
+        manifest.KeysByLabel = indexData.KeysByLabel;
 
         string bundlesDir = Path.Combine(outputDir, "bundles");
         if (Directory.Exists(bundlesDir))
@@ -110,14 +132,14 @@ public class LegacyAddressableBuildBackend : IBuildBackend
                     FileSize = fileInfo.Length
                 };
 
-                versionState.Bundles.Add(bundleInfo);
-                versionState.TotalSize += bundleInfo.FileSize;
+                manifest.Bundles.Add(bundleInfo);
+                manifest.TotalSize += bundleInfo.FileSize;
             }
         }
 
-        if (versionState.TotalSize >= MaxHotfixSizeBytes)
+        if (manifest.TotalSize >= MaxHotfixSizeBytes)
         {
-            Debug.LogError($"[LegacyAddressableBuildBackend] 热更包大小过大，需缩减大小: {versionState.TotalSize} >= {MaxHotfixSizeBytes}");
+            Debug.LogError($"[LegacyAddressableBuildBackend] 热更包大小过大，需缩减大小: {manifest.TotalSize} >= {MaxHotfixSizeBytes}");
 
             if (Application.isBatchMode)
             {
@@ -127,24 +149,27 @@ public class LegacyAddressableBuildBackend : IBuildBackend
 
             EditorUtility.DisplayDialog(
                 "热更包过大",
-                $"热更包大小 ({versionState.TotalSize / (1024 * 1024)} MB) 已超过阈值 ({MaxHotfixSizeBytes / (1024 * 1024)} MB)。请缩减资源大小。",
+                $"热更包大小 ({manifest.TotalSize / (1024 * 1024)} MB) 已超过阈值 ({MaxHotfixSizeBytes / (1024 * 1024)} MB)。请缩减资源大小。",
                 "OK");
             return;
         }
 
-        string savePath = Path.Combine(outputDir, "version_state.json");
-        string tempVersionStatePath = savePath + ".tmp";
+        string jsonSavePath = Path.Combine(outputDir, FYAssetSettings.AA_MANIFEST_FILE_NAME);
+        string binSavePath = Path.Combine(outputDir, FYAssetSettings.AA_MANIFEST_FILE_NAME_BIN);
+        string tempManifestPath = jsonSavePath + ".tmp";
 
-        if (File.Exists(tempVersionStatePath))
-            File.Delete(tempVersionStatePath);
+        if (File.Exists(tempManifestPath))
+            File.Delete(tempManifestPath);
 
-        SerializationUtility.WriteToFile(tempVersionStatePath, versionState);
-        versionState.FileHash = HashGenerator.GenerateFileHash(tempVersionStatePath);
-        File.Delete(tempVersionStatePath);
+        SerializationUtility.WriteToFile(tempManifestPath, manifest);
+        manifest.FileHash = HashGenerator.GenerateFileHash(tempManifestPath);
+        File.Delete(tempManifestPath);
 
-        SerializationUtility.WriteToFile(savePath, versionState);
-        Debug.Log($"[LegacyAddressableBuildBackend] Version state generated: {_lastOutputDir ?? outputDir}, bundles: {_bundleCount}, version_state: {savePath}");
-        Debug.Log($"[LegacyAddressableBuildBackend] version_state.json 生成完毕。Hash: {versionState.FileHash} BundleSize: {versionState.TotalSize}");
+        SerializationUtility.WriteToFile(jsonSavePath, manifest);
+        SerializationUtility.WriteToFile(binSavePath, manifest, "binary", false);
+
+        Debug.Log($"[LegacyAddressableBuildBackend] Package manifest generated: {_lastOutputDir ?? outputDir}, bundles: {_bundleCount}, manifest: {jsonSavePath}, binary: {binSavePath}");
+        Debug.Log($"[LegacyAddressableBuildBackend] AAManifest.json 生成完毕。Hash: {manifest.FileHash} BundleSize: {manifest.TotalSize}");
     }
 
     private static void ConfigureBasicSettings(AddressableAssetSettings settings)
@@ -175,7 +200,7 @@ public class LegacyAddressableBuildBackend : IBuildBackend
                 EditorUtility.SetDirty(group);
             }
 
-            if (group.Name == FYAssetSettings.HELPER_BUILD_DATA_GROUP_NAME)
+            if (group.Name == "LuaScripts")
                 SetSchemaPathToRemote(settings, schema);
         }
 

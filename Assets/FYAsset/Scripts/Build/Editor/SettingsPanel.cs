@@ -49,7 +49,6 @@ public class SettingsPanel : IBuildPipelinePanel
         DrawSection("Version", new[] { "VersionDataBasePath" });
         DrawSection("Legacy Pipeline Paths", new[]
         {
-            "AddressableLabelsConfigPath",
             "LuaScriptsIndexPath",
             "SnapshotAssetPath",
             "BuildIndexJsonPath"

@@ -4,6 +4,11 @@ using System.IO;
 using UnityEditor;
 using UnityEngine;
 
+/// <summary>
+/// 构建编排入口。
+/// 统一管理版本号更新、后端路由（AB / Legacy Addressables）、包体产物组织和 manifest 更新。
+/// 通过 MenuItem 提供 Full Package / Hotfix Package / Confirm Release / Reset Groups 四个工具入口。
+/// </summary>
 public static class BuildProjectManager
 {
     public static bool LastBuildSuccess { get; private set; } = true;
@@ -119,7 +124,7 @@ public static class BuildProjectManager
 
         try
         {
-            HelperBuildDataExporter.ExportData();
+            LuaScriptsIndexExporter.ExportData();
             AssetDatabase.Refresh();
 
             if (buildType == BuildType.Hotfix && !FYAssetSettings.Instance.UseABBackend)
@@ -144,7 +149,7 @@ public static class BuildProjectManager
             string outputDir = Path.Combine(packagesDir, currentPackageName);
 
             backend.OrganizeOutput(outputDir, version);
-            backend.GenerateVersionState(outputDir, version);
+            backend.GeneratePackageManifest(outputDir, version);
             UpdateManifestFile(currentPackageName, version);
 
             if (buildType == BuildType.Full)

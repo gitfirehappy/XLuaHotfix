@@ -12,6 +12,9 @@ public static class BinarySerializerInitializer
     /// <summary>ABManifest 的二进制魔数（ASCII: 'ABMF' = 0x41424D46）</summary>
     public const uint ABManifestMagic = 0x41424D46;
 
+    /// <summary>AAManifest 的二进制魔数（ASCII: 'AAMF' = 0x41414D46）</summary>
+    public const uint AAManifestMagic = 0x41414D46;
+
     public static bool IsInitialized { get; private set; }
 
     public static void Initialize()
@@ -24,6 +27,12 @@ public static class BinarySerializerInitializer
             1,
             (writer, obj) => ABManifest_BinarySerializer.WriteWithHeader(writer, obj),
             reader => (ABManifest)ABManifest_BinarySerializer.ReadWithHeader(reader));
+
+        codec.Register<AAManifest>(
+            AAManifestMagic,
+            1,
+            (writer, obj) => AAManifest_BinarySerializer.WriteWithHeader(writer, obj),
+            reader => (AAManifest)AAManifest_BinarySerializer.ReadWithHeader(reader));
 
         IsInitialized = true;
     }

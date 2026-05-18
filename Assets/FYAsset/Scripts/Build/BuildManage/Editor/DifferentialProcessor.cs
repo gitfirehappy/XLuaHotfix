@@ -251,9 +251,7 @@ public static class DifferentialProcessor
         foreach (var group in settings.groups)
         {
             if (group == null) continue;
-            // 跳过内置数据、HelperData(由BuildManager处理)
-            if (group.Name == "Built In Data" || 
-                group.Name == FYAssetSettings.HELPER_BUILD_DATA_GROUP_NAME)
+            if (group.Name == "Built In Data")
                 continue;
 
             foreach (var entry in group.entries)

@@ -21,6 +21,11 @@ public class TaskBuildBundles : IBuildTask
     };
     public string[] WriteKeys => new[] { BuildContextKeys.BundleBuildResults };
 
+    /// <summary>
+    /// AssetBundle 构建执行。
+    /// 流程：按 BundleName 分组 -> 按 PayloadKind 分流（Serialized 走 BuildPipeline / Scene 独立打包 / RawFile 直接拷贝）
+    /// -> 调用 Unity BuildPipeline.BuildAssetBundles -> 收集 BundleBuildInfo -> 写入 BuildContext。
+    /// </summary>
     public BuildTaskResult Execute(BuildContext ctx)
     {
         var cfg = ctx.Require<BuildConfig>(BuildContextKeys.BuildConfig);
@@ -157,7 +162,7 @@ public class TaskBuildBundles : IBuildTask
             groupScenePaths[kv.Key] = scenes;
         }
 
-        // 构建 scene 输出名 → (logicalName, sceneIndex) 索引
+        // 构建 scene 输出名 -> (logicalName, sceneIndex) 索引
         var sceneOutputIndex = new Dictionary<string, (string logicalName, int sceneIndex)>(StringComparer.OrdinalIgnoreCase);
         foreach (var kv in groupScenePaths)
         {
@@ -249,7 +254,7 @@ public class TaskBuildBundles : IBuildTask
             catch (IOException ex)
             {
                 return BuildTaskResult.Fail(BuildErrorCodes.RawfileCopyFailed,
-                    $"Failed to copy '{assetPath}' → '{destPath}': {ex.Message}", true);
+                    $"Failed to copy '{assetPath}' -> '{destPath}': {ex.Message}", true);
             }
 
             var destInfo = new FileInfo(destPath);

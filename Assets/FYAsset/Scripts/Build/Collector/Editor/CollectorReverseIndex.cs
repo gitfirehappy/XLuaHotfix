@@ -5,9 +5,15 @@ using UnityEngine;
 
 /// <summary>
 /// Collector 反向索引：将资产路径映射回 Package / Group / Collector。
+///
+/// 单例 + 惰性重建模式：首次访问时通过 RebuildIfDirty 构建全量字典，
+/// Undo.undoRedoPerformed 触发 MarkDirty 失效标记，下次访问自动重建。
+/// 路径排序策略：深度优先（PathDepth 降序），确保长路径 Collector 优先匹配。
 /// </summary>
 public sealed class CollectorReverseIndex
 {
+    #region Types
+
     public struct CollectorRef : IEquatable<CollectorRef>
     {
         public int PackageIndex;
@@ -42,10 +48,11 @@ public sealed class CollectorReverseIndex
         public CollectorRef Reference;
     }
 
-    private static readonly CollectorReverseIndex _instance = new CollectorReverseIndex();
+    #endregion
 
-    private readonly Dictionary<string, CollectorRef> _map = new Dictionary<string, CollectorRef>(StringComparer.OrdinalIgnoreCase);
-    private bool _dirty = true;
+    #region Singleton
+
+    private static readonly CollectorReverseIndex _instance = new CollectorReverseIndex();
 
     public static CollectorReverseIndex Instance => _instance;
 
@@ -54,11 +61,30 @@ public sealed class CollectorReverseIndex
         Undo.undoRedoPerformed += MarkDirty;
     }
 
+    #endregion
+
+    #region State
+
+    private readonly Dictionary<string, CollectorRef> _map = new Dictionary<string, CollectorRef>(StringComparer.OrdinalIgnoreCase);
+    private bool _dirty = true;
+
+    #endregion
+
+    #region Public API
+
+    /// <summary>
+    /// 标记脏状态，下次 RebuildIfDirty 调用时重建全量索引。
+    /// 通常由 Undo.undoRedoPerformed 回调自动触发。
+    /// </summary>
     public void MarkDirty()
     {
         _dirty = true;
     }
 
+    /// <summary>
+    /// 如索引脏则重建。遍历 CollectorSetting 所有 Package->Group->Collector，
+    /// 按深度降序排序后构建资产路径->CollectorRef 映射。
+    /// </summary>
     public void RebuildIfDirty(CollectorSetting setting)
     {
         if (!_dirty)
@@ -84,16 +110,27 @@ public sealed class CollectorReverseIndex
         _dirty = false;
     }
 
+    /// <summary>
+    /// 根据资产路径查找归属的 Collector。先自动重建脏索引。
+    /// 返回 false 表示该资产未被任何 Collector 收集。
+    /// </summary>
     public bool TryGetCollector(string assetPath, out CollectorRef result)
     {
         RebuildIfDirty(null);
         return _map.TryGetValue(CollectorPathUtility.NormalizePath(assetPath), out result);
     }
 
+    /// <summary>
+    /// 判断资产是否被任意 Collector 收集。
+    /// </summary>
     public bool IsAssetCollected(string assetPath)
     {
         return TryGetCollector(assetPath, out _);
     }
+
+    #endregion
+
+    #region Index Building
 
     private List<CollectorBuildEntry> BuildEntries(CollectorSetting setting)
     {
@@ -237,4 +274,6 @@ public sealed class CollectorReverseIndex
 
         return !string.IsNullOrEmpty(AssetDatabase.AssetPathToGUID(collectPath));
     }
+
+    #endregion
 }

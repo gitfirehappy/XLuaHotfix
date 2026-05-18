@@ -23,8 +23,7 @@ public class FYAssetSettings : ScriptableObject
     public string VersionDataBasePath = "Assets/Build/VersionDataBase.asset";
 
     [Header("Legacy Pipeline Paths")]
-    public string AddressableLabelsConfigPath = "Assets/Build/HelperBuildData/AddressableLabelsConfig.asset";
-    public string LuaScriptsIndexPath = "Assets/Build/HelperBuildData/LuaScriptsIndex.asset";
+    public string LuaScriptsIndexPath = "Assets/Build/LuaScriptsIndex.asset";
     public string SnapshotAssetPath = "Assets/Build/Snapshots.asset";
     public string BuildIndexJsonPath = "Assets/Build/LocalStaticData/BuildIndex.json";
 
@@ -36,8 +35,6 @@ public class FYAssetSettings : ScriptableObject
     // ═══ 纯编译期常量（static const） ═══
 
     // --- 旧管线标识符 ---
-    public const string AA_LABELS_CONFIG = "AddressableLabelsConfig";
-    public const string HELPER_BUILD_DATA_GROUP_NAME = "HelperBuildData";
     public const string LUA_SCRIPTS_INDEX = "LuaScriptsIndex";
     public const string DEFAULT_XLUA_TYPE_CONFIG_LOAD_LABEL = "XLuaConfigs";
     public const string HOTFIX_GROUP_NAME = "HotfixGroup";
@@ -46,6 +43,8 @@ public class FYAssetSettings : ScriptableObject
     // --- 新管线文件命名 ---
     public const string MANIFEST_FILE_NAME = "ABManifest.json";
     public const string MANIFEST_FILE_NAME_BIN = "ABManifest.bin";
+    public const string AA_MANIFEST_FILE_NAME = "AAManifest.json";
+    public const string AA_MANIFEST_FILE_NAME_BIN = "AAManifest.bin";
 
     // --- 编辑器路径 ---
     public const string BUILD_PIPELINE_WINDOW_MENU_PATH = "XLua/Build Pipeline";

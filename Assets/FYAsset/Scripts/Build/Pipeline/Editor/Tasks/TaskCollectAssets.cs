@@ -22,10 +22,12 @@ public class TaskCollectAssets : IBuildTask
                 $"CollectorSetting not found: {FYAssetSettings.Instance.CollectorSettingPath}");
         }
 
+        // 执行全量扫描
         ScanResult scanResult = CollectionScanner.Scan(setting);
         List<string> warnings = new List<string>();
         bool hasError = false;
 
+        // 扫描消息分类归档
         foreach (BuildMessage message in scanResult.Messages)
         {
             warnings.Add($"[{message.Code}] {message.Message} ({message.Source})");
@@ -33,6 +35,7 @@ public class TaskCollectAssets : IBuildTask
                 hasError = true;
         }
 
+        // Error 级别 -> 阻断管线，携带 Warning 列表
         if (hasError)
         {
             BuildTaskResult result = BuildTaskResult.Fail(
@@ -42,6 +45,7 @@ public class TaskCollectAssets : IBuildTask
             return result;
         }
 
+        // 写入 BuildContext 供下游 Task 消费
         ctx.Set(BuildContextKeys.CollectedAssets, scanResult.Assets);
         ctx.Set(BuildContextKeys.SharePolicies, CollectSharePolicies(setting));
 

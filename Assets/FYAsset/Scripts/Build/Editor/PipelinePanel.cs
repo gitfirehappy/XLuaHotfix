@@ -5,9 +5,12 @@ using UnityEngine.UIElements;
 
 /// <summary>
 /// Pipeline 配置面板 —— 顶栏编辑构建选项，下方展示只读 DAG。
+/// 统一管理 DAG 校验、构建执行、状态可视化和配置编辑四大职责。
 /// </summary>
 public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
 {
+    #region Fields
+
     private BuildPipelineConfig _config;
     private SerializedObject _serializedConfig;
     private EditorWindow _window;
@@ -19,8 +22,19 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
     private BuildType _buildMode = BuildType.Hotfix;
     private bool _isBuildRunning;
 
+    #endregion
+
+    #region Properties
+
     public string PanelName => "Pipeline";
 
+    #endregion
+
+    #region Lifecycle
+
+    /// <summary>
+    /// 面板启用：创建 GraphView 并注入到 EditorWindow 的 VisualElement 树中。
+    /// </summary>
     public void OnEnable(EditorWindow window)
     {
         _window = window;
@@ -40,6 +54,9 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
         LoadConfig();
     }
 
+    /// <summary>
+    /// 面板禁用：清理事件订阅并从 EditorWindow 中移除 GraphView。
+    /// </summary>
     public void OnDisable()
     {
         if (_graphView != null)
@@ -53,6 +70,9 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
         }
     }
 
+    /// <summary>
+    /// 面板绘制：决定走空配置视图（无 config）还是正常顶栏+构建选项+DAG 视图。
+    /// </summary>
     public void OnGUI(Rect windowRect)
     {
         GUILayout.BeginArea(windowRect);
@@ -72,6 +92,9 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
         GUILayout.EndArea();
     }
 
+    /// <summary>
+    /// 面板显隐控制。不销毁 GraphView，仅切换 display 避免重建开销。
+    /// </summary>
     public void SetVisible(bool visible)
     {
         if (_graphRoot == null)
@@ -80,6 +103,9 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
         _graphRoot.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
     }
 
+    /// <summary>
+    /// 加载 BuildPipelineConfig SO 并确保 backbone Task 存在，然后刷新 GraphView。
+    /// </summary>
     private void LoadConfig()
     {
         _config = AssetDatabase.LoadAssetAtPath<BuildPipelineConfig>(FYAssetSettings.Instance.PipelineConfigPath);
@@ -93,6 +119,13 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
         RefreshStatus();
     }
 
+    #endregion
+
+    #region Top Bar
+
+    /// <summary>
+    /// 顶栏：构建模式选择、Validate / Build 按钮、当前 Task 状态和校验结果。
+    /// </summary>
     private void DrawTopBar()
     {
         EditorGUILayout.BeginHorizontal(EditorStyles.toolbar);
@@ -125,6 +158,14 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
         EditorGUILayout.EndHorizontal();
     }
 
+    #endregion
+
+    #region Build Options
+
+    /// <summary>
+    /// 构建选项栏：FileNameStyle、BundleCompression、SequentialMode 三项配置。
+    /// 通过 SerializedObject 直接编辑 BuildPipelineConfig SO 属性，修改后自动标记 Dirty。
+    /// </summary>
     private void DrawBuildOptionsBar()
     {
         if (_serializedConfig == null)
@@ -160,10 +201,19 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
         EditorGUI.EndDisabledGroup();
     }
 
+    #endregion
+
+    #region Graph Host
+
+    /// <summary>
+    /// 将 BuildGraphView（UIElement）嵌入到 IMGUI 区域的宿主方法。
+    /// 通过 GUIToScreenRect 将 IMGUI 矩形映射为 VisualElement 的绝对坐标。
+    /// </summary>
     private void DrawGraphHost(Rect windowRect)
     {
         SetVisible(true);
 
+        // 留给顶栏 + 构建选项栏共约 74px 高度，其余给 GraphView
         Rect hostRect = GUILayoutUtility.GetRect(
             1f,
             Mathf.Max(1f, windowRect.height - 74f),
@@ -183,13 +233,89 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
         _graphView?.SetBuildRunning(_isBuildRunning);
     }
 
-    #region Graph Actions
+    #endregion
 
-    private void HandleReload()
+    #region Build Actions
+
+    /// <summary>
+    /// 处理构建按钮点击。流程：
+    /// 1. DAGScheduler.Validate 校验 DAG 拓扑
+    /// 2. 校验失败则阻断构建
+    /// 3. 设置构建运行状态并刷新 UI
+    /// 4. 根据 BuildMode 调用 BuildFullPackage / BuildHotfix
+    /// 5. 读取 BuildProjectManager.LastBuildSuccess 反馈状态栏
+    /// </summary>
+    private void HandleBuild()
     {
-        LoadConfig();
+        if (_config == null || _isBuildRunning)
+            return;
+
+        // 1. 预校验
+        BuildResult validation;
+        try
+        {
+            validation = DAGScheduler.Validate(_config);
+            SetValidationStatus(validation);
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"[PipelinePanel] Validate before build failed: {ex}");
+            _validationStatus = "Validation error";
+            _validationColor = Color.red;
+            return;
+        }
+
+        // 2. 校验失败阻断
+        if (validation == null || !validation.Success)
+        {
+            Debug.LogError("[PipelinePanel] Build blocked by validation failure.");
+            return;
+        }
+
+        // 3. 设置运行态 UI
+        _isBuildRunning = true;
+        _validationStatus = "Build running...";
+        _validationColor = new Color(1f, 0.85f, 0.3f);
+        _graphView?.ResetExecutionStatuses();
+        _graphView?.SetBuildRunning(true);
+        _window?.Repaint();
+
+        var options = new BuildExecutionOptions
+        {
+            TaskStatusChanged = OnTaskStatusChanged
+        };
+
+        // 4. 执行构建
+        try
+        {
+            if (_buildMode == BuildType.Full)
+                BuildProjectManager.BuildFullPackage(options);
+            else
+                BuildProjectManager.BuildHotfix(options);
+
+            // 5. 反馈状态
+            _validationStatus = BuildProjectManager.LastBuildSuccess ? "Build complete" : "Build failed";
+            _validationColor = BuildProjectManager.LastBuildSuccess
+                ? new Color(0.3f, 1f, 0.3f)
+                : Color.red;
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"[PipelinePanel] Build failed: {ex}");
+            _validationStatus = "Build exception";
+            _validationColor = Color.red;
+        }
+        finally
+        {
+            _isBuildRunning = false;
+            _graphView?.SetBuildRunning(false);
+            _window?.Repaint();
+        }
     }
 
+    /// <summary>
+    /// 处理 Validate 按钮点击。调用 DAGScheduler.Validate 并更新状态栏颜色。
+    /// </summary>
     private void HandleValidate()
     {
         if (_config == null)
@@ -212,75 +338,18 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
         }
     }
 
-    private void HandleBuild()
-    {
-        if (_config == null || _isBuildRunning)
-            return;
-
-        BuildResult validation;
-        try
-        {
-            validation = DAGScheduler.Validate(_config);
-            SetValidationStatus(validation);
-        }
-        catch (Exception ex)
-        {
-            Debug.LogError($"[PipelinePanel] Validate before build failed: {ex}");
-            _validationStatus = "Validation error";
-            _validationColor = Color.red;
-            return;
-        }
-
-        if (validation == null || !validation.Success)
-        {
-            Debug.LogError("[PipelinePanel] Build blocked by validation failure.");
-            return;
-        }
-
-        _isBuildRunning = true;
-        _validationStatus = "Build running...";
-        _validationColor = new Color(1f, 0.85f, 0.3f);
-        _graphView?.ResetExecutionStatuses();
-        _graphView?.SetBuildRunning(true);
-        _window?.Repaint();
-
-        var options = new BuildExecutionOptions
-        {
-            TaskStatusChanged = OnTaskStatusChanged
-        };
-
-        try
-        {
-            if (_buildMode == BuildType.Full)
-                BuildProjectManager.BuildFullPackage(options);
-            else
-                BuildProjectManager.BuildHotfix(options);
-
-            _validationStatus = BuildProjectManager.LastBuildSuccess ? "Build complete" : "Build failed";
-            _validationColor = BuildProjectManager.LastBuildSuccess
-                ? new Color(0.3f, 1f, 0.3f)
-                : Color.red;
-        }
-        catch (Exception ex)
-        {
-            Debug.LogError($"[PipelinePanel] Build failed: {ex}");
-            _validationStatus = "Build exception";
-            _validationColor = Color.red;
-        }
-        finally
-        {
-            _isBuildRunning = false;
-            _graphView?.SetBuildRunning(false);
-            _window?.Repaint();
-        }
-    }
-
+    /// <summary>
+    /// 构建过程中每个 Task 状态变化时回调，将事件转发给 GraphView 更新节点颜色。
+    /// </summary>
     private void OnTaskStatusChanged(BuildTaskExecutionEvent evt)
     {
         _graphView?.SetTaskExecutionStatus(evt);
         _window?.Repaint();
     }
 
+    /// <summary>
+    /// 刷新顶栏 Task 状态计数（enabled / total）。
+    /// </summary>
     private void RefreshStatus()
     {
         int taskCount = _config?.Tasks?.Count ?? 0;
@@ -288,6 +357,11 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
         _taskStatus = $"{enabledCount}/{taskCount} tasks enabled";
     }
 
+    /// <summary>
+    /// 将 BuildResult 映射为状态栏文字和颜色。
+    /// Success -> 绿色 "N tasks OK"（有 Warning 时黄色 "N warning(s)"）；
+    /// 失败 -> 红色，显示第一个 Fatal Error 的前 60 字符。
+    /// </summary>
     private void SetValidationStatus(BuildResult result)
     {
         if (result == null)
@@ -320,6 +394,11 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
 
     #endregion
 
+    #region Empty Config State
+
+    /// <summary>
+    /// 无 BuildPipelineConfig 时的空状态视图，提供创建入口。
+    /// </summary>
     private void DrawNoConfig()
     {
         SetVisible(false);
@@ -330,7 +409,7 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
         GUILayout.Label("No BuildPipelineConfig found at " + FYAssetSettings.Instance.PipelineConfigPath, EditorStyles.centeredGreyMiniLabel);
         GUILayout.FlexibleSpace();
         GUILayout.EndHorizontal();
-        
+
         GUILayout.BeginHorizontal();
         GUILayout.FlexibleSpace();
         if (GUILayout.Button("Create BuildPipelineConfig", GUILayout.Width(200), GUILayout.Height(36)))
@@ -342,6 +421,9 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
         GUILayout.FlexibleSpace();
     }
 
+    /// <summary>
+    /// 在 Assets/Build 目录下创建 BuildPipelineConfig SO 并刷新面板。
+    /// </summary>
     private void CreateConfig()
     {
         if (!AssetDatabase.IsValidFolder("Assets/Build"))
@@ -354,4 +436,6 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
         AssetDatabase.Refresh();
         LoadConfig();
     }
+
+    #endregion
 }

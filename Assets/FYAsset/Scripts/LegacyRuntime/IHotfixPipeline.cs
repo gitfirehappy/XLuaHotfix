@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 ///
 /// 设计说明：
 /// - 将热更流程中的后端特定操作抽象为 5 个方法
-/// - Legacy 后端：封装 Addressables 初始化、version_state/catalog 下载
+/// - Legacy 后端：封装 Addressables 初始化、AAManifest/catalog 下载
 /// - AB 后端：使用 ABManifest 替代双文件结构，无需 Addressables 依赖
 ///
 /// 编排流程（HotfixManager 控制）：
@@ -43,7 +43,7 @@ public interface IHotfixPipeline
 
     /// <summary>
     /// 下载完成后的后处理。
-    /// Legacy: 下载 catalog + 写入 version_state + 加载外部 Catalog。
+    /// Legacy: 下载 catalog + 写入 AAManifest + 加载外部 Catalog。
     /// AB: 写入缓存的 ABManifest 数据。
     /// </summary>
     Task<HotfixStepResult> PostDownloadAsync(HotfixContext ctx);

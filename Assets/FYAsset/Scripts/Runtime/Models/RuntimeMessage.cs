@@ -30,7 +30,7 @@ public static class RuntimeErrorCodes
     /// <summary>Resolve 成功但底层加载操作失败</summary>
     public const string LoadFailed = "LOAD_FAILED";
 
-    /// <summary>索引不支持条目级查询（旧版 AddressableLabelsConfig）</summary>
+    /// <summary>索引不支持条目级查询（Legacy 查询缓存）</summary>
     public const string IndexNotSupported = "INDEX_NOT_SUPPORTED";
 
     /// <summary>Bundle 文件在磁盘上不存在（热更目录 + StreamingAssets 均未找到）</summary>
@@ -139,7 +139,7 @@ public class RuntimeMessage
         => Error(RuntimeErrorCodes.LoadFailed,
             string.Concat("加载失败, EntryId=[", entryId, "]: ", reason));
 
-    /// <summary>索引不支持条目级查询（旧版 AddressableLabelsConfig）</summary>
+    /// <summary>索引不支持条目级查询（Legacy 查询缓存）</summary>
     /// <param name="indexType">索引类型名称</param>
     public static RuntimeMessage IndexNotSupported(string indexType)
         => Error(RuntimeErrorCodes.IndexNotSupported,

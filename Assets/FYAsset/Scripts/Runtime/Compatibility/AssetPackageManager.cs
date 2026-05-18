@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
@@ -12,7 +13,7 @@ public class AssetPackageManager : Singleton<AssetPackageManager>
     /// <summary>
     /// AB 索引 + 后端开关。
     /// true = 使用 ABManifest → ABAssetIndex → ABBundleLoader → ABPackageBackend（自研 AB 全链路）；
-    /// false = 使用 AddressableLabelsConfig + AddressablesBackend（原有 Addressables 路径）。
+    /// false = 使用 AAManifest + AddressablesBackend（Legacy Addressables 路径）。
     /// 一个开关同时控制索引源和加载后端，不存在 "AB 索引 + Addressables 后端" 的组合。
     /// </summary>
     #endregion
@@ -78,34 +79,92 @@ public class AssetPackageManager : Singleton<AssetPackageManager>
     }
 
     /// <summary>
-    /// Legacy 索引路径：通过 Addressables 加载 AddressableLabelsConfig（原有流程，不做任何修改）。
+    /// Legacy 索引路径：从当前包目录的 AAManifest 构建查询缓存。
     /// </summary>
-    private async Task InitializeWithLegacyIndex()
+    private Task InitializeWithLegacyIndex()
     {
-        AsyncOperationHandle<AddressableLabelsConfig> handle =
-            Addressables.LoadAssetAsync<AddressableLabelsConfig>(FYAssetSettings.AA_LABELS_CONFIG);
+        if (!TryInitializeLegacyIndexFromAAManifest())
+            Debug.LogError("[AssetPackageManager] Legacy AAManifest 索引初始化失败。");
 
-        var config = await handle.Task;
-
-        if (handle.Status != AsyncOperationStatus.Succeeded || config == null)
-        {
-            Debug.LogError($"[AssetPackageManager] 关键配置加载失败: {FYAssetSettings.AA_LABELS_CONFIG}。管理器无法初始化。");
-            return;
-        }
-
-        _index = null;
-
-        foreach (var item in config.keysByType)
-            _typeToKeys[item.Type] = new List<string>(item.Keys).ToArray();
-        foreach (var item in config.keysByLabel)
-            _labelToKeys[item.Label] = new List<string>(item.Keys).ToArray();
-        for (int i = 0; i < config.allEntries.Count; i++)
-            _addressSet.Add(config.allEntries[i].key);
-
-        Debug.Log($"[AssetPackageManager] Legacy 索引初始化完成。Entries: {config.allEntries.Count}");
+        return Task.CompletedTask;
     }
 
     #endregion
+
+    private bool TryInitializeLegacyIndexFromAAManifest()
+    {
+        if (string.IsNullOrEmpty(PathManager.CurrentGUIDRoot))
+        {
+            Debug.LogWarning("[AssetPackageManager] PathManager.CurrentGUIDRoot 为空，无法读取 AAManifest。");
+            return false;
+        }
+
+        string manifestPath = GetAAManifestPath(PathManager.CurrentGUIDRoot);
+        if (!FileHelper.Exists(manifestPath))
+        {
+            Debug.LogWarning($"[AssetPackageManager] 未找到 AAManifest: {PathManager.CurrentGUIDRoot}");
+            return false;
+        }
+
+        try
+        {
+            var manifest = SerializationUtility.ReadFromFile<AAManifest>(manifestPath);
+            if (!HasLegacyIndex(manifest))
+            {
+                Debug.LogWarning($"[AssetPackageManager] AAManifest 缺少索引数据: {manifestPath}");
+                return false;
+            }
+
+            _index = null;
+
+            foreach (var item in manifest.KeysByType)
+            {
+                if (item == null || string.IsNullOrEmpty(item.Type))
+                    continue;
+                _typeToKeys[item.Type] = new List<string>(item.Keys ?? new List<string>()).ToArray();
+            }
+
+            foreach (var item in manifest.KeysByLabel)
+            {
+                if (item == null || string.IsNullOrEmpty(item.Label))
+                    continue;
+                _labelToKeys[item.Label] = new List<string>(item.Keys ?? new List<string>()).ToArray();
+            }
+
+            foreach (var entry in manifest.AssetEntries)
+            {
+                if (entry == null || string.IsNullOrEmpty(entry.key))
+                    continue;
+                _addressSet.Add(entry.key);
+            }
+
+            Debug.Log($"[AssetPackageManager] Legacy AAManifest 索引初始化完成。Entries: {manifest.AssetEntries.Count}");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Debug.LogWarning($"[AssetPackageManager] AAManifest 索引读取失败: {ex.Message}");
+            return false;
+        }
+    }
+
+    private static bool HasLegacyIndex(AAManifest manifest)
+    {
+        return manifest != null
+               && manifest.AssetEntries != null
+               && manifest.AssetEntries.Count > 0
+               && manifest.KeysByType != null
+               && manifest.KeysByLabel != null;
+    }
+
+    private static string GetAAManifestPath(string packageRoot)
+    {
+        string binPath = Path.Combine(packageRoot, FYAssetSettings.AA_MANIFEST_FILE_NAME_BIN);
+        if (FileHelper.Exists(binPath))
+            return binPath;
+
+        return Path.Combine(packageRoot, FYAssetSettings.AA_MANIFEST_FILE_NAME);
+    }
 
     private void BuildQueryCaches(IReadOnlyList<RuntimeAssetEntry> entries)
     {
