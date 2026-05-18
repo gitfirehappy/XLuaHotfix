@@ -29,6 +29,12 @@
 - Build-time diagnostics use `BuildMessage` with a `Source` field identifying the file or collector path.
 - `FileHelper.TryDelete` / `TryDeleteDirectory` return `bool` and never throw — callers decide whether to care.
 
+## Logging Rules
+- Direct `Debug.Log*` diagnostics in FYAsset framework, tool, backend, manager, editor, and cross-module code may use a `[Component]` prefix for Unity Console filtering.
+- `RuntimeMessage.Message`, `BuildMessage.Message`, and `BuildTaskResult.ErrorMessage` human-readable descriptions must not start with a `[Component]` prefix; component ownership belongs in direct logs, source fields, or call-site context.
+- UI-facing and upper-layer runtime error display should prefer `RuntimeMessage.ToString()` / `BuildMessage.ToString()` style output: `[Code] Message`.
+- Avoid combining component prefixes and error-code prefixes in the same user-facing message, for example avoid `[LOAD_FAILED] [LegacyHotfixBackend] ...`.
+
 ## Git Rules
 - Commit types: `feat`, `fix`, `refactor`, `docs`, `chore`.
 - Run XLua Generate Code before commits that affect XLua-exposed APIs.

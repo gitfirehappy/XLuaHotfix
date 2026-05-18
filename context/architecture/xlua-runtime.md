@@ -35,6 +35,7 @@ Third-party XLua engine internals are documented separately in `xlua-third-party
 
 - lazily loads `LuaScriptsIndex` through `AssetPackageManager`
 - uses the index to map normalized Lua module names to Addressables keys
+- owns the `LuaScriptsIndex` type under `Assets/XLuaFramework/Scripts/XLuaLoader/`
 - synchronously loads `LuaScriptContainer`
 - copies `TextAsset.bytes` into the loader cache
 - immediately unloads the container asset after the bytes are copied

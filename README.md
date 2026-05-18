@@ -15,10 +15,10 @@
 
 | 数据类型 | 文件 | 用途 |
 |----------|------|------|
-| **BuildIndexData** | LocalStaticData | 整包构建唯一标识(guid)、版本号、时间，大版本检测依赖 |
+| **BuildIndexData** | Bootstrap | 整包构建唯一标识(guid)、版本号、时间，大版本检测依赖 |
 | **AAManifest** | AAManifest.json / AAManifest.bin | Legacy AA 版本号 + Bundle哈希/CRC/size 映射表，并嵌入 AA 资源索引数据 |
-| **LuaScriptsIndex** | Build/LuaScriptsIndex.asset | AddressableKey → 内部脚本名映射，运行期加载Lua；按普通 Addressable 资产参与索引 |
-| **Manifest** | manifest.json | 远程构建定位，指向最新导出包路径 |
+| **LuaScriptsIndex** | Build/LuaScriptsIndex.asset | AddressableKey → 内部脚本名映射，运行期加载Lua；按普通 Addressable 资产参与索引；类型定义归属 XLuaFramework |
+| **PackageIndex** | manifest.json | 远程构建定位，指向最新导出包路径 |
 
 ### 1.2 差异快照系统
 
@@ -55,7 +55,7 @@
 - **ABBundleLoader**: 运行时从 `CurrentGUIDRoot/bundles/` 与 `StreamingAssets/bundles/` 查找 Bundle，依赖环按错误处理而不是静默跳过
 - **ABPackageBackend**: 内部以 `EntryId` 作为缓存与释放的唯一身份，`Address` 只作为查询入口，兼容 duplicate Address 设计
 - **PathManager**: 热更路径统一管理，包体GUID隔离
-- **NetworkDownloader**: 已迁移到共享 `Helpers/Helper/`，供 Legacy/AB 双后端共用下载能力
+- **NetworkDownloader**: 位于共享 `Helpers/`，供 Legacy/AB 双后端共用下载能力
 
 ---
 
@@ -157,6 +157,10 @@ return PlayerController
   - 分类（Info/Warning/Error）
   - 运行时级别开关控制
 - **LogViewerWindow**: 按语言/层级筛选，关键字搜索
+- **运行时诊断约定**:
+  - 开发诊断 `Debug.Log*` 可使用 `[Component]` 前缀，便于 Unity Console 检索
+  - 面向 UI / OnError 的 `RuntimeMessage` 使用 `[Code] Message`，描述文本不重复携带组件前缀
+  - 构建侧 `BuildMessage` / `BuildTaskResult` 也遵循同一规则：结构化结果保留错误码，描述文本不重复携带组件前缀
 
 ---
 

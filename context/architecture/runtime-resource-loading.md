@@ -10,6 +10,8 @@ This document covers the current runtime asset-loading entry points, the Legacy-
 
 `AssetPackageManager` is the approved runtime facade for resource loading.
 
+Source location: `Assets/FYAsset/Scripts/Runtime/Facade/AssetPackageManager.cs`.
+
 Key responsibilities:
 
 - initialize one runtime asset index
@@ -99,6 +101,8 @@ Current implementations:
 
 Build-time AA index data is produced by `AAAssetIndexBuilder` and written into `AAManifest`.
 
+Source location: `Assets/FYAsset/Scripts/Runtime/Contracts/IAssetIndex.cs`.
+
 ### `IPackageBackend`
 
 Represents the runtime loading backend. All load methods return `(T, RuntimeMessage)` tuples — errors are never thrown for expected failure paths.
@@ -114,9 +118,13 @@ Current implementations:
 - `AddressablesBackend` — wraps Addressables exceptions as `RuntimeMessage`
 - `ABPackageBackend` — uses internal `LoadAssetInternal*` methods that return `RuntimeMessage` directly
 
+Source location: `Assets/FYAsset/Scripts/Runtime/Contracts/IPackageBackend.cs`.
+
 ## Hotfix Orchestration Boundary
 
 `HotfixManager` is still the orchestration entry point for startup hotfix.
+
+Source location: `Assets/FYAsset/Scripts/Hotfix/HotfixManager.cs`.
 
 Responsibilities:
 
@@ -132,6 +140,12 @@ Responsibilities:
 - call `AssetPackageManager.Instance.Initialize()` as the final resource bootstrap step
 
 Legacy hotfix metadata prefers `AAManifest.bin` and falls back to `AAManifest.json`; it still downloads `catalog.json` for Addressables resource location.
+
+Hotfix backend locations:
+
+- AB: `Assets/FYAsset/Scripts/Hotfix/Backends/AB/ABHotfixBackend.cs`
+- Legacy Addressables: `Assets/FYAsset/Scripts/Hotfix/Backends/Addressables/LegacyHotfixBackend.cs`
+- Addressables catalog adapter: `Assets/FYAsset/Scripts/Hotfix/Backends/Addressables/CatalogUpdater.cs`
 
 `BundleDownloadItem` carries `BundleName`, `FileHash`, `FileCRC`, and `FileSize` for both Legacy and AB hotfix backends. `FileHash` remains the content identity used for reuse/download decisions. `FileCRC` is the fast verification checksum. `FileCRC == 0` means CRC metadata is unavailable; CRC verification is skipped in that case.
 

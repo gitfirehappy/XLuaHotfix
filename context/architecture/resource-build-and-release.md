@@ -10,12 +10,23 @@ This document covers the verified build-time and release-time resource pipeline 
 
 The build pipeline exports several data assets used later by runtime loading and hotfix logic.
 
+Current source locations:
+
+- Release orchestration shared entry points: `Assets/FYAsset/Scripts/Build/Release/Editor/Shared/`
+- Legacy Addressables release backend and AA export helpers: `Assets/FYAsset/Scripts/Build/Release/Editor/Addressables/`
+- AB release backend: `Assets/FYAsset/Scripts/Build/Release/Editor/AB/`
+- Runtime-readable manifest models: `Assets/FYAsset/Scripts/Runtime/Manifests/`
+- Lua routing data model: `Assets/XLuaFramework/Scripts/XLuaLoader/LuaScriptsIndex.cs`
+- Build bootstrap model/exporter: `Assets/FYAsset/Scripts/Build/Bootstrap/`
+- Snapshot model/processor: `Assets/FYAsset/Scripts/Build/Snapshots/`
+- Version data: `Assets/FYAsset/Scripts/Build/Versioning/`
+
 | Data | Role |
 | --- | --- |
 | `BuildIndexData` | packaged build identity, version, and GUID used for major-version validation |
 | `AAManifest` | version plus bundle hash/CRC/size mapping for Legacy hotfix comparison and fast bundle verification; also embeds the AA asset index lists; emitted as JSON and binary |
-| `LuaScriptsIndex` | Lua module name to Addressables key mapping; normal Addressable asset in the `LuaScripts` group |
-| `Manifest` | remote package pointer used to locate the latest package root |
+| `LuaScriptsIndex` | Lua module name to Addressables key mapping; normal Addressable asset in the `LuaScripts` group; type lives with `XLuaLoader` |
+| `PackageIndex` | remote package pointer written to `manifest.json` and used to locate the latest package root |
 
 ## Differential Snapshot System
 
@@ -67,7 +78,7 @@ The build entry point is now split with the same orchestration pattern already u
 
 ### Shared orchestrator
 
-- `BuildProjectManager` owns version increment, Lua index export, package naming, `manifest.json` update, and full-build post steps
+- `BuildProjectManager` owns version increment, Lua index export, package naming, `manifest.json` (`PackageIndex`) update, and full-build post steps
 - `BuildCommandLine` still calls `BuildProjectManager.BuildFullPackage()` / `BuildHotfix()` and does not bypass backend selection
 - backend selection is centralized in `BuildProjectManager.CreateBackend()` using `FYAssetSettings.Instance.UseABBackend`
 

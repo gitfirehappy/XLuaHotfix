@@ -1,6 +1,6 @@
 # System Overview
 
-Last reviewed: 2026-05-14
+Last reviewed: 2026-05-18
 
 ## Purpose
 
@@ -35,11 +35,23 @@ Main code roots:
 
 Responsibilities:
 
-- export build metadata such as `BuildIndexData`, `AAManifest`, `LuaScriptsIndex`, and hotfix `Manifest`
+- export build metadata such as `BuildIndexData`, `AAManifest`, `LuaScriptsIndex`, and hotfix `PackageIndex`
 - build the Legacy AA asset index through `AAAssetIndexBuilder`, then write it into `AAManifest`
 - manage differential snapshots and hotfix group reassignment
 - drive full package, hotfix package, release confirmation, and group reset workflows
 - host the new collector foundation used for future build-pipeline refactoring
+
+Primary Build subdirectories:
+
+- `Build/Release/Editor/Shared/` for release orchestration contracts and shared entry points
+- `Build/Release/Editor/Addressables/` for Legacy Addressables release backend and AA export helpers
+- `Build/Release/Editor/AB/` for AB release backend
+- `Runtime/Manifests/Addressables/` and `Runtime/Manifests/AB/` for runtime-readable AA and AB manifest models
+- `Runtime/Manifests/Shared/` for the shared `PackageIndex` pointer model
+- `Assets/XLuaFramework/Scripts/XLuaLoader/` for `LuaScriptsIndex` and XLua loader runtime data
+- `Build/Bootstrap/` for packaged startup metadata
+- `Build/Snapshots/` for differential snapshot data and processing
+- `Build/Versioning/` for version data
 
 See `resource-build-and-release.md` and `collector-framework.md`.
 
@@ -48,7 +60,7 @@ See `resource-build-and-release.md` and `collector-framework.md`.
 Main code roots:
 
 - `Assets/FYAsset/Scripts/Runtime/`
-- `Assets/FYAsset/Scripts/LegacyRuntime/`
+- `Assets/FYAsset/Scripts/Hotfix/`
 
 Responsibilities:
 
