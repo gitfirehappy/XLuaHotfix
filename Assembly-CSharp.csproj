@@ -110,6 +110,7 @@
     <Compile Include="Assets\XLua\Src\SignatureLoader.cs" />
     <Compile Include="Assets\FYAsset\Scripts\Runtime\Compatibility\AssetPackageManager.cs" />
     <Compile Include="Assets\FYAsset\Scripts\Helpers\FileHelper.cs" />
+    <Compile Include="Assets\FYAsset\Scripts\Helpers\HashGenerator.cs" />
     <Compile Include="Assets\FYAsset\Scripts\Build\AssetConflictRules.cs" />
     <Compile Include="Assets\FYAsset\Scripts\Helpers\PathManager.cs" />
     <Compile Include="Assets\XLua\Gen\UnityEngine_MonoBehaviourWrap.cs" />

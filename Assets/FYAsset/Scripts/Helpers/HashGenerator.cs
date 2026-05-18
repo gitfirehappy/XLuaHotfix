@@ -83,6 +83,7 @@ public static class HashGenerator
     }
 
     /// <summary>包含所有依赖项的深度 MD5 Hash</summary>
+#if UNITY_EDITOR
     public static string GenerateDeepHash(string assetPath)
     {
         if (!File.Exists(assetPath)) return string.Empty;
@@ -100,6 +101,7 @@ public static class HashGenerator
 
         return GenerateStringHash(sb.ToString());
     }
+#endif
 
     #endregion
 

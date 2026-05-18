@@ -18,6 +18,11 @@ public class ABBuildBackend : IBuildBackend
 
     public Task<BuildBackendResult> BuildAsync(VersionNumber version, BuildType buildType)
     {
+        return BuildAsync(version, buildType, null);
+    }
+
+    public Task<BuildBackendResult> BuildAsync(VersionNumber version, BuildType buildType, BuildExecutionOptions options)
+    {
         var config = AssetDatabase.LoadAssetAtPath<BuildPipelineConfig>(FYAssetSettings.Instance.PipelineConfigPath);
         if (config == null)
         {
@@ -29,7 +34,7 @@ public class ABBuildBackend : IBuildBackend
         try
         {
             _context = new BuildContext();
-            BuildResult result = DAGScheduler.Execute(config, _context);
+            BuildResult result = DAGScheduler.Execute(config, _context, options);
             if (!result.Success)
             {
                 LogBuildResultErrors(result);

@@ -11,3 +11,12 @@ public interface IBuildPipelinePanel
     void OnGUI(UnityEngine.Rect rect);
     void OnDisable();
 }
+
+/// <summary>
+/// 可见性回调接口。用于 IMGUI 面板切换时显式控制 UI Toolkit 覆盖层，
+/// 避免面板自行通过 EditorApplication.update 猜测显示状态。
+/// </summary>
+public interface IBuildPipelinePanelVisibility
+{
+    void SetVisible(bool visible);
+}

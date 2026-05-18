@@ -20,6 +20,11 @@ public static class BuildProjectManager
     [MenuItem("Tools/Build/Build Full Package",false, 1)]
     public static void BuildFullPackage()
     {
+        BuildFullPackage(null);
+    }
+
+    public static void BuildFullPackage(BuildExecutionOptions options)
+    {
         LastBuildSuccess = true;
         VersionDataBase versionData = LoadVersionDataBase();
         if (versionData == null)
@@ -33,7 +38,7 @@ public static class BuildProjectManager
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
 
-        LastBuildSuccess = RunBuild(versionData.CurrentVersion, BuildType.Full);
+        LastBuildSuccess = RunBuild(versionData.CurrentVersion, BuildType.Full, options);
 
         if (!Application.isBatchMode)
         {
@@ -48,6 +53,11 @@ public static class BuildProjectManager
     [MenuItem("Tools/Build/Build Hotfix Package",false, 2)]
     public static void BuildHotfix()
     {
+        BuildHotfix(null);
+    }
+
+    public static void BuildHotfix(BuildExecutionOptions options)
+    {
         LastBuildSuccess = true;
         VersionDataBase versionData = LoadVersionDataBase();
         if (versionData == null)
@@ -61,7 +71,7 @@ public static class BuildProjectManager
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
 
-        LastBuildSuccess = RunBuild(versionData.CurrentVersion, BuildType.Hotfix);
+        LastBuildSuccess = RunBuild(versionData.CurrentVersion, BuildType.Hotfix, options);
     }
     
     /// <summary>
@@ -103,7 +113,7 @@ public static class BuildProjectManager
         }
     }
 
-    private static bool RunBuild(VersionNumber version, BuildType buildType)
+    private static bool RunBuild(VersionNumber version, BuildType buildType, BuildExecutionOptions options)
     {
         Debug.Log($"[BuildProjectManager] 开始构建 {buildType} 包 Version: {version.GetFullVersionString()}");
 
@@ -120,7 +130,7 @@ public static class BuildProjectManager
             }
 
             IBuildBackend backend = CreateBackend();
-            var buildResult = backend.BuildAsync(version, buildType).GetAwaiter().GetResult();
+            var buildResult = backend.BuildAsync(version, buildType, options).GetAwaiter().GetResult();
             if (!buildResult.Success)
             {
                 var err = buildResult.Error;

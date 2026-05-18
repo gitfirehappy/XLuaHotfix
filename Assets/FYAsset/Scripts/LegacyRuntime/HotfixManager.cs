@@ -337,11 +337,19 @@ public static class HotfixManager
                     try
                     {
                         FileHelper.CopyFile(localPath, savePath);
-                        copied = true;
-                        Interlocked.Increment(ref skippedBundles);
-                        int done = Interlocked.Increment(ref completedBundles);
-                        float p = totalBundles == 0 ? 1f : (float)done / totalBundles;
-                        ReportStepProgress(p);
+                        if (VerifyBundleCRC(savePath, bundleInfo))
+                        {
+                            copied = true;
+                            Interlocked.Increment(ref skippedBundles);
+                            int done = Interlocked.Increment(ref completedBundles);
+                            float p = totalBundles == 0 ? 1f : (float)done / totalBundles;
+                            ReportStepProgress(p);
+                        }
+                        else
+                        {
+                            FileHelper.TryDelete(savePath);
+                            Debug.LogWarning($"[HotfixManager] 本地复用资源 CRC 校验失败: {localName}，将回退到下载。");
+                        }
                     }
                     catch(Exception ex)
                     {
@@ -353,7 +361,7 @@ public static class HotfixManager
             if (!copied)
             {
                 string bundleUrl = $"{ctx.RemoteUrlRoot}/bundles/{bundleInfo.BundleName}";
-                tasks.Add(DownloadBundleWithThrottle(semaphore, bundleUrl, savePath, () =>
+                tasks.Add(DownloadBundleWithThrottle(semaphore, bundleUrl, savePath, bundleInfo, () =>
                 {
                     int done = Interlocked.Increment(ref completedBundles);
                     float p = totalBundles == 0 ? 1f : (float)done / totalBundles;
@@ -419,12 +427,20 @@ public static class HotfixManager
         CompleteStep();
     }
 
-    private static async Task<bool> DownloadBundleWithThrottle(SemaphoreSlim semaphore, string url, string savePath, Action onDone)
+    private static async Task<bool> DownloadBundleWithThrottle(
+        SemaphoreSlim semaphore,
+        string url,
+        string savePath,
+        BundleDownloadItem bundleInfo,
+        Action onDone)
     {
         await semaphore.WaitAsync();
         try
         {
             bool ok = await NetworkDownloader.DownloadFile(url, savePath);
+            if (ok)
+                ok = VerifyBundleCRC(savePath, bundleInfo);
+
             onDone?.Invoke();
             return ok;
         }
@@ -432,6 +448,26 @@ public static class HotfixManager
         {
             semaphore.Release();
         }
+    }
+
+    private static bool VerifyBundleCRC(string path, BundleDownloadItem bundleInfo)
+    {
+        if (bundleInfo.FileCRC == 0)
+            return true;
+
+        if (!FileHelper.Exists(path))
+        {
+            Debug.LogError($"[HotfixManager] Bundle 文件不存在，无法 CRC 校验: {path}");
+            return false;
+        }
+
+        uint actualCrc = HashGenerator.GenerateFileCRC(path);
+        if (actualCrc == bundleInfo.FileCRC)
+            return true;
+
+        Debug.LogError(
+            $"[HotfixManager] Bundle CRC 校验失败: {bundleInfo.BundleName}, expected={bundleInfo.FileCRC:X8}, actual={actualCrc:X8}");
+        return false;
     }
 
     /// <summary>

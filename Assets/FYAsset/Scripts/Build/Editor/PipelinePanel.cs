@@ -1,58 +1,83 @@
+using System;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 /// <summary>
-/// Pipeline 配置面板 —— 编辑 BuildPipelineConfig SO，查看/修改管线 Task 编排。
+/// Pipeline 配置面板 —— 顶栏编辑构建选项，下方展示只读 DAG。
 /// </summary>
-public class PipelinePanel : IBuildPipelinePanel
+public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
 {
     private BuildPipelineConfig _config;
-    private Editor _configEditor;
-    private Vector2 _scrollPos;
+    private SerializedObject _serializedConfig;
+    private EditorWindow _window;
+    private VisualElement _graphRoot;
+    private BuildGraphView _graphView;
+    private string _taskStatus = "0/0 tasks enabled";
+    private string _validationStatus = string.Empty;
+    private Color _validationColor = Color.gray;
+    private BuildType _buildMode = BuildType.Hotfix;
+    private bool _isBuildRunning;
 
     public string PanelName => "Pipeline";
 
     public void OnEnable(EditorWindow window)
     {
+        _window = window;
+
+        _graphRoot = new VisualElement();
+        _graphRoot.style.position = Position.Absolute;
+        _graphRoot.style.display = DisplayStyle.None;
+        _graphRoot.style.flexDirection = FlexDirection.Column;
+        _graphRoot.style.backgroundColor = new Color(0.235f, 0.235f, 0.235f);
+
+        _graphView = new BuildGraphView();
+        _graphView.style.flexGrow = 1;
+        _graphView.OnConfigChanged += RefreshStatus;
+        _graphRoot.Add(_graphView);
+
+        window.rootVisualElement.Add(_graphRoot);
         LoadConfig();
     }
 
     public void OnDisable()
     {
-        if (_configEditor != null)
+        if (_graphView != null)
         {
-            Object.DestroyImmediate(_configEditor);
-            _configEditor = null;
+            _graphView.OnConfigChanged -= RefreshStatus;
+        }
+
+        if (_graphRoot != null && _window != null)
+        {
+            _window.rootVisualElement.Remove(_graphRoot);
         }
     }
 
     public void OnGUI(Rect windowRect)
     {
         GUILayout.BeginArea(windowRect);
-        
-        EditorGUILayout.BeginHorizontal(EditorStyles.toolbar);
-        if (GUILayout.Button("Reload", EditorStyles.toolbarButton, GUILayout.Width(60)))
-        {
-            LoadConfig();
-        }
-        GUILayout.FlexibleSpace();
-        EditorGUILayout.EndHorizontal();
 
         if (_config == null)
         {
+            DrawTopBar();
             DrawNoConfig();
         }
         else
         {
-            _scrollPos = GUILayout.BeginScrollView(_scrollPos);
-            if (_configEditor != null)
-            {
-                _configEditor.OnInspectorGUI();
-            }
-            GUILayout.EndScrollView();
+            DrawTopBar();
+            DrawBuildOptionsBar();
+            DrawGraphHost(windowRect);
         }
-        
+
         GUILayout.EndArea();
+    }
+
+    public void SetVisible(bool visible)
+    {
+        if (_graphRoot == null)
+            return;
+
+        _graphRoot.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
     }
 
     private void LoadConfig()
@@ -60,13 +85,245 @@ public class PipelinePanel : IBuildPipelinePanel
         _config = AssetDatabase.LoadAssetAtPath<BuildPipelineConfig>(FYAssetSettings.Instance.PipelineConfigPath);
         if (_config != null)
         {
-            if (_configEditor != null) Object.DestroyImmediate(_configEditor);
-            _configEditor = Editor.CreateEditor(_config);
+            BuildPipelineConfigRepair.EnsureBackboneTasks(_config);
+            _serializedConfig = new SerializedObject(_config);
+        }
+
+        _graphView?.Reload(_config);
+        RefreshStatus();
+    }
+
+    private void DrawTopBar()
+    {
+        EditorGUILayout.BeginHorizontal(EditorStyles.toolbar);
+        EditorGUI.BeginDisabledGroup(_isBuildRunning);
+        if (GUILayout.Button("Reload", EditorStyles.toolbarButton, GUILayout.Width(60)))
+        {
+            LoadConfig();
+        }
+        if (GUILayout.Button("Validate", EditorStyles.toolbarButton, GUILayout.Width(70)))
+        {
+            HandleValidate();
+        }
+        GUILayout.Space(10);
+        GUILayout.Label("Build Mode", EditorStyles.miniLabel, GUILayout.Width(66));
+        _buildMode = (BuildType)EditorGUILayout.EnumPopup(_buildMode, EditorStyles.toolbarPopup, GUILayout.Width(72));
+        if (GUILayout.Button("Build", EditorStyles.toolbarButton, GUILayout.Width(56)))
+        {
+            HandleBuild();
+        }
+        EditorGUI.EndDisabledGroup();
+        GUILayout.FlexibleSpace();
+        GUILayout.Label(_taskStatus, EditorStyles.miniLabel, GUILayout.Width(120));
+        if (!string.IsNullOrEmpty(_validationStatus))
+        {
+            Color prev = GUI.color;
+            GUI.color = _validationColor;
+            GUILayout.Label(_validationStatus, EditorStyles.miniLabel, GUILayout.MinWidth(120));
+            GUI.color = prev;
+        }
+        EditorGUILayout.EndHorizontal();
+    }
+
+    private void DrawBuildOptionsBar()
+    {
+        if (_serializedConfig == null)
+            return;
+
+        EditorGUI.BeginDisabledGroup(_isBuildRunning);
+        _serializedConfig.Update();
+
+        EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+        EditorGUILayout.BeginHorizontal();
+        EditorGUILayout.LabelField("Build Options", EditorStyles.boldLabel, GUILayout.Width(96));
+        EditorGUILayout.PropertyField(
+            _serializedConfig.FindProperty(nameof(BuildPipelineConfig.FileNameStyle)),
+            GUIContent.none,
+            GUILayout.MinWidth(180));
+        EditorGUILayout.PropertyField(
+            _serializedConfig.FindProperty(nameof(BuildPipelineConfig.BundleCompression)),
+            GUIContent.none,
+            GUILayout.Width(130));
+        EditorGUILayout.PropertyField(
+            _serializedConfig.FindProperty(nameof(BuildPipelineConfig.SequentialMode)),
+            new GUIContent("Sequential"),
+            GUILayout.Width(120));
+        GUILayout.FlexibleSpace();
+        EditorGUILayout.EndHorizontal();
+        EditorGUILayout.EndVertical();
+
+        if (_serializedConfig.ApplyModifiedProperties())
+        {
+            EditorUtility.SetDirty(_config);
+            RefreshStatus();
+        }
+        EditorGUI.EndDisabledGroup();
+    }
+
+    private void DrawGraphHost(Rect windowRect)
+    {
+        SetVisible(true);
+
+        Rect hostRect = GUILayoutUtility.GetRect(
+            1f,
+            Mathf.Max(1f, windowRect.height - 74f),
+            GUILayout.ExpandWidth(true),
+            GUILayout.ExpandHeight(true));
+
+        Rect screenRect = GUIUtility.GUIToScreenRect(hostRect);
+        Vector2 windowPos = _window.position.position;
+
+        _graphRoot.style.left = screenRect.x - windowPos.x;
+        _graphRoot.style.top = screenRect.y - windowPos.y;
+        _graphRoot.style.width = hostRect.width;
+        _graphRoot.style.height = hostRect.height;
+        bool graphEnabled = GUI.enabled && !_isBuildRunning;
+        _graphRoot.SetEnabled(graphEnabled);
+        _graphRoot.style.opacity = GUI.enabled ? 1f : 0.4f;
+        _graphView?.SetBuildRunning(_isBuildRunning);
+    }
+
+    #region Graph Actions
+
+    private void HandleReload()
+    {
+        LoadConfig();
+    }
+
+    private void HandleValidate()
+    {
+        if (_config == null)
+        {
+            _validationStatus = "Validation error";
+            _validationColor = Color.red;
+            return;
+        }
+
+        try
+        {
+            BuildResult result = DAGScheduler.Validate(_config);
+            SetValidationStatus(result);
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"[PipelinePanel] Validate failed: {ex.Message}");
+            _validationStatus = "Validation error";
+            _validationColor = Color.red;
         }
     }
 
+    private void HandleBuild()
+    {
+        if (_config == null || _isBuildRunning)
+            return;
+
+        BuildResult validation;
+        try
+        {
+            validation = DAGScheduler.Validate(_config);
+            SetValidationStatus(validation);
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"[PipelinePanel] Validate before build failed: {ex}");
+            _validationStatus = "Validation error";
+            _validationColor = Color.red;
+            return;
+        }
+
+        if (validation == null || !validation.Success)
+        {
+            Debug.LogError("[PipelinePanel] Build blocked by validation failure.");
+            return;
+        }
+
+        _isBuildRunning = true;
+        _validationStatus = "Build running...";
+        _validationColor = new Color(1f, 0.85f, 0.3f);
+        _graphView?.ResetExecutionStatuses();
+        _graphView?.SetBuildRunning(true);
+        _window?.Repaint();
+
+        var options = new BuildExecutionOptions
+        {
+            TaskStatusChanged = OnTaskStatusChanged
+        };
+
+        try
+        {
+            if (_buildMode == BuildType.Full)
+                BuildProjectManager.BuildFullPackage(options);
+            else
+                BuildProjectManager.BuildHotfix(options);
+
+            _validationStatus = BuildProjectManager.LastBuildSuccess ? "Build complete" : "Build failed";
+            _validationColor = BuildProjectManager.LastBuildSuccess
+                ? new Color(0.3f, 1f, 0.3f)
+                : Color.red;
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"[PipelinePanel] Build failed: {ex}");
+            _validationStatus = "Build exception";
+            _validationColor = Color.red;
+        }
+        finally
+        {
+            _isBuildRunning = false;
+            _graphView?.SetBuildRunning(false);
+            _window?.Repaint();
+        }
+    }
+
+    private void OnTaskStatusChanged(BuildTaskExecutionEvent evt)
+    {
+        _graphView?.SetTaskExecutionStatus(evt);
+        _window?.Repaint();
+    }
+
+    private void RefreshStatus()
+    {
+        int taskCount = _config?.Tasks?.Count ?? 0;
+        int enabledCount = _config?.Tasks?.FindAll(e => e.Enabled).Count ?? 0;
+        _taskStatus = $"{enabledCount}/{taskCount} tasks enabled";
+    }
+
+    private void SetValidationStatus(BuildResult result)
+    {
+        if (result == null)
+        {
+            _validationStatus = "Validation error";
+            _validationColor = Color.red;
+            return;
+        }
+
+        if (result.Success)
+        {
+            int warnings = result.TaskResults?.FindAll(r => !r.Success).Count ?? 0;
+            _validationStatus = warnings > 0 ? $"{warnings} warning(s)" : $"{result.TotalTasks} tasks OK";
+            _validationColor = warnings > 0 ? new Color(1f, 0.85f, 0.3f) : new Color(0.3f, 1f, 0.3f);
+            return;
+        }
+
+        var errors = result.TaskResults?.FindAll(r => r.IsFatal);
+        if (errors != null && errors.Count > 0)
+        {
+            string first = errors[0].ErrorMessage;
+            _validationStatus = first.Length > 60 ? first.Substring(0, 57) + "..." : first;
+        }
+        else
+        {
+            _validationStatus = "Validation failed";
+        }
+        _validationColor = Color.red;
+    }
+
+    #endregion
+
     private void DrawNoConfig()
     {
+        SetVisible(false);
+
         GUILayout.FlexibleSpace();
         GUILayout.BeginHorizontal();
         GUILayout.FlexibleSpace();

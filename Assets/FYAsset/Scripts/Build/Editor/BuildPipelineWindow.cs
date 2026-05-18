@@ -1,6 +1,5 @@
 using UnityEditor;
 using UnityEngine;
-
 /// <summary>
 /// 包含构建管线各大模块面板
 /// </summary>
@@ -14,6 +13,7 @@ public sealed class BuildPipelineWindow : EditorWindow
         public string Label;
         public int StartIndex;
         public int Count;
+        public bool Collapsible;
     }
 
     #endregion
@@ -28,13 +28,16 @@ public sealed class BuildPipelineWindow : EditorWindow
     private Rect _sidebarRect;
     private Rect _contentRect;
     private Rect _contentInnerRect;
+    private int _lastVisiblePanelIndex = -1;
+    private int _expandedGroupIndex = 0;
 
-    // 侧边栏分组：SETTINGS → AB PIPELINE → MANAGE
+    // 侧边栏分组：SETTINGS → LEGACY PIPELINE → AB PIPELINE → MANAGE
     private static readonly SidebarGroup[] Groups = new[]
     {
-        new SidebarGroup { Label = "SETTINGS",    StartIndex = 0, Count = 1 },
-        new SidebarGroup { Label = "AB PIPELINE", StartIndex = 1, Count = 4 },
-        new SidebarGroup { Label = "MANAGE",      StartIndex = 5, Count = 1 },
+        new SidebarGroup { Label = "SETTINGS",        StartIndex = 0, Count = 1, Collapsible = false },
+        new SidebarGroup { Label = "LEGACY PIPELINE", StartIndex = 1, Count = 3, Collapsible = true },
+        new SidebarGroup { Label = "AB PIPELINE",     StartIndex = 4, Count = 4, Collapsible = true },
+        new SidebarGroup { Label = "MANAGE",          StartIndex = 8, Count = 1, Collapsible = false },
     };
 
     #endregion
@@ -56,7 +59,7 @@ public sealed class BuildPipelineWindow : EditorWindow
 
     private void OnEnable()
     {
-        InitPanels(new CollectorPanel());
+        InitPanels();
     }
 
     private void OnDisable()
@@ -123,14 +126,32 @@ public sealed class BuildPipelineWindow : EditorWindow
         GUILayout.BeginVertical();
         GUILayout.Space(12);
 
-        foreach (var group in Groups)
+        for (int groupIndex = 0; groupIndex < Groups.Length; groupIndex++)
         {
-            DrawGroupHeader(group.Label);
+            SidebarGroup group = Groups[groupIndex];
+            Rect headerRect = DrawGroupHeader(group.Label);
 
-            bool isAbGroup = group.Label == "AB PIPELINE";
-            bool abEnabled = FYAssetSettings.Instance.UseABBackend;
+            bool groupExpanded = IsGroupExpanded(groupIndex);
+            if (group.Collapsible)
+            {
+                if (Event.current.type == EventType.MouseDown && headerRect.Contains(Event.current.mousePosition))
+                {
+                    _expandedGroupIndex = groupIndex;
+                    Repaint();
+                    Event.current.Use();
+                }
+            }
+
+            if (!groupExpanded)
+            {
+                GUILayout.Space(6);
+                continue;
+            }
+
             bool prevEnabled = GUI.enabled;
-            if (isAbGroup && !abEnabled)
+            if (group.Label == "AB PIPELINE" && !FYAssetSettings.Instance.UseABBackend)
+                GUI.enabled = false;
+            else if (group.Label == "LEGACY PIPELINE" && FYAssetSettings.Instance.UseABBackend)
                 GUI.enabled = false;
 
             for (int i = group.StartIndex; i < group.StartIndex + group.Count; i++)
@@ -139,8 +160,14 @@ public sealed class BuildPipelineWindow : EditorWindow
                 DrawPanelButton(i, _panels[i].PanelName);
             }
 
-            if (isAbGroup && !abEnabled)
+            if (group.Label == "AB PIPELINE" && !FYAssetSettings.Instance.UseABBackend)
+            {
                 GUI.enabled = prevEnabled;
+            }
+            else if (group.Label == "LEGACY PIPELINE" && FYAssetSettings.Instance.UseABBackend)
+            {
+                GUI.enabled = prevEnabled;
+            }
 
             GUILayout.Space(6);
         }
@@ -152,7 +179,7 @@ public sealed class BuildPipelineWindow : EditorWindow
         GUILayout.EndArea();
     }
 
-    private void DrawGroupHeader(string label)
+    private Rect DrawGroupHeader(string label)
     {
         Rect headerRect = EditorGUILayout.GetControlRect(false, 20);
 
@@ -166,12 +193,20 @@ public sealed class BuildPipelineWindow : EditorWindow
 
         Rect textRect = headerRect;
         textRect.xMin += 4;
-        GUI.Label(textRect, label, headerStyle);
+        string displayLabel = label;
+        int groupIndex = GetGroupIndexByLabel(label);
+        if (groupIndex >= 0 && Groups[groupIndex].Collapsible)
+        {
+            displayLabel = (IsGroupExpanded(groupIndex) ? "▼ " : "▶ ") + label;
+        }
+        GUI.Label(textRect, displayLabel, headerStyle);
 
         // 分组标题下方的分隔线
         float lineY = headerRect.yMax - 1;
         EditorGUI.DrawRect(new Rect(headerRect.x + 4, lineY, headerRect.width - 8, 1),
             EditorGUIUtility.isProSkin ? new Color(0.35f, 0.35f, 0.35f) : new Color(0.6f, 0.6f, 0.6f));
+
+        return headerRect;
     }
 
     private void DrawPanelButton(int index, string panelName)
@@ -220,15 +255,22 @@ public sealed class BuildPipelineWindow : EditorWindow
         if (_panels == null || _activePanelIndex < 0 || _activePanelIndex >= _panels.Length)
             return;
 
-        // AB PIPELINE 面板（索引 1-4）在 UseABBackend=false 时灰显并显示提示条
-        bool isAbPanel = _activePanelIndex >= 1 && _activePanelIndex <= 4;
-        bool abEnabled = FYAssetSettings.Instance.UseABBackend;
+        UpdatePanelVisibility();
 
-        if (isAbPanel && !abEnabled)
+        // LEGACY PIPELINE 与 AB PIPELINE 互斥灰显
+        string activeGroup = GetGroupLabelByPanelIndex(_activePanelIndex);
+        bool abEnabled = FYAssetSettings.Instance.UseABBackend;
+        bool isAbPanel = activeGroup == "AB PIPELINE";
+        bool isLegacyPanel = activeGroup == "LEGACY PIPELINE";
+
+        if ((isAbPanel && !abEnabled) || (isLegacyPanel && abEnabled))
         {
             Rect hintRect = new Rect(_contentInnerRect.x, _contentInnerRect.y, _contentInnerRect.width, 28f);
             EditorGUI.DrawRect(hintRect, new Color(0.6f, 0.4f, 0.1f, 0.25f));
-            GUI.Label(hintRect, "  AB Backend is disabled. Enable UseABBackend in Settings to edit.", EditorStyles.miniLabel);
+            string hint = isAbPanel
+                ? "  AB Backend is disabled. Enable UseABBackend in Settings to edit."
+                : "  Legacy Pipeline is disabled while UseABBackend is enabled.";
+            GUI.Label(hintRect, hint, EditorStyles.miniLabel);
 
             Rect panelRect = new Rect(_contentInnerRect.x, _contentInnerRect.y + 30f,
                 _contentInnerRect.width, Mathf.Max(0f, _contentInnerRect.height - 30f));
@@ -243,27 +285,102 @@ public sealed class BuildPipelineWindow : EditorWindow
         }
     }
 
+    private void UpdatePanelVisibility()
+    {
+        if (_lastVisiblePanelIndex == _activePanelIndex)
+            return;
+
+        if (_lastVisiblePanelIndex >= 0 && _lastVisiblePanelIndex < _panels.Length
+            && _panels[_lastVisiblePanelIndex] is IBuildPipelinePanelVisibility previous)
+        {
+            previous.SetVisible(false);
+        }
+
+        if (_panels[_activePanelIndex] is IBuildPipelinePanelVisibility current)
+            current.SetVisible(true);
+
+        _lastVisiblePanelIndex = _activePanelIndex;
+    }
+
     #endregion
 
     #region Public API
 
-    public void InitPanels(IBuildPipelinePanel collectorPanel)
+    public void InitPanels()
     {
         _panels = new IBuildPipelinePanel[]
         {
             // 设置（索引 0）
             new SettingsPanel(),
-            // AB 管线（索引 1-4）
+            // 旧管线（索引 1-3）
+            new LegacyConfigPanel(),
+            new LegacyBuildPanel(),
+            new LegacyReportPanel(),
+            // AB 管线（索引 4-7）
             new CollectorSettingPanel(),
-            collectorPanel ?? new PlaceholderPanel("Collector"),
+            new CollectorPanel(),
             new PipelinePanel(),
             new BuilderPanel(),
-            // 管理（索引 5）
+            // 管理（索引 8）
             new VersionPanel(),
         };
 
         for (int i = 0; i < _panels.Length; i++)
             _panels[i].OnEnable(this);
+
+        _expandedGroupIndex = 0;
+        _lastVisiblePanelIndex = -1;
+    }
+
+    private bool IsGroupExpanded(int groupIndex)
+    {
+        SidebarGroup group = Groups[groupIndex];
+        if (!group.Collapsible)
+            return true;
+
+        int activeGroupIndex = GetGroupIndexByPanelIndex(_activePanelIndex);
+        if (activeGroupIndex == groupIndex)
+            return true;
+
+        if (_expandedGroupIndex < 0 || _expandedGroupIndex >= Groups.Length)
+            return true;
+
+        return _expandedGroupIndex == groupIndex;
+    }
+
+    private int GetGroupIndexByLabel(string label)
+    {
+        for (int i = 0; i < Groups.Length; i++)
+        {
+            if (Groups[i].Label == label)
+                return i;
+        }
+
+        return -1;
+    }
+
+    private int GetGroupIndexByPanelIndex(int panelIndex)
+    {
+        for (int i = 0; i < Groups.Length; i++)
+        {
+            SidebarGroup group = Groups[i];
+            if (panelIndex >= group.StartIndex && panelIndex < group.StartIndex + group.Count)
+                return i;
+        }
+
+        return -1;
+    }
+
+    private string GetGroupLabelByPanelIndex(int panelIndex)
+    {
+        for (int i = 0; i < Groups.Length; i++)
+        {
+            SidebarGroup group = Groups[i];
+            if (panelIndex >= group.StartIndex && panelIndex < group.StartIndex + group.Count)
+                return group.Label;
+        }
+
+        return string.Empty;
     }
 
     #endregion

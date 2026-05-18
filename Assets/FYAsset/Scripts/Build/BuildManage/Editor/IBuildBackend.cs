@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 public interface IBuildBackend
 {
     Task<BuildBackendResult> BuildAsync(VersionNumber version, BuildType buildType);
+    Task<BuildBackendResult> BuildAsync(VersionNumber version, BuildType buildType, BuildExecutionOptions options);
     void OrganizeOutput(string outputDir, VersionNumber version);
     void GenerateVersionState(string outputDir, VersionNumber version);
 }

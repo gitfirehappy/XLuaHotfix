@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   ProjectName: ProjectName1
   HotfixUrl: https://firehappy-cfy.com/
-  UseABBackend: 1
+  UseABBackend: 0
   VersionDataBasePath: Assets/Build/VersionDataBase.asset
   AddressableLabelsConfigPath: Assets/Build/HelperBuildData/AddressableLabelsConfig.asset
   LuaScriptsIndexPath: Assets/Build/HelperBuildData/LuaScriptsIndex.asset

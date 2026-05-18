@@ -173,6 +173,7 @@ public class ABHotfixBackend : IHotfixPipeline
             {
                 BundleName = bundleEntry.BundleName,
                 FileHash = bundleEntry.FileHash,
+                FileCRC = bundleEntry.FileCRC,
                 FileSize = bundleEntry.FileSize
             });
             totalSize += bundleEntry.FileSize;

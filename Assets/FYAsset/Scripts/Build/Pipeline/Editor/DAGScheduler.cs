@@ -19,6 +19,12 @@ public static class DAGScheduler
     /// <summary>执行构建管线：先校验，后按拓扑序分批执行全部 Task</summary>
     public static BuildResult Execute(BuildPipelineConfig config, BuildContext context)
     {
+        return Execute(config, context, null);
+    }
+
+    /// <summary>执行构建管线，并通过 options 上报每个 Task 的可视状态</summary>
+    public static BuildResult Execute(BuildPipelineConfig config, BuildContext context, BuildExecutionOptions options)
+    {
         if (config == null) throw new ArgumentNullException(nameof(config));
         if (context == null) throw new ArgumentNullException(nameof(context));
 
@@ -26,7 +32,7 @@ public static class DAGScheduler
         if (!validation.Success)
             return validation;
 
-        return ExecuteInternal(config, context);
+        return ExecuteInternal(config, context, options);
     }
 
     /// <summary>仅运行校验检查，不执行 Task</summary>
@@ -206,12 +212,14 @@ public static class DAGScheduler
 
     #region Execution
 
-    private static BuildResult ExecuteInternal(BuildPipelineConfig config, BuildContext context)
+    private static BuildResult ExecuteInternal(BuildPipelineConfig config, BuildContext context, BuildExecutionOptions options)
     {
         var enabled = config.Tasks.Where(e => e.Enabled).ToList();
         var instances = new Dictionary<string, IBuildTask>(StringComparer.Ordinal);
         foreach (var entry in enabled)
             instances[entry.TaskName] = BuildTaskResolver.CreateTask(entry.TaskName);
+        foreach (var taskName in instances.Keys)
+            options?.Report(taskName, BuildTaskExecutionStatus.Pending);
 
         // 构建邻接表（复用 ValidateInternal 同款逻辑）
         BuildAdjacency(instances, config, out var indegree, out var successors);
@@ -245,6 +253,7 @@ public static class DAGScheduler
 
                 var task = instances[taskName];
                 BuildTaskResult taskResult;
+                options?.Report(taskName, BuildTaskExecutionStatus.Running);
                 try
                 {
                     taskResult = task.Execute(context) ?? BuildTaskResult.Fail(
@@ -257,6 +266,10 @@ public static class DAGScheduler
                 }
 
                 results.Add(taskResult);
+                options?.Report(
+                    taskName,
+                    taskResult.Success ? BuildTaskExecutionStatus.Success : BuildTaskExecutionStatus.Failed,
+                    taskResult);
 
                 if (taskResult.IsFatal && !taskResult.Success)
                 {
@@ -273,6 +286,8 @@ public static class DAGScheduler
         }
 
         // 标记因 Fatal 中止而跳过的 Task
+        foreach (var taskName in remaining)
+            options?.Report(taskName, BuildTaskExecutionStatus.Skipped);
         var skippedTasks = instances.Count - executed.Count;
 
         return new BuildResult

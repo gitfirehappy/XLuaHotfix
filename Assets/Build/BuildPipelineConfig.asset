@@ -12,8 +12,31 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 232fb182b50132e4cab181aeeaa40389, type: 3}
   m_Name: BuildPipelineConfig
   m_EditorClassIdentifier: 
-  DefaultBackendMode: 1
   FileNameStyle: 2
   BundleCompression: 0
   SequentialMode: 0
-  Tasks: []
+  Tasks:
+  - TaskName: TaskPrepareContext
+    Enabled: 1
+    DependsOn: []
+  - TaskName: TaskCollectAssets
+    Enabled: 1
+    DependsOn: []
+  - TaskName: TaskAnalyzeDependencies
+    Enabled: 1
+    DependsOn: []
+  - TaskName: TaskCollectBuiltins
+    Enabled: 1
+    DependsOn: []
+  - TaskName: TaskBuildBundles
+    Enabled: 1
+    DependsOn: []
+  - TaskName: TaskGenerateManifest
+    Enabled: 1
+    DependsOn: []
+  - TaskName: TaskVerifyBuildResult
+    Enabled: 1
+    DependsOn: []
+  - TaskName: TaskOrganizeOutput
+    Enabled: 1
+    DependsOn: []

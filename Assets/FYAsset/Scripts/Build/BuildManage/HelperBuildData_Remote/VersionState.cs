@@ -36,5 +36,8 @@ public class BundleInfo
 {
     public string BundleName;   // bundle 文件名（e.g group_assets_label_hash.bundle）
     public string FileHash;         // bundle 文件的 hash
+    // TODO: Legacy version_state.json files do not contain FileCRC and deserialize to 0.
+    // Keep 0 as "skip CRC verification" until the VersionState unification decision is executed.
+    public uint FileCRC;            // bundle 文件的 CRC32 快速校验码
     public long FileSize;           // bundle 文件大小
 }

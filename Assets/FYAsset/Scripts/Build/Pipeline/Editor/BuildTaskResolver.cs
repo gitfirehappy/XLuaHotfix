@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 
 /// <summary>
@@ -70,5 +71,12 @@ public static class BuildTaskResolver
     {
         Initialize();
         return _index.ContainsKey(taskName);
+    }
+
+    /// <summary>返回当前程序集扫描到的所有 TaskName，供编辑器创建菜单使用。</summary>
+    public static string[] GetTaskNames()
+    {
+        Initialize();
+        return _index.Keys.OrderBy(name => name, StringComparer.Ordinal).ToArray();
     }
 }

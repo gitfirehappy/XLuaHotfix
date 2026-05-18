@@ -189,6 +189,7 @@ public class LegacyHotfixBackend : IHotfixPipeline
                 {
                     BundleName = bundle.BundleName,
                     FileHash = bundle.FileHash,
+                    FileCRC = bundle.FileCRC,
                     FileSize = bundle.FileSize
                 });
             }

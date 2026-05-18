@@ -24,6 +24,11 @@ public class LegacyAddressableBuildBackend : IBuildBackend
 
     public Task<BuildBackendResult> BuildAsync(VersionNumber version, BuildType buildType)
     {
+        return BuildAsync(version, buildType, null);
+    }
+
+    public Task<BuildBackendResult> BuildAsync(VersionNumber version, BuildType buildType, BuildExecutionOptions options)
+    {
         var settings = AddressableAssetSettingsDefaultObject.Settings;
         if (settings == null)
         {
@@ -101,6 +106,7 @@ public class LegacyAddressableBuildBackend : IBuildBackend
                 {
                     BundleName = Path.GetFileName(file),
                     FileHash = HashGenerator.GenerateFileHash(file),
+                    FileCRC = HashGenerator.GenerateFileCRC(file),
                     FileSize = fileInfo.Length
                 };
 
