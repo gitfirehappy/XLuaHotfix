@@ -35,9 +35,9 @@ There is intentionally no supported mixed mode such as:
 
 When `FYAssetSettings.Instance.UseABBackend` is `false`:
 
-- index source: `AddressableLabelsConfig`
+- index source: `AAManifest.bin` or `AAManifest.json` under `PathManager.CurrentGUIDRoot`
 - backend: `AddressablesBackend`
-- query cache: `_labelToKeys` is built from the loaded index
+- query caches are built from `AAManifest.AssetEntries`, `AAManifest.KeysByType`, and `AAManifest.KeysByLabel`
 
 This is still the default assumption unless code explicitly selects the AB path.
 
@@ -94,8 +94,10 @@ Represents runtime lookup capabilities such as:
 
 Current implementations:
 
-- `AddressableLabelsConfig` as the Legacy implementation
+- `AAManifest` data as the Legacy query-cache source
 - `ABAssetIndex` as the AB implementation
+
+Build-time AA index data is produced by `AAAssetIndexBuilder` and written into `AAManifest`.
 
 ### `IPackageBackend`
 
@@ -129,7 +131,9 @@ Responsibilities:
 - write the local manifest pointer and switch paths
 - call `AssetPackageManager.Instance.Initialize()` as the final resource bootstrap step
 
-`BundleDownloadItem` carries `BundleName`, `FileHash`, `FileCRC`, and `FileSize` for both Legacy and AB hotfix backends. `FileHash` remains the content identity used for reuse/download decisions. `FileCRC` is the fast verification checksum. `FileCRC == 0` means CRC metadata is unavailable, which currently occurs for old Legacy `version_state.json` files; CRC verification is skipped in that case.
+Legacy hotfix metadata prefers `AAManifest.bin` and falls back to `AAManifest.json`; it still downloads `catalog.json` for Addressables resource location.
+
+`BundleDownloadItem` carries `BundleName`, `FileHash`, `FileCRC`, and `FileSize` for both Legacy and AB hotfix backends. `FileHash` remains the content identity used for reuse/download decisions. `FileCRC` is the fast verification checksum. `FileCRC == 0` means CRC metadata is unavailable; CRC verification is skipped in that case.
 
 ## Shared Runtime Support Components
 

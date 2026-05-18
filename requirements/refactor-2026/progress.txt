@@ -979,3 +979,21 @@
 [start] 2026-05-18 AAM planning — promote VersionState rename and HelperBuildData fusion from AA-AB alignment draft into a large split plan
 [done] 2026-05-18 AAM master plan promoted — `plan-aamanifest-helperbuilddata-20260518.md` split into AAM-1 rename shell, AAM-2 embedded index, AAM-3 runtime source switch, AAM-4 binary manifest, AAM-5 HelperBuildData retirement
 [next] 2026-05-18 Awaiting developer approval for AAM-1 only before code changes
+[start] 2026-05-18 AAM-1 execution — direct AAManifest rename, no version_state compatibility, preserve draft boundaries while updating build/runtime entry points
+[done] 2026-05-18 AAM-1 complete — `VersionState` renamed to `AAManifest`, Legacy emits/loads `AAManifest.json`, build backend API renamed to `GeneratePackageManifest`, no AddressableLabelsConfig runtime switch
+[done] 2026-05-18 AAM-1 verification — `dotnet build XLuaHotfix.sln` passed with 0 errors; remaining warnings are pre-existing System.Net.Http conflicts and AdditionalFile analyzer warnings
+[done] 2026-05-18 plan-AAM-1 SIGNED OFF - developer confirmed no compile errors and approved moving to next step
+[next] 2026-05-18 Awaiting AAM-2 approval decisions before embedding Addressable index data into AAManifest
+[decision] 2026-05-18 AAM-2 approved — reuse existing `PackageEntry` directly, do not rename it, do not introduce bridge/wrapper DTOs, build AA index through separate shared logic, keep `LuaScriptsIndex` as a normal Addressable asset without filtering, and explicitly retire `HelperBuildData` in phases
+[done] 2026-05-18 AAM-2 complete — added `AAManifest.AssetEntries/KeysByType/KeysByLabel`, introduced editor-only `AAAssetIndexBuilder`, reused it from `LegacyAddressableBuildBackend.GeneratePackageManifest()` and `HelperBuildDataExporter.ExportAddressableLabels()`, preserved `AddressableLabelsConfig` runtime fallback, and made no runtime source switch
+[done] 2026-05-18 AAM-2 verification — `dotnet build XLuaHotfix.sln` passed with 0 errors; remaining warnings are pre-existing System.Net.Http conflicts and AdditionalFile analyzer warnings
+[next] 2026-05-18 Awaiting developer sign-off for AAM-2 before starting AAM-3 runtime source switch
+[done] 2026-05-18 plan-AAM-2 SIGNED OFF - developer said continue; proceed to AAM-3 runtime source switch
+[decision] 2026-05-18 AAM-3 approved — `AssetPackageManager` independently loads `AAManifest.json` from `PathManager.CurrentGUIDRoot`; `AddressableLabelsConfig` remains a warning fallback until AAM-5; missing manifest index is warning fallback while transition compatibility remains
+[done] 2026-05-18 AAM-3 complete — Legacy `AssetPackageManager.InitializeWithLegacyIndex()` now prefers `AAManifest.AssetEntries/KeysByType/KeysByLabel`, keeps `AddressablesBackend` for actual loading, and logs an explicit fallback warning before loading `AddressableLabelsConfig`
+[done] 2026-05-18 AAM-3 verification — `dotnet build XLuaHotfix.sln` passed with 0 errors; source audit confirms `XLuaLoader` still loads `LuaScriptsIndex` through `AssetPackageManager.LoadAssetAsync()` and Legacy direct loads remain Addressables-backed
+[next] 2026-05-18 Awaiting developer sign-off for AAM-3 before AAM-4 binary manifest planning/execution
+[done] 2026-05-18 plan-AAM-3 SIGNED OFF - developer requested finishing the entire AAM plan in one pass unless blocked
+[done] 2026-05-18 AAM-4 complete — added AAManifest binary annotations, `AAManifestMagic` (`0x41414D46`), `AAManifest_BinarySerializer`, automatic binary serializer initialization, `AAManifest.bin` output, and Legacy hotfix/runtime `.bin` preference with `.json` fallback
+[done] 2026-05-18 AAM-5 complete — removed `AddressableLabelsConfig` runtime/export/type/assets, renamed exporter to `LuaScriptsIndexExporter`, moved `LuaScriptsIndex` to `Assets/Build/LuaScriptsIndex.asset`, kept it in the `LuaScripts` Addressables group, removed HelperBuildData group/schema assets and constants
+[done] 2026-05-18 AAM final verification — `dotnet build XLuaHotfix.sln` passed with 0 errors; targeted grep confirms production code/config no longer references `AddressableLabelsConfig` or `HelperBuildData`; remaining mentions are historical plan/docs only

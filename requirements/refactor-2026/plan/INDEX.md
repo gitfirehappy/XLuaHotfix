@@ -20,7 +20,7 @@ Completed and abandoned plans go to `archive/`.
 | plan-D.md | Draft | Awaiting developer approval |
 | plan-E1-1.md | Needs back-change | IGroupRule interface missing |
 | plan-E12-buildgraph-editor.md | E12-1/E12-2 done, awaiting sign-off | BuildGraph editor visualization and build trigger |
-| plan-aamanifest-helperbuilddata-20260518.md | Awaiting AAM-1 approval | AAManifest rename and HelperBuildData fusion, split into AAM-1~AAM-5 |
+| plan-aamanifest-helperbuilddata-20260518.md | DONE | AAManifest rename and HelperBuildData fusion completed |
 | plan-hash-unification-20260518.md | Executed, awaiting sign-off | HU-1 hash metadata unification: MD5 identity + CRC32 fast verification |
 | plan-S1.md | Awaiting approval | — |
 | plan-S2.md | Awaiting approval | — |

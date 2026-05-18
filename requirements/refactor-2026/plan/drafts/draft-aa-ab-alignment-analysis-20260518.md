@@ -414,12 +414,19 @@ HelperBuildData 是 AA 管线的补丁机制 — Addressables 原生不提供的
 
 | # | 改动 | 理由 |
 |---|------|------|
-| H1 | `AddressableLabelsConfig` 数据融入 `version_state.json` | 让 AA 管线也变为"一个清单文件自包含"，对标 ABManifest。消除 SO 依赖，简化热更链路 |
-| H2 | `LuaScriptsIndex` 保留为独立 SO，移出 HelperBuildData Group | 语义是"Lua 路由表"，不是"构建辅助数据"。移到 Default 或专用 Lua Group |
-| H3 | 删除 HelperBuildData Group | 融合后不再需要 |
-| H4 | 删除 `HelperBuildDataExporter`（或大幅简化） | 索引导出逻辑移入 `LegacyAddressableBuildBackend.GenerateVersionState` |
+| H1 | `AddressableLabelsConfig` 数据融入 `AAManifest.json` | 让 AA 管线也变为"一个清单文件自包含"，对标 ABManifest。消除 SO 依赖，简化热更链路 |
+| H2 | `LuaScriptsIndex` 保留为独立 SO，且作为普通 Addressable asset 进入索引；不从 `AAManifest.AssetEntries` 过滤 | 语义是"Lua 路由表"，不是索引构建桥接对象；加载仍通过普通资源路径完成 |
+| H3 | `HelperBuildData` 退场分阶段执行：AAM-2 先抽出索引构建职责，AAM-5 才删除 group/exporter/旧配置 | 避免在破坏性计划中同时移动 runtime source、asset placement 和 group 结构 |
+| H4 | `HelperBuildDataExporter` 不再拥有索引构建逻辑；`AAAssetIndexBuilder` 是 `AAManifest` 与临时 `AddressableLabelsConfig` fallback 的唯一索引构建来源 | 防止 AAManifest 与旧 SO fallback 双源漂移 |
 
-### 融合后 version_state.json 结构
+### AAM-2 落地约束
+
+- Reuse existing `PackageEntry` directly. Do not rename it and do not introduce a bridge/wrapper DTO in this phase.
+- Index construction is separate: `AAAssetIndexBuilder` builds `PackageEntry`, `TypeToKeys`, and `LabelToKeys` from `AddressableAssetSettings`.
+- `HelperBuildData` is explicitly retiring. AAM-2 removes index-building ownership from `HelperBuildDataExporter`; removal of `AddressableLabelsConfig`, `LuaScriptsIndex` placement changes, and group deletion remain later approved sub-plans.
+- Because the follow-up changes are destructive, implementation must stay aligned with the promoted plan and this draft trace. No unrelated cleanup, asset movement, runtime source switch, or Addressables group deletion should happen without a sub-plan approval.
+
+### 融合后 AAManifest.json 结构
 
 ```json
 {
@@ -443,7 +450,7 @@ HelperBuildData 是 AA 管线的补丁机制 — Addressables 原生不提供的
 
 ### 对标关系
 
-| AA (version_state.json 融合后) | AB (ABManifest) |
+| AA (AAManifest.json 融合后) | AB (ABManifest) |
 |---|---|
 | `Bundles` (BundleInfo 列表) | `BundleEntries` (ManifestBundleEntry 列表) |
 | `AssetEntries` (PackageEntry 列表) | `AssetEntries` (ManifestAssetEntry 列表) |
@@ -455,9 +462,9 @@ HelperBuildData 是 AA 管线的补丁机制 — Addressables 原生不提供的
 
 | 改动 | 位置 | 风险 |
 |---|---|---|
-| `VersionState` 类加入索引字段 | `VersionState.cs` | 低 — 新增字段，旧 JSON 反序列化为空列表 |
-| 构建时导出索引到 version_state | `LegacyAddressableBuildBackend.GenerateVersionState` | 中 — 需要读 AddressableAssetSettings |
-| 运行时从 version_state 读索引 | `AssetPackageManager.cs`（Legacy 路径） | 高 — 加载时序变化 |
+| `AAManifest` 类加入索引字段 | `AAManifest.cs` | 低 — 新增字段，旧 JSON 反序列化缺字段时当前 runtime 仍不消费索引 |
+| 构建时导出索引到 AAManifest | `LegacyAddressableBuildBackend.GeneratePackageManifest` | 中 — 需要读 AddressableAssetSettings |
+| 运行时从 AAManifest 读索引 | `AssetPackageManager.cs`（Legacy 路径） | 高 — 加载时序变化，留到 AAM-3 |
 | `XLuaLoader` 不受影响 | — | — LuaScriptsIndex 仍通过 AssetPackageManager 加载 |
 | 删除 `HelperBuildDataExporter` 的 Labels 导出 | `HelperBuildDataExporter.cs` | 低 |
 | LuaScriptsIndex 导出保留（移到独立工具或简化） | `HelperBuildDataExporter.cs` | 低 |
@@ -467,11 +474,11 @@ HelperBuildData 是 AA 管线的补丁机制 — Addressables 原生不提供的
 
 ```
 当前（AA）:
-  HotfixManager 下载 version_state.json → 获取 bundle 列表 → 下载 bundles
+  HotfixManager 下载 AAManifest.json → 获取 bundle 列表 → 下载 bundles
   → Addressables 初始化 → 加载 AddressableLabelsConfig SO → 索引可用
 
 融合后（AA）:
-  HotfixManager 下载 version_state.json → 获取 bundle 列表 + 索引数据（同时可用）
+  HotfixManager 下载 AAManifest.json → 获取 bundle 列表 + 索引数据（同时可用）
   → 下载 bundles → Addressables 初始化（索引已提前可用）
 ```
 

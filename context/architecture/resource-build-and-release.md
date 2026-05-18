@@ -13,9 +13,8 @@ The build pipeline exports several data assets used later by runtime loading and
 | Data | Role |
 | --- | --- |
 | `BuildIndexData` | packaged build identity, version, and GUID used for major-version validation |
-| `VersionState` | version plus bundle hash/CRC/size mapping for Legacy hotfix comparison and fast bundle verification |
-| `AddressableLabelsConfig` | Legacy runtime index from type/label to resource keys |
-| `LuaScriptsIndex` | Lua module name to Addressables key mapping |
+| `AAManifest` | version plus bundle hash/CRC/size mapping for Legacy hotfix comparison and fast bundle verification; also embeds the AA asset index lists; emitted as JSON and binary |
+| `LuaScriptsIndex` | Lua module name to Addressables key mapping; normal Addressable asset in the `LuaScripts` group |
 | `Manifest` | remote package pointer used to locate the latest package root |
 
 ## Differential Snapshot System
@@ -68,16 +67,18 @@ The build entry point is now split with the same orchestration pattern already u
 
 ### Shared orchestrator
 
-- `BuildProjectManager` owns version increment, helper-data export, package naming, `manifest.json` update, and full-build post steps
+- `BuildProjectManager` owns version increment, Lua index export, package naming, `manifest.json` update, and full-build post steps
 - `BuildCommandLine` still calls `BuildProjectManager.BuildFullPackage()` / `BuildHotfix()` and does not bypass backend selection
 - backend selection is centralized in `BuildProjectManager.CreateBackend()` using `FYAssetSettings.Instance.UseABBackend`
 
 ### Legacy backend
 
-- `LegacyAddressableBuildBackend` owns Addressables-specific setup (`BuildRemoteCatalog`, `PackTogetherByLabel`, helper group remote path fix)
+- `LegacyAddressableBuildBackend` owns Addressables-specific setup (`BuildRemoteCatalog`, `PackTogetherByLabel`, LuaScripts remote path fix)
 - it still builds through `AddressableAssetSettings.BuildPlayerContent`
-- it still exports `version_state.json` by scanning `{PackageRoot}/bundles/*.bundle`
+- it exports `AAManifest.json` and `AAManifest.bin` by scanning `{PackageRoot}/bundles/*.bundle`
 - each exported `BundleInfo` stores `FileHash` (MD5 content identity), `FileCRC` (CRC32 fast verification), and `FileSize`
+- `AAManifest` also stores `AssetEntries`, `KeysByType`, and `KeysByLabel`
+- `AAAssetIndexBuilder` is the single Editor-only source for those AA index lists and writes them into `AAManifest`
 
 ### AB backend
 
@@ -94,9 +95,9 @@ The build entry point is now split with the same orchestration pattern already u
 - Singleton access: `FYAssetSettings.Instance`
 - Editor: `LoadOrCreate()` searches `Assets/Resources/FYAssetSettings.asset`, creates the asset if missing, and saves it through `AssetDatabase`
 - Player: `LoadOrCreate()` loads the asset through `Resources.Load<FYAssetSettings>("FYAssetSettings")`; only if that fails does it fall back to `CreateInstance<FYAssetSettings>()`
-- Instance fields (configurable in Inspector): `ProjectName`, `HotfixUrl`, `UseABBackend`, `VersionDataBasePath`, `AddressableLabelsConfigPath`, `LuaScriptsIndexPath`, `SnapshotAssetPath`, `BuildIndexJsonPath`, `CollectorDataFolder`, `CollectorSettingPath`, `PipelineConfigPath`
+- Instance fields (configurable in Inspector): `ProjectName`, `HotfixUrl`, `UseABBackend`, `VersionDataBasePath`, `LuaScriptsIndexPath`, `SnapshotAssetPath`, `BuildIndexJsonPath`, `CollectorDataFolder`, `CollectorSettingPath`, `PipelineConfigPath`
 - Runtime consumers read configuration via `FYAssetSettings.Instance` at use sites; no `static readonly` settings snapshots remain in `PathManager` / `HotfixManager`
-- Static `const` members: all rule name strings (`RULE_*`), group/label identifiers (`AA_LABELS_CONFIG`, `HELPER_BUILD_DATA_GROUP_NAME`, `LUA_SCRIPTS_INDEX`, `HOTFIX_GROUP_NAME`, `DEFAULT_XLUA_TYPE_CONFIG_LOAD_LABEL`), file names (`MANIFEST_FILE_NAME`, `MANIFEST_FILE_NAME_BIN`, `BUILD_INDEX_FILENAME`), and editor paths (`BUILD_PIPELINE_WINDOW_MENU_PATH`, `BINARY_SERIALIZER_GENERATE_PATH`)
+- Static `const` members: all rule name strings (`RULE_*`), group/label identifiers (`LUA_SCRIPTS_INDEX`, `HOTFIX_GROUP_NAME`, `DEFAULT_XLUA_TYPE_CONFIG_LOAD_LABEL`), file names (`MANIFEST_FILE_NAME`, `MANIFEST_FILE_NAME_BIN`, `AA_MANIFEST_FILE_NAME`, `AA_MANIFEST_FILE_NAME_BIN`, `BUILD_INDEX_FILENAME`), and editor paths (`BUILD_PIPELINE_WINDOW_MENU_PATH`, `BINARY_SERIALIZER_GENERATE_PATH`)
 - `UseABBackend` is the single source of truth for backend selection — `BuildPipelineConfig.DefaultBackendMode` was removed
 
 ## Build-Time Architectural Decisions

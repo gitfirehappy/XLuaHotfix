@@ -35,7 +35,8 @@ Main code roots:
 
 Responsibilities:
 
-- export build metadata such as `BuildIndexData`, `VersionState`, `AddressableLabelsConfig`, `LuaScriptsIndex`, and hotfix `Manifest`
+- export build metadata such as `BuildIndexData`, `AAManifest`, `LuaScriptsIndex`, and hotfix `Manifest`
+- build the Legacy AA asset index through `AAAssetIndexBuilder`, then write it into `AAManifest`
 - manage differential snapshots and hotfix group reassignment
 - drive full package, hotfix package, release confirmation, and group reset workflows
 - host the new collector foundation used for future build-pipeline refactoring
