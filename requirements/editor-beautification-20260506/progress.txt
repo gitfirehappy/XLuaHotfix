@@ -24,3 +24,5 @@
 [done] 2026-05-06 CollectorResultPanel Scan Preview 改用 EditorStyles.label（正常字号），缩紧 header 与 TextArea 间距
 [done] 2026-05-06 CollectorResultPanel Scan Preview TextArea 改为 UpperLeft 对齐 + 自定义 GUIStyle，随底栏拖拽正确跟随
 [done] 2026-05-06 本阶段工作完成，提交代码
+[done] 2026-05-14 完成英文版 AGENTS.md 同步、生成 HTML 版构建管线编辑器布局文档，并补充 context/architecture/system-overview.md 的已验证事实
+[done] 2026-05-14 重写 HTML 预览页为中文界面、可点击按钮、可拖拽侧栏与面板切换；已完成静态校验，浏览器自动化验证受本地环境超时限制未完成

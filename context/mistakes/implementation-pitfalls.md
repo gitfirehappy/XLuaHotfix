@@ -337,3 +337,23 @@
 **Root cause:** No shared contract between mirrored types.
 
 **Prevention:** Mirrored types must share an interface or base class. Compiler must enforce alignment.
+
+---
+
+## IP-35: GraphView EdgeControl Mutated Before Layout Is Ready
+
+**Symptom:** Unity Reload produced `NullReferenceException` from `EdgeControl.ComputeLayout()` after setting `edgeControl.edgeWidth`, followed by IMGUI layout-state errors.
+
+**Root cause:** Edge styling touched GraphView internal layout state during edge creation/reload. `edgeWidth` can force `EdgeControl` layout computation before Unity has fully initialized its edge geometry.
+
+**Prevention:** During GraphView rebuilds, avoid layout-affecting `EdgeControl` mutations. Prefer stable styling such as input/output color and element opacity; if width is required, apply it only after the edge is attached and layout is known ready.
+
+---
+
+## IP-36: Visual Dedup Removed a Required Semantic Layer
+
+**Symptom:** Data-flow lines disappeared after reducing graph clutter; only execution-order lines remained, so the DAG no longer showed both dependency semantics.
+
+**Root cause:** The de-duplication rule suppressed data-flow edges whenever the same producer-consumer pair already had an execution edge. This optimized visual noise by deleting information instead of layering it.
+
+**Prevention:** Do not remove a semantic edge layer just because another layer shares endpoints. Render secondary layers with lower opacity, behind primary lines, and de-duplicate only within the same semantic layer.

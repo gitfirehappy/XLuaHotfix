@@ -139,3 +139,21 @@
 **Root cause:** Multiple generations of code with no enforced standard.
 
 **Prevention:** Define one naming policy for constants and types. Fix high-surface mistakes first.
+
+---
+
+## PP-15: Editor UI Accepted Without Host-Workflow Verification
+
+**Symptom:** BuildGraph looked acceptable in a static HTML/reference view and compiled with `dotnet build`, but Unity showed an empty/refreshing panel, wrong ownership placement, editable lines, and missing task data.
+
+**Root cause:** Verification stopped at compile/static layout and did not replay the actual Unity Editor workflow: open the target panel, switch tabs, reload config, inspect GraphView content, and test right-click creation behavior.
+
+**Prevention:** Editor UI work must be verified in the host workflow, not only by compile or mock/reference HTML. Check panel ownership, lifecycle visibility, data source population, interaction constraints, and reload behavior before claiming done.
+
+## PP-16: New Editor Scripts Not Added to Unity Project File
+
+**Symptom:** Newly created editor panels compiled in source control but `dotnet build` failed with missing-type errors until the project file was updated.
+
+**Root cause:** The repository relies on Unity-generated `Assembly-CSharp-Editor.csproj` entries for external build verification, and new editor `.cs` files are not guaranteed to appear there immediately.
+
+**Prevention:** After adding Runtime/Editor scripts in this project, verify the corresponding `.csproj` `Compile Include` entries before relying on `dotnet build` as the validation signal.

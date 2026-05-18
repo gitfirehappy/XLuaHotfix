@@ -1,8 +1,20 @@
 # Draft: 单机离线包方案
 
-> Status: Draft — 2026-05-13
+> Status: Draft — 2026-05-13, **Updated 2026-05-15**
 > Scope: 构建期产出 + 运行时跳过热更流程，AB 新管线 + Legacy Addressables 双后端支持
 > 不涉及: Editor PlayMode（已有 plan-playmode-draft.md）
+>
+> ## 2026-05-15 方案修正
+>
+> **核心简化**: 不做产物复制（TaskCopyToStreamingAssets），而是直接将构建输出路径重定向到 StreamingAssets。
+>
+> - **构建期**: `ABBuildBackend` 根据 BuildMode=Standalone 将 OutputRoot 设为 `StreamingAssets/`，`TaskOrganizeOutput` 直接把 bundles/ + ABManifest 写到 StreamingAssets，无需额外 Task
+> - **运行时**: `StandaloneBuild=true` 时 HotfixManager 短路 + PathManager 不初始化热更路径 → ABBundleLoader/ManifestLoader 的回退路径天然命中 StreamingAssets
+> - **关键安全约束**: 离线模式**绝不能读取热更区文件**。PathManager 在 Standalone 模式下不设置 CurrentGUIDRoot，确保 ABBundleLoader 只走 StreamingAssets 路径
+> - **BuildMode 扩展**: 作为第三种并列选项 `BuildMode.StandalonePackage`（与 FullPackage/HotfixPackage 并列）
+> - **不需要追加 Task**: 输出路径由 PathManager/BuildContext 灵活管理，TaskOrganizeOutput 已有的整理逻辑直接写到正确目标
+>
+> 以下原始分析保留作为参考，部分内容已被上述修正取代。
 
 ---
 

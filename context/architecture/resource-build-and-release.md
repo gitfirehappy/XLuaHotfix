@@ -1,6 +1,6 @@
 # Resource Build And Release
 
-Last reviewed: 2026-05-12
+Last reviewed: 2026-05-18
 
 ## Scope
 
@@ -13,7 +13,7 @@ The build pipeline exports several data assets used later by runtime loading and
 | Data | Role |
 | --- | --- |
 | `BuildIndexData` | packaged build identity, version, and GUID used for major-version validation |
-| `VersionState` | version plus bundle hash/size mapping for hotfix comparison |
+| `VersionState` | version plus bundle hash/CRC/size mapping for Legacy hotfix comparison and fast bundle verification |
 | `AddressableLabelsConfig` | Legacy runtime index from type/label to resource keys |
 | `LuaScriptsIndex` | Lua module name to Addressables key mapping |
 | `Manifest` | remote package pointer used to locate the latest package root |
@@ -77,6 +77,7 @@ The build entry point is now split with the same orchestration pattern already u
 - `LegacyAddressableBuildBackend` owns Addressables-specific setup (`BuildRemoteCatalog`, `PackTogetherByLabel`, helper group remote path fix)
 - it still builds through `AddressableAssetSettings.BuildPlayerContent`
 - it still exports `version_state.json` by scanning `{PackageRoot}/bundles/*.bundle`
+- each exported `BundleInfo` stores `FileHash` (MD5 content identity), `FileCRC` (CRC32 fast verification), and `FileSize`
 
 ### AB backend
 

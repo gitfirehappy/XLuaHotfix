@@ -1,34 +1,54 @@
-# Plan-E12: BuilderPanel BuildGraph Editor
+# Plan-E12: Pipeline BuildGraph and Build Execution Editor
 
-> **Status**: Approved — awaiting execution (2026-05-13)
-> **Risk**: Medium (Editor-only in E12-1, but later phases can edit BuildPipelineConfig and trigger build flows)
+> **Status**: E12-1 Reworked Complete; E12-2 Executed, awaiting developer sign-off (2026-05-14)
+> **Risk**: Medium (Editor integration + build trigger wiring; build backend path already exists)
 > **Dependencies**: E5-1 (IBuildTask/BuildPipelineConfig/DAGScheduler realized), E10 (BuildProjectManager dual backend realized), E11 (FYAssetSettings + AB PIPELINE gating realized)
 > **Supersedes**: `drafts/draft-buildgraph-visualization.md`
-> **Scope**: AB pipeline only. `UseABBackend=false` keeps the existing AB PIPELINE greyed-out behavior.
+> **Scope**: AB Pipeline editor only. Builder/report browsing is deferred to a separate post-E7 plan.
 
 ---
 
-## Approved Decisions
+## Current Baseline
+
+E12-1 was originally planned as a BuilderPanel DAG visualization, then reworked after Unity Editor verification.
+The current accepted baseline is:
+
+- `PipelinePanel` owns the BuildGraph DAG, `Reload`, `Validate`, `Build Mode`, `Build`, and build options (`FileNameStyle`, `BundleCompression`, `SequentialMode`).
+- `PipelinePanel` implements `IBuildPipelinePanelVisibility`; `BuildPipelineWindow` explicitly toggles its UI Toolkit graph root visibility.
+- `PipelinePanel` loads `BuildPipelineConfig` from `FYAssetSettings.Instance.PipelineConfigPath`.
+- `BuildPipelineConfigRepair.EnsureBackboneTasks()` guarantees the 8 backbone tasks exist before rendering the graph.
+- BuildGraph right-click creation is limited to optional tasks; backbone tasks are excluded from creation candidates.
+- BuildGraph edges and ports are display-only. Nodes may be moved visually, but execution/data edges cannot be selected, deleted, or reconnected.
+- Code dependency, SO dependency, and data-flow edges are visually distinguishable.
+- `BuilderPanel` no longer owns or embeds the DAG and stays empty/reserved in E12.
+- `BuildGraphToolbar` was an unused artifact from the first E12-1 implementation and has been deleted after reference search confirmed no remaining code or project-file usage.
+- Pipeline-triggered builds route through `BuildProjectManager` and the active backend; `PipelinePanel` does not call `DAGScheduler.Execute()` directly.
+- `DAGScheduler` emits task lifecycle events through `BuildExecutionOptions.TaskStatusChanged`, and `BuildTaskNode` renders `Pending`, `Running`, `Success`, `Failed`, and `Skipped`.
+
+---
+
+## Confirmed Decisions
 
 | # | Decision | Result |
 |---|----------|--------|
-| D1 | First executable slice | **E12-1 only**: read-only DAG visualization + Validate. No drag editing, no build trigger. |
-| D2 | Rendering technology | Unity `UnityEditor.Experimental.GraphView`, embedded in BuilderPanel. |
-| D3 | Data-flow edges | Show data-flow edges in E12-1, not deferred. |
-| D4 | Plan filename | `plan-E12-buildgraph-editor.md`. |
-| D5 | Backend gating | BuilderPanel follows the current `UseABBackend=true` interactive / false greyed-out policy. |
+| D1 | BuildGraph ownership | `PipelinePanel` owns DAG visualization, build options, Validate, and build trigger controls. |
+| D2 | Builder/report scope | Build result/report querying is removed from E12 and will be planned separately after E7 stabilizes diff/snapshot/report output formats. |
+| D3 | Rendering technology | Keep Unity `UnityEditor.Experimental.GraphView`. |
+| D4 | SO dependency policy | `TaskEntry.DependsOn` edges are displayed and validated, but not editable in E12-2. |
+| D5 | Full build behavior | Pipeline-triggered Full build preserves current `BuildProjectManager.BuildFullPackage()` behavior, including opening Unity Build Settings after resource build. |
+| D6 | Backend gating | Existing `UseABBackend=false` AB PIPELINE grey-out behavior remains the single gating policy. |
+| D7 | Toolbar cleanup | E12-2 verified no code/csproj references to `BuildGraphToolbar`, then deleted the file, `.meta`, and project entry. |
 
 ---
 
 ## Objective
 
-Upgrade `BuilderPanel` from a placeholder into a BuildGraph editor in staged slices:
+Upgrade the AB Pipeline editor in staged slices:
 
-1. **E12-1**: read-only DAG visualization and validation entry.
-2. **E12-2**: interaction editing for `TaskEntry.Enabled` and SO-level dependencies.
-3. **E12-3**: build triggering and real-time task status visualization.
+1. **E12-1**: Pipeline-owned read-only DAG visualization + Validate. **Complete after rework.**
+2. **E12-2**: Pipeline top-bar build trigger + full task execution status visualization. **Executed; awaiting sign-off.**
 
-Only E12-1 is approved for execution by this plan. E12-2 and E12-3 are documented as boundaries and require separate approval before implementation.
+Build result/report browsing is intentionally out of E12. It should be designed after E7 because E7 introduces `BundleDigestList` and per-version snapshot data that overlap with report inputs.
 
 ---
 
@@ -39,221 +59,164 @@ Only E12-1 is approved for execution by this plan. E12-2 and E12-3 are documente
 | Mechanism | Data | Invariant |
 |-----------|------|-----------|
 | Task graph model | `BuildPipelineConfig.Tasks` + `IBuildTask` instances from `BuildTaskResolver` | `TaskName` is the graph node identity. |
-| Execution dependency edges | `IBuildTask.DependsOn` and `TaskEntry.DependsOn` | Code-level dependencies are read-only; SO-level dependencies are user-owned but not editable in E12-1. |
-| Data-flow edges | `WriteKeys` to matching `ReadKeys` | Data-flow edges are derived only; they do not change scheduler order by themselves. |
-| Validation surface | `DAGScheduler.Validate(config)` | Validation displays diagnostics but never executes tasks in E12-1. |
-| AB backend gating | `FYAssetSettings.Instance.UseABBackend` through existing BuildPipelineWindow grey-out behavior | BuilderPanel must not bypass sidebar/content gating. |
+| Backbone task repair | `BuildPipelineConfigRepair` | Backbone tasks are always present and are not normal user-created optional tasks. |
+| Visibility lifecycle | `IBuildPipelinePanelVisibility` | UI Toolkit graph root visibility is controlled by `BuildPipelineWindow`, not by polling or update-loop guessing. |
+| Execution dependency edges | `IBuildTask.DependsOn` and `TaskEntry.DependsOn` | Code-level dependencies are fixed; SO-level dependencies remain read-only until a separately approved editing plan. |
+| Data-flow edges | Producer `WriteKeys` to consumer `ReadKeys` | Data-flow edges are derived only; they do not change scheduler order by themselves. |
+| Validation surface | `DAGScheduler.Validate(config)` | Validation displays diagnostics and blocks build trigger on fatal errors. |
+| Build execution surface | Pipeline top bar | Build trigger must reuse existing build semantics, not bypass `BuildProjectManager` / backend flow. |
+| Task status surface | DAGScheduler execution observer/callback | Node status must come from scheduler execution events, not inferred from logs or post-build guesses. |
 
 ### Rules
 
 | Condition | Action | Order | Recovery |
 |-----------|--------|-------|----------|
-| BuilderPanel opens | Load BuildPipelineConfig and rebuild graph | OnEnable / Reload before draw | If config is missing, show create/open guidance and no graph. |
-| Task exists in config but resolver cannot create it | Render the node as invalid and include validation output | During graph rebuild | Do not throw from GUI. |
-| Code-level dependency exists | Render read-only execution edge | Before SO-level edge styling | If dependency target is missing, let Validate report it. |
-| SO-level dependency exists | Render read-only execution edge with distinct style in E12-1 | After code-level edges | Editing deferred to E12-2. |
-| WriteKey matches another task ReadKey | Render read-only data-flow edge | After task nodes are created | Missing producers are shown by Validate warning, not by synthetic nodes. |
-| `UseABBackend=false` | Keep current greyed-out panel behavior | Controlled by BuildPipelineWindow | Do not add duplicate gating inside graph widgets unless required for UI Toolkit safety. |
+| PipelinePanel opens | Load BuildPipelineConfig, repair backbone tasks, rebuild graph | OnEnable / Reload before draw | If config is missing, show create/open guidance and no graph. |
+| Task exists in config but resolver cannot create it | Render invalid node and include validation output | During graph rebuild | Do not throw from GUI. |
+| Code-level dependency exists | Render read-only execution edge | Before SO-level edge styling | If target is missing, let Validate report it. |
+| SO-level dependency exists | Render read-only execution edge with distinct style | After code-level edges | Editing remains out of scope. |
+| WriteKey matches another task ReadKey | Render read-only data-flow edge | After task nodes are created | Missing producers are shown by Validate warnings, not synthetic nodes. |
+| User clicks Build in Pipeline | Validate first, then trigger selected Full/Hotfix flow | Validate -> build trigger -> scheduler status events -> final result | Fatal validation failure blocks execution and highlights graph/top-bar summary. |
+| Full build selected | Preserve current full-package behavior | Existing BuildProjectManager semantics | Build Settings still opens after resource build in non-batch mode. |
+| BuildGraphToolbar cleanup | Reference search confirmed unused; file, `.meta`, and project entry removed | Completed in E12-2 | No remaining toolbar cleanup action. |
 
 ### System
 
 | Component | Responsibility |
 |-----------|----------------|
-| `BuilderPanel` | Owns the panel lifecycle and embeds/reloads the GraphView root. |
-| `BuildGraphView` | GraphView surface: zoom, pan, grid, node/edge creation, reload. |
-| `BuildTaskNode` | Visual representation of one task, including task name, enabled state, read keys, and write keys. |
+| `PipelinePanel` | Owns build options, Reload, Validate, DAG host, Build Mode selector, and Build button. |
+| `IBuildPipelinePanelVisibility` | Lets `BuildPipelineWindow` explicitly show/hide PipelinePanel's UI Toolkit graph root. |
+| `BuildGraphView` | GraphView surface: zoom, pan, grid, read-only node/edge rendering, optional task creation menu, build-running lockout, and task status refresh entry. |
+| `BuildTaskNode` | Visual representation of one task, including enabled state, read/write keys, dependency labels, and execution state. |
 | `BuildGraphLayoutEngine` | Deterministic layered layout from scheduler dependencies. |
-| `BuildGraphToolbar` | E12-1 toolbar actions: Reload and Validate only. |
+| `DAGScheduler` | Exposes `BuildExecutionOptions` observer/callback integration for per-task status updates. |
+| `BuildExecutionOptions` / `BuildTaskExecutionEvent` / `BuildTaskExecutionStatus` | Editor-facing execution observation contract used by PipelinePanel and DAGScheduler. |
+| `BuildGraphToolbar` | Removed legacy E12-1 artifact. |
+| `BuilderPanel` | Out of E12 execution scope; remains reserved until a separate post-E7 report plan. |
 
 ---
 
-## E12-1: Read-Only DAG Visualization + Validate
+## E12-1: Pipeline-Owned Read-Only DAG + Validate
 
-### Task Breakdown
+**Status: Complete after rework.**
 
-#### E12-1-T1: BuildGraphView surface
+Implemented behavior:
 
-**New file**: `Assets/FYAsset/Scripts/Build/Editor/BuildGraph/BuildGraphView.cs`
+- `PipelinePanel` hosts the BuildGraph under a build-options top bar.
+- Reload and Validate are available from the Pipeline top bar.
+- `BuildPipelineConfig.asset` is repaired with the 8 backbone task entries when the panel loads.
+- Optional task creation is available from the graph context menu; backbone tasks are not offered as creation candidates.
+- Execution and data-flow edges are display-only.
+- `BuilderPanel` is empty/reserved and does not host the graph.
 
-- Create a `GraphView` subclass.
-- Add zoom, drag, selection, and grid background manipulators.
-- Provide `Reload(BuildPipelineConfig config)` to clear and rebuild graph.
-- Keep graph read-only in E12-1: no user edge creation, no node deletion, no SO mutation.
+Acceptance already verified:
 
-**Est.**: ~90 lines
-
-#### E12-1-T2: BuildTaskNode rendering
-
-**New file**: `Assets/FYAsset/Scripts/Build/Editor/BuildGraph/BuildTaskNode.cs`
-
-- Render `TaskName`.
-- Render enabled/disabled state.
-- Render `ReadKeys` and `WriteKeys`.
-- Provide execution input/output ports and data input/output ports.
-- Keep ports visually present but not connectable by user in E12-1.
-
-**Est.**: ~120 lines
-
-#### E12-1-T3: BuildGraphLayoutEngine
-
-**New file**: `Assets/FYAsset/Scripts/Build/Editor/BuildGraph/BuildGraphLayoutEngine.cs`
-
-- Compute layered positions from code-level + SO-level execution dependencies.
-- Use deterministic ordering by `TaskName`.
-- Place disconnected/invalid nodes in a stable fallback column.
-
-**Est.**: ~90 lines
-
-#### E12-1-T4: BuildGraphToolbar
-
-**New file**: `Assets/FYAsset/Scripts/Build/Editor/BuildGraph/BuildGraphToolbar.cs`
-
-- Add `Reload` button.
-- Add `Validate` button.
-- Display validation summary from `DAGScheduler.Validate(config)`.
-- Do not include `Build Full` / `Build Hotfix` in E12-1.
-
-**Est.**: ~80 lines
-
-#### E12-1-T5: BuilderPanel integration
-
-**Modify**: `Assets/FYAsset/Scripts/Build/Editor/BuilderPanel.cs`
-
-- Replace placeholder IMGUI card with a UI Toolkit host for toolbar + graph.
-- Load `BuildPipelineConfig` from `FYAssetSettings.Instance.PipelineConfigPath`.
-- Keep `IBuildPipelinePanel` lifecycle compatible with BuildPipelineWindow.
-- Avoid triggering build operations.
-
-**Est.**: ~80 lines changed
-
-#### E12-1-T6: csproj sync + verification
-
-- Add new editor files to `Assembly-CSharp-Editor.csproj` if project files are manually maintained.
-- Run `dotnet build XLuaHotfix.sln`.
-- Confirm no `Assets/` runtime behavior changed.
+1. Pipeline panel shows the DAG with all backbone tasks.
+2. `Reload` rebuilds the graph without reopening the window.
+3. `Validate` displays `DAGScheduler.Validate(config)` results without executing tasks.
+4. Code-level execution edges, SO execution edges, and data-flow edges are visually distinguishable.
+5. Graph edges cannot be selected, deleted, or reconnected.
+6. `dotnet build XLuaHotfix.sln` passed with 0 errors during E12-1 rework.
 
 ---
 
-## E12-1 Edge Semantics
+## E12-2: Pipeline Build Trigger + Task Status
 
-| Edge Type | Source | Editable in E12-1 | Visual Intent |
-|-----------|--------|-------------------|---------------|
-| Code execution dependency | `IBuildTask.DependsOn` | No | Read-only backbone dependency. |
-| SO execution dependency | `TaskEntry.DependsOn` | No | User-owned dependency, displayed but not editable until E12-2. |
-| Data flow | Producer `WriteKeys` to consumer `ReadKeys` | No | Derived data relationship, not scheduler order. |
+**Status: Executed; awaiting developer sign-off.**
 
----
+Implemented behavior:
 
-## E12-2 Boundary: Interaction Editing
+- `PipelinePanel` top bar now includes `Build Mode` (`Full` / `Hotfix`) and a single `Build` button.
+- `Build` runs `DAGScheduler.Validate(config)` first; fatal validation failures block execution.
+- Full and Hotfix builds preserve existing semantics through `BuildProjectManager` and the active backend.
+- `IBuildBackend.BuildAsync(...)`, `ABBuildBackend`, `LegacyAddressableBuildBackend`, and `BuildProjectManager` now accept optional `BuildExecutionOptions`.
+- `ABBuildBackend` passes `BuildExecutionOptions` into `DAGScheduler.Execute(...)`; Legacy Addressables accepts the parameter but has no scheduler status events.
+- `DAGScheduler` reports per-task lifecycle events:
+  - `Pending`
+  - `Running`
+  - `Success`
+  - `Failed`
+  - `Skipped`
+- `BuildGraphView` forwards execution events to matching `BuildTaskNode` instances.
+- `BuildTaskNode` shows `Status: Idle/Pending/Running/Success/Failed/Skipped` and colors node headers by status.
+- Pipeline top-bar controls, build options, and graph mutation are disabled while a build is running.
+- Reference search confirmed no `BuildGraphToolbar` code/csproj references; `BuildGraphToolbar.cs`, `.meta`, and csproj compile entry were removed.
 
-Requires separate approval before implementation.
+Acceptance verified:
 
-Planned scope:
-- Enable/Disable task from node menu.
-- Add/remove SO-level dependencies by GraphView edge operations.
-- Prevent illegal connections with cycle detection.
-- Highlight Write-Write conflicts and Read-before-Write warnings.
-- Persist node positions only if default auto-layout is insufficient.
+1. `PipelinePanel` calls `BuildProjectManager.BuildFullPackage(options)` / `BuildProjectManager.BuildHotfix(options)`, not `DAGScheduler.Execute()` directly.
+2. `DAGScheduler` has an explicit observer path through `BuildExecutionOptions.TaskStatusChanged`.
+3. `BuildGraphToolbar` has no remaining code/csproj references and is removed from `BuildGraph/`.
+4. `dotnet build XLuaHotfix.sln` passed with 0 errors after final documentation/project sync; remaining warnings are pre-existing `System.Net.Http` conflicts.
 
 Out of E12-2:
-- Build execution.
-- `DAGScheduler.ExecuteAsync()`.
 
----
-
-## E12-3 Boundary: Build Trigger + Runtime Status
-
-Requires separate approval before implementation because it touches build entry behavior.
-
-Planned scope:
-- Add `Build Full` and `Build Hotfix` buttons.
-- Connect to `BuildProjectManager` or a backend-safe editor facade.
-- Show Pending/Ready/Running/Success/Failed/Skipped node states.
-- Decide whether `DAGScheduler` needs `ExecuteAsync()` or a lower-risk status callback model.
-
-Out of E12-3:
+- BuilderPanel build report/query UI.
+- Parsing `build_summary.txt`, `ABManifest.json`, `BundleDigestList`, or E7 snapshot outputs.
+- Editing SO-level dependencies.
+- Changing build artifact format.
+- Replacing `BuildProjectManager` semantics with a direct `DAGScheduler.Execute` call.
 - Legacy Addressables graph visualization.
-- Changing output artifact format.
-- Changing hotfix distribution behavior.
 
 ---
 
-## Execution Order
+## Deferred: Post-E7 Build Report Plan
 
-```
-E12-1-T1 (BuildGraphView)
-  -> E12-1-T2 (BuildTaskNode)
-    -> E12-1-T3 (Layout engine)
-      -> E12-1-T4 (Toolbar)
-        -> E12-1-T5 (BuilderPanel integration)
-          -> E12-1-T6 (csproj + verification)
-```
+Build result/report browsing is valuable, but it should not be implemented in E12.
 
-Sequential execution is preferred. The UI Toolkit / GraphView lifecycle and the existing IMGUI panel lifecycle should be integrated in one pass to reduce editor-window regressions.
+Reason:
+
+- E7 is still pending and owns diff snapshot adaptation.
+- E7 introduces `BundleDigestList` `.bin/.json` and per-version snapshot/history data.
+- A report browser designed before E7 may accidentally depend on incomplete report inputs or duplicate E7 parsing logic.
+
+Future report plan should be opened after E7 and should decide the canonical report inputs across:
+
+- `build_summary.txt`
+- `ABManifest.json`
+- `BundleDigestList`
+- per-version snapshot/history files
+- verification outputs from build tasks
 
 ---
 
-## File List
+## Edge Semantics
 
-| Action | File | Purpose |
-|--------|------|---------|
-| New | `Assets/FYAsset/Scripts/Build/Editor/BuildGraph/BuildGraphView.cs` | GraphView surface and graph rebuild. |
-| New | `Assets/FYAsset/Scripts/Build/Editor/BuildGraph/BuildTaskNode.cs` | Task node rendering. |
-| New | `Assets/FYAsset/Scripts/Build/Editor/BuildGraph/BuildGraphLayoutEngine.cs` | Deterministic layered layout. |
-| New | `Assets/FYAsset/Scripts/Build/Editor/BuildGraph/BuildGraphToolbar.cs` | Reload / Validate toolbar. |
-| Modify | `Assets/FYAsset/Scripts/Build/Editor/BuilderPanel.cs` | Replace placeholder with graph host. |
-| Modify if needed | `Assembly-CSharp-Editor.csproj` | Include new editor files. |
+| Edge Type | Source | Editable | Visual Intent |
+|-----------|--------|----------|---------------|
+| Code execution dependency | `IBuildTask.DependsOn` | No | Read-only backbone/code dependency. |
+| SO execution dependency | `TaskEntry.DependsOn` | No | User-owned config dependency, visible and validated but not editable in E12. |
+| Data flow | Producer `WriteKeys` to consumer `ReadKeys` | No | Derived data relationship, not scheduler order. |
 
 ---
 
 ## Invariants
 
 1. `UseABBackend=false` keeps the current AB PIPELINE greyed-out behavior.
-2. E12-1 does not modify `BuildPipelineConfig.asset`.
-3. E12-1 does not call `BuildProjectManager`, `IBuildBackend.BuildAsync`, or any build task `Execute()`.
-4. Code-level dependencies remain read-only.
-5. SO-level dependencies are visible but not editable until E12-2.
-6. Data-flow edges are derived from `ReadKeys` / `WriteKeys` only.
-7. `DAGScheduler.Execute()` behavior remains unchanged.
-8. `dotnet build XLuaHotfix.sln` has 0 errors.
-
----
-
-## Acceptance Criteria
-
-1. Opening `XLua/Build Pipeline` and selecting Builder shows a graph instead of the placeholder card.
-2. The graph shows all configured tasks from `BuildPipelineConfig.Tasks`.
-3. Disabled tasks are visually distinct but still shown.
-4. Code-level execution edges, SO-level execution edges, and data-flow edges are visually distinguishable.
-5. `Reload` rebuilds the graph without reopening the window.
-6. `Validate` displays `DAGScheduler.Validate(config)` success/warning/error summary without executing tasks.
-7. `UseABBackend=false` greys out Builder through the existing BuildPipelineWindow behavior.
-8. Compiles with 0 errors.
-
----
-
-## Out of Scope
-
-- Drag-line dependency editing.
-- Enable/Disable task mutation.
-- Node position persistence.
-- Build Full / Build Hotfix buttons.
-- Real-time build status.
-- `DAGScheduler.ExecuteAsync()`.
-- Legacy Addressables graph visualization.
-- Custom IBuildTask code generation or templates.
+2. Code-level dependencies remain read-only.
+3. SO-level dependencies remain visible and validated, but not editable until a separately approved editing plan.
+4. Data-flow edges are derived from `ReadKeys` / `WriteKeys` only.
+5. Pipeline-triggered builds must not bypass current version increment, backend selection, output organization, or manifest update semantics.
+6. Full build must preserve the existing Unity Build Settings opening behavior.
+7. Task node execution states must be driven by explicit scheduler observer/callback events.
+8. Build report/query UI is deferred until after E7.
+9. `BuildGraphToolbar` cleanup used an explicit reference-search-and-delete completion criterion.
+10. `dotnet build XLuaHotfix.sln` must have 0 errors after any code execution slice.
 
 ---
 
 ## Approval Checklist
 
-Approved on 2026-05-13:
+Confirmed on 2026-05-14:
 
-- [x] E12-1 only does read-only DAG visualization + Validate; no drag editing and no build trigger.
-- [x] GraphView uses Unity `UnityEditor.Experimental.GraphView`.
-- [x] Data-flow edges are shown in E12-1.
-- [x] Formal plan filename is `plan-E12-buildgraph-editor.md`.
-- [x] BuilderPanel keeps the current `UseABBackend` gating behavior.
+- [x] E12 plan baseline should be updated before further implementation.
+- [x] PipelinePanel is the final build execution location.
+- [x] Pipeline top bar uses `Build Mode` dropdown + single `Build` button.
+- [x] Full build preserves current Build Settings opening behavior.
+- [x] SO-level dependencies are shown and validated, but not editable.
+- [x] Builder/report querying is deferred until after E7 and will be planned separately.
+- [x] E12-2 must include a DAGScheduler observer/callback integration point for per-task status.
+- [x] E12-2 must explicitly verify and remove unused `BuildGraphToolbar`.
 
 ---
 
@@ -262,3 +225,7 @@ Approved on 2026-05-13:
 | Date | Change |
 |------|--------|
 | 2026-05-13 | Promoted from `draft-buildgraph-visualization.md`; split scope into E12-1/E12-2/E12-3 and approved E12-1 as the only executable slice. |
+| 2026-05-14 | E12-1 executed initially with BuilderPanel-owned DAG visualization. |
+| 2026-05-14 | E12-1 reworked: DAG ownership moved to PipelinePanel; build options moved to Pipeline top bar; BuilderPanel no longer hosts the DAG. |
+| 2026-05-14 | E12 baseline redirected: PipelinePanel is the final build execution surface, and BuilderPanel/report querying is deferred to a separate post-E7 plan. |
+| 2026-05-14 | E12-2 executed: Pipeline Build Mode + Build button added; build execution stays on `BuildProjectManager`; `DAGScheduler` observer events drive node status; unused `BuildGraphToolbar` removed. |

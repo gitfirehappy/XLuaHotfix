@@ -1,101 +1,105 @@
-# XLuaHotfix - AI 协作手册
+# XLuaHotfix - AI Collaboration Guide
 
-## 项目概述
-基于 Unity Addressables + XLua 的热更新框架，实现从资源构建、版本差异管理到运行时 Lua 与 C# 深度互调的完整业务流，包含自动化工具链及组件化开发架构。
+## Project Overview
+XLuaHotfix is a Unity Addressables + XLua hot-update framework that covers resource build, version diffing,
+runtime Lua/C# interoperability, automation tools, and a componentized development workflow.
 
-## 技术栈
-- **引擎**: Unity（Addressables 资源管理）
-- **热更语言**: Lua（XLua 框架）
-- **主要语言**: C# + Lua
-- **资源管理**: Unity Addressables
-- **构建工具**: 自研差异快照构建管线（DifferentialProcessor）
+## Technology Stack
+- Engine: Unity (Addressables-based resource management)
+- Hot-update language: Lua (XLua)
+- Primary languages: C# + Lua
+- Resource management: Unity Addressables
+- Build tooling: custom differential snapshot pipeline (`DifferentialProcessor`)
 
-## 协作原则
-- 先理解需求再动手，不确定时提问而不是猜测
-- 重要决策必须说明理由
-- 优先使用中文沟通，技术术语保持英文
-- 每次修改代码考虑可维护性
-- 修改 Lua-C# 桥接代码前，先确认 XLua 特性配置是否需要同步更新
+## Collaboration Principles
+- Understand the requirement before coding; ask when uncertain instead of guessing.
+- Explain important decisions with reasons.
+- Prefer Chinese in conversation; keep technical terms in English.
+- Every code change should consider maintainability.
+- Before changing Lua-C# bridge code, confirm whether XLua feature configuration also needs updates.
+- For UI, editor, or other user-facing documents that should be easier to read, prefer HTML over Markdown; if the format is unclear, ask the developer first.
 
-## 知识管理
-- 工作前先查看 `context/INDEX.md` 了解已有知识
-- 新知识按主题写入对应分层目录（如 `context/architecture/`、`context/dependencies/reference/`、`context/dependencies/integration/`、`context/mistakes/`）
-- 只记录已验证的知识，未确认的标注 [待确认]
+## Knowledge Management
+- Read `context/INDEX.md` before starting work to understand existing knowledge.
+- Write new knowledge into the corresponding layered directory by topic, such as `context/architecture/`, `context/dependencies/reference/`, `context/dependencies/integration/`, and `context/mistakes/`.
+- Record only verified knowledge; mark anything unconfirmed as `[UNVERIFIED]`.
 
-## 需求工作流
-1. 创建 `requirements/{需求ID}/brief.md` 描述需求目标和背景
-2. 在 `requirements/{需求ID}/progress.txt` 记录关键进展（开始/完成/决策/阻塞/下一步）
-3. 遇到的问题和解决方案写入 `context/mistakes/troubleshooting.md`
-4. 需求完成后将有价值的已验证事实迁移到 `context/`，并保持 `context/` 与项目最新真实状态对齐
+## Requirement Workflow
+1. Create `requirements/{requirement-id}/brief.md` to describe the goal and background.
+2. Record key progress in `requirements/{requirement-id}/progress.txt` (start, done, decision, blocked, next).
+3. Write problems and solutions into `context/mistakes/troubleshooting.md`.
+4. After a requirement is complete, migrate valuable verified facts into `context/` and keep it aligned with the latest real project state.
 
-### 执行协议（强制）
+### Execution Protocol (Mandatory)
 ```
-1. 开发者批准子计划（回答审批清单）
+1. Developer approves the sub-plan by answering the approval checklist
    |
-2. 执行子计划（按任务逐步实现）
+2. Execute the sub-plan step by step
    |
-3. 执行完毕 -> 讲解修改思路 -> 请求开发者确认收工
+3. When execution is complete -> explain the changes -> ask for developer sign-off
    |
-4. 开发者可随时提问，执行方负责解释
+4. Developer may ask questions at any time; the executor is responsible for answering
    |
-5. 收工确认后 -> 询问是否开启下一个子计划
+5. After sign-off -> ask whether to start the next sub-plan
    |
-6. 不满意 -> 调优当前子计划（回到步骤 2）
+6. If not satisfied -> adjust the current sub-plan (return to step 2)
 ```
-**没有开发者明确批准，不执行任何代码修改。**
+Do not modify code without explicit developer approval.
 
-### Post-Plan Checklist（每个子计划完成后强制执行）
-子计划完成后，按以下顺序执行：
-1. **追加 progress.txt**：记录完成事项、关键决策、验证事实
-2. **更新 plan.md 状态表**：将完成的子计划状态从 TODO 改为 DONE
-3. **同步 README.md**：反映新能力或结构变更
-4. **更新 context/ 知识库**：添加新验证的事实、依赖集成说明、外部参考结论或历史错误防错规则；不得写入 plan 语句
-5. **请求开发者签收**：展示变更摘要，问「以上更新是否确认？可以进入下一个子计划吗？」
-   **未签收前不得开启下一个子计划。**
-   签收记录写入 progress.txt：`[done] YYYY-MM-DD plan-XX SIGNED OFF`
+### Post-Plan Checklist (Mandatory)
+After each sub-plan, follow this order:
+1. Append `progress.txt`: record completed work, key decisions, and verified facts.
+2. Update the plan status table: change completed sub-plans from TODO to DONE.
+3. Sync `README.md`: reflect new capabilities or structural changes.
+4. Update `context/`: add newly verified facts, dependency notes, external references, or historical prevention rules; do not write plan text here.
+5. Ask for developer sign-off: present the summary and ask, "Is this confirmed? May I proceed to the next sub-plan?"
+   Do not start the next sub-plan before sign-off.
+   Record the sign-off in `progress.txt` as `[done] YYYY-MM-DD plan-XX SIGNED OFF`.
 
-### 审批清单格式
-每个子计划必须以具体的审批问题结尾（不是泛化的「你确定吗？」）：
+### Approval Checklist Format
+Each sub-plan must end with specific approval questions, not generic approval prompts.
 
-好的审批清单（问具体设计决策）：
+Good checklist:
+```markdown
+## Approval Checklist
+- [ ] Directory-to-container mapping: support one directory to multiple containers?
+- [ ] Game/ directory handling: scan only `Game/Player/`, or create one container for every subdirectory under `Game/`?
+- [ ] Auto-trigger scanning on Unity asset save, or manual only?
 ```
-## 审批清单
-- [ ] 目录到容器映射，是否需要支持「一个目录对应多个容器」的场景？
-- [ ] Game/ 目录处理：只扫描 Game/Player/ 子目录，还是 Game/ 下所有子目录各建一个容器？
-- [ ] 是否需要在 Unity 保存 Assets 时自动触发扫描，还是只手动？
-```
-坏的审批清单：
-```
-- [ ] 你批准这个计划吗？
-- [ ] 你确定吗？
-```
-通过 ask_user / question 工具呈现审批问题，等待回答。回答成为实现的约束条件。
 
-### progress.txt 格式
+Bad checklist:
+```markdown
+- [ ] Do you approve this plan?
+- [ ] Are you sure?
 ```
-# {需求ID} 进度记录
-# 格式：[类型] YYYY-MM-DD 描述
-# 类型: start(开始) / done(完成) / decision(决策) / blocked(阻塞) / next(下一步)
-# 签收格式: [done] YYYY-MM-DD plan-XX SIGNED OFF - {摘要}
+
+### progress.txt Format
+```text
+# {requirement-id} Progress Log
+# Format: [type] YYYY-MM-DD description
+# Types: start / done / decision / blocked / next
+# Sign-off format: [done] YYYY-MM-DD plan-XX SIGNED OFF - {summary}
 ```
 
 ### Drafts Workflow
+Use `requirements/{id}/plan/drafts/` for non-executable planning material:
 
-Use `requirements/{id}/plan/drafts/` for non-executable planning material: rough direction convergence, idea capture, option comparison before a precise formal plan exists.
+- rough direction convergence
+- idea capture
+- option comparison before a precise formal plan exists
 
 Rules:
 - Drafts are not executable plans and do not authorize implementation.
 - Drafts can be partial, fuzzy, or exploratory.
-- When a direction becomes precise and approved, promote into a proper plan.
-- When promoting: condense and annotate the original entry — never delete, always leave a trace.
+- When a direction becomes precise and approved, promote it into a proper plan.
+- When promoting, condense and annotate the original entry; never delete, always leave a trace.
 - Do not copy draft language into `context/`.
 
-## 会话恢复
-当你说"继续 {需求ID}"时，我会：
-1. 读取 `requirements/{需求ID}/progress.txt` 了解上次进度
-2. 用 2-3 句话总结当前状态和建议的下一步
-3. 等待你确认后继续工作
-
+## Session Recovery
+When you say "continue {requirement-id}", I will:
+1. Read `requirements/{requirement-id}/progress.txt` to understand the latest progress.
+2. Summarize the current status and the recommended next step in 2-3 sentences.
+3. Wait for your confirmation before continuing.
 
 ## Knowledge Boundary Rules
 - `context/` is AI-facing and must stay in English.
@@ -108,81 +112,78 @@ Rules:
 - Use `context/mistakes/` for verified historical errors, troubleshooting, and prevention rules.
 
 ### File & Directory Discipline
-
-- **Survey first, create later.** Before creating a file or folder, inspect the project root and relevant subdirectories. Adapt to the existing layout — never impose your own.
-- **No freelancing outside the workspace.** All file creation must happen within the project's existing directory tree.
-- **Reuse, don't duplicate.** If a directory already serves the target purpose, use it. Do not create redundant variants.
-- **Flat over nested when it fits.** Don't introduce deep folder hierarchies unless existing project conventions already use them.
-- **Ask before restructuring.** Moving or renaming existing directories requires explicit developer approval.
+- Survey first, create later. Before creating a file or folder, inspect the project root and relevant subdirectories. Adapt to the existing layout; never impose your own.
+- No freelancing outside the workspace. All file creation must stay within the project's existing directory tree.
+- Reuse, don't duplicate. If a directory already serves the target purpose, use it. Do not create redundant variants.
+- Flat over nested when it fits. Do not introduce deep folder hierarchies unless existing project conventions already use them.
+- Ask before restructuring. Moving or renaming existing directories requires explicit developer approval.
 
 ### Web Search Credibility
-
 When sourcing from web results, prioritize:
-1. **Official documentation** — docs, specs, man pages, vendor sources.
-2. **Reputable technical blogs** — recognized engineers, verified accuracy.
-3. **Community / unvetted posts** — treat as hints, not facts. Flag to developer before relying on them.
+1. Official documentation - docs, specs, man pages, vendor sources.
+2. Reputable technical blogs - recognized engineers, verified accuracy.
+3. Community / unvetted posts - treat as hints, not facts. Flag to the developer before relying on them.
 
 Never source from pages with poor reputations, negative reviews, or known misinformation.
 
 ### Module Design Principles (Paradigm-Rule-System)
-
 When designing any module, organize thinking in three layers:
 
-- **Paradigm**: Core mechanisms and data structures — what capabilities does this module have?
-- **Rule**: Activation conditions, ordering, constraints, and recovery behavior — when and under what preconditions?
-- **System**: Public API, integration points, lifecycle, and error boundaries — what does this module expose?
+- Paradigm: Core mechanisms and data structures - what capabilities does this module have?
+- Rule: Activation conditions, ordering, constraints, and recovery behavior - when and under what preconditions?
+- System: Public API, integration points, lifecycle, and error boundaries - what does this module expose?
 
 Benefits: Paradigm ensures completeness; Rule ensures controllability; System ensures simple integration. When a module changes, revisit all three layers rather than patching only the part that broke.
 
 ### Mistake Prevention Protocol
-
 When the project has `context/mistakes/` files:
 
-- **Before significant tasks**: Read `context/mistakes/INDEX.md`, then scan relevant thematic files for prevention rules that apply to the planned work.
-- **When a review finds errors**: Re-read relevant mistake records. Reviews discovering repeated patterns indicate the records were not consulted.
-- **When the developer expresses dissatisfaction**: Check whether a known prevention rule was violated.
-- **After fixing a bug**: If the root cause is reusable knowledge, write a concise entry to the appropriate `context/mistakes/{topic}.md` file (English, AI-facing, structured as: symptom → root cause → fix → prevention rule).
+- Before significant tasks: Read `context/mistakes/INDEX.md`, then scan relevant thematic files for prevention rules that apply to the planned work.
+- When a review finds errors: Re-read relevant mistake records. Reviews discovering repeated patterns indicate the records were not consulted.
+- When the developer expresses dissatisfaction: Check whether a known prevention rule was violated.
+- After fixing a bug: If the root cause is reusable knowledge, write a concise entry to the appropriate `context/mistakes/{topic}.md` file (English, AI-facing, structured as symptom -> root cause -> fix -> prevention rule).
 
 Thematic files follow: `context/mistakes/{topic}.md`.
-## 项目特定规则
 
-### 代码规范
-- C# 类命名使用 PascalCase，Lua 模块使用 PascalCase，局部变量使用 camelCase
-- XLua 桥接组件统一以 `Bridge` 结尾（如 `InputBridge`、`AnimBridge`）
-- 新增 Lua 可调用的 C# 类型，必须同步更新 `TypeMemberListSO` 配置
+## Project-Specific Rules
 
-### 架构约束
-- Lua 脚本支持 Class（面向对象实例化）和 Module（静态）两种模式，新脚本需明确选择
-- 资源加载必须走 `AssetPackageManager`，**不推荐**直接使用 Addressables 原生接口
-  - 正在推进 `IPackageBackend` 接口化重构（见 requirements/refactor-2026/plan-B.md）
-  - 新代码优先通过 `AssetPackageManager`；已有直接调用 Addressables 的代码，重构时逐步迁移
-  - 底层热更流程（HotfixManager/NetworkDownloader/CatalogUpdater）仍依赖 Addressables，待 B4 / 专项设计评审处理
-- 热更资源分组由 `DifferentialProcessor` 自动管理，**禁止手动修改 Hotfix 分组**
-- 跨语言事件注册/注销必须通过 `EventCentre`，禁止直接使用 C# delegate 跨 Lua 订阅
+### Coding Standards
+- C# class names use PascalCase; Lua modules use PascalCase; local variables use camelCase.
+- XLua bridge components must end with `Bridge` (for example `InputBridge`, `AnimBridge`).
+- When adding a new Lua-callable C# type, update the `TypeMemberListSO` configuration at the same time.
 
-### 重大决策确认规则（强制）
-- **涉及 AB 包替换、热更链路修改、Addressables 核心 API 替换等重大改动时，必须向开发者反复确认**
-- 接口分离（如 IAssetIndex、IPackageBackend）属于安全重构，可正常推进
-- 但任何会改变运行时加载行为、构建产物格式、热更分发链路的改动，**每一步都必须 ask_user 确认**
-- 宁可多问一次，不可自行决定涉及线上稳定性的技术方案
+### Architecture Constraints
+- Lua scripts support both Class (instantiated OOP) and Module (static) modes; each new script must explicitly choose one.
+- Resource loading must go through `AssetPackageManager`; direct use of raw Addressables APIs is not recommended.
+  - The `IPackageBackend` interface refactor is in progress (see `requirements/refactor-2026/plan-B.md`).
+  - New code should prefer `AssetPackageManager`; existing Addressables calls should be migrated gradually during refactoring.
+  - The lower-level hot-update flow (`HotfixManager`/`NetworkDownloader`/`CatalogUpdater`) still depends on Addressables and will be handled in B4 / a dedicated design review.
+- Hot-update resource grouping is automatically managed by `DifferentialProcessor`; manual edits to the Hotfix group are forbidden.
+- Cross-language event registration and unregistration must go through `EventCentre`; do not subscribe across Lua with raw C# delegates.
 
-### 构建流程
-- `BuildFullPackage` → 大版本（Major+1），需还原所有资源分组后执行
-- `BuildHotfix` → 小版本（Patch+1），DifferentialProcessor 自动识别变更资源
-- `ConfirmRelease` → 快照转正（Staged → Head），正式发布后调用
+### Major Decision Confirmation Rules (Mandatory)
+- If the change involves AB package replacement, hot-update pipeline changes, or Addressables core API replacement, ask the developer repeatedly for confirmation.
+- Interface separation (for example `IAssetIndex`, `IPackageBackend`) is a safe refactor and may proceed normally.
+- Any change that affects runtime loading behavior, build artifact format, or hot-update distribution flow must be confirmed with `ask_user` at every step.
+- When in doubt, ask more often rather than deciding on a potentially unstable solution alone.
 
-### Git 规范
-- feat: 新功能 / fix: 修复 / refactor: 重构 / docs: 文档 / chore: 工程配置
-- 提交前确保 XLua 代码生成（Generate Code）已执行
+### Build Flow
+- `BuildFullPackage` -> major version increment (Major+1), and all resource groups must be restored before running it.
+- `BuildHotfix` -> patch version increment (Patch+1), with `DifferentialProcessor` detecting changed assets automatically.
+- `ConfirmRelease` -> snapshot promotion from Staged to Head, called after official release.
 
-## 关键文件索引
-| 文件/目录 | 说明 |
-|-----------|------|
-| `Assets/XLua/` | XLua 框架及自定义扩展 |
-| `Assets/Plugins/` | 第三方插件 |
-| `Assets/StreamingAssets/` | 初始包内资源 |
-| `HotfixOutput/` | 热更包输出目录 |
-| `context/` | AI 协作知识库 |
-| `docs/` | 面向开发者的中文文档 |
-| `requirements/` | 需求追踪目录 |
+### Git Conventions
+- Commit types: `feat` for new features, `fix` for bug fixes, `refactor` for refactoring, `docs` for documentation, and `chore` for engineering/config changes.
+- Make sure XLua code generation is run before committing.
+
+## Key File Index
+| File / Directory | Description |
+|------------------|-------------|
+| `Assets/XLua/` | XLua framework and custom extensions |
+| `Assets/Plugins/` | Third-party plugins |
+| `Assets/StreamingAssets/` | Initial packaged assets |
+| `HotfixOutput/` | Hot-update package output |
+| `context/` | AI collaboration knowledge base |
+| `docs/` | Human-facing Chinese documentation |
+| `requirements/` | Requirement tracking directory |
 

@@ -1,6 +1,6 @@
 # System Overview
 
-Last reviewed: 2026-05-12
+Last reviewed: 2026-05-14
 
 ## Purpose
 
@@ -111,4 +111,23 @@ This repository contains both the current production-oriented path and an in-pro
 - New Lua-callable C# types must be synchronized with `TypeMemberListSO` / XLua config loading.
 - Cross-language event registration/unregistration must go through `EventCentre`; do not introduce raw delegate coupling between Lua and C#.
 
+## Editor Layout
 
+- The landed build-pipeline editor lives under `Assets/FYAsset/Scripts/Build/Editor/` and `Assets/FYAsset/Scripts/Build/Collector/Editor/UI/`.
+- `BuildPipelineWindow` uses a resizable left sidebar with four groups: `SETTINGS`, `LEGACY PIPELINE`, `AB PIPELINE`, and `MANAGE`.
+- `LEGACY PIPELINE` and `AB PIPELINE` are mutually gray-disabled depending on `FYAssetSettings.Instance.UseABBackend`; both groups are collapsible and keep the active group expanded.
+- `LEGACY PIPELINE` contains `Legacy Config`, `Legacy Build`, and `Legacy Report`.
+- `AB PIPELINE` contains `Collect Config`, `Collector`, `Pipeline`, and `Builder`.
+- `CollectorSettingInspector` is a shortcut inspector that opens `BuildPipelineWindow` directly.
+- `CollectorSettingPanel` edits `CollectorSetting` with package/group navigation and collector editing.
+- `CollectorPanel` focuses on the current group's collector list plus validation and scan preview.
+- `PipelinePanel` loads `BuildPipelineConfig` through `AssetDatabase`, renders Reload, Validate, Build Mode, and Build controls in its IMGUI top bar, renders build options (`FileNameStyle`, `BundleCompression`, `SequentialMode`) in a separate options bar, and hosts the BuildGraph DAG view below.
+- `PipelinePanel` uses a `BuildGraphView` GraphView DAG visualization powered by `BuildGraphLayoutEngine` and `BuildTaskNode`. The graph shows code-level execution edges, SO-level execution edges, and data-flow edges derived from `ReadKeys`/`WriteKeys`. It supports Reload, `DAGScheduler.Validate()`, a right-click optional-task creation menu, and Pipeline-triggered Full/Hotfix builds through `BuildProjectManager`.
+- Pipeline-triggered builds validate first. Fatal validation failures block execution. When execution starts, `BuildExecutionOptions` carries a `TaskStatusChanged` callback through `BuildProjectManager` and the active backend into `DAGScheduler`; `BuildTaskExecutionEvent` / `BuildTaskExecutionStatus` drive node states (`Pending`, `Running`, `Success`, `Failed`, `Skipped`) in `BuildTaskNode`.
+- `BuildPipelineConfigRepair` guarantees the backbone task entries exist when `PipelinePanel` loads the config. This prevents an empty `BuildPipelineConfig.Tasks` list from rendering a blank DAG.
+- BuildGraph right-click task creation excludes backbone tasks (`TaskPrepareContext`, `TaskCollectAssets`, `TaskAnalyzeDependencies`, `TaskCollectBuiltins`, `TaskBuildBundles`, `TaskGenerateManifest`, `TaskVerifyBuildResult`, `TaskOrganizeOutput`). Backbone tasks are displayed in the DAG but are not normal creation candidates.
+- BuildGraph edges and ports are display-only: users may drag task nodes to adjust the visual layout, but cannot select, delete, or reconnect existing lines. Code dependency and SO dependency edges are opaque white/blue execution lines; data-flow edges are low-opacity green lines drawn behind execution lines and de-duplicated per producer-consumer task pair.
+- `TaskCollectAssets` is the backbone scan task. It loads `CollectorSetting`, runs `CollectionScanner.Scan()`, writes `CollectedAssets` and `SharePolicies` into `BuildContext`, and is the dependency source for dependency analysis and builtin collection.
+- `BuilderPanel` does not host the DAG. Build result/report querying is deferred until after E7 because E7 will define diff snapshot and digest outputs that affect report inputs.
+- `BuildGraph/` contains `BuildGraphView.cs` (GraphView surface), `BuildTaskNode.cs` (task node rendering and execution status display), `BuildGraphLayoutEngine.cs` (topological layer layout), and `EdgeStyle.cs` (edge type enum). The legacy `BuildGraphToolbar` file has been removed.
+- The `AB PIPELINE` sidebar group is visually disabled when `FYAssetSettings.Instance.UseABBackend` is `false`.

@@ -1,0 +1,1068 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FYAsset Build Pipeline Editor — Layout Reference</title>
+  <style>
+    :root {
+      --bg: #383838;
+      --panel: #3c3c3c;
+      --toolbar: #303030;
+      --line: #4d4d4d;
+      --text: #e0e0e0;
+      --muted: #a0a0a0;
+      --accent: #2c5c8c;
+      --accent-2: #244a72;
+      --hover: rgba(255, 255, 255, 0.08);
+      --shadow: rgba(0, 0, 0, 0.35);
+      --field-bg: #333333;
+      --field-border: #4a4a4a;
+      --box-bg: #363636;
+      --sidebar-bg: #2e2e2e;
+      --sidebar-header-bg: #2c2c2c;
+      --dim-white: #cccccc;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      color: var(--text);
+      font-family: -apple-system, "Segoe UI", Arial, sans-serif;
+      font-size: 13px;
+      background: #2a2a2a;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 24px;
+    }
+
+    /* ── window chrome ── */
+    .window {
+      width: 1160px;
+      min-width: 800px;
+      height: 90vh;
+      min-height: 550px;
+      border: 1px solid #1a1a1a;
+      border-radius: 6px;
+      overflow: hidden;
+      box-shadow: 0 8px 32px var(--shadow);
+      display: flex;
+      flex-direction: column;
+      background: #3c3c3c;
+    }
+    .titlebar {
+      height: 28px;
+      background: #2d2d2d;
+      display: flex;
+      align-items: center;
+      padding: 0 10px;
+      font-size: 12px;
+      color: #bbb;
+      flex: 0 0 auto;
+    }
+    .titlebar .dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      margin-right: 6px;
+      background: #555;
+    }
+    .titlebar .title-text {
+      margin-left: 10px;
+      color: #ddd;
+      font-weight: 600;
+      font-size: 12.5px;
+    }
+
+    /* ── body ── */
+    .body {
+      flex: 1;
+      display: flex;
+      min-height: 0;
+      position: relative;
+    }
+
+    /* ── sidebar ── */
+    .sidebar {
+      width: 160px;
+      min-width: 100px;
+      max-width: 300px;
+      background: #2e2e2e;
+      border-right: 1px solid #1a1a1a;
+      user-select: none;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .sidebar-inner {
+      padding: 12px 8px;
+      overflow-y: auto;
+      height: 100%;
+    }
+    .group { margin-bottom: 6px; }
+    .group-title {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .14em;
+      color: #808080;
+      padding: 3px 4px 5px;
+      border-bottom: 1px solid #595959;
+      margin-bottom: 2px;
+    }
+    .nav-btn {
+      width: 100%;
+      height: 34px;
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      margin-bottom: 2px;
+      border: none;
+      background: transparent;
+      color: var(--dim-white);
+      cursor: pointer;
+      font-size: 12px;
+      text-align: left;
+      border-radius: 0;
+    }
+    .nav-btn:hover { background: rgba(255,255,255,0.06); }
+    .nav-btn.active {
+      background: var(--accent);
+      color: #fff;
+      font-weight: 700;
+    }
+    .nav-btn:disabled {
+      color: #5a5a5a;
+      cursor: default;
+      background: transparent;
+    }
+
+    /* splitter */
+    .splitter {
+      width: 4px;
+      cursor: col-resize;
+      background: #2c2c2c;
+      flex: 0 0 auto;
+    }
+
+    /* ── main content ── */
+    .main {
+      flex: 1;
+      min-width: 0;
+      background: #3c3c3c;
+      position: relative;
+      padding: 12px;
+    }
+    .main-inner {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* disabled AB hint */
+    .ab-hint {
+      height: 28px;
+      display: flex;
+      align-items: center;
+      padding: 0 8px;
+      background: rgba(153, 102, 25, 0.25);
+      color: #e0b860;
+      font-size: 11px;
+      flex: 0 0 auto;
+      border-radius: 3px;
+      margin-bottom: 0;
+    }
+    .ab-hint.hidden { display: none; }
+
+    /* ── panel wrappers ── */
+    .panel {
+      display: none;
+      flex-direction: column;
+      flex: 1;
+      min-height: 0;
+    }
+    .panel.active { display: flex; }
+    .panel.disabled-overlay { opacity: 0.4; pointer-events: none; }
+
+    /* ── toolbar (Unity EditorStyles.toolbar approximation) ── */
+    .unity-toolbar {
+      height: 18px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 0 4px;
+      background: #303030;
+      flex: 0 0 auto;
+    }
+    .unity-toolbar .tb-btn {
+      height: 16px;
+      padding: 0 10px;
+      border: none;
+      background: transparent;
+      color: #d0d0d0;
+      cursor: pointer;
+      font-size: 11px;
+      white-space: nowrap;
+    }
+    .unity-toolbar .tb-btn:hover { background: rgba(255,255,255,0.1); }
+    .unity-toolbar .tb-label {
+      color: #999;
+      font-size: 10px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .unity-toolbar .tb-spacer { flex: 1; }
+    .unity-toolbar .tb-popup {
+      height: 16px;
+      padding: 0 18px 0 6px;
+      border: none;
+      background: #3a3a3a;
+      color: #d0d0d0;
+      cursor: pointer;
+      font-size: 11px;
+      appearance: none;
+      -webkit-appearance: none;
+    }
+    .unity-toolbar .tb-search {
+      height: 16px;
+      padding: 0 6px;
+      border: 1px solid #3a3a3a;
+      background: #2a2a2a;
+      color: #d0d0d0;
+      font-size: 11px;
+      width: 180px;
+    }
+
+    /* toggle tabs (toolbar button style) */
+    .unity-toolbar .tb-toggle {
+      height: 16px;
+      padding: 0 10px;
+      border: none;
+      background: transparent;
+      color: #d0d0d0;
+      cursor: pointer;
+      font-size: 11px;
+    }
+    .unity-toolbar .tb-toggle:hover { background: rgba(255,255,255,0.1); }
+    .unity-toolbar .tb-toggle.pressed {
+      background: rgba(255,255,255,0.22);
+      color: #fff;
+    }
+
+    /* ── scrollable body ── */
+    .scroll-body {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      padding: 6px 0;
+    }
+
+    /* ── property fields ── */
+    .prop-row {
+      display: flex;
+      align-items: center;
+      min-height: 18px;
+      margin: 2px 0;
+    }
+    .prop-label {
+      width: 180px;
+      font-size: 12px;
+      color: #c8c8c8;
+      padding-right: 4px;
+      text-align: right;
+      flex: 0 0 auto;
+    }
+    .prop-field {
+      flex: 1;
+      height: 18px;
+      background: #333;
+      border: 1px solid #4a4a4a;
+      color: #ddd;
+      padding: 0 6px;
+      font-size: 12px;
+    }
+    .section-header {
+      font-weight: 700;
+      font-size: 13px;
+      color: #eee;
+      padding: 10px 4px 4px;
+    }
+
+    /* ── box area ── */
+    .box {
+      border: 1px solid #505050;
+      background: #363636;
+      padding: 8px;
+      margin: 4px 0;
+      border-radius: 2px;
+    }
+
+    /* ── Collect Config: sidebar + detail ── */
+    .cc-layout {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+    }
+    .cc-sidebar {
+      width: 220px;
+      min-width: 140px;
+      background: #2e2e2e;
+      overflow-y: auto;
+      padding: 8px;
+      border-right: 1px solid #1a1a1a;
+    }
+    .cc-splitter {
+      width: 6px;
+      cursor: col-resize;
+      background: #2c2c2c;
+      flex: 0 0 auto;
+    }
+    .cc-detail {
+      flex: 1;
+      min-width: 0;
+      overflow-y: auto;
+      padding: 8px;
+    }
+    .tree-pkg {
+      height: 30px;
+      display: flex;
+      align-items: center;
+      padding: 0 10px;
+      font-weight: 700;
+      font-size: 13px;
+      cursor: pointer;
+      border-radius: 0;
+    }
+    .tree-pkg:hover { background: rgba(255,255,255,0.06); }
+    .tree-pkg.active { background: var(--accent); color: #fff; }
+    .tree-grp {
+      height: 24px;
+      display: flex;
+      align-items: center;
+      padding: 0 18px;
+      font-size: 12px;
+      cursor: pointer;
+      margin-left: 12px;
+    }
+    .tree-grp:hover { background: rgba(255,255,255,0.06); }
+    .tree-grp.active { background: rgba(44,92,140,0.82); color: #fff; }
+
+    /* ── Collector table ── */
+    .collector-table {
+      flex: 1;
+      min-width: 0;
+      overflow-y: auto;
+      padding: 6px;
+    }
+    .tbl-hdr {
+      display: flex;
+      align-items: center;
+      font-size: 10px;
+      font-weight: 700;
+      color: #999;
+      padding: 2px 0;
+    }
+    .tbl-row {
+      border: 1px solid #505050;
+      background: #363636;
+      margin-bottom: 4px;
+      padding: 4px 0;
+      cursor: pointer;
+    }
+    .tbl-row.active { background: rgba(44,92,140,0.28); border-color: #5599cc; }
+    .tbl-row-top, .tbl-row-bot {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 4px;
+    }
+    .mini-field {
+      height: 20px;
+      background: #3a3a3a;
+      border: 1px solid #555;
+      color: #ddd;
+      padding: 0 4px;
+      font-size: 12px;
+    }
+    .mini-btn {
+      height: 20px;
+      padding: 0 6px;
+      border: none;
+      background: #444;
+      color: #ddd;
+      cursor: pointer;
+      font-size: 12px;
+    }
+    .mini-btn:hover { background: #555; }
+
+    /* ── Collector detail ── */
+    .collector-detail {
+      width: 320px;
+      min-width: 180px;
+      overflow-y: auto;
+      padding: 6px;
+      border-left: 1px solid #333;
+    }
+
+    /* ── bottom result area ── */
+    .bottom-area {
+      flex: 0 0 auto;
+      display: flex;
+      flex-direction: column;
+    }
+    .bottom-toolbar {
+      height: 20px;
+      background: #303030;
+      display: flex;
+      align-items: center;
+      padding: 0 4px;
+      gap: 0;
+    }
+    .bottom-content {
+      height: 120px;
+      overflow-y: auto;
+      padding: 8px;
+      font-size: 12px;
+      color: #bbb;
+    }
+    .bottom-splitter {
+      height: 4px;
+      cursor: row-resize;
+      background: #2c2c2c;
+    }
+
+    /* ── no-setting / no-config pages ── */
+    .empty-center {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .empty-box {
+      width: 400px;
+      border: 1px solid #505050;
+      background: #363636;
+      padding: 16px;
+      text-align: center;
+      border-radius: 2px;
+    }
+    .empty-box .big-btn {
+      height: 36px;
+      padding: 0 24px;
+      border: none;
+      background: #3a3a3a;
+      color: #ddd;
+      cursor: pointer;
+      font-size: 13px;
+      margin-top: 10px;
+    }
+    .big-btn:hover { background: #4a4a4a; }
+
+    /* ── BuildGraph ── */
+    .graph-area {
+      flex: 1;
+      min-height: 0;
+      position: relative;
+      background: #2a2a2a;
+      overflow: auto;
+    }
+    .graph-svg { width: 100%; height: 100%; }
+    .bg-node {
+      fill: #3a3a3a;
+      stroke: #555;
+      stroke-width: 1.5;
+    }
+    .bg-node.pending { fill: #333333; stroke: #666; }
+    .bg-node.running { fill: #4c3a22; stroke: #c27a2c; }
+    .bg-node.success { fill: #2f4a32; stroke: #4f9a55; }
+    .bg-node.failed { fill: #5a2424; stroke: #a33; }
+    .bg-node.skipped { fill: #303030; stroke: #555; }
+    .bg-node.disabled { fill: #2e2e2e; stroke: #444; }
+    .bg-node.unresolved { fill: #4a2020; stroke: #662222; }
+    .bg-node-title {
+      font-size: 11px;
+      font-weight: 700;
+      fill: #ddd;
+      font-family: -apple-system, "Segoe UI", Arial, sans-serif;
+    }
+    .bg-node-title.disabled { fill: #777; }
+    .bg-node-keys {
+      font-size: 9px;
+      fill: #999;
+      font-family: -apple-system, "Segoe UI", Arial, sans-serif;
+    }
+    .bg-node-status {
+      font-size: 9px;
+      fill: #ddd;
+      font-family: -apple-system, "Segoe UI", Arial, sans-serif;
+    }
+    .bg-edge { stroke-width: 1.8; fill: none; stroke-linecap: round; }
+    .bg-edge.code { stroke: #cccccc; }
+    .bg-edge.so { stroke: #6699dd; stroke-dasharray: 6 4; }
+    .bg-edge.data { stroke: #55aa55; stroke-dasharray: 3 3; }
+    .bg-arrow { fill: #ccc; }
+    .bg-arrow.so { fill: #6699dd; }
+    .bg-arrow.data { fill: #55aa55; }
+    .bg-port-label {
+      font-size: 8px;
+      fill: #777;
+      font-family: -apple-system, "Segoe UI", Arial, sans-serif;
+    }
+    .graph-legend {
+      position: absolute;
+      bottom: 8px;
+      right: 8px;
+      background: rgba(0,0,0,0.7);
+      padding: 6px 10px;
+      border-radius: 3px;
+      font-size: 10px;
+      color: #bbb;
+      display: flex;
+      gap: 14px;
+    }
+    .legend-item { display: flex; align-items: center; gap: 4px; }
+    .legend-line {
+      width: 20px;
+      height: 2px;
+      border-radius: 1px;
+    }
+    .legend-line.code { background: #cccccc; }
+    .legend-line.so {
+      background: repeating-linear-gradient(90deg, #6699dd 0px, #6699dd 6px, transparent 6px, transparent 10px);
+    }
+    .legend-line.data {
+      background: repeating-linear-gradient(90deg, #55aa55 0px, #55aa55 3px, transparent 3px, transparent 6px);
+    }
+  </style>
+</head>
+<body>
+<div class="window">
+  <!-- Unity EditorWindow title bar -->
+  <div class="titlebar">
+    <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+    <span class="title-text">Build Pipeline</span>
+  </div>
+
+  <div class="body">
+    <!-- ── Sidebar ── -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-inner">
+        <div class="group">
+          <div class="group-title">SETTINGS</div>
+          <button class="nav-btn active" data-panel="settings">Settings</button>
+        </div>
+        <div class="group" id="abGroup">
+          <div class="group-title">AB PIPELINE</div>
+          <button class="nav-btn" data-panel="collect">Collect Config</button>
+          <button class="nav-btn" data-panel="collector">Collector</button>
+          <button class="nav-btn" data-panel="pipeline">Pipeline</button>
+          <button class="nav-btn" data-panel="builder">Builder</button>
+        </div>
+        <div class="group">
+          <div class="group-title">MANAGE</div>
+          <button class="nav-btn" data-panel="version">Version</button>
+        </div>
+      </div>
+    </aside>
+
+    <div class="splitter" id="sidebarSplitter" title="Drag to resize sidebar"></div>
+
+    <!-- ── Content Area (12px padding) ── -->
+    <main class="main">
+      <div class="main-inner" id="mainInner">
+        <!-- AB disabled hint (shown for panels 1-4 when UseABBackend=false) -->
+        <div class="ab-hint hidden" id="abHint">
+          AB Backend is disabled. Enable UseABBackend in Settings to edit.
+        </div>
+
+        <!-- ═══════════════ Settings Panel ═══════════════ -->
+        <section class="panel active" id="panel-settings">
+          <div class="unity-toolbar">
+            <button class="tb-btn" data-action="Reload Settings">Reload</button>
+            <div class="tb-spacer"></div>
+            <span class="tb-label">Assets/Resources/FYAssetSettings.asset</span>
+          </div>
+          <div class="scroll-body">
+            <div class="section-header">Project</div>
+            <div class="prop-row"><span class="prop-label">Project Name</span><input class="prop-field" value="" /></div>
+            <div class="prop-row"><span class="prop-label">Hotfix Url</span><input class="prop-field" value="" /></div>
+
+            <div class="section-header">Backend</div>
+            <div class="prop-row"><span class="prop-label">Use AB Backend</span><input type="checkbox" id="useAB" checked /></div>
+
+            <div class="section-header">Version</div>
+            <div class="prop-row"><span class="prop-label">Version Data Base Path</span><input class="prop-field" value="Assets/Build/VersionDataBase.asset" /></div>
+
+            <div class="section-header">Legacy Pipeline Paths</div>
+            <div class="prop-row"><span class="prop-label">Addressable Labels Config Path</span><input class="prop-field" value="" /></div>
+            <div class="prop-row"><span class="prop-label">Lua Scripts Index Path</span><input class="prop-field" value="" /></div>
+            <div class="prop-row"><span class="prop-label">Snapshot Asset Path</span><input class="prop-field" value="" /></div>
+            <div class="prop-row"><span class="prop-label">Build Index Json Path</span><input class="prop-field" value="" /></div>
+
+            <div class="section-header">New Pipeline Paths</div>
+            <div class="prop-row"><span class="prop-label">Collector Data Folder</span><input class="prop-field" value="Assets/FYAsset/CollectorData" /></div>
+            <div class="prop-row"><span class="prop-label">Collector Setting Path</span><input class="prop-field" value="Assets/FYAsset/CollectorData/CollectorSetting.asset" /></div>
+            <div class="prop-row"><span class="prop-label">Pipeline Config Path</span><input class="prop-field" value="Assets/Build/BuildPipelineConfig.asset" /></div>
+          </div>
+        </section>
+
+        <!-- ═══════════════ Collect Config Panel ═══════════════ -->
+        <section class="panel" id="panel-collect">
+          <div class="unity-toolbar">
+            <button class="tb-btn" data-action="Reload Collect Config">Reload</button>
+            <div class="tb-spacer"></div>
+            <span class="tb-label">Assets/FYAsset/CollectorData/CollectorSetting.asset</span>
+          </div>
+          <div class="cc-layout">
+            <div class="cc-sidebar" id="ccSidebar">
+              <div class="tree-pkg active">📦 DefaultPackage</div>
+              <div class="tree-grp">📁 DefaultGroup</div>
+              <div class="tree-grp active">📁 GroupA</div>
+              <div class="tree-grp">📁 GroupB  <span style="color:#995555">[Disabled]</span></div>
+              <div class="tree-pkg" style="margin-top:8px">📦 Package2</div>
+              <div class="tree-grp">📁 SubGroup</div>
+            </div>
+            <div class="cc-splitter" id="ccSplitter" title="Drag"></div>
+            <div class="cc-detail">
+              <div style="font-weight:700;font-size:14px;color:#eee;margin-bottom:8px">Group Overview</div>
+              <div class="prop-row"><span class="prop-label">Group Name</span><input class="prop-field" value="GroupA" /></div>
+              <div class="prop-row"><span class="prop-label">Enabled</span><input type="checkbox" checked /></div>
+              <div class="prop-row"><span class="prop-label">Group Labels</span><div class="mini-field" style="flex:1;min-height:20px">Size: 0</div></div>
+
+              <div style="display:flex;align-items:center;justify-content:space-between;margin:8px 0 4px">
+                <span style="font-weight:700;font-size:13px;color:#eee">Collectors</span>
+                <div style="display:flex;gap:4px">
+                  <button class="mini-btn" style="width:72px">+ Folder</button>
+                  <button class="mini-btn" style="width:60px">+ File</button>
+                </div>
+              </div>
+
+              <div class="box" style="border-color:var(--accent)">
+                <div class="tbl-row-top">
+                  <select class="mini-field" style="width:92px"><option>Folder</option><option>File</option></select>
+                  <input class="mini-field" style="flex:1" value="Assets/FYAsset/Scripts" />
+                  <button class="mini-btn" style="width:28px">…</button>
+                  <button class="mini-btn" style="width:24px">×</button>
+                </div>
+                <div class="tbl-row-bot" style="margin-top:4px">
+                  <select class="mini-field" style="width:92px"><option>Main</option></select>
+                  <select class="mini-field" style="width:108px"><option>Auto</option></select>
+                  <select class="mini-field" style="width:92px"><option>AddrByFileName</option></select>
+                  <select class="mini-field" style="width:92px"><option>PackByDirectory</option></select>
+                  <select class="mini-field" style="width:92px"><option>CollectAll</option></select>
+                  <select class="mini-field" style="width:92px"><option>GroupAll</option></select>
+                </div>
+                <div style="margin-top:6px">
+                  <div class="prop-row"><span class="prop-label">Labels</span><div class="mini-field" style="flex:1;min-height:20px">Size: 0</div></div>
+                  <div class="prop-row"><span class="prop-label">Ignore Patterns</span><div class="mini-field" style="flex:1;min-height:20px">Size: 0</div></div>
+                </div>
+              </div>
+
+              <div class="box">
+                <div class="tbl-row-top">
+                  <select class="mini-field" style="width:92px"><option>File</option></select>
+                  <input class="mini-field" style="flex:1" value="Assets/Example.txt" />
+                  <button class="mini-btn" style="width:28px">…</button>
+                  <button class="mini-btn" style="width:24px">×</button>
+                </div>
+                <div class="tbl-row-bot" style="margin-top:4px">
+                  <select class="mini-field" style="width:92px"><option>Main</option></select>
+                  <select class="mini-field" style="width:108px"><option>Auto</option></select>
+                  <select class="mini-field" style="width:92px"><option>AddrByFileName</option></select>
+                  <select class="mini-field" style="width:92px"><option>PackSeparately</option></select>
+                  <select class="mini-field" style="width:92px"><option>CollectAll</option></select>
+                  <select class="mini-field" style="width:92px"><option>GroupAll</option></select>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ═══════════════ Collector Panel ═══════════════ -->
+        <section class="panel" id="panel-collector">
+          <div class="unity-toolbar" style="height:24px">
+            <select class="tb-popup" style="width:130px" id="pkgPopup">
+              <option>DefaultPackage</option><option>Package2</option>
+            </select>
+            <select class="tb-popup" style="width:140px" id="grpPopup">
+              <option>DefaultGroup</option><option>GroupA</option><option>GroupB</option>
+            </select>
+            <button class="tb-btn" style="width:72px">+ Folder</button>
+            <button class="tb-btn" style="width:60px">+ File</button>
+            <button class="tb-btn" style="width:74px">- Remove</button>
+            <input class="tb-search" placeholder="Search..." />
+            <div class="tb-spacer"></div>
+            <button class="tb-btn" data-action="Reload Collector">Reload</button>
+            <button class="tb-btn" style="width:84px" data-action="Re-Validate">Re-Validate</button>
+            <button class="tb-btn" style="width:64px" data-action="Run Scan">Run Scan</button>
+          </div>
+
+          <!-- Middle: table + detail -->
+          <div style="flex:1;min-height:0;display:flex">
+            <!-- Collector Table -->
+            <div class="collector-table" id="collectorTable">
+              <!-- Table header row 1 -->
+              <div class="tbl-hdr">
+                <span style="width:92px">Path Type</span>
+                <span style="flex:1">Collect Path</span>
+                <span style="width:28px"></span>
+                <span style="width:24px"></span>
+              </div>
+              <!-- Table header row 2 -->
+              <div class="tbl-hdr">
+                <span style="width:92px">Type</span>
+                <span style="width:104px">Payload</span>
+                <span style="width:92px">Addr</span>
+                <span style="width:92px">Pack</span>
+                <span style="width:92px">Filter</span>
+                <span style="width:92px">Group</span>
+              </div>
+              <div style="height:4px"></div>
+
+              <!-- Collector row 1 (selected) -->
+              <div class="tbl-row active">
+                <div class="tbl-row-top">
+                  <select class="mini-field" style="width:92px"><option>Folder</option></select>
+                  <input class="mini-field" style="flex:1" value="Assets/FYAsset/Scripts" />
+                  <button class="mini-btn" style="width:28px">…</button>
+                  <button class="mini-btn" style="width:24px">×</button>
+                </div>
+                <div class="tbl-row-bot">
+                  <select class="mini-field" style="width:92px"><option>Main</option></select>
+                  <select class="mini-field" style="width:104px"><option>Auto</option></select>
+                  <select class="mini-field" style="width:92px"><option>AddrByFileName</option></select>
+                  <select class="mini-field" style="width:92px"><option>PackByDirectory</option></select>
+                  <select class="mini-field" style="width:92px"><option>CollectAll</option></select>
+                  <select class="mini-field" style="width:92px"><option>GroupAll</option></select>
+                </div>
+              </div>
+
+              <!-- Collector row 2 -->
+              <div class="tbl-row">
+                <div class="tbl-row-top">
+                  <select class="mini-field" style="width:92px"><option>File</option></select>
+                  <input class="mini-field" style="flex:1" value="Assets/Example.txt" />
+                  <button class="mini-btn" style="width:28px">…</button>
+                  <button class="mini-btn" style="width:24px">×</button>
+                </div>
+                <div class="tbl-row-bot">
+                  <select class="mini-field" style="width:92px"><option>Main</option></select>
+                  <select class="mini-field" style="width:104px"><option>Auto</option></select>
+                  <select class="mini-field" style="width:92px"><option>AddrByFileName</option></select>
+                  <select class="mini-field" style="width:92px"><option>PackSeparately</option></select>
+                  <select class="mini-field" style="width:92px"><option>CollectAll</option></select>
+                  <select class="mini-field" style="width:92px"><option>GroupAll</option></select>
+                </div>
+              </div>
+            </div>
+
+            <!-- Detail splitter -->
+            <div class="cc-splitter" id="detailSplitter" title="Drag"></div>
+
+            <!-- Collector Detail -->
+            <div class="collector-detail" id="collectorDetail">
+              <div style="font-weight:700;font-size:14px;color:#eee;margin-bottom:6px">Collector Detail</div>
+              <div class="prop-row"><span class="prop-label">Path Type</span><select class="mini-field" style="flex:1"><option>Folder</option></select></div>
+              <div class="prop-row"><span class="prop-label">Collect Path</span><input class="mini-field" style="flex:1" value="Assets/FYAsset/Scripts" /></div>
+              <div class="prop-row"><span class="prop-label">Collector Type</span><select class="mini-field" style="flex:1"><option>Main</option></select></div>
+              <div class="prop-row"><span class="prop-label">Payload</span><select class="mini-field" style="flex:1"><option>Auto</option></select></div>
+
+              <div style="font-weight:700;font-size:13px;color:#eee;margin:8px 0 4px">Rules</div>
+              <div class="prop-row"><span class="prop-label">Address</span><select class="mini-field" style="flex:1"><option>AddrByFileName</option></select></div>
+              <div class="prop-row"><span class="prop-label">Pack</span><select class="mini-field" style="flex:1"><option>PackByDirectory</option></select></div>
+              <div class="prop-row"><span class="prop-label">Filter</span><select class="mini-field" style="flex:1"><option>CollectAll</option></select></div>
+              <div class="prop-row"><span class="prop-label">Group</span><select class="mini-field" style="flex:1"><option>GroupAll</option></select></div>
+
+              <div class="prop-row" style="margin-top:6px"><span class="prop-label">Labels</span><div class="mini-field" style="flex:1;min-height:20px">Size: 0</div></div>
+              <div class="prop-row"><span class="prop-label">Ignore Patterns</span><div class="mini-field" style="flex:1;min-height:20px">Size: 0</div></div>
+            </div>
+          </div>
+
+          <!-- Bottom splitter -->
+          <div class="bottom-splitter" id="bottomSplitter" title="Drag to resize"></div>
+
+          <!-- Bottom result area -->
+          <div class="bottom-area" id="bottomArea">
+            <div class="bottom-toolbar">
+              <button class="tb-toggle pressed" data-bot="validation">Validation</button>
+              <button class="tb-toggle" data-bot="scan">Scan Preview</button>
+              <div class="tb-spacer"></div>
+            </div>
+            <div class="bottom-content" id="validationBox">
+              <div style="color:#8c8">No errors found.</div>
+              <div style="color:#ccc">All collectors pass validation.</div>
+            </div>
+            <div class="bottom-content hidden" id="scanBox" style="display:none">
+              <div style="color:#cca">Scan results:</div>
+              <div style="color:#aaa">• Assets/FYAsset/Scripts/...</div>
+              <div style="color:#aaa">• Assets/Example.txt</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ═══════════════ Builder Panel ═══════════════ -->
+        <section class="panel" id="panel-builder">
+          <div class="empty-center">
+            <div class="empty-box" style="color:#aaa">Builder 暂不承载 DAG；构建报告查询将在 E7 输出格式稳定后单独规划。</div>
+          </div>
+        </section>
+
+        <!-- ═══════════════ Pipeline Panel ═══════════════ -->
+        <section class="panel" id="panel-pipeline">
+          <div class="unity-toolbar">
+            <button class="tb-btn" data-action="Reload Pipeline">Reload</button>
+            <button class="tb-btn" data-action="Validate Pipeline">Validate</button>
+            <span class="tb-label">Build Mode</span>
+            <select class="tb-popup"><option>Hotfix</option><option>Full</option></select>
+            <button class="tb-btn" data-action="Build Pipeline">Build</button>
+            <div class="tb-spacer"></div>
+            <span class="tb-label" id="pipelineStatus">8/8 tasks enabled</span>
+            <span class="tb-label" id="pipelineResult" style="margin-left:10px;color:#5a5">8 tasks OK</span>
+          </div>
+          <div class="unity-toolbar">
+            <span class="tb-label">Build Options</span>
+            <span class="tb-label">File Name</span>
+            <select class="tb-popup"><option>BundleName</option><option>HashName</option><option>BundleName_HashName</option></select>
+            <span class="tb-label">Compression</span>
+            <select class="tb-popup"><option>LZ4</option><option>LZMA</option><option>Uncompressed</option></select>
+            <label class="tb-label"><input type="checkbox" /> Sequential</label>
+            <div class="tb-spacer"></div>
+          </div>
+          <div class="graph-area">
+            <svg class="graph-svg" viewBox="0 0 1300 520" id="pipelineGraph">
+              <!-- Grid background -->
+              <defs>
+                <pattern id="smallGrid" width="20" height="20" patternUnits="userSpaceOnUse">
+                  <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#333" stroke-width="0.5"/>
+                </pattern>
+                <pattern id="grid" width="100" height="100" patternUnits="userSpaceOnUse">
+                  <rect width="100" height="100" fill="url(#smallGrid)"/>
+                  <path d="M 100 0 L 0 0 0 100" fill="none" stroke="#3a3a3a" stroke-width="1"/>
+                </pattern>
+                <marker id="arrowCode" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+                  <path d="M 0 0 L 10 5 L 0 10 z" class="bg-arrow"/>
+                </marker>
+                <marker id="arrowSO" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+                  <path d="M 0 0 L 10 5 L 0 10 z" class="bg-arrow so"/>
+                </marker>
+                <marker id="arrowData" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+                  <path d="M 0 0 L 10 5 L 0 10 z" class="bg-arrow data"/>
+                </marker>
+              </defs>
+              <rect width="1300" height="520" fill="url(#grid)"/>
+
+              <!-- Code execution edges: shown left-to-right by dependency layer -->
+              <line x1="240" y1="260" x2="290" y2="260" class="bg-edge code" marker-end="url(#arrowCode)"/>
+              <line x1="520" y1="260" x2="540" y2="160" class="bg-edge code" marker-end="url(#arrowCode)"/>
+              <line x1="520" y1="260" x2="540" y2="360" class="bg-edge code" marker-end="url(#arrowCode)"/>
+              <line x1="770" y1="160" x2="790" y2="250" class="bg-edge code" marker-end="url(#arrowCode)"/>
+              <line x1="770" y1="360" x2="790" y2="250" class="bg-edge data" marker-end="url(#arrowData)"/>
+              <line x1="990" y1="250" x2="1040" y2="120" class="bg-edge code" marker-end="url(#arrowCode)"/>
+              <line x1="990" y1="250" x2="1040" y2="260" class="bg-edge code" marker-end="url(#arrowCode)"/>
+              <line x1="990" y1="250" x2="1040" y2="400" class="bg-edge code" marker-end="url(#arrowCode)"/>
+
+              <!-- ══ Nodes ══ -->
+
+              <g transform="translate(10, 220)">
+                <rect width="230" height="92" rx="4" class="bg-node success"/>
+                <text x="12" y="18" class="bg-node-title">TaskPrepareContext</text>
+                <text x="12" y="34" class="bg-node-status">Status: Success</text>
+                <text x="12" y="48" class="bg-node-keys">Write: BuildConfig</text>
+                <text x="12" y="62" class="bg-node-keys">Read: —</text>
+                <text x="12" y="76" class="bg-node-keys">Deps: —</text>
+              </g>
+
+              <g transform="translate(290, 220)">
+                <rect width="230" height="92" rx="4" class="bg-node success"/>
+                <text x="12" y="18" class="bg-node-title">TaskCollectAssets</text>
+                <text x="12" y="34" class="bg-node-status">Status: Success</text>
+                <text x="12" y="48" class="bg-node-keys">Write: CollectedAssets, SharePolicies</text>
+                <text x="12" y="62" class="bg-node-keys">Read: —</text>
+                <text x="12" y="76" class="bg-node-keys">Deps: TaskPrepareContext</text>
+              </g>
+
+              <g transform="translate(540, 120)">
+                <rect width="230" height="92" rx="4" class="bg-node running"/>
+                <text x="12" y="18" class="bg-node-title">TaskAnalyzeDependencies</text>
+                <text x="12" y="34" class="bg-node-status">Status: Running</text>
+                <text x="12" y="48" class="bg-node-keys">Write: BundleDependencyGraph</text>
+                <text x="12" y="62" class="bg-node-keys">Read: CollectedAssets</text>
+                <text x="12" y="76" class="bg-node-keys">Deps: TaskCollectAssets</text>
+              </g>
+
+              <g transform="translate(540, 320)">
+                <rect width="230" height="92" rx="4" class="bg-node pending"/>
+                <text x="12" y="18" class="bg-node-title">TaskCollectBuiltins</text>
+                <text x="12" y="34" class="bg-node-status">Status: Pending</text>
+                <text x="12" y="48" class="bg-node-keys">Optional backbone augmentation</text>
+                <text x="12" y="62" class="bg-node-keys">Write: CollectedAssets</text>
+                <text x="12" y="76" class="bg-node-keys">Deps: TaskCollectAssets</text>
+              </g>
+
+              <g transform="translate(790, 210)">
+                <rect width="230" height="92" rx="4" class="bg-node pending"/>
+                <text x="12" y="18" class="bg-node-title">TaskBuildBundles</text>
+                <text x="12" y="34" class="bg-node-status">Status: Pending</text>
+                <text x="12" y="48" class="bg-node-keys">Write: BundleBuildResults</text>
+                <text x="12" y="62" class="bg-node-keys">Read: Config, Assets, DepGraph</text>
+                <text x="12" y="76" class="bg-node-keys">Deps: Analyze / Builtins</text>
+              </g>
+
+              <g transform="translate(1040, 80)">
+                <rect width="230" height="92" rx="4" class="bg-node pending"/>
+                <text x="12" y="18" class="bg-node-title">TaskGenerateManifest</text>
+                <text x="12" y="34" class="bg-node-status">Status: Pending</text>
+                <text x="12" y="48" class="bg-node-keys">Write: ABManifest</text>
+                <text x="12" y="62" class="bg-node-keys">Read: BundleBuildResults</text>
+                <text x="12" y="76" class="bg-node-keys">Deps: TaskBuildBundles</text>
+              </g>
+
+              <g transform="translate(1040, 220)">
+                <rect width="230" height="92" rx="4" class="bg-node pending"/>
+                <text x="12" y="18" class="bg-node-title">TaskVerifyBuildResult</text>
+                <text x="12" y="34" class="bg-node-status">Status: Pending</text>
+                <text x="12" y="48" class="bg-node-keys">Write: BuildVerificationResult</text>
+                <text x="12" y="62" class="bg-node-keys">Read: BundleBuildResults</text>
+                <text x="12" y="76" class="bg-node-keys">Deps: TaskBuildBundles</text>
+              </g>
+
+              <g transform="translate(1040, 360)">
+                <rect width="230" height="92" rx="4" class="bg-node pending"/>
+                <text x="12" y="18" class="bg-node-title">TaskOrganizeOutput</text>
+                <text x="12" y="34" class="bg-node-status">Status: Pending</text>
+                <text x="12" y="48" class="bg-node-keys">Write: OutputPath</text>
+                <text x="12" y="62" class="bg-node-keys">Read: BundleBuildResults</text>
+                <text x="12" y="76" class="bg-node-keys">Deps: TaskBuildBundles</text>
+              </g>
+            </svg>
+            <!-- Legend -->
+            <div class="graph-legend">
+              <div class="legend-item"><span class="legend-line code"></span> Code Dep</div>
+              <div class="legend-item"><span class="legend-line so"></span> SO Dep</div>
+              <div class="legend-item"><span class="legend-line data"></span> Data Flow</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ═══════════════ Version Panel ═══════════════ -->
+        <section class="panel" id="panel-version">
+          <div class="unity-toolbar">
+            <button class="tb-btn" data-action="Reload Version">Reload</button>
+            <div class="tb-spacer"></div>
+          </div>
+          <div class="scroll-body">
+            <div class="section-header">Version Data Base (Inspector)</div>
+            <div class="box" style="color:#aaa">
+              Uses Editor.CreateEditor(versionDB).OnInspectorGUI()
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script>
+  const sidebar = document.getElementById('sidebar');
+  const sidebarSplitter = document.getElementById('sidebarSplitter');
+  const abHint = document.getElementById('abHint');
+  const useAB = document.getElementById('useAB');
+  const abGroup = document.getElementById('abGroup');
+  const navButtons = [...document.querySelectorAll('.nav-btn')];
+
+  const panels = {
+    settings: document.getElementById('panel-settings'),
+    collect: document.getElementById('panel-collect'),
+    collector: document.getElementById('panel-collector'),
+    pipeline: document.getElementById('panel-pipeline'),
+    builder: document.getElementById('panel-builder'),
+    version: document.getElementById('panel-version')
+  };
+
+  // AB PIPELINE panel indices: collect=1, collector=2, pipeline=3, builder=4
+  const abPanelIds = new Set(['collect', 'collector', 'pipeline', 'builder']);
+  let abEnabled = true;
+
+  function setActivePanel(panelId) {
+    navButtons.forEach(btn => btn.classList.toggle('active', btn.dataset.panel === panelId));
+    Object.entries(panels).forEach(([id, el]) => el.classList.toggle('active', id === panelId));
+
+    // AB hint: shown when UseABBackend=false AND current panel is an AB panel
+    const isAbPanel = abPanelIds.has(panelId);
+    abHint.classList.toggle('hidden', !isAbPanel || abEnabled);
+
+    // Disable panel content area (dim + no interaction) when AB disabled + AB panel
+    const mainInner = document.getElementById('mainInner');
+    if (isAbPanel && !abEnabled) {
+      panels[panelId].style.opacity = '0.4';
+      panels[panelId].style.pointerEvents = 'none';
+    } else {
+      panels[panelId].style.opacity = '';
+      panels[panelId].style.pointerEvents = '';
+    }
+  }
+
+  function updateABState() {
+    abEnabled = useAB.checked;
+    // Disable AB PIPELINE sidebar buttons when UseABBackend=false
+    const abBtns = abGroup.querySelectorAll('.nav-btn');
+    abBtns.forEach(btn => { btn.disabled = !abEnabled; });
+
+    // Update AB hint visibility for the active panel
+    const activeBtn = navButtons.find(b => b.classList.contains('active'));
+    if (activeBtn) setActivePanel(activeBtn.dataset.panel);
+  }
+
+  // Sidebar navigation
+  navButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (btn.disabled) return;
+      setActivePanel(btn.dataset.panel);
+    });
+  });
+
+  // UseABBackend toggle
+  useAB.addEventListener('change', updateABState);
+
+  // Sidebar splitter drag
+  let dragging = false, dragStartX = 0, dragStartWidth = 0;
+  sidebarSplitter.addEventListener('mousedown', (e) => {
+    dragging = true; dragStartX = e.clientX;
+    dragStartWidth = sidebar.getBoundingClientRect().width;
+    document.body.style.cursor = 'col-resize';
+    e.preventDefault();
+  });
+  window.addEventListener('mousemove', (e) => {
+    if (!dragging) return;
+    const w = Math.min(300, Math.max(100, dragStartWidth + e.clientX - dragStartX));
+    sidebar.style.width = w + 'px';
+  });
+  window.addEventListener('mouseup', () => { dragging = false; document.body.style.cursor = ''; });
+
+  // Bottom tabs (Collector panel)
+  const bottomToggles = [...document.querySelectorAll('.tb-toggle')];
+  const validationBox = document.getElementById('validationBox');
+  const scanBox = document.getElementById('scanBox');
+  bottomToggles.forEach(btn => {
+    btn.addEventListener('click', () => {
+      bottomToggles.forEach(b => b.classList.remove('pressed'));
+      btn.classList.add('pressed');
+      const mode = btn.dataset.bot;
+      validationBox.style.display = mode === 'validation' ? '' : 'none';
+      scanBox.style.display = mode === 'scan' ? '' : 'none';
+    });
+  });
+
+  // Action buttons
+  document.querySelectorAll('[data-action]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      console.log('Action:', btn.dataset.action);
+    });
+  });
+
+  updateABState();
+  setActivePanel('settings');
+</script>
+</body>
+</html>

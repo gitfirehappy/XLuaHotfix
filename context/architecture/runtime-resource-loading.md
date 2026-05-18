@@ -1,6 +1,6 @@
 # Runtime Resource Loading
 
-Last reviewed: 2026-05-12
+Last reviewed: 2026-05-18
 
 ## Scope
 
@@ -125,8 +125,11 @@ Responsibilities:
 - choose either `LegacyHotfixBackend` or `ABHotfixBackend`
 - compare local and remote versions
 - prepare and download required bundles
+- verify copied or downloaded bundles by CRC32 when metadata is available
 - write the local manifest pointer and switch paths
 - call `AssetPackageManager.Instance.Initialize()` as the final resource bootstrap step
+
+`BundleDownloadItem` carries `BundleName`, `FileHash`, `FileCRC`, and `FileSize` for both Legacy and AB hotfix backends. `FileHash` remains the content identity used for reuse/download decisions. `FileCRC` is the fast verification checksum. `FileCRC == 0` means CRC metadata is unavailable, which currently occurs for old Legacy `version_state.json` files; CRC verification is skipped in that case.
 
 ## Shared Runtime Support Components
 
@@ -149,6 +152,13 @@ Responsibilities:
 - atomic writes via temp-file + rename pattern (`WriteAllBytesAtomic` / `WriteAllTextAtomic`)
 - safe deletion via `TryDelete` / `TryDeleteDirectory` that return bool and never throw
 - used by `ManifestLoader`, `HotfixManager.LoadBuildIndexFromStreamingAssets`, and `ABHotfixBackend.PostDownloadAsync`
+
+### `HashGenerator`
+
+- shared helper under `Assets/FYAsset/Scripts/Helpers/`
+- provides `GenerateFileHash` for MD5 content identity and `GenerateFileCRC` for CRC32 verification
+- runtime hotfix verification and build-time metadata generation use the same CRC implementation
+- `GenerateDeepHash` is Editor-only because it depends on `UnityEditor.AssetDatabase`
 
 ## Error Handling Architecture
 

@@ -3,7 +3,7 @@
 > **Status**: In progress (Phase 1-4 completed, Phase 5 E1-1/E1-2/E1-3/E1-4/E2 realized, Phase 6 E4/E5-1/E5-2a/E5-2b/E6/E9/E10/E11 realized, review-fix-20260509 and naming-unification executed, E7 pending)
 > **Ultimate Goal**: Fully replace Addressables with custom runtime + build-time resource management system (referencing YooAsset architecture)
 > **Created**: 2026-03-16
-> **Updated**: 2026-05-12 — E11 FYAssetSettings SO executed; FYAssetConstants deleted
+> **Updated**: 2026-05-14 — E12-2 Pipeline build trigger/status executed
 
 ---
 
@@ -187,11 +187,12 @@ Phase 4 and Phase 6 must be coordinated (ABManifest runtime consumption + build-
 | E5-2a | Backbone Tasks Phase 1 — TaskPrepareContext / TaskCollectBuiltins / TaskBuildBundles + BundleBuildInfo + BundleCompression. **2026-05-07 review fixes: scene output collapse + folder guard + rawfile multi-file** | **Realized** (plan-E5-2a.md) |
 | E5-2b | Backbone Tasks Phase 2 — TaskVerifyBuildResult (6 checks) / TaskOrganizeOutput (copy+serialize+summary+cleanup). Includes HashGenerator unification (CRC32 merge + enum) + BuildVerificationResult type | **Realized** (plan-E5-2b.md) |
 | E6 | ABManifest build export — TaskGenerateManifest + CRC32Helper + BundleType int→string | **Realized** (plan-E6.md) |
-| E7 | Diff snapshot adaptation (IDiffPipeline + Legacy/AB backends) | Draft (plan-E7.md) — 2026-05-08 audit fixes: +T9 TaskBuildBundles BundleDelta, +T11 DAGScheduler integration, DiffResult/ConfirmRelease corrections |
+| E7 | Diff snapshot adaptation → **Build Repository** (统一 git-like 版本管理系统，合并原 E7 + Smart Versioning) | **Draft** (draft-build-repository-20260518.md) — 2026-05-18 重新设计：7 操作（status/add/diff/commit/reset/tag/push）、统一 ArtifactDigest 数据结构、IArtifactScanner 注入 AA/AB 差异、apply 移出 Repository |
 | E9 | VersionNumber SemVer+Build extension (Major.Minor.Patch + Build + Channel, IComparable, Parse/TryParse, operator overloads). Prerequisite for E7 | **Realized** (plan-E9-version.md) |
 | E10 | BuildProjectManager dual-backend split — `IBuildBackend` + `LegacyAddressableBuildBackend` + `ABBuildBackend` + orchestrator-style `BuildProjectManager`. `BuildCommandLine` kept on the same public API path. AB output layout aligned to `{PackageRoot}/bundles/` to match hotfix/runtime contracts | **Realized** (plan-E10-buildbackend.md) |
 | E11 | FYAssetSettings SO — new `FYAssetSettings` ScriptableObject (Runtime assembly) replaces `FYAssetConstants`; all configurable fields (ProjectName, HotfixUrl, UseABBackend, paths) become SO instance fields; `static const` members preserved on SO type; `BuildPipelineConfig.DefaultBackendMode` removed; `SettingsPanel` added; `BuildPipelineWindow` sidebar reorganized to SETTINGS → AB PIPELINE → MANAGE; AB PIPELINE grayed-out when `UseABBackend=false`; `FYAssetConstants.cs` deleted | **Realized** (plan-E11-settings.md) |
-| E12 | BuilderPanel BuildGraph editor — staged GraphView upgrade for AB pipeline. E12-1 approved: read-only DAG visualization from `BuildPipelineConfig.Tasks` + `BuildTaskResolver`, code/SO/data-flow edge display, Reload, and `DAGScheduler.Validate()` summary. E12-2 editing and E12-3 build trigger/status require separate approval | **Approved** (plan-E12-buildgraph-editor.md) |
+| E12 | PipelinePanel BuildGraph and build execution editor — staged GraphView upgrade for AB pipeline. E12-1 reworked 2026-05-14: read-only DAG visualization moved from Builder to Pipeline, Build options (`FileNameStyle`, `BundleCompression`, `SequentialMode`) moved to Pipeline top bar, right-click optional-task creation excludes backbone tasks, Reload and `DAGScheduler.Validate()` summary remain read-only. E12-2 executed 2026-05-14: Pipeline Build Mode + Build button trigger existing Full/Hotfix flows through `BuildProjectManager`, `DAGScheduler` emits observer/callback-driven task statuses, and unused `BuildGraphToolbar` was removed. Builder/report querying is deferred to a separate post-E7 plan because E7 owns diff snapshot and digest outputs. | **E12-2 Executed; awaiting sign-off** (plan-E12-buildgraph-editor.md) |
+| E13 | Legacy Pipeline 侧边栏重组 + 面板骨架 — BuildPipelineWindow 侧边栏 4 组（SETTINGS/LEGACY PIPELINE/AB PIPELINE/MANAGE）+ 互斥灰显 + 折叠侧栏组 + LegacyConfigPanel（Addressables summary + open groups window）+ LegacyBuildPanel/LegacyReportPanel 占位。可并行 E7 | **Executed** (plan-E13-legacy-sidebar.md) — T1-T4 代码已落地 2026-05-15，dotnet build 0 errors |
 
 ### Phase 7: Delivery & Download Strategy
 
@@ -210,7 +211,7 @@ Phase 4 and Phase 6 must be coordinated (ABManifest runtime consumption + build-
 > | After | Editor Delivery |
 > |-------|----------------|
 > | Phase 5 (E1-1~E1-4 + E2 complete) | Collector panel (E1-4, Approved) + scan result preview |
-> | Phase 6 E5-1/E5-2 | BuilderPanel BuildGraph editor (E12: E12-1 read-only visualization approved; E12-2 editing and E12-3 build execution pending separate approval) |
+> | Phase 6 E5-1/E5-2 | PipelinePanel BuildGraph editor (E12: E12-1 read-only visualization reworked into Pipeline; optional Task creation via graph right-click; E12-2 build trigger/status executed) |
 > | Phase 6 E4+E6 | Inspector panel (Bundle table + asset search) |
 > | Phase 6 closed | Settings panel finalization |
 >
@@ -280,3 +281,6 @@ Phase 4 and Phase 6 must be coordinated (ABManifest runtime consumption + build-
 | 2026-05-09 | **naming-unification plan promoted**: drafts→plan, 5 tasks, 6 files. VersionState/BundleInfo/Manifest camelCase→PascalCase |
 | 2026-05-11 | **E10 executed**: `BuildProjectManager` split into orchestrator + `IBuildBackend` implementations (`LegacyAddressableBuildBackend` / `ABBuildBackend`), `BuildCommandLine` kept on unchanged public API path, AB package layout aligned to runtime `bundles/` contract. Sandbox blocked external `dotnet build` confirmation because access to `C:\Users\cfy\AppData\Local\Microsoft SDKs` was denied |
 | 2026-05-13 | **E12 BuildGraph editor approved**: promoted `draft-buildgraph-visualization.md` to `plan-E12-buildgraph-editor.md`; first executable slice is read-only BuilderPanel DAG visualization + Validate only. Editing and build-trigger phases require separate approval |
+| 2026-05-14 | **E12-1 executed**: `BuildGraphView` + `BuildTaskNode` + `BuildGraphLayoutEngine` + `BuildGraphToolbar` + `EdgeStyle` created; initial implementation placed DAG in BuilderPanel; `Assembly-CSharp-Editor.csproj` synced; `dotnet build` passed 0 errors; `context/`, `docs` HTML, `progress.txt` aligned |
+| 2026-05-14 | **E12-1 reworked**: DAG moved from BuilderPanel to PipelinePanel; Pipeline top bar now owns `FileNameStyle`, `BundleCompression`, and `SequentialMode`; Task list is no longer exposed as a normal inspector list and optional tasks are created from the graph right-click menu with backbone tasks excluded; BuilderPanel no longer hosts the DAG; `dotnet build` passed 0 errors |
+| 2026-05-14 | **E12-2 executed**: Pipeline top bar gained `Build Mode` + `Build`; build trigger validates first and routes through `BuildProjectManager`; `BuildExecutionOptions` / `BuildTaskExecutionEvent` / `BuildTaskExecutionStatus` carry DAGScheduler status events into BuildGraph nodes; unused `BuildGraphToolbar` removed; Builder report/query remains deferred until after E7 |

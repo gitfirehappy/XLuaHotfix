@@ -901,3 +901,78 @@
 [decision] 2026-05-13 E12 approved constraints: use Unity GraphView; show data-flow edges in E12-1; keep `UseABBackend` AB PIPELINE grey-out gating; no BuildProjectManager/DAGScheduler.Execute calls in E12-1
 [done] 2026-05-13 plan-E12-buildgraph-editor.md promoted from draft-buildgraph-visualization.md — Status Approved, awaiting execution
 [next] 2026-05-13 Awaiting developer instruction to execute E12-1 implementation
+[start] 2026-05-14 E12-1 execution — implement read-only DAG visualization + Validate for BuilderPanel
+[done] 2026-05-14 E12-1-T1 — created BuildGraphView.cs: GraphView subclass with zoom/pan/grid manipulators, Reload() rebuilds graph, GetCompatiblePorts returns empty for read-only, OnGraphChanged blocks user edits
+[done] 2026-05-14 E12-1-T2 — created BuildTaskNode.cs: Node rendering TaskName/Enabled/ReadKeys/WriteKeys/DepsOn; exec input/output + data input/output ports; [DISABLED]/[UNRESOLVED] visual states
+[done] 2026-05-14 E12-1-T3 — created BuildGraphLayoutEngine.cs: topological layer assignment from merged code+SO dependencies; deterministic ordering by TaskName within layers; fallback column for disconnected nodes
+[done] 2026-05-14 E12-1-T4 — created BuildGraphToolbar.cs: Reload + Validate buttons; task count label; validation result summary with color coding
+[done] 2026-05-14 E12-1-T5 — modified BuilderPanel.cs: replaced IMGUI placeholder card with UI Toolkit GraphView host; loads BuildPipelineConfig from FYAssetSettings; visibility managed via EditorApplication.update/OnGUI toggle; AB-disabled opacity gating
+[done] 2026-05-14 E12-1-T6 — synced Assembly-CSharp-Editor.csproj with 5 new BuildGraph Compile entries; dotnet build XLuaHotfix.sln passed with 0 errors
+[done] 2026-05-14 E12-1 verified — all 8 acceptance criteria met; 8 invariants satisfied; mistake record review passed (IP-04 empty catch addressed with explanatory comment)
+[done] 2026-05-14 E12-1 documentation — progress.txt updated; system-overview.md BuildGraph section added; build-pipeline-editor-layout.html Builder panel updated to reflect graph visualization
+[done] 2026-05-14 E12-1 complete — awaiting developer sign-off
+[next] 2026-05-14 Developer to verify in Unity Editor: open Build Pipeline window, select Builder panel, confirm graph rendering with configured tasks
+[start] 2026-05-14 E12-1 rework — developer reported Builder refresh loop/empty graph and requested DAG ownership move to Pipeline
+[decision] 2026-05-14 E12-1 rework approvals — Pipeline top bar owns build options; Task entries should be created through graph right-click and backbone tasks must not be selectable; Builder stays empty/reserved; this is an E12 rework, not E12-2/E12-3 execution
+[done] 2026-05-14 E12-1 rework UI — PipelinePanel now hosts BuildGraphView below a build-options bar (`FileNameStyle`, `BundleCompression`, `SequentialMode`, Reload, Validate); BuilderPanel no longer hosts GraphView and is reserved for future build execution/status
+[done] 2026-05-14 E12-1 rework lifecycle — removed BuilderPanel EditorApplication.update overlay visibility guessing; BuildPipelineWindow now explicitly toggles panels implementing IBuildPipelinePanelVisibility
+[done] 2026-05-14 E12-1 rework task menu — BuildGraph right-click creation menu lists only optional unresolved candidates from BuildTaskResolver.GetTaskNames(); backbone tasks are excluded from creation candidates
+[done] 2026-05-14 E12-1 rework docs/context — plan.md, system-overview.md, and build-pipeline-editor-layout.html aligned to Pipeline-owned DAG and empty Builder
+[done] 2026-05-14 E12-1 rework verified — dotnet build XLuaHotfix.sln passed with 0 errors; warnings are pre-existing System.Net.Http conflict and AdditionalFile analyzer warning
+[start] 2026-05-14 E12-1 blank-DAG fix — developer reported HTML DAG layout was wrong and Unity Pipeline showed zero tasks
+[decision] 2026-05-14 E12-1 blank-DAG root cause — `Assets/Build/BuildPipelineConfig.asset` had `Tasks: []`, and the backbone dependency `TaskCollectAssets` was referenced by other tasks but had no implementation
+[done] 2026-05-14 E12-1 blank-DAG fix — added `TaskCollectAssets` scan task, added `BuildPipelineConfigRepair.EnsureBackboneTasks()`, initialized BuildPipelineConfig.asset with 8 backbone TaskEntry records, and kept graph right-click creation limited to optional tasks
+[done] 2026-05-14 E12-1 HTML DAG fix — simplified the Pipeline DAG reference SVG into a clean left-to-right layered view and updated status to 8/8 tasks
+[start] 2026-05-14 E12-1 GraphView edge fix — developer reported backbone edges were editable and Unity graph edges were visually tangled / insufficiently color-separated
+[done] 2026-05-14 E12-1 GraphView edge fix — ports and edges made non-selectable/non-deletable with PickingMode.Ignore; nodes remain movable for view layout adjustment
+[done] 2026-05-14 E12-1 GraphView readability fix — code/SO/data edges now use explicit white/blue/green colors and widths, duplicate data-flow edges already covered by execution edges are suppressed, and backbone display order is stabilized
+[done] 2026-05-14 E12-1 GraphView reload fix — removed EdgeControl.edgeWidth mutation during Reload to avoid Unity GraphView ComputeLayout null-reference; data-flow edges restored as low-opacity green read-only lines behind execution edges, with per task-pair de-duplication
+[done] 2026-05-14 E12-1 GraphView reload fix verified — dotnet build XLuaHotfix.sln passed with 0 errors; warnings remain pre-existing System.Net.Http conflict and AdditionalFile analyzer warning
+[decision] 2026-05-14 E12 post-review scope narrowed — continue with Pipeline build trigger/status only; Builder build report/query panel deferred to a separate post-E7 plan because E7 owns BundleDigestList and snapshot/report input formats.
+[done] 2026-05-14 plan-E12-buildgraph-editor.md post-review update — added DAGScheduler observer/callback requirement, explicit BuildGraphToolbar reference-search-and-delete cleanup criterion, IBuildPipelinePanelVisibility lifecycle note, and removed E12-3 Builder report execution scope.
+[done] 2026-05-14 context sync — system-overview.md corrected BuildGraphToolbar as unused legacy artifact and deferred Builder report querying until after E7.
+[next] 2026-05-14 Await developer approval for E12-2 implementation plan: Pipeline Build Mode + Build button + scheduler observer-driven task node status + BuildGraphToolbar cleanup.
+[start] 2026-05-14 E12-2 execution — implement Pipeline Build Mode + Build button + DAGScheduler observer-driven task node status; keep Builder/report scope deferred until post-E7.
+[done] 2026-05-14 E12-2 build trigger — PipelinePanel top bar now exposes Build Mode (Full/Hotfix) and Build; Build validates first and then calls BuildProjectManager.BuildFullPackage(options) or BuildProjectManager.BuildHotfix(options), preserving existing manager/backend semantics.
+[done] 2026-05-14 E12-2 scheduler observer — added BuildExecutionOptions, BuildTaskExecutionEvent, and BuildTaskExecutionStatus; DAGScheduler.Execute(config, context, options) reports Pending/Running/Success/Failed/Skipped events.
+[done] 2026-05-14 E12-2 graph status UI — BuildGraphView forwards task execution events to BuildTaskNode; nodes show Status text and header colors; graph/config mutation is disabled while a build is running.
+[done] 2026-05-14 E12-2 toolbar cleanup — reference search found no BuildGraphToolbar code/csproj usage; removed BuildGraphToolbar.cs, .meta, and Assembly-CSharp-Editor.csproj compile entry.
+[decision] 2026-05-14 E12-2 Builder/report boundary retained — no build_summary.txt, ABManifest.json, BundleDigestList, or snapshot report parsing in E12; report/query panel remains a separate post-E7 plan.
+[done] 2026-05-14 E12-2 docs/context sync — plan-E12-buildgraph-editor.md, master plan.md, root README.md, context/architecture/system-overview.md, and docs/FYAsset/build-pipeline-editor-layout.html aligned to Pipeline build trigger/status and deferred Builder report scope.
+[done] 2026-05-14 E12-2 verification — dotnet build XLuaHotfix.sln passed with 0 errors; remaining warnings are pre-existing System.Net.Http version conflicts.
+[next] 2026-05-14 Await developer sign-off for E12-2, then decide whether to start the next approved sub-plan.
+
+[decision] 2026-05-15 Four-direction planning discussion concluded:
+[decision] 2026-05-15 E7 storage layer enhanced — D5a atomic write, D5b changelog.jsonl audit, D5c history GC (MaxHistoryVersions), D5d multi-channel extension point (interface only). plan-E7.md updated.
+[decision] 2026-05-15 Git mechanism — rejected git sub-repo; adopted flat-file enhancement (atomic write + changelog + GC). No external dependency.
+[decision] 2026-05-15 Offline standalone package — output path redirection (not copy). BuildMode.StandalonePackage as third option. Key safety: standalone mode must never read hotfix directory. draft updated.
+[decision] 2026-05-15 Version management concept separation — Version (VersionDataBase) only manages release semantics; git/build info belongs to Build Log (build_summary.txt/BuildIndex.json). Two version drafts archived.
+[decision] 2026-05-15 AA pipeline coexistence — sidebar restructure (layer 1) can parallel E7; legacy Task-ification (layer 2) deferred due to legacy code modification difficulty; Diff panel (layer 3) waits E7.
+[decision] 2026-05-15 Debug panel — deferred until build pipeline fully landed.
+[decision] 2026-05-15 Build report panel — deferred until E7 landed (depends on digest/delta output).
+[next] 2026-05-15 Execution priority: E7 (first, no blockers) || AA sidebar restructure (parallel). Post-E7: build report panel + AA Diff panel + offline standalone package promotion.
+[start] 2026-05-15 E13 execution — Legacy Pipeline sidebar restructure + placeholder panels; keep AB Pipeline style consistent and preserve mutual gray-out behavior.
+[done] 2026-05-15 E13-T1/T2/T3/T4 complete — BuildPipelineWindow now uses 4 sidebar groups (SETTINGS/LEGACY PIPELINE/AB PIPELINE/MANAGE), collapsible legacy/AB groups, mutual gray-out, and active-panel group stays expanded. LegacyConfigPanel shows Addressables summary + open-groups button with missing-settings fallback; LegacyBuildPanel/LegacyReportPanel added as placeholders. Assembly-CSharp-Editor.csproj updated. dotnet build XLuaHotfix.sln passed with 0 errors.
+
+[start] 2026-05-17 E7 review 打回 — E7 review 发现 8 个设计问题 + combined E7/E13 review 发现 2 个 E7 相关 findings。plan-E7.md 废弃移至 drafts/，review 报告归档。E13 独立：code 已落地，plan-E13-legacy-sidebar.md 保持 Executed
+[done] 2026-05-17 review-E7-E13-plan-20260515.md → review/archive/（已归档）
+[done] 2026-05-17 plan-E7.md → draft-E7-deprecated-20260515.md（废弃，标注 DEPRECATED + superseded by）
+[done] 2026-05-17 draft-E7-diff-snapshot-20260517.md 创建 — 吸收 10 项 E7 review findings（M1-M10）。接口 5→4 方法（移除 ApplyDiff），BundleDigest→Editor assembly，路径→Pipeline/Editor/Diff/，Hash→HashGenerator，移除 channel，统一 head.json。5 open questions 待讨论
+[done] 2026-05-17 plan.md + progress.txt 对齐 — E7 Deprecated→Draft，E13 保持 Executed
+[done] 2026-05-17 E7 open questions 全部解决:
+  Q1 Hash→HashGenerator 统一（开发者确认）
+  Q2 Optional ReadKeys→源码审计确认（DAGScheduler.cs:159-181 Read-before-Write=Warning 非阻塞；BuildContext 提供 Has/Get/Require 三级 API）
+  Q3 MaxHistoryVersions→FYAssetSettings 或独立 DiffSettings SO（开发者确认）
+  Q4 Diff 可视化→不在 E7 范围，后续独立 plan
+  Q5 changelog.jsonl→移除
+  Q6 git 语义对齐→方案 A（E7 显式采用 git 语义，开发者确认）
+[done] 2026-05-17 draft-E7-diff-snapshot-20260517.md finalized — changelog.jsonl 移除，ConfirmRelease/RollbackHotfix flow 同步清理
+[done] 2026-05-17 E7 全草稿 git 语义化 — HEAD/INDEX/objects/ + Snapshot/Diff/Commit/Reset/DiffVersions。新增 Diff API（DiffVersions/GetSnapshot/ListVersions/GetVersionInfo）供 BuilderPanel 消费
+[next] 2026-05-17 E7 草稿讨论完成。等待开发者确认是否提升为 plan-E7.md 进入执行
+[start] 2026-05-18 HU-1 planning — promote the AA-AB draft hash unification decision into a small executable plan
+[done] 2026-05-18 HU-1 plan promoted — `plan-hash-unification-20260518.md` defines MD5 as content identity and CRC32 as fast verification metadata; scope limited to metadata propagation and download-time verification
+[next] 2026-05-18 Awaiting developer approval of HU-1 approval checklist before any code changes
+[decision] 2026-05-18 HU-1 approved — old `version_state.json` files missing `FileCRC` deserialize to 0 and skip CRC verification; source comment must mark this as TODO until the later VersionState unification decision
+[done] 2026-05-18 HU-1 executed — added AA `BundleInfo.FileCRC`, propagated `FileCRC` through `BundleDownloadItem` for AA/AB, added copy/download CRC verification in `HotfixManager`, and moved `HashGenerator` to runtime-visible helpers while keeping `GenerateDeepHash` Editor-only
+[done] 2026-05-18 HU-1 verification — `dotnet build XLuaHotfix.sln` passed with 0 errors; remaining warnings are pre-existing System.Net.Http conflicts and AdditionalFile analyzer warnings
+[next] 2026-05-18 Awaiting developer sign-off for HU-1
