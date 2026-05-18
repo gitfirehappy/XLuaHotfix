@@ -19,7 +19,7 @@ public class TaskCollectAssets : IBuildTask
         {
             return BuildTaskResult.Fail(
                 BuildErrorCodes.SettingNull,
-                $"CollectorSetting not found: {FYAssetSettings.Instance.CollectorSettingPath}");
+                $"未找到 CollectorSetting: {FYAssetSettings.Instance.CollectorSettingPath}");
         }
 
         // 执行全量扫描
@@ -40,7 +40,7 @@ public class TaskCollectAssets : IBuildTask
         {
             BuildTaskResult result = BuildTaskResult.Fail(
                 "COLLECT_ASSETS_FAILED",
-                $"Collection scan failed with {scanResult.Messages.Count} issue(s).");
+                $"Collection 扫描失败，共 {scanResult.Messages.Count} 个问题。");
             result.Warnings = warnings;
             return result;
         }

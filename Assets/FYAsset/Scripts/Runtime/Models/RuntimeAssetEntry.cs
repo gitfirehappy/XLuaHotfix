@@ -40,6 +40,7 @@ public class RuntimeAssetEntry
     /// 存储时保留原始输入大小写；匹配时使用归一化（小写）比较。
     /// </summary>
     private List<string> _labels = new();
+
     public IReadOnlyList<string> Labels => _labels;
 
     #endregion
@@ -87,6 +88,7 @@ public class RuntimeAssetEntry
         {
             _normalizedLabelsCache.Add(Labels[i]);
         }
+
         return _normalizedLabelsCache;
     }
 
@@ -118,6 +120,7 @@ public class RuntimeAssetEntry
             if (string.Equals(Labels[i], label, StringComparison.OrdinalIgnoreCase))
                 return true;
         }
+
         return false;
     }
 
@@ -134,6 +137,7 @@ public class RuntimeAssetEntry
             if (!normalized.Contains(labels[i]))
                 return false;
         }
+
         return true;
     }
 

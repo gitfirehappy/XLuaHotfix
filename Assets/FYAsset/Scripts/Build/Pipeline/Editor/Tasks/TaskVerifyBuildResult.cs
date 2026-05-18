@@ -6,7 +6,7 @@ using UnityEngine;
 /// <summary>
 /// 构建输出完整性校验 Task — 6 项检查（文件存在/完整性/孤儿/Hash 重验/大小异常/数量交叉）。
 /// Error → 构建中止；Warning → 继续执行。
-/// 以 Manifest.BundleEntries + BundleBuildResults 为数据源，不依赖文件扩展名。
+/// 以 ABManifest.BundleEntries + BundleBuildResults 为数据源，不依赖文件扩展名。
 /// 在 TaskOrganizeOutput 之前执行。
 /// </summary>
 public class TaskVerifyBuildResult : IBuildTask
@@ -157,7 +157,7 @@ public class TaskVerifyBuildResult : IBuildTask
 
         if (errorCount > 0)
             return BuildTaskResult.Fail(BuildErrorCodes.VerificationFailed,
-                $"{errorCount} error(s), {warningCount} warning(s).", true);
+                $"{errorCount} 个错误, {warningCount} 个警告。", true);
 
         return BuildTaskResult.Ok(new List<string>
         {

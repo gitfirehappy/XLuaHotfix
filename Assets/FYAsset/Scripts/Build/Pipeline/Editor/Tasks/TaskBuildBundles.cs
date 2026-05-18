@@ -124,7 +124,7 @@ public class TaskBuildBundles : IBuildTask
             unityManifest = BuildPipeline.BuildAssetBundles(tempDir, builds.ToArray(), options, platform);
             if (unityManifest == null)
                 return BuildTaskResult.Fail(BuildErrorCodes.BuildFailed,
-                    "BuildPipeline.BuildAssetBundles returned null.", true);
+                    "BuildPipeline.BuildAssetBundles 返回了 null。", true);
         }
         else
         {
@@ -243,8 +243,8 @@ public class TaskBuildBundles : IBuildTask
 
             if (rawBundleFileCount[bundleName] > 1)
                 return BuildTaskResult.Fail(BuildErrorCodes.RawfileMultiAsset,
-                    $"Bundle '{bundleName}' has {rawBundleFileCount[bundleName]} RawFile assets " +
-                    "but only one raw file per bundle is supported.", true);
+                    $"Bundle '{bundleName}' 包含 {rawBundleFileCount[bundleName]} 个 RawFile，" +
+                    "每个 Bundle 仅支持一个 RawFile。", true);
 
             string destPath = Path.Combine(tempDir, bundleName);
             try
@@ -254,7 +254,7 @@ public class TaskBuildBundles : IBuildTask
             catch (IOException ex)
             {
                 return BuildTaskResult.Fail(BuildErrorCodes.RawfileCopyFailed,
-                    $"Failed to copy '{assetPath}' -> '{destPath}': {ex.Message}", true);
+                    $"文件拷贝失败 '{assetPath}' -> '{destPath}': {ex.Message}", true);
             }
 
             var destInfo = new FileInfo(destPath);

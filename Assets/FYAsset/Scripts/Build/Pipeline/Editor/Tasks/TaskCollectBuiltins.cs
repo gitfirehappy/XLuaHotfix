@@ -41,7 +41,7 @@ public class TaskCollectBuiltins : IBuildTask
         var assets = ctx.Get<List<CollectedAssetInfo>>(BuildContextKeys.CollectedAssets);
         if (assets == null || assets.Count == 0)
             return BuildTaskResult.Fail("NO_COLLECTED_ASSETS",
-                "TaskCollectAssets produced no assets. Cannot collect builtins.", false);
+                "TaskCollectAssets 未产出 Asset。无法收集 Builtin。", false);
 
         // 取第一个 Package 的 PackageName
         string pkgName = assets[0].PackageName ?? "Default";

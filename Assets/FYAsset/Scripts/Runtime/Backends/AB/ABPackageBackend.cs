@@ -15,7 +15,7 @@ using UnityEngine;
 /// - 支持扩展接口：LoadAssetAsync(key, entryId) / LoadAssetSync(key, entryId) / UnloadByEntryId
 /// - 公开 API 统一返回 (T, RuntimeMessage) 元组，不抛异常
 ///
-/// 引用计数流程（R2 重构后）：
+/// 引用计数流程：
 /// Load → HandleRegistry.Alloc → _entryActiveCounts[entryId]++
 /// Release → HandleRegistry.Release → _entryActiveCounts[entryId]-- → 归零时回调 ReleaseEntry
 ///
@@ -92,12 +92,12 @@ public class ABPackageBackend : IPackageBackend
 
     /// <summary>
     /// 异步加载资产（按 address/key）。
-    /// 链路：key → ABManifest 解析 → ABBundleLoader 加载 Bundle → bundle.LoadAssetAsync 提取
+    /// 链路：key -> ABManifest 解析 -> ABBundleLoader 加载 Bundle -> bundle.LoadAssetAsync 提取
     /// </summary>
     public async Task<(T asset, RuntimeMessage error)> LoadAssetAsync<T>(string key) where T : UnityEngine.Object
     {
         if (string.IsNullOrEmpty(key))
-            return (null, RuntimeMessage.Error(RuntimeErrorCodes.InvalidArgument, "[ABPackageBackend] LoadAssetAsync: key is null or empty"));
+            return (null, RuntimeMessage.Error(RuntimeErrorCodes.InvalidArgument, "LoadAssetAsync: key 为 null 或空"));
 
         var assetEntry = ResolveAssetEntryByAddress(key);
         if (assetEntry == null)
@@ -117,7 +117,7 @@ public class ABPackageBackend : IPackageBackend
     public async Task<(T asset, RuntimeMessage error)> LoadAssetAsync<T>(string key, string entryId) where T : UnityEngine.Object
     {
         if (string.IsNullOrEmpty(key))
-            return (null, RuntimeMessage.Error(RuntimeErrorCodes.InvalidArgument, "[ABPackageBackend] LoadAssetAsync: key is null or empty"));
+            return (null, RuntimeMessage.Error(RuntimeErrorCodes.InvalidArgument, "LoadAssetAsync: key 为 null 或空"));
 
         var assetEntry = ResolveAssetEntry(key, entryId);
         if (assetEntry == null)
@@ -140,7 +140,7 @@ public class ABPackageBackend : IPackageBackend
     public (T asset, RuntimeMessage error) LoadAssetSync<T>(string key) where T : UnityEngine.Object
     {
         if (string.IsNullOrEmpty(key))
-            return (null, RuntimeMessage.Error(RuntimeErrorCodes.InvalidArgument, "[ABPackageBackend] LoadAssetSync: key is null or empty"));
+            return (null, RuntimeMessage.Error(RuntimeErrorCodes.InvalidArgument, "LoadAssetSync: key 为 null 或空"));
 
         var assetEntry = ResolveAssetEntryByAddress(key);
         if (assetEntry == null)
@@ -159,7 +159,7 @@ public class ABPackageBackend : IPackageBackend
     public (T asset, RuntimeMessage error) LoadAssetSync<T>(string key, string entryId) where T : UnityEngine.Object
     {
         if (string.IsNullOrEmpty(key))
-            return (null, RuntimeMessage.Error(RuntimeErrorCodes.InvalidArgument, "[ABPackageBackend] LoadAssetSync: key is null or empty"));
+            return (null, RuntimeMessage.Error(RuntimeErrorCodes.InvalidArgument, "LoadAssetSync: key 为 null 或空"));
 
         var assetEntry = ResolveAssetEntry(key, entryId);
         if (assetEntry == null)

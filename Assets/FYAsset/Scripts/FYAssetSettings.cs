@@ -25,7 +25,7 @@ public class FYAssetSettings : ScriptableObject
     [Header("Legacy Pipeline Paths")]
     public string LuaScriptsIndexPath = "Assets/Build/LuaScriptsIndex.asset";
     public string SnapshotAssetPath = "Assets/Build/Snapshots.asset";
-    public string BuildIndexJsonPath = "Assets/Build/LocalStaticData/BuildIndex.json";
+    public string BuildIndexJsonPath = "Assets/Build/Bootstrap/BuildIndex.json";
 
     [Header("New Pipeline Paths")]
     public string CollectorDataFolder = "Assets/FYAsset/CollectorData";
@@ -47,7 +47,7 @@ public class FYAssetSettings : ScriptableObject
     public const string AA_MANIFEST_FILE_NAME_BIN = "AAManifest.bin";
 
     // --- 编辑器路径 ---
-    public const string BUILD_PIPELINE_WINDOW_MENU_PATH = "XLua/Build Pipeline";
+    public const string BUILD_PIPELINE_WINDOW_MENU_PATH = "Tools/Build/Build Pipeline";
     public const string BINARY_SERIALIZER_GENERATE_PATH = "Assets/Tools/Scripts/Serialization/Generated";
 
     // --- Collector 规则名 ---

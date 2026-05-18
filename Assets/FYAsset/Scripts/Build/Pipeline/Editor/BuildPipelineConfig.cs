@@ -37,7 +37,6 @@ public enum BundleFileNameStyle
 /// 后端模式开关已迁移至 FYAssetSettings.UseABBackend。
 /// 存储路径：Assets/Build/BuildPipelineConfig.asset。
 /// </summary>
-[CreateAssetMenu(fileName = "BuildPipelineConfig", menuName = "XLua/BuildPipelineConfig")]
 public class BuildPipelineConfig : ScriptableObject
 {
     /// <summary>Bundle 文件名格式</summary>

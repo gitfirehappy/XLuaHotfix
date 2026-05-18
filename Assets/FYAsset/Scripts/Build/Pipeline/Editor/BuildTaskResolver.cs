@@ -48,8 +48,8 @@ public static class BuildTaskResolver
 
                 if (_index.TryGetValue(instance.TaskName, out var existingType))
                     throw new InvalidOperationException(
-                        $"Duplicate IBuildTask TaskName '{instance.TaskName}': " +
-                        $"'{existingType.FullName}' and '{type.FullName}'. TaskName must be unique.");
+                        $"IBuildTask TaskName 重复 '{instance.TaskName}': " +
+                        $"'{existingType.FullName}' 与 '{type.FullName}'。TaskName 必须唯一。");
 
                 _index[instance.TaskName] = type;
             }
@@ -62,7 +62,7 @@ public static class BuildTaskResolver
     {
         Initialize();
         if (!_index.TryGetValue(taskName, out var type))
-            throw new ArgumentException($"No IBuildTask with TaskName '{taskName}' is registered.");
+            throw new ArgumentException($"未注册 TaskName 为 '{taskName}' 的 IBuildTask。");
         return (IBuildTask)Activator.CreateInstance(type);
     }
 

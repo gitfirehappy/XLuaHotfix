@@ -21,7 +21,7 @@ public class TaskAnalyzeDependencies : IBuildTask
         if (assets == null || assets.Count == 0)
         {
             return BuildTaskResult.Fail("NO_COLLECTED_ASSETS",
-                "TaskCollectAssets produced no assets. Check Collector configuration.", false);
+                "TaskCollectAssets 未产出 Asset。请检查 Collector 配置。", false);
         }
 
         // 读取 Per-Package SharePolicy：优先从 BuildContext 取（显式数据流），
@@ -59,7 +59,7 @@ public class TaskAnalyzeDependencies : IBuildTask
         if (hasFatal)
         {
             var result = BuildTaskResult.Fail("DEPENDENCY_ANALYSIS_FAILED",
-                $"Dependency analysis found {messages.Count} issue(s). See warnings for details.", true);
+                $"依赖分析发现 {messages.Count} 个问题。详见 Warning 列表。", true);
             result.Warnings = warnings;
             return result;
         }

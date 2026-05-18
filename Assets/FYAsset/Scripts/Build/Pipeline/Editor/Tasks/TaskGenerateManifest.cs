@@ -44,7 +44,7 @@ public class TaskGenerateManifest : IBuildTask
             string filePath = Path.Combine(outputDir, "_temp", fileName);
             if (!File.Exists(filePath))
                 return BuildTaskResult.Fail(BuildErrorCodes.BundleFileNotFound,
-                    $"Bundle output file not found: '{filePath}'.", true);
+                    $"Bundle 输出文件不存在: '{filePath}'。", true);
 
             uint crc = HashGenerator.GenerateFileCRC(filePath);
 
@@ -71,7 +71,7 @@ public class TaskGenerateManifest : IBuildTask
 
             if (!bundleNameToIndex.TryGetValue(a.BundleName, out int bundleIndex))
                 return BuildTaskResult.Fail(BuildErrorCodes.BundleNotFoundBuild,
-                    $"Asset '{a.AssetPath}' references bundle '{a.BundleName}' " +
+                    $"Asset '{a.AssetPath}' 引用了不存在的 Bundle '{a.BundleName}' " +
                     "which is not in BundleBuildResults.", true);
 
             assetEntries.Add(new ManifestAssetEntry
@@ -164,7 +164,7 @@ public class TaskGenerateManifest : IBuildTask
         catch (Exception ex)
         {
             return BuildTaskResult.Fail(BuildErrorCodes.ManifestInitFailed,
-                $"ABManifest.Initialize() threw: {ex.Message}", true);
+                $"ABManifest.Initialize() 执行异常: {ex.Message}", true);
         }
 
         // ⑩ 写入 Context

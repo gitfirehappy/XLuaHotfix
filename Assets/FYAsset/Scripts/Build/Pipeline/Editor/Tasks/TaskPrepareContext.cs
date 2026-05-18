@@ -28,7 +28,7 @@ public class TaskPrepareContext : IBuildTask
         {
             if (!Enum.TryParse(cliBackend, true, out mode))
                 return BuildTaskResult.Fail(BuildErrorCodes.InvalidBackend,
-                    $"Unknown backend '{cliBackend}'. Valid: LegacyAddressable, ABManifest.", true);
+                    $"未知 Backend '{cliBackend}'。有效值: LegacyAddressable, ABManifest。", true);
         }
 
         // BuildVersionString: CLI --version > 时间戳（用于目录命名）
@@ -56,7 +56,7 @@ public class TaskPrepareContext : IBuildTask
         {
             if (!Enum.TryParse(platformStr, true, out platform))
                 return BuildTaskResult.Fail(BuildErrorCodes.InvalidPlatform,
-                    $"Unknown platform '{platformStr}'.", true);
+                    $"未知 Platform '{platformStr}'。", true);
         }
         else
         {

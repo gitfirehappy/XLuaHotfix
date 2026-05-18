@@ -7,7 +7,6 @@ using UnityEngine;
 /// 存放路径：Assets/FYAsset/CollectorData/CollectorSetting.asset。
 /// 包含所有 Package 的层级配置：Setting → Package → Group → Collector。
 /// </summary>
-[CreateAssetMenu(fileName = "CollectorSetting", menuName = "XLua/CollectorSetting")]
 public class CollectorSetting : ScriptableObject
 {
     #region 字段

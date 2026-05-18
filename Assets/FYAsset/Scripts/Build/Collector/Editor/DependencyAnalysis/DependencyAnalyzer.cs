@@ -220,7 +220,7 @@ public static class DependencyAnalyzer
             if (cycleCount < 20)
             {
                 messages.Add(BuildMessage.Error("CYCLE_DEPENDENCY",
-                    $"Circular dependency: '{fromPath}' → ... → '{toPath}' → '{fromPath}'.",
+                    $"检测到循环依赖: '{fromPath}' -> ... -> '{toPath}' -> '{fromPath}'。",
                     fromPath));
             }
             cycleCount++;
@@ -229,11 +229,11 @@ public static class DependencyAnalyzer
         if (cycleCount > 0)
         {
             messages.Add(BuildMessage.Warning("CYCLE_COUNT",
-                $"Found {cycleCount} cyclic asset dependency(s) in package '{packageName}'. First 20 reported above.",
+                $"Package '{packageName}' 中发现 {cycleCount} 个循环依赖，已上报前 20 个。",
                 packageName));
             if (cycleCount > 20)
                 messages.Add(BuildMessage.Warning("CYCLE_TRUNCATED",
-                    $"{cycleCount - 20} additional cycle(s) not shown.", packageName));
+                    $"另有 {cycleCount - 20} 个循环依赖未显示。", packageName));
         }
     }
 
@@ -259,7 +259,7 @@ public static class DependencyAnalyzer
             if (forceShare && noShare)
             {
                 messages.Add(BuildMessage.Error("SHAREPOLICY_CONFLICT",
-                    $"Asset '{candidate.AssetPath}' matches both ForceShare and NoShare patterns. Fix SharePolicyConfig for package '{packageName}'.",
+                    $"Asset '{candidate.AssetPath}' 同时匹配 ForceShare 和 NoShare 规则。请修正 Package '{packageName}' 的 SharePolicyConfig。",
                     candidate.AssetPath));
                 continue;
             }

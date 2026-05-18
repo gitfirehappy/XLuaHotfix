@@ -22,7 +22,9 @@ public class BuildTaskResult
     /// <summary>true → 调度器中止所有后续批次；false → 继续执行</summary>
     public bool IsFatal;
 
-    private BuildTaskResult() { }
+    private BuildTaskResult()
+    {
+    }
 
     /// <summary>构造成功的 Task 结果</summary>
     /// <param name="warnings">可选的非致命警告列表</param>

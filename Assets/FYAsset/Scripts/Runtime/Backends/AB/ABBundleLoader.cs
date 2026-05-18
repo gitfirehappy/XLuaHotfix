@@ -51,7 +51,7 @@ public class ABBundleLoader
     #region 字段
 
     /// <summary>Bundle 缓存：BundleName → CacheEntry</summary>
-    /// 缓存策略决策（2026-04-07）：当前使用精确引用计数 + 归零即卸载（Unload(true)）。
+    /// 缓存策略决策：当前使用精确引用计数 + 归零即卸载（Unload(true)）。
     /// 该策略下 RefCount=0 的 Bundle 会被立即释放，不会累积。
     /// 主要内存风险来自引用泄漏（Load 后未 Release），由 B8 AssetHandle pool 的 Handle-first 设计解决。
     /// LRU/LFU 缓存优化需要 profiling 数据驱动参数（容量、超时阈值），不做过早优化。
@@ -271,7 +271,6 @@ public class ABBundleLoader
     /// </summary>
     public void UnloadAllBundles()
     {
-        // 收集所有 bundleName 后遍历，避免在迭代中修改 Dictionary
         var names = new List<string>(_bundleCache.Keys);
         for (int i = 0; i < names.Count; i++)
         {
@@ -323,14 +322,14 @@ public class ABBundleLoader
         await request.SendWebRequest();
         if (request.result != UnityWebRequest.Result.Success)
         {
-            Debug.LogError($"[ABBundleLoader] StreamingAssets bundle load failed: {path}, error: {request.error}");
+            Debug.LogError($"[ABBundleLoader] StreamingAssets Bundle 加载失败: {path}, 错误: {request.error}");
             return null;
         }
         return DownloadHandlerAssetBundle.GetContent(request);
 #else
         if (!File.Exists(path))
         {
-            Debug.LogError($"[ABBundleLoader] Bundle not found in StreamingAssets: {path}");
+            Debug.LogError($"[ABBundleLoader] StreamingAssets 中未找到 Bundle: {path}");
             return null;
         }
         var fileRequest = AssetBundle.LoadFromFileAsync(path);

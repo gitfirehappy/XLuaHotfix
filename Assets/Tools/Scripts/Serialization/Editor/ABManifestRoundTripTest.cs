@@ -9,7 +9,7 @@ using UnityEngine;
 /// </summary>
 public static class ABManifestRoundTripTest
 {
-    [MenuItem("XLua/Serialization/Test ABManifest Round-Trip", false, 32)]
+    [MenuItem("Tools/Serialization/Test ABManifest Round-Trip", false, 32)]
     public static void Run()
     {
         BinarySerializerInitializer.Initialize();

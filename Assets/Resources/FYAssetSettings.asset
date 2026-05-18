@@ -16,10 +16,9 @@ MonoBehaviour:
   HotfixUrl: https://firehappy-cfy.com/
   UseABBackend: 0
   VersionDataBasePath: Assets/Build/VersionDataBase.asset
-  AddressableLabelsConfigPath: Assets/Build/HelperBuildData/AddressableLabelsConfig.asset
-  LuaScriptsIndexPath: Assets/Build/HelperBuildData/LuaScriptsIndex.asset
+  LuaScriptsIndexPath: Assets/Build/LuaScriptsIndex.asset
   SnapshotAssetPath: Assets/Build/Snapshots.asset
-  BuildIndexJsonPath: Assets/Build/LocalStaticData/BuildIndex.json
+  BuildIndexJsonPath: Assets/Build/Bootstrap/BuildIndex.json
   CollectorDataFolder: Assets/FYAsset/CollectorData
   CollectorSettingPath: Assets/FYAsset/CollectorData/CollectorSetting.asset
   PipelineConfigPath: Assets/Build/BuildPipelineConfig.asset

@@ -517,7 +517,7 @@ public static class CollectionScanner
             {
                 result.Messages.Add(BuildMessage.Error(
                     BuildErrorCodes.RuleNotFound,
-                    string.Concat("Label ", le), assetPath));
+                    string.Concat("标签 ", le), assetPath));
                 return true;
             }
         }

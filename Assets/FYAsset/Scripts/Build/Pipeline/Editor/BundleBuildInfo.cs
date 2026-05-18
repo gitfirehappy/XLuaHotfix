@@ -2,7 +2,7 @@ using System.Collections.Generic;
 
 /// <summary>
 /// TaskBuildBundles 的输出 —— 描述单个构建产物的元数据。
-/// 后续由 Manifest 生成 Task 消费，映射为 ManifestBundleEntry。
+/// 后续由 ABManifest 生成 Task 消费，映射为 ManifestBundleEntry。
 /// </summary>
 public class BundleBuildInfo
 {

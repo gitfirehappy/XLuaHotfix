@@ -7,7 +7,7 @@ using UnityEngine;
 public static class CollectorTestSeeder
 {
     /// <summary>通过菜单项向当前 CollectorSetting SO 写入一组示例数据</summary>
-    [MenuItem("XLua/Debug/Seed CollectorSetting Test Data")]
+    [MenuItem("Tools/Build/Seed CollectorSetting Test Data")]
     private static void Seed()
     {
         var setting = AssetDatabase.LoadAssetAtPath<CollectorSetting>(
@@ -15,7 +15,7 @@ public static class CollectorTestSeeder
 
         if (setting == null)
         {
-            Debug.LogError("CollectorSetting not found at " + FYAssetSettings.Instance.CollectorSettingPath);
+            Debug.LogError("[CollectorTestSeeder] CollectorSetting not found at " + FYAssetSettings.Instance.CollectorSettingPath);
             return;
         }
 
@@ -60,6 +60,6 @@ public static class CollectorTestSeeder
         EditorUtility.SetDirty(setting);
         AssetDatabase.SaveAssets();
         CollectorReverseIndex.Instance.MarkDirty();
-        Debug.Log("[CollectorTestSeeder] Seeded 1 package, 2 groups, 2 collectors.");
+        Debug.Log("[CollectorTestSeeder] 已填充 1 个包体、2 个分组、2 个采集器。");
     }
 }

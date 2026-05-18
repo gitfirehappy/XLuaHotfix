@@ -3,8 +3,8 @@ using System.IO;
 using System.Text;
 
 /// <summary>
-/// 构建输出组织 Task — 拷贝 bundle、序列化 Manifest、生成构建摘要、清理临时产物。
-/// 以 Manifest.BundleEntries 为拷贝数据源（不依赖文件扩展名）。
+/// 构建输出组织 Task — 拷贝 bundle、序列化 ABManifest、生成构建摘要、清理临时产物。
+/// 以 ABManifest.BundleEntries 为拷贝数据源（不依赖文件扩展名）。
 /// 在 TaskVerifyBuildResult 之后执行。
 /// </summary>
 public class TaskOrganizeOutput : IBuildTask
@@ -36,7 +36,7 @@ public class TaskOrganizeOutput : IBuildTask
         if (!FileHelper.DirectoryExists(outputDir))
             FileHelper.EnsureDirectory(outputDir);
 
-        // ② 以 Manifest.BundleEntries 为源拷贝所有输出文件
+        // ② 以 ABManifest.BundleEntries 为源拷贝所有输出文件
         var copiedFiles = new List<string>();
         foreach (var bundle in manifest.BundleEntries)
         {

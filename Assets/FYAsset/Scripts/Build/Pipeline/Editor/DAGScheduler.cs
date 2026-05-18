@@ -84,7 +84,7 @@ public static class DAGScheduler
         var enabled = config.Tasks.Where(e => e.Enabled).ToList();
         if (enabled.Count == 0)
             return ErrorResult(config, new List<BuildTaskResult> { BuildTaskResult.Fail(
-                "NO_ENABLED_TASKS", "No enabled tasks in pipeline config.", true) });
+                "NO_ENABLED_TASKS", "管线配置中无已启用的 Task。", true) });
 
         // 解析所有 Enabled Task
         var instances = new Dictionary<string, IBuildTask>(StringComparer.Ordinal);
@@ -95,7 +95,7 @@ public static class DAGScheduler
             {
                 errors.Add(BuildTaskResult.Fail(
                     "TASK_NOT_FOUND",
-                    $"'{entry.TaskName}' — no IBuildTask implementation found.", true));
+                    $"'{entry.TaskName}' — 未找到对应的 IBuildTask 实现。", true));
                 continue;
             }
             instances[entry.TaskName] = BuildTaskResolver.CreateTask(entry.TaskName);
@@ -113,8 +113,8 @@ public static class DAGScheduler
                 if (!enabledNames.Contains(dep))
                 {
                     string reason = config.Tasks.Any(e => e.TaskName == dep && !e.Enabled)
-                        ? $"'{dep}' is disabled — enable it or update '{instance.TaskName}' dependencies."
-                        : $"'{dep}' — not in task list.";
+                        ? $"'{dep}' 已禁用 — 请启用该 Task 或更新 '{instance.TaskName}' 的依赖。"
+                        : $"'{dep}' — 不在 Task 列表中。";
                     errors.Add(BuildTaskResult.Fail(
                         "MISSING_DEPENDENCY",
                         $"'{instance.TaskName}' depends on '{dep}': {reason}", true));
@@ -132,7 +132,7 @@ public static class DAGScheduler
         {
             var cyclic = instances.Keys.Except(sorted).ToList();
             errors.Add(BuildTaskResult.Fail("CIRCULAR_TASK_DEPENDENCY",
-                $"Circular dependency among: {string.Join(", ", cyclic)}.", true));
+                $"检测到循环依赖: {string.Join(", ", cyclic)}。", true));
             return ErrorResult(config, errors);
         }
 
@@ -146,7 +146,7 @@ public static class DAGScheduler
                 if (writeOwners.TryGetValue(key, out var owner))
                 {
                     errors.Add(BuildTaskResult.Fail("CONFLICTING_WRITE_KEYS",
-                        $"Key '{key}' claimed by both '{owner}' and '{instance.TaskName}'.", true));
+                        $"Key '{key}' 同时被 '{owner}' 和 '{instance.TaskName}' 声明写入。", true));
                 }
                 else
                 {
@@ -169,7 +169,7 @@ public static class DAGScheduler
                     if (!selfProduce && !produced.Contains(key))
                     {
                         warnings.Add(BuildTaskResult.Fail("UNSATISFIED_READ_KEY",
-                            $"'{taskName}' reads '{key}' but no preceding task produces it.", false));
+                            $"'{taskName}' 读取 '{key}'，但没有前置 Task 产出该 Key。", false));
                     }
                 }
             }
@@ -239,7 +239,7 @@ public static class DAGScheduler
             if (ready.Count == 0)
             {
                 results.Add(BuildTaskResult.Fail("SCHEDULER_DEADLOCK",
-                    $"Unmet dependencies block: {string.Join(", ", remaining)}.", true));
+                    $"存在无法满足的依赖，剩余未执行 Task: {string.Join(", ", remaining)}。", true));
                 break;
             }
 
@@ -257,12 +257,12 @@ public static class DAGScheduler
                 try
                 {
                     taskResult = task.Execute(context) ?? BuildTaskResult.Fail(
-                        "NULL_RESULT", $"'{taskName}' returned null.", true);
+                        "NULL_RESULT", $"'{taskName}' 返回了 null。", true);
                 }
                 catch (Exception ex)
                 {
                     taskResult = BuildTaskResult.Fail("TASK_EXECUTION_ERROR",
-                        $"'{taskName}' threw {ex.GetType().Name}: {ex.Message}.", true);
+                        $"'{taskName}' 执行异常 — {ex.GetType().Name}: {ex.Message}。", true);
                 }
 
                 results.Add(taskResult);

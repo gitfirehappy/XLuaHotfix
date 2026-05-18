@@ -16,7 +16,7 @@ public static class BinarySerializerGenerator
     public const string GeneratedDir = FYAssetSettings.BINARY_SERIALIZER_GENERATE_PATH;
     public const string HashPrefix = "// Hash:";
 
-    [MenuItem("XLua/Serialization/Generate Binary Serializers", false, 30)]
+    [MenuItem("Tools/Serialization/Generate Binary Serializers", false, 30)]
     public static void GenerateMenu()
     {
         GenerateAll();

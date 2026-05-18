@@ -29,7 +29,7 @@ public class BuildContext
     {
         if (_data.TryGetValue(key, out object value))
             return (T)value;
-        throw new KeyNotFoundException($"Required key '{key}' not found in BuildContext.");
+        throw new KeyNotFoundException($"BuildContext 中缺少必需 Key '{key}'。");
     }
 
     /// <summary>检查指定 Key 是否已存储</summary>

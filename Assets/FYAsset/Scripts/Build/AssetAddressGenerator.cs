@@ -25,7 +25,7 @@ public static class AssetAddressGenerator
     public static string GenerateShortName(string assetPath)
     {
         if (string.IsNullOrEmpty(assetPath))
-            throw new ArgumentException("Asset path cannot be null or empty.", nameof(assetPath));
+            throw new ArgumentException("Asset path 不能为 null 或空。", nameof(assetPath));
 
         return Path.GetFileNameWithoutExtension(assetPath);
     }
@@ -38,9 +38,9 @@ public static class AssetAddressGenerator
     public static string GenerateTypeSuffixAddress(string shortName, string primaryType)
     {
         if (string.IsNullOrEmpty(shortName))
-            throw new ArgumentException("Short name cannot be null or empty.", nameof(shortName));
+            throw new ArgumentException("Short name 不能为 null 或空。", nameof(shortName));
         if (string.IsNullOrEmpty(primaryType))
-            throw new ArgumentException("Primary type cannot be null or empty.", nameof(primaryType));
+            throw new ArgumentException("Primary type 不能为 null 或空。", nameof(primaryType));
 
         return string.Concat(shortName, TypeSuffixSeparator, primaryType);
     }

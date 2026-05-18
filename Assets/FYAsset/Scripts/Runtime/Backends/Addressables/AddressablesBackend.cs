@@ -38,7 +38,7 @@ public class AddressablesBackend : IPackageBackend
         }
 
         Addressables.Release(handle);
-        return (null, RuntimeMessage.LoadFailed(key, $"[AddressablesBackend] 加载资源失败: {key}"));
+        return (null, RuntimeMessage.LoadFailed(key, $"加载资源失败: {key}"));
     }
 
     public (T asset, RuntimeMessage error) LoadAssetSync<T>(string key) where T : UnityEngine.Object
@@ -59,7 +59,7 @@ public class AddressablesBackend : IPackageBackend
         }
 
         Addressables.Release(handle);
-        return (null, RuntimeMessage.LoadFailed(key, $"[AddressablesBackend] 同步加载失败: {key}"));
+        return (null, RuntimeMessage.LoadFailed(key, $"同步加载失败: {key}"));
     }
 
     public void UnloadAsset(string key)
