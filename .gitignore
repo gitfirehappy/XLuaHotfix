@@ -1,8 +1,4 @@
-# Unity .gitignore (root directory)
-# Latest version from: https://github.com/github/gitignore/blob/main/Unity.gitignore
-# Modified to include xLua specific rules
-
-# Unity generated folders
+# Unity generated directories
 /[Ll]ibrary/
 /[Tt]emp/
 /[Oo]bj/
@@ -10,9 +6,38 @@
 /[Bb]uilds/
 /[Ll]ogs/
 /[Uu]ser[Ss]ettings/
+/[Mm]emoryCaptures/
+/[Rr]ecordings/
 
-# Unity generated files
-*.log
+# Keep Unity asset metadata
+!/[Aa]ssets/**/*.meta
+
+# Asset store tools
+# /[Aa]ssets/AssetStoreTools*
+
+# Unity editor plugins generated locally
+/[Aa]ssets/Plugins/Editor/JetBrains*
+
+# IDE and editor local state
+.vs/
+/.vscode/
+/.idea/
+/.trae/
+/.claude/
+/.sisyphus/
+/.cursor/
+/.gemini/
+/.augment/
+/.localappdata/
+
+# IDE helper files
+.vsconfig
+*.csproj
+*.unityproj
+*.sln
+*.suo
+*.user
+*.userprefs
 *.pidb
 *.booproj
 *.svd
@@ -20,48 +45,34 @@
 *.mdb
 *.opendb
 *.VC.db
-*.csproj
-*.unityproj
-*.sln
-*.suo
-*.tmp
-*.user
-*.userprefs
-sysinfo.txt
 
-# Unity meta files
+# Build tool caches
+.gradle/
+node_modules/
+__pycache__/
+
+# Generated files
+*.log
+*.tmp
 *.pidb.meta
 *.pdb.meta
 *.mdb.meta
+sysinfo.txt
+crashlytics-build.properties
 
-# Build outputs
+# Build artifacts
 *.apk
 *.aab
+*.app
 *.unitypackage
 *.unitypackage.meta
-*.app
-
-# Memory captures and recordings
-/[Mm]emoryCaptures/
-/[Rr]ecordings/
-
-# Asset store tools (uncomment if needed)
-# /[Aa]ssets/AssetStoreTools*
-
-# JetBrains Rider plugin
-/[Aa]ssets/Plugins/Editor/JetBrains*
-
-# Visual Studio and Gradle
-.vs/
-.gradle/
-.vsconfig/
 
 # Addressables
 /[Aa]ssets/[Aa]ddressable[Aa]ssets[Dd]ata/*/*.bin*
 /[Aa]ssets/[Ss]treamingAssets/aa.meta
 /[Aa]ssets/[Ss]treamingAssets/aa/
+/[Ss]erver[Dd]ata/
 
-# ========== xLua Specific Rules ==========
 # xLua build directories
 /build/lusjit/
 /build/hulls/
@@ -82,7 +93,7 @@ sysinfo.txt
 *.tmp.lua
 *.luac
 
-# xLua special files (from reference image)
+# xLua special generated files
 /.05_S4ove
 /001/
 /boilion
@@ -90,10 +101,35 @@ sysinfo.txt
 /linkingjit_no
 /1jj_wn3
 
-# ========================================
-# AI collaboration
+# Hotfix build output
+/HotfixOutput/
+
+# AI tool state and private assistant data
 opencode.jsonc
-/.vscode/
-/.trae/
-/.idea/
-/.claude/
+opencode.jsonc.ccbak
+/.opencode/
+/.codex/
+/skills/private/
+
+# Secrets and local environment
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.pem
+*.key
+*.pfx
+*.p12
+*.jks
+*.keystore
+id_rsa
+id_rsa.pub
+id_dsa
+id_dsa.pub
+id_ecdsa
+id_ecdsa.pub
+id_ed25519
+id_ed25519.pub
+
+# AI error scratch files
+requirements/**/notes-opencode-errors.md
