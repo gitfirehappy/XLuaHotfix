@@ -296,7 +296,7 @@ public class ABBundleLoader
     private string ResolveBundlePath(string bundleName)
     {
         // Primary: 当前热更包的 bundles 目录
-        string primaryPath = Path.Combine(PathManager.CurrentGUIDRoot, "bundles", bundleName);
+        string primaryPath = Path.Combine(RuntimePathManager.CurrentGUIDRoot, "bundles", bundleName);
         if (FileHelper.Exists(primaryPath))
             return primaryPath;
 

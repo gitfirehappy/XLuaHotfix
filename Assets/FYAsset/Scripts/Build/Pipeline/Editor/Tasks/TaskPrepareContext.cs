@@ -20,15 +20,15 @@ public class TaskPrepareContext : IBuildTask
         // 读取 SO 配置
         var config = AssetDatabase.LoadAssetAtPath<BuildPipelineConfig>(
             FYAssetSettings.Instance.PipelineConfigPath);
-        BackendMode mode = FYAssetSettings.Instance.UseABBackend ? BackendMode.ABManifest : BackendMode.LegacyAddressable;
+        BackendMode mode = FYAssetSettings.Instance.UseABBackend ? BackendMode.ABManifest : BackendMode.AAAddressable;
 
-        // CLI 覆盖: --backend LegacyAddressable | ABManifest
+        // CLI 覆盖: --backend AAAddressable | ABManifest
         string cliBackend = GetCommandLineArg("--backend");
         if (!string.IsNullOrEmpty(cliBackend))
         {
             if (!Enum.TryParse(cliBackend, true, out mode))
                 return BuildTaskResult.Fail(BuildErrorCodes.InvalidBackend,
-                    $"未知 Backend '{cliBackend}'。有效值: LegacyAddressable, ABManifest。", true);
+                $"未知 Backend '{cliBackend}'。有效值: AAAddressable, ABManifest。", true);
         }
 
         // BuildVersionString: CLI --version > 时间戳（用于目录命名）

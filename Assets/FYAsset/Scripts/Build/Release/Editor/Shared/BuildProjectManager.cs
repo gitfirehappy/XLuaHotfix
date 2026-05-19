@@ -1,21 +1,17 @@
 #if UNITY_EDITOR
 using System;
-using System.IO;
 using UnityEditor;
 using UnityEngine;
 
 /// <summary>
 /// 构建编排入口。
-/// 统一管理版本号更新、后端路由（AB / Legacy Addressables）、包体产物组织和 PackageIndex 更新。
+/// 统一管理版本号更新、后端路由（AB / AA Addressables）、包体产物组织和 PackageIndex 更新。
 /// 通过 MenuItem 提供 Full Package / Hotfix Package / Confirm Release / Reset Groups 四个工具入口。
 /// </summary>
 public static class BuildProjectManager
 {
     public static bool LastBuildSuccess { get; private set; } = true;
 
-    // 热更包输出根目录
-    private static string OutputRoot => Path.Combine(Directory.GetParent(Application.dataPath).FullName, "HotfixOutput");
-    
     // 热更包体大小限制
     private static string versionDataBasePath => FYAssetSettings.Instance.VersionDataBasePath;
     
@@ -88,7 +84,7 @@ public static class BuildProjectManager
     {
         if (FYAssetSettings.Instance.UseABBackend)
         {
-            Debug.LogWarning("[BuildProjectManager] ConfirmReleaseHotfix 仅适用于 Legacy Addressables 构建链路，AB backend 下已跳过。");
+            Debug.LogWarning("[BuildProjectManager] ConfirmReleaseHotfix 仅适用于 AA Addressables 构建链路，AB backend 下已跳过。");
             return;
         }
 
@@ -104,7 +100,7 @@ public static class BuildProjectManager
     {
         if (FYAssetSettings.Instance.UseABBackend)
         {
-            Debug.LogWarning("[BuildProjectManager] ResetGroupsToOriginal 仅适用于 Legacy Addressables 构建链路，AB backend 下已跳过。");
+            Debug.LogWarning("[BuildProjectManager] ResetGroupsToOriginal 仅适用于 AA Addressables 构建链路，AB backend 下已跳过。");
             return;
         }
 
@@ -144,9 +140,8 @@ public static class BuildProjectManager
             }
 
             string currentPackageName = $"Build_{DateTime.Now:yyyyMMdd}_{version.GetFullVersionString()}";
-            string packagesDir = Path.Combine(OutputRoot, "Packages");
-            Directory.CreateDirectory(packagesDir);
-            string outputDir = Path.Combine(packagesDir, currentPackageName);
+            FileHelper.EnsureDirectory(BuildPathManager.PackagesDir);
+            string outputDir = BuildPathManager.GetPackageDir(currentPackageName);
 
             backend.OrganizeOutput(outputDir, version);
             backend.GeneratePackageManifest(outputDir, version);
@@ -175,7 +170,7 @@ public static class BuildProjectManager
     {
         return FYAssetSettings.Instance.UseABBackend
             ? new ABBuildBackend()
-            : new LegacyAddressableBuildBackend();
+            : new AAAddressableBuildBackend();
     }
     
     private static VersionDataBase LoadVersionDataBase()
@@ -194,8 +189,6 @@ public static class BuildProjectManager
     /// </summary>
     private static void UpdateManifestFile(string packageName, VersionNumber version)
     {
-        string manifestPath = Path.Combine(OutputRoot, "manifest.json");
-
         var data = new PackageIndex
         {
             LatestPackage = packageName,
@@ -203,7 +196,7 @@ public static class BuildProjectManager
         };
         
         // 生成 PackageIndex 内容（包含最新包体名）
-        SerializationUtility.WriteToFile(manifestPath, data);
+        SerializationUtility.WriteToFile(BuildPathManager.PackageIndexPath, data);
         Debug.Log($"[BuildProjectManager] 更新 manifest.json 包体名: {packageName}，版本: {version.GetFullVersionString()}");
     }
 }

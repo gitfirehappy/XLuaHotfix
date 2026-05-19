@@ -22,7 +22,7 @@ public class FYAssetSettings : ScriptableObject
     [Header("Version")]
     public string VersionDataBasePath = "Assets/Build/VersionDataBase.asset";
 
-    [Header("Legacy Pipeline Paths")]
+    [Header("AA Pipeline Paths")]
     public string LuaScriptsIndexPath = "Assets/Build/LuaScriptsIndex.asset";
     public string SnapshotAssetPath = "Assets/Build/Snapshots.asset";
     public string BuildIndexJsonPath = "Assets/Build/Bootstrap/BuildIndex.json";

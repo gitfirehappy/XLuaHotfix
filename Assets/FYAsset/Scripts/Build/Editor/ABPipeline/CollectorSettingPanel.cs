@@ -1,11 +1,19 @@
+using System;
+using System.Collections.Generic;
 using UnityEditor;
+using UnityEditor.UIElements;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 /// <summary>
-/// CollectorSetting 总览面板 —— 左侧 Package / Group 导航，右侧详情与 Collector 列表。
+/// CollectorSetting 总览面板。
+/// 负责 Package / Group 导航、基础详情编辑以及简化版 Collector 列表维护。
 /// </summary>
 public class CollectorSettingPanel : IBuildPipelinePanel
 {
+    /// <summary>
+    /// 当前详情区选中的节点类型。
+    /// </summary>
     private enum SelectionType
     {
         None,
@@ -16,19 +24,19 @@ public class CollectorSettingPanel : IBuildPipelinePanel
     private EditorWindow _window;
     private CollectorSetting _setting;
     private SerializedObject _so;
-
-    private Vector2 _sidebarScroll;
-    private Vector2 _detailScroll;
+    private VisualElement _root;
+    private VisualElement _sidebar;
+    private VisualElement _detail;
+    private VisualElement _splitter;
     private float _sidebarWidth = 220f;
-    private bool _isDraggingSplitter;
+    private bool _draggingSplitter;
+    private Vector2 _dragStartMouse;
+    private float _dragStartWidth;
 
     private SelectionType _selectionType = SelectionType.None;
     private int _selectedPackageIndex = -1;
     private int _selectedGroupIndex = -1;
     private int _selectedCollectorIndex = -1;
-
-    private static GUIStyle _packageLabelStyle;
-    private static GUIStyle _groupLabelStyle;
 
     public string PanelName => "Collect Config";
 
@@ -38,83 +46,105 @@ public class CollectorSettingPanel : IBuildPipelinePanel
         LoadSetting();
     }
 
-    public void OnDisable() { }
-
-    public void OnGUI(Rect windowRect)
+    public VisualElement CreateContent()
     {
-        if (_setting == null)
+        _root = new VisualElement();
+        _root.style.flexGrow = 1f;
+        _root.style.flexDirection = FlexDirection.Column;
+        Rebuild();
+        return _root;
+    }
+
+    public void OnDisable()
+    {
+        _root?.Unbind();
+        _root = null;
+    }
+
+    /// <summary>
+    /// 按当前 Setting 与选中状态重建整个面板。
+    /// </summary>
+    private void Rebuild()
+    {
+        if (_root == null)
+            return;
+
+        _root.Clear();
+        _root.Unbind();
+
+        DrawToolbar();
+
+        if (_setting == null || _so == null)
         {
-            GUILayout.BeginArea(windowRect);
-            DrawToolbar();
             DrawNoSetting();
-            GUILayout.EndArea();
             return;
         }
 
-        Rect sidebarRect = new Rect(windowRect.x, windowRect.y + 24f, _sidebarWidth, Mathf.Max(0f, windowRect.height - 24f));
-        Rect splitterRect = new Rect(sidebarRect.xMax - 2f, sidebarRect.y, 6f, sidebarRect.height);
-        Rect detailRect = new Rect(sidebarRect.xMax + 4f, windowRect.y + 24f, Mathf.Max(0f, windowRect.width - _sidebarWidth - 4f), Mathf.Max(0f, windowRect.height - 24f));
+        var main = new VisualElement();
+        main.style.flexGrow = 1f;
+        main.style.flexDirection = FlexDirection.Row;
+        _root.Add(main);
 
-        GUILayout.BeginArea(windowRect);
-        DrawToolbar();
-        GUILayout.EndArea();
+        _sidebar = new VisualElement();
+        _sidebar.style.width = _sidebarWidth;
+        _sidebar.style.flexShrink = 0f;
+        _sidebar.style.backgroundColor = EditorGUIUtility.isProSkin ? new Color(0.18f, 0.18f, 0.18f) : new Color(0.82f, 0.82f, 0.82f);
+        main.Add(_sidebar);
 
-        EditorGUIUtility.AddCursorRect(splitterRect, MouseCursor.ResizeHorizontal);
-        Event evt = Event.current;
-        if (evt.type == EventType.MouseDown && splitterRect.Contains(evt.mousePosition))
-        {
-            _isDraggingSplitter = true;
-            evt.Use();
-        }
-        if (_isDraggingSplitter)
-        {
-            if (evt.type == EventType.MouseDrag)
-            {
-                _sidebarWidth = Mathf.Clamp(evt.mousePosition.x - windowRect.x, 140f, windowRect.width * 0.5f);
-                _window?.Repaint();
-                evt.Use();
-            }
-            if (evt.type == EventType.MouseUp)
-            {
-                _isDraggingSplitter = false;
-                evt.Use();
-            }
-        }
+        _splitter = new VisualElement();
+        _splitter.style.width = 6f;
+        _splitter.style.flexShrink = 0f;
+        _splitter.RegisterCallback<PointerDownEvent>(OnSplitterDown);
+        _splitter.RegisterCallback<PointerMoveEvent>(OnSplitterMove);
+        _splitter.RegisterCallback<PointerUpEvent>(OnSplitterUp);
+        main.Add(_splitter);
 
-        DrawSidebar(sidebarRect);
-        DrawDetail(detailRect);
-        ApplyChanges();
+        _detail = new VisualElement();
+        _detail.style.flexGrow = 1f;
+        _detail.style.flexDirection = FlexDirection.Column;
+        main.Add(_detail);
+
+        BuildSidebar();
+        BuildDetail();
     }
 
+    /// <summary>
+    /// 绘制顶部工具栏。
+    /// </summary>
     private void DrawToolbar()
     {
-        EditorGUILayout.BeginHorizontal(EditorStyles.toolbar);
-
-        if (GUILayout.Button("Reload", EditorStyles.toolbarButton, GUILayout.Width(60f)))
+        VisualElement toolbar = BuildPipelineUI.Toolbar();
+        toolbar.Add(BuildPipelineUI.ToolbarButton("Reload", () =>
+        {
             LoadSetting();
-
-        GUILayout.FlexibleSpace();
-        GUILayout.Label(FYAssetSettings.Instance.CollectorSettingPath, EditorStyles.miniLabel);
-        EditorGUILayout.EndHorizontal();
+            Rebuild();
+        }, 60f));
+        toolbar.Add(BuildPipelineUI.Spacer());
+        toolbar.Add(BuildPipelineUI.ToolbarLabel(FYAssetSettings.Instance.CollectorSettingPath));
+        _root.Add(toolbar);
     }
 
-    private void DrawSidebar(Rect rect)
+    /// <summary>
+    /// 构建左侧导航树，显示全部 Package 与 Group。
+    /// </summary>
+    private void BuildSidebar()
     {
-        GUILayout.BeginArea(rect);
-        EditorGUI.DrawRect(new Rect(0, 0, rect.width, rect.height), EditorGUIUtility.isProSkin ? new Color(0.18f, 0.18f, 0.18f) : new Color(0.82f, 0.82f, 0.82f));
+        _sidebar.Clear();
 
-        Rect scrollRect = new Rect(0, 0, rect.width, rect.height);
-        Rect contentRect = new Rect(0, 0, rect.width - 16f, GetSidebarContentHeight());
-        _sidebarScroll = GUI.BeginScrollView(scrollRect, _sidebarScroll, contentRect);
+        ScrollView scroll = new ScrollView();
+        scroll.style.flexGrow = 1f;
+        scroll.style.paddingTop = 8f;
+        scroll.style.paddingLeft = 8f;
+        scroll.style.paddingRight = 8f;
+        _sidebar.Add(scroll);
 
-        float y = 8f;
         SerializedProperty packagesProp = GetPackagesProperty();
         if (packagesProp != null)
         {
             for (int i = 0; i < packagesProp.arraySize; i++)
             {
                 SerializedProperty packageProp = packagesProp.GetArrayElementAtIndex(i);
-                y = DrawPackageEntry(new Rect(8f, y, contentRect.width - 16f, 30f), packageProp, i);
+                scroll.Add(CreatePackageEntry(packageProp, i));
 
                 SerializedProperty groupsProp = packageProp.FindPropertyRelative("Groups");
                 if (groupsProp == null)
@@ -123,314 +153,336 @@ public class CollectorSettingPanel : IBuildPipelinePanel
                 for (int j = 0; j < groupsProp.arraySize; j++)
                 {
                     SerializedProperty groupProp = groupsProp.GetArrayElementAtIndex(j);
-                    y = DrawGroupEntry(new Rect(20f, y, contentRect.width - 28f, 24f), groupProp, i, j);
+                    scroll.Add(CreateGroupEntry(groupProp, i, j));
                 }
-
-                y += 8f;
             }
         }
 
-        GUI.EndScrollView();
-
-        Event evt = Event.current;
-        if (evt.type == EventType.ContextClick)
+        _sidebar.AddManipulator(new ContextualMenuManipulator(evt =>
         {
-            ShowSidebarContextMenu();
-            evt.Use();
-        }
-
-        GUILayout.EndArea();
+            evt.menu.AppendAction("Add Package", _ =>
+            {
+                AddPackage();
+                SaveAndRebuild();
+            });
+        }));
     }
 
-    private float DrawPackageEntry(Rect rect, SerializedProperty packageProp, int packageIndex)
+    /// <summary>
+    /// 创建单个 Package 导航项，并挂接右键菜单。
+    /// </summary>
+    private VisualElement CreatePackageEntry(SerializedProperty packageProp, int packageIndex)
     {
-        bool isSelected = _selectionType == SelectionType.Package && _selectedPackageIndex == packageIndex;
-        if (isSelected)
-            EditorGUI.DrawRect(rect, new Color(0.17f, 0.36f, 0.53f, 1f));
-        else if (rect.Contains(Event.current.mousePosition))
-            EditorGUI.DrawRect(rect, new Color(0.28f, 0.28f, 0.28f, 0.45f));
-
         string packageName = packageProp.FindPropertyRelative("PackageName")?.stringValue;
         if (string.IsNullOrEmpty(packageName))
             packageName = "(unnamed package)";
 
-        if (_packageLabelStyle == null)
-            _packageLabelStyle = new GUIStyle(EditorStyles.boldLabel) { alignment = TextAnchor.MiddleLeft };
-        _packageLabelStyle.normal.textColor = isSelected ? Color.white : EditorGUIUtility.isProSkin ? Color.white : Color.black;
-
-        GUI.Label(new Rect(rect.x + 10f, rect.y, rect.width - 16f, rect.height), "📦 " + packageName, _packageLabelStyle);
-
-        Event evt = Event.current;
-        if (evt.type == EventType.MouseDown && rect.Contains(evt.mousePosition))
+        bool selected = _selectionType == SelectionType.Package && _selectedPackageIndex == packageIndex;
+        Label label = CreateNavLabel("□ " + packageName, selected, 30f, 10f);
+        label.RegisterCallback<PointerDownEvent>(evt =>
         {
             if (evt.button == 1)
             {
-                ShowPackageContextMenu(packageIndex);
-                evt.Use();
+                ShowPackageMenu(label, packageIndex);
+                evt.StopPropagation();
+                return;
             }
-            else
-            {
-                SelectPackage(packageIndex);
-                evt.Use();
-                GUI.FocusControl(null);
-            }
-        }
 
-        return rect.yMax + 2f;
+            SelectPackage(packageIndex);
+            BuildSidebar();
+            BuildDetail();
+            evt.StopPropagation();
+        });
+        return label;
     }
 
-    private float DrawGroupEntry(Rect rect, SerializedProperty groupProp, int packageIndex, int groupIndex)
+    /// <summary>
+    /// 创建单个 Group 导航项，并显示启用状态。
+    /// </summary>
+    private VisualElement CreateGroupEntry(SerializedProperty groupProp, int packageIndex, int groupIndex)
     {
-        bool isSelected = _selectionType == SelectionType.Group && _selectedPackageIndex == packageIndex && _selectedGroupIndex == groupIndex;
-        if (isSelected)
-            EditorGUI.DrawRect(rect, new Color(0.17f, 0.36f, 0.53f, 0.82f));
-        else if (rect.Contains(Event.current.mousePosition))
-            EditorGUI.DrawRect(rect, new Color(0.28f, 0.28f, 0.28f, 0.3f));
-
         string groupName = groupProp.FindPropertyRelative("GroupName")?.stringValue;
         if (string.IsNullOrEmpty(groupName))
             groupName = "(unnamed group)";
 
         bool enabled = groupProp.FindPropertyRelative("Enabled")?.boolValue ?? true;
         string suffix = enabled ? string.Empty : "  [Disabled]";
-
-        if (_groupLabelStyle == null)
-            _groupLabelStyle = new GUIStyle(EditorStyles.label) { alignment = TextAnchor.MiddleLeft };
-        _groupLabelStyle.normal.textColor = isSelected ? Color.white : EditorGUIUtility.isProSkin ? new Color(0.9f, 0.9f, 0.9f) : Color.black;
-
-        GUI.Label(new Rect(rect.x + 8f, rect.y, rect.width - 8f, rect.height), "📁 " + groupName + suffix, _groupLabelStyle);
-
-        Event evt = Event.current;
-        if (evt.type == EventType.MouseDown && rect.Contains(evt.mousePosition))
+        bool selected = _selectionType == SelectionType.Group && _selectedPackageIndex == packageIndex && _selectedGroupIndex == groupIndex;
+        Label label = CreateNavLabel("  □ " + groupName + suffix, selected, 24f, 8f);
+        label.RegisterCallback<PointerDownEvent>(evt =>
         {
             if (evt.button == 1)
             {
-                ShowGroupContextMenu(packageIndex, groupIndex);
-                evt.Use();
+                ShowGroupMenu(label, packageIndex, groupIndex);
+                evt.StopPropagation();
+                return;
             }
-            else
-            {
-                SelectGroup(packageIndex, groupIndex);
-                evt.Use();
-                GUI.FocusControl(null);
-            }
-        }
 
-        return rect.yMax + 1f;
+            SelectGroup(packageIndex, groupIndex);
+            BuildSidebar();
+            BuildDetail();
+            evt.StopPropagation();
+        });
+        return label;
     }
 
-    private void DrawDetail(Rect rect)
+    /// <summary>
+    /// 创建导航标签，并根据选中状态切换背景与字体样式。
+    /// </summary>
+    private static Label CreateNavLabel(string text, bool selected, float height, float leftPadding)
     {
-        GUILayout.BeginArea(rect);
-        GUILayout.BeginVertical("box");
-        _detailScroll = EditorGUILayout.BeginScrollView(_detailScroll);
+        var label = new Label(text);
+        label.style.height = height;
+        label.style.unityTextAlign = TextAnchor.MiddleLeft;
+        label.style.paddingLeft = leftPadding;
+        label.style.marginBottom = 1f;
+        label.style.whiteSpace = WhiteSpace.Normal;
+        label.style.backgroundColor = selected ? BuildPipelineUI.ActiveColor : Color.clear;
+        label.style.color = selected ? Color.white : (EditorGUIUtility.isProSkin ? new Color(0.9f, 0.9f, 0.9f) : Color.black);
+        label.style.unityFontStyleAndWeight = selected ? FontStyle.Bold : FontStyle.Normal;
+        return label;
+    }
+
+    /// <summary>
+    /// 按当前选中节点刷新右侧详情区。
+    /// </summary>
+    private void BuildDetail()
+    {
+        _detail.Clear();
+        _detail.Unbind();
+
+        var scroll = new ScrollView();
+        scroll.style.flexGrow = 1f;
+        scroll.style.paddingLeft = 8f;
+        scroll.style.paddingRight = 8f;
+        scroll.Bind(_so);
+        _detail.Add(scroll);
 
         switch (_selectionType)
         {
             case SelectionType.Package:
-                DrawPackageDetail();
+                DrawPackageDetail(scroll);
                 break;
             case SelectionType.Group:
-                DrawGroupDetail();
+                DrawGroupDetail(scroll);
                 break;
             default:
-                DrawEmptyDetail();
+                DrawEmptyDetail(scroll);
                 break;
         }
-
-        EditorGUILayout.EndScrollView();
-        GUILayout.EndVertical();
-        GUILayout.EndArea();
     }
 
-    private void DrawPackageDetail()
+    /// <summary>
+    /// 绘制 Package 级配置详情。
+    /// </summary>
+    private void DrawPackageDetail(VisualElement parent)
     {
         SerializedProperty packageProp = GetSelectedPackageProperty();
         if (packageProp == null)
         {
-            DrawEmptyDetail();
+            DrawEmptyDetail(parent);
             return;
         }
 
-        EditorGUILayout.LabelField("Package Overview", EditorStyles.boldLabel);
-        EditorGUILayout.Space(6f);
+        VisualElement card = BuildPipelineUI.Card();
+        card.Add(BuildPipelineUI.Header("Package Overview"));
+        card.Add(new PropertyField(packageProp.FindPropertyRelative("PackageName"), "Package Name"));
 
-        EditorGUILayout.PropertyField(packageProp.FindPropertyRelative("PackageName"), new GUIContent("Package Name"));
-
-        EditorGUILayout.Space(10f);
-        EditorGUILayout.LabelField("Share Policy", EditorStyles.boldLabel);
-
-        SerializedProperty sharePolicyProp = packageProp.FindPropertyRelative("SharePolicy");
-        if (sharePolicyProp != null)
+        SerializedProperty sharePolicy = packageProp.FindPropertyRelative("SharePolicy");
+        if (sharePolicy != null)
         {
-            EditorGUILayout.PropertyField(sharePolicyProp.FindPropertyRelative("MinReferenceCount"), new GUIContent("Min Reference Count"));
-            EditorGUILayout.PropertyField(sharePolicyProp.FindPropertyRelative("MinAssetSizeBytes"), new GUIContent("Min Asset Size Bytes"));
-            EditorGUILayout.PropertyField(sharePolicyProp.FindPropertyRelative("NoSharePatterns"), new GUIContent("No Share Patterns"), true);
-            EditorGUILayout.PropertyField(sharePolicyProp.FindPropertyRelative("ForceSharePatterns"), new GUIContent("Force Share Patterns"), true);
+            card.Add(BuildPipelineUI.Header("Share Policy"));
+            card.Add(new PropertyField(sharePolicy.FindPropertyRelative("MinReferenceCount"), "Min Reference Count"));
+            card.Add(new PropertyField(sharePolicy.FindPropertyRelative("MinAssetSizeBytes"), "Min Asset Size Bytes"));
+            card.Add(new PropertyField(sharePolicy.FindPropertyRelative("NoSharePatterns"), "No Share Patterns"));
+            card.Add(new PropertyField(sharePolicy.FindPropertyRelative("ForceSharePatterns"), "Force Share Patterns"));
         }
+
+        parent.Add(card);
     }
 
-    private void DrawGroupDetail()
+    /// <summary>
+    /// 绘制 Group 级配置详情，并附带其 Collector 列表。
+    /// </summary>
+    private void DrawGroupDetail(VisualElement parent)
     {
         SerializedProperty groupProp = GetSelectedGroupProperty();
         if (groupProp == null)
         {
-            DrawEmptyDetail();
+            DrawEmptyDetail(parent);
             return;
         }
 
-        EditorGUILayout.LabelField("Group Overview", EditorStyles.boldLabel);
-        EditorGUILayout.Space(6f);
+        VisualElement card = BuildPipelineUI.Card();
+        card.Add(BuildPipelineUI.Header("Group Overview"));
+        card.Add(new PropertyField(groupProp.FindPropertyRelative("GroupName"), "Group Name"));
+        card.Add(new PropertyField(groupProp.FindPropertyRelative("Enabled"), "Enabled"));
+        card.Add(new PropertyField(groupProp.FindPropertyRelative("Labels"), "Group Labels"));
+        parent.Add(card);
 
-        EditorGUILayout.PropertyField(groupProp.FindPropertyRelative("GroupName"), new GUIContent("Group Name"));
-        EditorGUILayout.PropertyField(groupProp.FindPropertyRelative("Enabled"), new GUIContent("Enabled"));
-        EditorGUILayout.PropertyField(groupProp.FindPropertyRelative("Labels"), new GUIContent("Group Labels"), true);
-
-        EditorGUILayout.Space(10f);
-        DrawCollectorTable(groupProp.FindPropertyRelative("Collectors"));
+        DrawCollectorTable(parent, groupProp.FindPropertyRelative("Collectors"));
     }
 
-    private void DrawCollectorTable(SerializedProperty collectorsProp)
+    /// <summary>
+    /// 绘制当前 Group 下的简化 Collector 表。
+    /// </summary>
+    private void DrawCollectorTable(VisualElement parent, SerializedProperty collectorsProp)
     {
-        if (collectorsProp == null)
-            return;
-
-        EditorGUILayout.BeginHorizontal();
-        EditorGUILayout.LabelField("Collectors", EditorStyles.boldLabel);
-        GUILayout.FlexibleSpace();
-        if (GUILayout.Button("+ Folder", GUILayout.Width(80f)))
-            AddCollector(collectorsProp, false);
-        if (GUILayout.Button("+ File", GUILayout.Width(72f)))
-            AddCollector(collectorsProp, true);
-        EditorGUILayout.EndHorizontal();
-
-        EditorGUILayout.Space(4f);
-
-        if (collectorsProp.arraySize == 0)
+        VisualElement card = BuildPipelineUI.Card();
+        VisualElement header = new VisualElement();
+        header.style.flexDirection = FlexDirection.Row;
+        header.style.alignItems = Align.Center;
+        header.Add(BuildPipelineUI.Header("Collectors"));
+        header.Add(BuildPipelineUI.Spacer());
+        header.Add(new Button(() =>
         {
-            EditorGUILayout.HelpBox("No collectors in this group.", MessageType.Info);
+            AddCollector(collectorsProp, false);
+            SaveAndRebuild();
+        }) { text = "+ Folder" });
+        header.Add(new Button(() =>
+        {
+            AddCollector(collectorsProp, true);
+            SaveAndRebuild();
+        }) { text = "+ File" });
+        card.Add(header);
+
+        if (collectorsProp == null || collectorsProp.arraySize == 0)
+        {
+            card.Add(BuildPipelineUI.SmallText("No collectors in this group."));
+            parent.Add(card);
             return;
         }
 
         for (int i = 0; i < collectorsProp.arraySize; i++)
         {
             SerializedProperty collectorProp = collectorsProp.GetArrayElementAtIndex(i);
-            DrawCollectorRow(collectorProp, collectorsProp, i);
-            GUILayout.Space(4f);
+            card.Add(CreateCollectorRow(collectorProp, collectorsProp, i));
         }
+
+        parent.Add(card);
     }
 
-    private void DrawCollectorRow(SerializedProperty collectorProp, SerializedProperty collectorsProp, int collectorIndex)
+    /// <summary>
+    /// 创建单个 Collector 行；选中时额外展开 Labels 与 IgnorePatterns。
+    /// </summary>
+    private VisualElement CreateCollectorRow(SerializedProperty collectorProp, SerializedProperty collectorsProp, int collectorIndex)
     {
-        bool isSelected = _selectedCollectorIndex == collectorIndex;
-        Rect rowRect = EditorGUILayout.BeginVertical("box");
+        bool selected = _selectedCollectorIndex == collectorIndex;
+        VisualElement row = BuildPipelineUI.Card();
+        row.style.marginBottom = 4f;
+        if (selected)
+            row.style.backgroundColor = new Color(0.17f, 0.36f, 0.53f, 0.18f);
 
-        if (Event.current.type == EventType.Repaint && isSelected)
-            EditorGUI.DrawRect(rowRect, new Color(0.17f, 0.36f, 0.53f, 0.15f));
-
-        EditorGUILayout.BeginHorizontal();
-
-        SerializedProperty pathTypeProp = collectorProp.FindPropertyRelative("CollectPathType");
-        SerializedProperty pathProp = collectorProp.FindPropertyRelative("CollectPath");
-        EditorGUILayout.PropertyField(pathTypeProp, GUIContent.none, GUILayout.Width(92f));
-        EditorGUILayout.PropertyField(pathProp, GUIContent.none);
-        if (GUILayout.Button("…", GUILayout.Width(28f)))
-            PickCollectPath(pathProp, pathTypeProp.enumValueIndex == (int)ECollectPathType.File);
-        if (GUILayout.Button("×", GUILayout.Width(24f)))
+        VisualElement top = new VisualElement { style = { flexDirection = FlexDirection.Row } };
+        PropertyField pathType = new PropertyField(collectorProp.FindPropertyRelative("CollectPathType"));
+        pathType.label = string.Empty;
+        pathType.style.width = 92f;
+        top.Add(pathType);
+        PropertyField path = new PropertyField(collectorProp.FindPropertyRelative("CollectPath"));
+        path.label = string.Empty;
+        path.style.flexGrow = 1f;
+        top.Add(path);
+        top.Add(new Button(() => PickCollectPath(collectorProp.FindPropertyRelative("CollectPath"), collectorProp.FindPropertyRelative("CollectPathType").enumValueIndex == (int)ECollectPathType.File)) { text = "..." });
+        top.Add(new Button(() =>
         {
             RemoveCollector(collectorsProp, collectorIndex);
-            GUILayout.EndHorizontal();
-            GUILayout.EndVertical();
-            return;
-        }
-        EditorGUILayout.EndHorizontal();
+            SaveAndRebuild();
+        }) { text = "x" });
+        row.Add(top);
 
-        EditorGUILayout.BeginHorizontal();
-        EditorGUILayout.PropertyField(collectorProp.FindPropertyRelative("CollectorType"), GUIContent.none, GUILayout.Width(92f));
-        EditorGUILayout.PropertyField(collectorProp.FindPropertyRelative("ForcePayloadKind"), GUIContent.none, GUILayout.Width(108f));
-        DrawRulePopupField("Addr", collectorProp.FindPropertyRelative("AddressRuleName"));
-        DrawRulePopupField("Pack", collectorProp.FindPropertyRelative("PackRuleName"));
-        DrawRulePopupField("Filter", collectorProp.FindPropertyRelative("FilterRuleName"));
-        DrawRulePopupField("Group", collectorProp.FindPropertyRelative("GroupRuleName"));
-        GUILayout.Space(28f + 24f);
-        EditorGUILayout.EndHorizontal();
+        VisualElement rules = new VisualElement { style = { flexDirection = FlexDirection.Row } };
+        AddCompactProperty(rules, collectorProp.FindPropertyRelative("CollectorType"), 92f);
+        AddCompactProperty(rules, collectorProp.FindPropertyRelative("ForcePayloadKind"), 108f);
+        AddRulePopup(rules, "Addr", collectorProp.FindPropertyRelative("AddressRuleName"), RuleDropdownHelper.GetAddressRuleNames());
+        AddRulePopup(rules, "Pack", collectorProp.FindPropertyRelative("PackRuleName"), RuleDropdownHelper.GetPackRuleNames());
+        AddRulePopup(rules, "Filter", collectorProp.FindPropertyRelative("FilterRuleName"), RuleDropdownHelper.GetFilterRuleNames());
+        AddRulePopup(rules, "Group", collectorProp.FindPropertyRelative("GroupRuleName"), RuleDropdownHelper.GetGroupRuleNames());
+        row.Add(rules);
 
-        if (isSelected)
+        if (selected)
         {
-            EditorGUILayout.Space(4f);
-            EditorGUILayout.PropertyField(collectorProp.FindPropertyRelative("Labels"), new GUIContent("Labels"), true);
-            EditorGUILayout.PropertyField(collectorProp.FindPropertyRelative("IgnorePatterns"), new GUIContent("Ignore Patterns"), true);
+            row.Add(new PropertyField(collectorProp.FindPropertyRelative("Labels"), "Labels"));
+            row.Add(new PropertyField(collectorProp.FindPropertyRelative("IgnorePatterns"), "Ignore Patterns"));
         }
 
-        GUILayout.EndVertical();
-
-        if (Event.current.type == EventType.MouseDown && rowRect.Contains(Event.current.mousePosition))
+        row.RegisterCallback<PointerDownEvent>(evt =>
         {
             _selectedCollectorIndex = collectorIndex;
-            Event.current.Use();
-        }
+            BuildDetail();
+            evt.StopPropagation();
+        });
+        return row;
     }
 
-    private void DrawRulePopupField(string shortLabel, SerializedProperty property)
+    /// <summary>
+    /// 添加定宽字段，用于紧凑布局中的短枚举属性。
+    /// </summary>
+    private static void AddCompactProperty(VisualElement parent, SerializedProperty property, float width)
     {
-        GUILayout.Label(shortLabel, EditorStyles.miniLabel, GUILayout.Width(32f));
-        Rect rect = GUILayoutUtility.GetRect(80f, EditorGUIUtility.singleLineHeight, GUILayout.MinWidth(60f));
-
-        if (property.name == "AddressRuleName")
-            property.stringValue = RuleDropdownHelper.AddressRulePopup(rect, property.stringValue);
-        else if (property.name == "PackRuleName")
-            property.stringValue = RuleDropdownHelper.PackRulePopup(rect, property.stringValue);
-        else if (property.name == "FilterRuleName")
-            property.stringValue = RuleDropdownHelper.FilterRulePopup(rect, property.stringValue);
-        else
-            property.stringValue = RuleDropdownHelper.GroupRulePopup(rect, property.stringValue);
+        PropertyField field = new PropertyField(property);
+        field.label = string.Empty;
+        field.style.width = width;
+        parent.Add(field);
     }
 
-    private void DrawEmptyDetail()
+    /// <summary>
+    /// 绘制规则名下拉框，并在变更时立即提交 SerializedProperty。
+    /// </summary>
+    private void AddRulePopup(VisualElement parent, string shortLabel, SerializedProperty property, string[] choices)
     {
-        GUILayout.Space(40f);
-        GUILayout.BeginHorizontal();
-        GUILayout.FlexibleSpace();
-        GUILayout.BeginVertical("box", GUILayout.Width(320f));
-        GUILayout.Space(10f);
-        GUILayout.Label("Select a Package or Group", EditorStyles.boldLabel);
-        GUILayout.Space(6f);
-        GUILayout.Label("Left side manages hierarchy. Right side edits package policy, group fields, and collectors.", EditorStyles.wordWrappedLabel);
-        GUILayout.Space(10f);
-        GUILayout.EndVertical();
-        GUILayout.FlexibleSpace();
-        GUILayout.EndHorizontal();
+        parent.Add(BuildPipelineUI.SmallText(shortLabel));
+        List<string> list = new List<string>(choices ?? Array.Empty<string>());
+        if (list.Count == 0)
+            list.Add(property.stringValue);
+        if (!list.Contains(property.stringValue))
+            list.Insert(0, property.stringValue);
+
+        var popup = new PopupField<string>(list, property.stringValue);
+        popup.style.width = 92f;
+        popup.RegisterValueChangedCallback(evt =>
+        {
+            property.stringValue = evt.newValue;
+            ApplyChanges();
+        });
+        parent.Add(popup);
     }
 
+    /// <summary>
+    /// 在未选中任何节点时显示引导说明。
+    /// </summary>
+    private void DrawEmptyDetail(VisualElement parent)
+    {
+        VisualElement panel = BuildPipelineUIToolkitPanel.CreateCenteredPanel(parent, 320f);
+        panel.Add(BuildPipelineUIToolkitPanel.CreateTitle("Select a Package or Group"));
+        panel.Add(BuildPipelineUIToolkitPanel.CreateBody("Left side manages hierarchy. Right side edits package policy, group fields, and collectors."));
+    }
+
+    /// <summary>
+    /// CollectorSetting 缺失时显示创建入口。
+    /// </summary>
     private void DrawNoSetting()
     {
-        GUILayout.FlexibleSpace();
-        GUILayout.BeginHorizontal();
-        GUILayout.FlexibleSpace();
-        GUILayout.BeginVertical("box", GUILayout.Width(420f));
-        GUILayout.Space(10f);
-        GUILayout.Label("CollectorSetting not found", EditorStyles.boldLabel);
-        GUILayout.Space(6f);
-        GUILayout.Label(FYAssetSettings.Instance.CollectorSettingPath, EditorStyles.wordWrappedMiniLabel);
-        GUILayout.Space(10f);
-        if (GUILayout.Button("Create CollectorSetting", GUILayout.Height(36f)))
-            CreateSetting();
-        GUILayout.Space(10f);
-        GUILayout.EndVertical();
-        GUILayout.FlexibleSpace();
-        GUILayout.EndHorizontal();
-        GUILayout.FlexibleSpace();
+        VisualElement panel = BuildPipelineUIToolkitPanel.CreateCenteredPanel(_root, 420f);
+        panel.Add(BuildPipelineUIToolkitPanel.CreateTitle("CollectorSetting not found"));
+        panel.Add(BuildPipelineUIToolkitPanel.CreateBody(FYAssetSettings.Instance.CollectorSettingPath));
+        panel.Add(new Button(CreateSetting) { text = "Create CollectorSetting" });
     }
 
+    /// <summary>
+    /// 加载 CollectorSetting 并修正当前选中状态。
+    /// </summary>
     private void LoadSetting()
     {
         CollectorDataMigrator.EnsureDataFolder();
-        CollectorDataMigrator.MigrateFromLegacyPath();
+        CollectorDataMigrator.MigrateFromAAPath();
         _setting = AssetDatabase.LoadAssetAtPath<CollectorSetting>(FYAssetSettings.Instance.CollectorSettingPath);
         _so = _setting != null ? new SerializedObject(_setting) : null;
         EnsureSelection();
     }
 
+    /// <summary>
+    /// 创建新的 CollectorSetting 资产。
+    /// </summary>
     private void CreateSetting()
     {
         CollectorDataMigrator.EnsureDataFolder();
@@ -440,8 +492,12 @@ public class CollectorSettingPanel : IBuildPipelinePanel
         AssetDatabase.Refresh();
         CollectorReverseIndex.Instance.MarkDirty();
         LoadSetting();
+        Rebuild();
     }
 
+    /// <summary>
+    /// 追加一个新的 Package，并填入默认 SharePolicy。
+    /// </summary>
     private void AddPackage()
     {
         if (_so == null)
@@ -464,6 +520,9 @@ public class CollectorSettingPanel : IBuildPipelinePanel
         SelectPackage(index);
     }
 
+    /// <summary>
+    /// 向指定 Package 追加一个新的 Group。
+    /// </summary>
     private void AddGroup(int packageIndex)
     {
         SerializedProperty packageProp = GetPackageProperty(packageIndex);
@@ -482,6 +541,9 @@ public class CollectorSettingPanel : IBuildPipelinePanel
         SelectGroup(packageIndex, index);
     }
 
+    /// <summary>
+    /// 在当前 Group 下追加一个简化默认 Collector。
+    /// </summary>
     private void AddCollector(SerializedProperty collectorsProp, bool isFile)
     {
         Undo.RecordObject(_setting, isFile ? "Add File Collector" : "Add Folder Collector");
@@ -502,6 +564,9 @@ public class CollectorSettingPanel : IBuildPipelinePanel
         _selectedCollectorIndex = index;
     }
 
+    /// <summary>
+    /// 删除指定位置的 Collector，并修正选中项。
+    /// </summary>
     private void RemoveCollector(SerializedProperty collectorsProp, int collectorIndex)
     {
         Undo.RecordObject(_setting, "Remove Collector");
@@ -510,6 +575,9 @@ public class CollectorSettingPanel : IBuildPipelinePanel
             _selectedCollectorIndex = collectorsProp.arraySize - 1;
     }
 
+    /// <summary>
+    /// 删除当前选中的 Package 或 Group。
+    /// </summary>
     private void DeleteCurrentSelection()
     {
         SerializedProperty packagesProp = GetPackagesProperty();
@@ -546,55 +614,45 @@ public class CollectorSettingPanel : IBuildPipelinePanel
         }
     }
 
-    private void ShowSidebarContextMenu()
+    /// <summary>
+    /// 显示 Package 的右键菜单。
+    /// </summary>
+    private void ShowPackageMenu(VisualElement target, int packageIndex)
     {
-        GenericMenu menu = new GenericMenu();
-        menu.AddItem(new GUIContent("Add Package"), false, () =>
-        {
-            AddPackage();
-            _so?.ApplyModifiedProperties();
-            EditorUtility.SetDirty(_setting);
-            _window?.Repaint();
-        });
-        menu.ShowAsContext();
-    }
-
-    private void ShowPackageContextMenu(int packageIndex)
-    {
-        GenericMenu menu = new GenericMenu();
+        var menu = new GenericMenu();
         menu.AddItem(new GUIContent("Add Group"), false, () =>
         {
             AddGroup(packageIndex);
-            _so?.ApplyModifiedProperties();
-            EditorUtility.SetDirty(_setting);
-            _window?.Repaint();
+            SaveAndRebuild();
         });
         menu.AddSeparator("");
         menu.AddItem(new GUIContent("Delete Package"), false, () =>
         {
             SelectPackage(packageIndex);
             DeleteCurrentSelection();
-            _so?.ApplyModifiedProperties();
-            EditorUtility.SetDirty(_setting);
-            _window?.Repaint();
+            SaveAndRebuild();
         });
-        menu.ShowAsContext();
+        menu.DropDown(target.worldBound);
     }
 
-    private void ShowGroupContextMenu(int packageIndex, int groupIndex)
+    /// <summary>
+    /// 显示 Group 的右键菜单。
+    /// </summary>
+    private void ShowGroupMenu(VisualElement target, int packageIndex, int groupIndex)
     {
-        GenericMenu menu = new GenericMenu();
+        var menu = new GenericMenu();
         menu.AddItem(new GUIContent("Delete Group"), false, () =>
         {
             SelectGroup(packageIndex, groupIndex);
             DeleteCurrentSelection();
-            _so?.ApplyModifiedProperties();
-            EditorUtility.SetDirty(_setting);
-            _window?.Repaint();
+            SaveAndRebuild();
         });
-        menu.ShowAsContext();
+        menu.DropDown(target.worldBound);
     }
 
+    /// <summary>
+    /// 打开文件/文件夹选择器并回填为项目内 Assets 路径。
+    /// </summary>
     private void PickCollectPath(SerializedProperty pathProp, bool isFile)
     {
         string absolutePath = isFile
@@ -610,8 +668,12 @@ public class CollectorSettingPanel : IBuildPipelinePanel
             return;
 
         pathProp.stringValue = "Assets" + normalizedAbsolute.Substring(projectDataPath.Length);
+        ApplyChanges();
     }
 
+    /// <summary>
+    /// 提交 SerializedObject 修改，并刷新逆向索引。
+    /// </summary>
     private void ApplyChanges()
     {
         if (_so == null)
@@ -625,6 +687,20 @@ public class CollectorSettingPanel : IBuildPipelinePanel
         }
     }
 
+    /// <summary>
+    /// 保存当前改动并重建整个面板。
+    /// </summary>
+    private void SaveAndRebuild()
+    {
+        _so?.ApplyModifiedProperties();
+        EditorUtility.SetDirty(_setting);
+        CollectorReverseIndex.Instance.MarkDirty();
+        Rebuild();
+    }
+
+    /// <summary>
+    /// 依据当前 Setting 修正导航与 Collector 选中状态。
+    /// </summary>
     private void EnsureSelection()
     {
         if (_setting == null || _setting.Packages == null || _setting.Packages.Count == 0)
@@ -652,24 +728,9 @@ public class CollectorSettingPanel : IBuildPipelinePanel
         _selectedCollectorIndex = -1;
     }
 
-    private float GetSidebarContentHeight()
-    {
-        float height = 12f;
-        if (_setting?.Packages == null)
-            return height;
-
-        for (int i = 0; i < _setting.Packages.Count; i++)
-        {
-            height += 32f;
-            CollectorPackage package = _setting.Packages[i];
-            if (package?.Groups != null)
-                height += package.Groups.Count * 25f;
-            height += 8f;
-        }
-
-        return Mathf.Max(height, 100f);
-    }
-
+    /// <summary>
+    /// 选中一个 Package，并清空更细粒度的选择。
+    /// </summary>
     private void SelectPackage(int packageIndex)
     {
         _selectionType = SelectionType.Package;
@@ -678,6 +739,9 @@ public class CollectorSettingPanel : IBuildPipelinePanel
         _selectedCollectorIndex = -1;
     }
 
+    /// <summary>
+    /// 选中一个 Group，并默认将 Collector 选择移动到第一项。
+    /// </summary>
     private void SelectGroup(int packageIndex, int groupIndex)
     {
         _selectionType = SelectionType.Group;
@@ -686,6 +750,9 @@ public class CollectorSettingPanel : IBuildPipelinePanel
         _selectedCollectorIndex = 0;
     }
 
+    /// <summary>
+    /// 获取 Packages 根属性。
+    /// </summary>
     private SerializedProperty GetPackagesProperty()
     {
         if (_so == null)
@@ -695,6 +762,9 @@ public class CollectorSettingPanel : IBuildPipelinePanel
         return _so.FindProperty("Packages");
     }
 
+    /// <summary>
+    /// 获取指定下标的 Package 属性。
+    /// </summary>
     private SerializedProperty GetPackageProperty(int packageIndex)
     {
         SerializedProperty packagesProp = GetPackagesProperty();
@@ -704,11 +774,17 @@ public class CollectorSettingPanel : IBuildPipelinePanel
         return packagesProp.GetArrayElementAtIndex(packageIndex);
     }
 
+    /// <summary>
+    /// 获取当前选中的 Package 属性。
+    /// </summary>
     private SerializedProperty GetSelectedPackageProperty()
     {
         return GetPackageProperty(_selectedPackageIndex);
     }
 
+    /// <summary>
+    /// 获取当前选中的 Group 属性。
+    /// </summary>
     private SerializedProperty GetSelectedGroupProperty()
     {
         SerializedProperty packageProp = GetSelectedPackageProperty();
@@ -717,5 +793,47 @@ public class CollectorSettingPanel : IBuildPipelinePanel
             return null;
 
         return groupsProp.GetArrayElementAtIndex(_selectedGroupIndex);
+    }
+
+    /// <summary>
+    /// 开始拖动左右分隔条。
+    /// </summary>
+    private void OnSplitterDown(PointerDownEvent evt)
+    {
+        if (evt.button != 0)
+            return;
+
+        _draggingSplitter = true;
+        _dragStartMouse = evt.position;
+        _dragStartWidth = _sidebarWidth;
+        evt.target.CapturePointer(evt.pointerId);
+        evt.StopPropagation();
+    }
+
+    /// <summary>
+    /// 拖动时更新左侧导航区宽度。
+    /// </summary>
+    private void OnSplitterMove(PointerMoveEvent evt)
+    {
+        if (!_draggingSplitter)
+            return;
+
+        float delta = evt.position.x - _dragStartMouse.x;
+        _sidebarWidth = Mathf.Clamp(_dragStartWidth + delta, 140f, Mathf.Max(140f, _root.resolvedStyle.width * 0.5f));
+        _sidebar.style.width = _sidebarWidth;
+        evt.StopPropagation();
+    }
+
+    /// <summary>
+    /// 结束左右分隔条拖拽。
+    /// </summary>
+    private void OnSplitterUp(PointerUpEvent evt)
+    {
+        if (!_draggingSplitter)
+            return;
+
+        _draggingSplitter = false;
+        evt.target.ReleasePointer(evt.pointerId);
+        evt.StopPropagation();
     }
 }

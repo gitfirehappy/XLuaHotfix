@@ -1,12 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
-using UnityEditor;
-using UnityEngine;
 
 /// <summary>
 /// 规则下拉菜单辅助类 —— 通过反射扫描所有 IAddressRule/IPackRule/IFilterRule/IGroupRule 实现，
-/// 缓存类名列表并渲染 EditorGUI.Popup 下拉菜单。
+/// 缓存类名列表供 UI Toolkit 下拉控件使用。
 /// </summary>
 public static class RuleDropdownHelper
 {
@@ -26,28 +24,28 @@ public static class RuleDropdownHelper
 
     #region Public Popup Methods
 
-    public static string AddressRulePopup(Rect rect, string currentValue)
+    public static string[] GetAddressRuleNames()
     {
         EnsureCache();
-        return DrawPopup(rect, currentValue, _addressRuleNames, _addressRuleArray);
+        return _addressRuleArray;
     }
 
-    public static string PackRulePopup(Rect rect, string currentValue)
+    public static string[] GetPackRuleNames()
     {
         EnsureCache();
-        return DrawPopup(rect, currentValue, _packRuleNames, _packRuleArray);
+        return _packRuleArray;
     }
 
-    public static string FilterRulePopup(Rect rect, string currentValue)
+    public static string[] GetFilterRuleNames()
     {
         EnsureCache();
-        return DrawPopup(rect, currentValue, _filterRuleNames, _filterRuleArray);
+        return _filterRuleArray;
     }
 
-    public static string GroupRulePopup(Rect rect, string currentValue)
+    public static string[] GetGroupRuleNames()
     {
         EnsureCache();
-        return DrawPopup(rect, currentValue, _groupRuleNames, _groupRuleArray);
+        return _groupRuleArray;
     }
 
     /// <summary>强制重新扫描规则实现（新规则类加入后调用）</summary>
@@ -116,19 +114,6 @@ public static class RuleDropdownHelper
 
         names.Sort(StringComparer.Ordinal);
         return names;
-    }
-
-    private static string DrawPopup(Rect rect, string currentValue, List<string> names, string[] displayArray)
-    {
-        if (names == null || names.Count == 0)
-            return currentValue;
-
-        int currentIndex = names.IndexOf(currentValue);
-        if (currentIndex < 0)
-            currentIndex = 0;
-
-        int newIndex = EditorGUI.Popup(rect, currentIndex, displayArray);
-        return newIndex >= 0 && newIndex < names.Count ? names[newIndex] : currentValue;
     }
 
     #endregion

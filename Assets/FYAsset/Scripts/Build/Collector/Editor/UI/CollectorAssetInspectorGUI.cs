@@ -66,11 +66,11 @@ public static class CollectorAssetInspectorGUI
         {
             if (newState)
             {
-                PopupWindow.Show(rowRect, new CollectorTargetPickerPopup(new[] { assetPath }, () =>
+                CollectorTargetPickerWindow.Show(new[] { assetPath }, () =>
                 {
                     CollectorReverseIndex.Instance.MarkDirty();
                     UnityEditorInternal.InternalEditorUtility.RepaintAllViews();
-                }));
+                });
             }
             else if (canToggleOff)
             {
@@ -86,7 +86,7 @@ public static class CollectorAssetInspectorGUI
     private static CollectorSetting LoadSetting()
     {
         CollectorDataMigrator.EnsureDataFolder();
-        CollectorDataMigrator.MigrateFromLegacyPath();
+        CollectorDataMigrator.MigrateFromAAPath();
         return AssetDatabase.LoadAssetAtPath<CollectorSetting>(FYAssetSettings.Instance.CollectorSettingPath);
     }
 

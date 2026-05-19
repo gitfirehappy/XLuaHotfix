@@ -80,7 +80,7 @@ public class ABBuildBackend : IBuildBackend
             FileHelper.TryDeleteDirectory(outputDir, true);
 
         FileHelper.EnsureDirectory(outputDir);
-        string bundleOutputDir = Path.Combine(outputDir, "bundles");
+        string bundleOutputDir = BuildPathManager.GetBundlesDir(outputDir);
         FileHelper.EnsureDirectory(bundleOutputDir);
 
         foreach (var bundleEntry in _manifest.BundleEntries)

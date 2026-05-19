@@ -110,7 +110,7 @@ public static class AssetAddressGenerator
                     );
                 }
             }
-            // 同名且同 PrimaryType → 不自动升级
+            // 同名且同 PrimaryType -> 不自动升级
             // （由 AssetConflictRules 校验工具报告警告）
         }
     }

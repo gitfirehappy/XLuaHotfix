@@ -1,31 +1,15 @@
-using UnityEditor;
-using UnityEngine;
+using UnityEngine.UIElements;
 
 /// <summary>
 /// 构建执行面板。DAG 可视化已归属 PipelinePanel，本面板预留给后续构建触发与状态展示。
 /// </summary>
-public class BuilderPanel : IBuildPipelinePanel
+public class BuilderPanel : BuildPipelineUIToolkitPanel
 {
-    public string PanelName => "Builder";
+    public override string PanelName => "Builder";
 
-    public void OnEnable(EditorWindow window)
+    protected override void BuildContent(VisualElement root)
     {
-    }
-
-    public void OnGUI(Rect windowRect)
-    {
-        GUILayout.BeginArea(windowRect);
-        GUILayout.FlexibleSpace();
-        EditorGUILayout.BeginHorizontal();
-        GUILayout.FlexibleSpace();
-        GUILayout.Label("Builder is reserved for build execution.", EditorStyles.centeredGreyMiniLabel);
-        GUILayout.FlexibleSpace();
-        EditorGUILayout.EndHorizontal();
-        GUILayout.FlexibleSpace();
-        GUILayout.EndArea();
-    }
-
-    public void OnDisable()
-    {
+        VisualElement panel = CreateCenteredPanel(root);
+        panel.Add(CreateBody("Builder is reserved for build execution."));
     }
 }

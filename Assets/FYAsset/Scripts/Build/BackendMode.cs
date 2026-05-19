@@ -5,8 +5,8 @@
 /// </summary>
 public enum BackendMode
 {
-    /// <summary>基于 AAManifest 的旧版 Addressables 后端</summary>
-    LegacyAddressable = 0,
+    /// <summary>基于 AAManifest 的 AA Addressables 后端</summary>
+    AAAddressable = 0,
 
     /// <summary>基于 ABManifest 的新版后端，后续 Task 默认使用此模式</summary>
     ABManifest = 1

@@ -170,9 +170,11 @@ public class BuildMessage
         => Error(BuildErrorCodes.CrossPackageOverlap,
             string.Concat("Path '", path, "' is used in both Package '", pkg1, "' and '", pkg2, "'."), source);
 
-    public static BuildMessage CrossPackageContainment(string parentPath, string parentPkg, string childPath, string childPkg, string source)
+    public static BuildMessage CrossPackageContainment(string parentPath, string parentPkg, string childPath,
+        string childPkg, string source)
         => Error(BuildErrorCodes.CrossPackageOverlap,
-            string.Concat("Path '", parentPath, "' (", parentPkg, ") contains '", childPath, "' (", childPkg, ")."), source);
+            string.Concat("Path '", parentPath, "' (", parentPkg, ") contains '", childPath, "' (", childPkg, ")."),
+            source);
 
     public static BuildMessage SamePathConflict(string path, string source)
         => Error(BuildErrorCodes.SamePathConflict,

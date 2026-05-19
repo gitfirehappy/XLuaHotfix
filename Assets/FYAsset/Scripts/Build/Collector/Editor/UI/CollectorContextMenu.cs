@@ -15,11 +15,11 @@ public static class CollectorContextMenu
         if (assetPaths.Length == 0)
             return;
 
-        PopupWindow.Show(GetPopupAnchorRect(), new CollectorTargetPickerPopup(assetPaths, () =>
+        CollectorTargetPickerWindow.Show(assetPaths, () =>
         {
             CollectorReverseIndex.Instance.MarkDirty();
             UnityEditorInternal.InternalEditorUtility.RepaintAllViews();
-        }));
+        });
     }
 
     [MenuItem("Assets/FYAsset/Add to Collector Group", true)]
@@ -124,16 +124,10 @@ public static class CollectorContextMenu
         return result.ToArray();
     }
 
-    private static Rect GetPopupAnchorRect()
-    {
-        Vector2 mousePosition = GUIUtility.GUIToScreenPoint(Event.current != null ? Event.current.mousePosition : Vector2.zero);
-        return new Rect(mousePosition.x, mousePosition.y, 1f, 1f);
-    }
-
     private static CollectorSetting LoadSetting()
     {
         CollectorDataMigrator.EnsureDataFolder();
-        CollectorDataMigrator.MigrateFromLegacyPath();
+        CollectorDataMigrator.MigrateFromAAPath();
         return AssetDatabase.LoadAssetAtPath<CollectorSetting>(FYAssetSettings.Instance.CollectorSettingPath);
     }
 

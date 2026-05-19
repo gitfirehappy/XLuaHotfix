@@ -141,6 +141,7 @@ public static class AssetResolver
         {
             results.Add(ResolveByAddress<T>(index, addresses[i]));
         }
+
         return results;
     }
 
@@ -225,6 +226,7 @@ public static class AssetResolver
             sb.Append(',');
             sb.Append(items[i] ?? "");
         }
+
         return sb.ToString();
     }
 

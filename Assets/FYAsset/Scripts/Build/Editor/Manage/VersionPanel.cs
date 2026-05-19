@@ -1,16 +1,19 @@
 using UnityEditor;
+using UnityEditor.UIElements;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 /// <summary>
-/// 版本管理面板 —— 查看和编辑 VersionDataBase SO（版本号、构建日期、后端模式等）。
+/// VersionDataBase 编辑面板。
+/// 当前以通用 SerializedObject 方式暴露全部可见字段。
 /// </summary>
 public class VersionPanel : IBuildPipelinePanel
 {
     private static string VersionAssetPath => FYAssetSettings.Instance.VersionDataBasePath;
 
     private VersionDataBase _versionDB;
-    private Editor _versionEditor;
-    private Vector2 _scrollPos;
+    private SerializedObject _so;
+    private VisualElement _root;
 
     public string PanelName => "Version";
 
@@ -19,77 +22,100 @@ public class VersionPanel : IBuildPipelinePanel
         LoadVersionDB();
     }
 
+    public VisualElement CreateContent()
+    {
+        _root = new VisualElement();
+        _root.style.flexGrow = 1f;
+        _root.style.flexDirection = FlexDirection.Column;
+        Rebuild();
+        return _root;
+    }
+
     public void OnDisable()
     {
-        if (_versionEditor != null)
-        {
-            Object.DestroyImmediate(_versionEditor);
-            _versionEditor = null;
-        }
+        _root?.Unbind();
+        _root = null;
     }
 
-    public void OnGUI(Rect windowRect)
+    /// <summary>
+    /// 重建 VersionDataBase 面板内容。
+    /// </summary>
+    private void Rebuild()
     {
-        GUILayout.BeginArea(windowRect);
+        if (_root == null)
+            return;
 
-        EditorGUILayout.BeginHorizontal(EditorStyles.toolbar);
-        if (GUILayout.Button("Reload", EditorStyles.toolbarButton, GUILayout.Width(60)))
+        _root.Clear();
+        _root.Unbind();
+
+        VisualElement toolbar = BuildPipelineUI.Toolbar();
+        toolbar.Add(BuildPipelineUI.ToolbarButton("Reload", () =>
+        {
             LoadVersionDB();
-        GUILayout.FlexibleSpace();
-        EditorGUILayout.EndHorizontal();
+            Rebuild();
+        }, 60f));
+        toolbar.Add(BuildPipelineUI.Spacer());
+        _root.Add(toolbar);
 
-        if (_versionDB == null)
+        if (_versionDB == null || _so == null)
         {
             DrawNoVersionDB();
-        }
-        else
-        {
-            _scrollPos = GUILayout.BeginScrollView(_scrollPos);
-            if (_versionEditor != null)
-                _versionEditor.OnInspectorGUI();
-            GUILayout.EndScrollView();
+            return;
         }
 
-        GUILayout.EndArea();
+        var scrollView = new ScrollView();
+        scrollView.style.flexGrow = 1f;
+        scrollView.Bind(_so);
+
+        SerializedProperty iterator = _so.GetIterator();
+        bool enterChildren = true;
+        while (iterator.NextVisible(enterChildren))
+        {
+            enterChildren = false;
+            if (iterator.propertyPath == "m_Script")
+                continue;
+
+            scrollView.Add(new PropertyField(iterator.Copy()));
+        }
+
+        _root.Add(scrollView);
     }
 
+    /// <summary>
+    /// 当 VersionDataBase 缺失时显示创建入口。
+    /// </summary>
+    private void DrawNoVersionDB()
+    {
+        VisualElement panel = BuildPipelineUIToolkitPanel.CreateCenteredPanel(_root, 420f);
+        panel.Add(BuildPipelineUIToolkitPanel.CreateBody("No VersionDataBase found at " + VersionAssetPath));
+        panel.Add(new Button(CreateVersionDB)
+        {
+            text = "Create VersionDataBase"
+        });
+    }
+
+    /// <summary>
+    /// 按当前设置中的路径加载 VersionDataBase。
+    /// </summary>
     private void LoadVersionDB()
     {
         _versionDB = AssetDatabase.LoadAssetAtPath<VersionDataBase>(VersionAssetPath);
-        if (_versionDB != null)
-        {
-            if (_versionEditor != null) Object.DestroyImmediate(_versionEditor);
-            _versionEditor = Editor.CreateEditor(_versionDB);
-        }
+        _so = _versionDB != null ? new SerializedObject(_versionDB) : null;
     }
 
-    private void DrawNoVersionDB()
-    {
-        GUILayout.FlexibleSpace();
-        GUILayout.BeginHorizontal();
-        GUILayout.FlexibleSpace();
-        GUILayout.Label("No VersionDataBase found at " + VersionAssetPath,
-            EditorStyles.centeredGreyMiniLabel);
-        GUILayout.FlexibleSpace();
-        GUILayout.EndHorizontal();
-
-        GUILayout.BeginHorizontal();
-        GUILayout.FlexibleSpace();
-        if (GUILayout.Button("Create VersionDataBase", GUILayout.Width(200), GUILayout.Height(36)))
-            CreateVersionDB();
-        GUILayout.FlexibleSpace();
-        GUILayout.EndHorizontal();
-        GUILayout.FlexibleSpace();
-    }
-
+    /// <summary>
+    /// 创建新的 VersionDataBase 资产。
+    /// </summary>
     private void CreateVersionDB()
     {
         if (!AssetDatabase.IsValidFolder("Assets/Build"))
             AssetDatabase.CreateFolder("Assets", "Build");
+
         var asset = ScriptableObject.CreateInstance<VersionDataBase>();
         AssetDatabase.CreateAsset(asset, VersionAssetPath);
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
         LoadVersionDB();
+        Rebuild();
     }
 }

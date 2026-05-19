@@ -46,11 +46,12 @@ public class ABPackageBackend : IPackageBackend
     /// <summary>Asset 缓存：EntryId → CacheEntry</summary>
     private readonly Dictionary<string, AssetCacheEntry> _assetCache = new();
 
-    /// <summary>address → 已加载的 EntryId 列表（支持 Legacy 风格按 key 卸载）</summary>
+    /// <summary>address → 已加载的 EntryId 列表（支持 AA 风格按 key 卸载）</summary>
     private readonly Dictionary<string, HashSet<string>> _addressToEntryIds = new();
 
     /// <summary>进行中的异步加载：EntryId → Task。并发去重，避免重复 I/O。</summary>
     private readonly Dictionary<string, Task> _inflightLoads = new();
+
     private readonly object _inflightLock = new();
 
     /// <summary>ABManifest 引用，用于 Asset→Bundle 解析</summary>
@@ -114,7 +115,8 @@ public class ABPackageBackend : IPackageBackend
     /// 异步加载资产（扩展：附带 EntryId）。
     /// 优先按 EntryId 精确查找，回退到 address 查找。
     /// </summary>
-    public async Task<(T asset, RuntimeMessage error)> LoadAssetAsync<T>(string key, string entryId) where T : UnityEngine.Object
+    public async Task<(T asset, RuntimeMessage error)> LoadAssetAsync<T>(string key, string entryId)
+        where T : UnityEngine.Object
     {
         if (string.IsNullOrEmpty(key))
             return (null, RuntimeMessage.Error(RuntimeErrorCodes.InvalidArgument, "LoadAssetAsync: key 为 null 或空"));
@@ -221,6 +223,7 @@ public class ABPackageBackend : IPackageBackend
             if (_assetCache.ContainsKey(entryId))
                 return true;
         }
+
         return false;
     }
 
@@ -238,6 +241,7 @@ public class ABPackageBackend : IPackageBackend
         {
             return entries[0];
         }
+
         return null;
     }
 
@@ -345,7 +349,7 @@ public class ABPackageBackend : IPackageBackend
             await inflight;
             if (_assetCache.TryGetValue(entryId, out var existing))
                 return (existing.Asset as T, existing.BundleName, null);
-            // inflight 完成但缓存中没有 → 之前的加载失败，本次作为新请求继续
+            // inflight 完成但缓存中没有 -> 之前的加载失败，本次作为新请求继续
         }
 
         try
@@ -378,7 +382,8 @@ public class ABPackageBackend : IPackageBackend
             }
             catch (Exception ex)
             {
-                Debug.LogWarning($"[ABPackageBackend] 资源提取异常: EntryId={assetEntry.EntryId}, Bundle={bundleName}, Path={assetEntry.SourcePath}, Error={ex.Message}");
+                Debug.LogWarning(
+                    $"[ABPackageBackend] 资源提取异常: EntryId={assetEntry.EntryId}, Bundle={bundleName}, Path={assetEntry.SourcePath}, Error={ex.Message}");
                 _bundleLoader.UnloadBundle(bundleName);
                 return (null, bundleName,
                     RuntimeMessage.AssetExtractionFailed(assetEntry.EntryId, assetEntry.SourcePath, bundleName));
@@ -403,6 +408,7 @@ public class ABPackageBackend : IPackageBackend
                 {
                     _inflightLoads.Remove(entryId);
                 }
+
                 myTcs.TrySetResult(null);
             }
         }
@@ -513,6 +519,7 @@ public class ABPackageBackend : IPackageBackend
         {
             request.completed += _ => tcs.SetResult(true);
         }
+
         return tcs.Task;
     }
 

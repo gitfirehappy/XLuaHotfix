@@ -2,7 +2,7 @@ using System.Collections.Generic;
 
 /// <summary>
 /// 热更流程使用的统一版本视图。
-/// 屏蔽 Legacy/AB 后端的数据模型差异，提供一致的版本比较接口。
+/// 屏蔽 AA/AB 后端的数据模型差异，提供一致的版本比较接口。
 /// </summary>
 public class HotfixVersionInfo
 {

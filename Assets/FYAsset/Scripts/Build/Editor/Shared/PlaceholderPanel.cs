@@ -1,38 +1,28 @@
 using UnityEditor;
-using UnityEngine;
+using UnityEngine.UIElements;
 
 /// <summary>
 /// 占位面板，用于尚未实现的 Pipeline / Builder / Inspector / Settings 区域。
 /// </summary>
-public sealed class PlaceholderPanel : IBuildPipelinePanel
+public sealed class PlaceholderPanel : BuildPipelineUIToolkitPanel
 {
     private readonly string _panelName;
-    private EditorWindow _window;
 
     public PlaceholderPanel(string panelName)
     {
         _panelName = panelName;
     }
 
-    public string PanelName => _panelName;
+    public override string PanelName => _panelName;
 
-    public void OnEnable(EditorWindow window)
+    public override void OnEnable(EditorWindow window)
     {
-        _window = window;
+        base.OnEnable(window);
     }
 
-    public void OnGUI(Rect rect)
+    protected override void BuildContent(VisualElement root)
     {
-        GUILayout.BeginArea(rect);
-        GUILayout.FlexibleSpace();
-        GUILayout.BeginHorizontal();
-        GUILayout.FlexibleSpace();
-        GUILayout.Label(_panelName + " — coming soon", EditorStyles.centeredGreyMiniLabel);
-        GUILayout.FlexibleSpace();
-        GUILayout.EndHorizontal();
-        GUILayout.FlexibleSpace();
-        GUILayout.EndArea();
+        VisualElement panel = CreateCenteredPanel(root);
+        panel.Add(CreateTitle(_panelName + " - coming soon"));
     }
-
-    public void OnDisable() { }
 }

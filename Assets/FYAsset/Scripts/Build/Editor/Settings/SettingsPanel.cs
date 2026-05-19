@@ -1,119 +1,136 @@
 using UnityEditor;
+using UnityEditor.UIElements;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 /// <summary>
-/// FYAsset 全局设置面板 —— 编辑 FYAssetSettings SO，UseABBackend 切换时刷新窗口。
+/// FYAsset 全局设置面板。
+/// 用于编辑构建、版本与新旧管线的路径配置。
 /// </summary>
 public class SettingsPanel : IBuildPipelinePanel
 {
+    private BuildPipelineWindow _window;
     private FYAssetSettings _settings;
     private SerializedObject _so;
-    private EditorWindow _window;
-    private Vector2 _scrollPos;
+    private VisualElement _root;
+    private ScrollView _scrollView;
 
     public string PanelName => "Settings";
 
     public void OnEnable(EditorWindow window)
     {
-        _window = window;
+        _window = window as BuildPipelineWindow;
         LoadSettings();
+    }
+
+    public VisualElement CreateContent()
+    {
+        _root = new VisualElement();
+        _root.style.flexGrow = 1f;
+        _root.style.flexDirection = FlexDirection.Column;
+        Rebuild();
+        return _root;
     }
 
     public void OnDisable()
     {
+        _root?.Unbind();
+        _root = null;
     }
 
-    public void OnGUI(Rect windowRect)
+    /// <summary>
+    /// 重建设置面板内容，并在 UseABBackend 变化时刷新窗口壳层禁用状态。
+    /// </summary>
+    private void Rebuild()
     {
-        GUILayout.BeginArea(windowRect);
+        if (_root == null)
+            return;
 
-        EditorGUILayout.BeginHorizontal(EditorStyles.toolbar);
-        if (GUILayout.Button("Reload", EditorStyles.toolbarButton, GUILayout.Width(60)))
+        _root.Clear();
+        _root.Unbind();
+
+        VisualElement toolbar = BuildPipelineUI.Toolbar();
+        toolbar.Add(BuildPipelineUI.ToolbarButton("Reload", () =>
+        {
             LoadSettings();
-        GUILayout.FlexibleSpace();
-        EditorGUILayout.LabelField(FYAssetSettings.DEFAULT_ASSET_PATH, EditorStyles.miniLabel);
-        EditorGUILayout.EndHorizontal();
+            Rebuild();
+        }, 60f));
+        toolbar.Add(BuildPipelineUI.Spacer());
+        toolbar.Add(BuildPipelineUI.ToolbarLabel(FYAssetSettings.DEFAULT_ASSET_PATH));
+        _root.Add(toolbar);
 
         if (_settings == null || _so == null)
         {
             DrawNoSettings();
-            GUILayout.EndArea();
             return;
         }
 
-        _scrollPos = GUILayout.BeginScrollView(_scrollPos);
-        _so.Update();
+        _scrollView = new ScrollView();
+        _scrollView.style.flexGrow = 1f;
+        _scrollView.Bind(_so);
 
-        bool prevUseAB = _settings.UseABBackend;
+        DrawSection("Project", "ProjectName", "HotfixUrl");
+        DrawSection("Backend", "UseABBackend");
+        DrawSection("Version", "VersionDataBasePath");
+        DrawSection("AA Pipeline Paths", "LuaScriptsIndexPath", "SnapshotAssetPath", "BuildIndexJsonPath");
+        DrawSection("New Pipeline Paths", "CollectorDataFolder", "CollectorSettingPath", "PipelineConfigPath");
 
-        DrawSection("Project", new[] { "ProjectName", "HotfixUrl" });
-        DrawSection("Backend", new[] { "UseABBackend" });
-        DrawSection("Version", new[] { "VersionDataBasePath" });
-        DrawSection("Legacy Pipeline Paths", new[]
+        SerializedProperty useAb = _so.FindProperty("UseABBackend");
+        if (useAb != null)
         {
-            "LuaScriptsIndexPath",
-            "SnapshotAssetPath",
-            "BuildIndexJsonPath"
-        });
-        DrawSection("New Pipeline Paths", new[]
-        {
-            "CollectorDataFolder",
-            "CollectorSettingPath",
-            "PipelineConfigPath"
-        });
-
-        if (_so.ApplyModifiedProperties())
-        {
-            EditorUtility.SetDirty(_settings);
-            AssetDatabase.SaveAssets();
-
-            if (_settings.UseABBackend != prevUseAB)
-                _window?.Repaint();
+            _scrollView.TrackPropertyValue(useAb, _ =>
+            {
+                EditorUtility.SetDirty(_settings);
+                AssetDatabase.SaveAssets();
+                _window?.RefreshShell();
+            });
         }
 
-        GUILayout.EndScrollView();
-        GUILayout.EndArea();
+        _root.Add(_scrollView);
     }
 
-    private void DrawSection(string header, string[] propertyNames)
+    /// <summary>
+    /// 以 Card 形式绘制一个配置分组。
+    /// </summary>
+    private void DrawSection(string header, params string[] propertyNames)
     {
-        EditorGUILayout.Space(6f);
-        EditorGUILayout.LabelField(header, EditorStyles.boldLabel);
-        EditorGUI.indentLevel++;
+        VisualElement card = BuildPipelineUI.Card();
+        card.Add(BuildPipelineUI.Header(header));
+
         for (int i = 0; i < propertyNames.Length; i++)
         {
             SerializedProperty prop = _so.FindProperty(propertyNames[i]);
-            if (prop != null)
-                EditorGUILayout.PropertyField(prop);
+            if (prop == null)
+                continue;
+
+            card.Add(new PropertyField(prop));
         }
 
-        EditorGUI.indentLevel--;
+        _scrollView.Add(card);
     }
 
+    /// <summary>
+    /// 当 FYAssetSettings 资产不存在时显示创建入口。
+    /// </summary>
     private void DrawNoSettings()
     {
-        GUILayout.FlexibleSpace();
-        GUILayout.BeginHorizontal();
-        GUILayout.FlexibleSpace();
-        GUILayout.BeginVertical("box", GUILayout.Width(360f));
-        GUILayout.Space(10f);
-        GUILayout.Label("FYAssetSettings not found", EditorStyles.boldLabel);
-        GUILayout.Space(6f);
-        GUILayout.Label(FYAssetSettings.DEFAULT_ASSET_PATH, EditorStyles.wordWrappedMiniLabel);
-        GUILayout.Space(10f);
-        if (GUILayout.Button("Create FYAssetSettings", GUILayout.Height(36f)))
+        VisualElement panel = BuildPipelineUIToolkitPanel.CreateCenteredPanel(_root, 360f);
+        panel.Add(BuildPipelineUIToolkitPanel.CreateTitle("FYAssetSettings not found"));
+        panel.Add(BuildPipelineUIToolkitPanel.CreateBody(FYAssetSettings.DEFAULT_ASSET_PATH));
+        panel.Add(new Button(() =>
         {
             _ = FYAssetSettings.Instance;
             LoadSettings();
-        }
-
-        GUILayout.Space(10f);
-        GUILayout.EndVertical();
-        GUILayout.FlexibleSpace();
-        GUILayout.EndHorizontal();
-        GUILayout.FlexibleSpace();
+            Rebuild();
+        })
+        {
+            text = "Create FYAssetSettings"
+        });
     }
 
+    /// <summary>
+    /// 从默认路径或 Resources 加载 FYAssetSettings。
+    /// </summary>
     private void LoadSettings()
     {
         _settings = AssetDatabase.LoadAssetAtPath<FYAssetSettings>(FYAssetSettings.DEFAULT_ASSET_PATH)

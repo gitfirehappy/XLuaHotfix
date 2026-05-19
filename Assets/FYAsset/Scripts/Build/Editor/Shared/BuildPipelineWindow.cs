@@ -1,14 +1,18 @@
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 /// <summary>
-/// 包含构建管线各大模块面板
+/// FYAsset 构建管线主窗口。
+/// 使用 UI Toolkit 承载侧边栏、禁用提示与各子面板内容。
 /// </summary>
 public sealed class BuildPipelineWindow : EditorWindow
 {
     #region Types
 
-    /// <summary>侧边栏分组定义：标签 + 按钮起始索引 + 按钮数量</summary>
+    /// <summary>
+    /// 侧边栏分组元数据。
+    /// </summary>
     private struct SidebarGroup
     {
         public string Label;
@@ -23,20 +27,29 @@ public sealed class BuildPipelineWindow : EditorWindow
 
     private float _sidebarWidth = 160f;
     private bool _isDraggingSidebar;
+    private Vector2 _dragStartMouse;
+    private float _dragStartWidth;
 
     private IBuildPipelinePanel[] _panels;
-    private int _activePanelIndex;
-    private Rect _sidebarRect;
-    private Rect _contentRect;
-    private Rect _contentInnerRect;
-    private int _lastVisiblePanelIndex = -1;
-    private int _expandedGroupIndex = 0;
+    private VisualElement[] _panelContents;
+    private Button[] _panelButtons;
+    private VisualElement[] _groupBodies;
+    private Label[] _groupHeaders;
 
-    // 侧边栏分组：SETTINGS → LEGACY PIPELINE → AB PIPELINE → MANAGE
-    private static readonly SidebarGroup[] Groups = new[]
+    private VisualElement _root;
+    private VisualElement _sidebar;
+    private VisualElement _contentHost;
+    private VisualElement _disabledHint;
+    private Label _disabledHintLabel;
+
+    private int _activePanelIndex;
+    private int _lastVisiblePanelIndex = -1;
+    private int _expandedGroupIndex;
+
+    private static readonly SidebarGroup[] Groups =
     {
         new SidebarGroup { Label = "SETTINGS", StartIndex = 0, Count = 1, Collapsible = false },
-        new SidebarGroup { Label = "LEGACY PIPELINE", StartIndex = 1, Count = 3, Collapsible = true },
+        new SidebarGroup { Label = "AA PIPELINE", StartIndex = 1, Count = 3, Collapsible = true },
         new SidebarGroup { Label = "AB PIPELINE", StartIndex = 4, Count = 4, Collapsible = true },
         new SidebarGroup { Label = "MANAGE", StartIndex = 8, Count = 1, Collapsible = false },
     };
@@ -65,269 +78,352 @@ public sealed class BuildPipelineWindow : EditorWindow
 
     private void OnDisable()
     {
-        if (_panels == null) return;
+        if (_panels == null)
+            return;
+
         for (int i = 0; i < _panels.Length; i++)
             _panels[i].OnDisable();
     }
 
-    private void OnGUI()
+    public void CreateGUI()
     {
-        _sidebarRect = new Rect(0, 0, _sidebarWidth, position.height);
-        _contentRect = new Rect(_sidebarWidth, 0, position.width - _sidebarWidth, position.height);
-
-        const float contentPadding = 12f;
-        _contentInnerRect = new Rect(
-            _contentRect.x + contentPadding,
-            _contentRect.y + contentPadding,
-            Mathf.Max(0, _contentRect.width - contentPadding * 2),
-            Mathf.Max(0, _contentRect.height - contentPadding * 2)
-        );
-
-        DrawSidebar();
-
-        Rect splitterRect = new Rect(_sidebarWidth - 2, 0, 4, position.height);
-        EditorGUIUtility.AddCursorRect(splitterRect, MouseCursor.ResizeHorizontal);
-
-        if (Event.current.type == EventType.MouseDown && splitterRect.Contains(Event.current.mousePosition))
-        {
-            _isDraggingSidebar = true;
-            Event.current.Use();
-        }
-
-        if (_isDraggingSidebar)
-        {
-            if (Event.current.type == EventType.MouseDrag)
-            {
-                _sidebarWidth = Mathf.Clamp(Event.current.mousePosition.x, 100f, 300f);
-                Repaint();
-                Event.current.Use();
-            }
-            else if (Event.current.type == EventType.MouseUp)
-            {
-                _isDraggingSidebar = false;
-                Event.current.Use();
-            }
-        }
-
-        DrawContent();
+        BuildRoot();
+        BuildSidebar();
+        BuildContent();
+        SelectPanel(Mathf.Clamp(_activePanelIndex, 0, _panels.Length - 1), true);
     }
 
     #endregion
 
-    #region Sidebar
+    #region UI Construction
 
-    private void DrawSidebar()
+    /// <summary>
+    /// 构建窗口根布局：左侧导航、分隔条、右侧内容区。
+    /// </summary>
+    private void BuildRoot()
     {
-        GUILayout.BeginArea(_sidebarRect);
-        EditorGUI.DrawRect(new Rect(0, 0, _sidebarRect.width, _sidebarRect.height),
-            EditorGUIUtility.isProSkin ? new Color(0.18f, 0.18f, 0.18f) : new Color(0.76f, 0.76f, 0.76f));
+        rootVisualElement.Clear();
 
-        GUILayout.BeginHorizontal();
-        GUILayout.Space(8);
-        GUILayout.BeginVertical();
-        GUILayout.Space(12);
+        _root = new VisualElement { name = "BuildPipelineWindowRoot" };
+        _root.style.flexDirection = FlexDirection.Row;
+        _root.style.flexGrow = 1f;
+        _root.style.backgroundColor = BuildPipelineUI.WindowBackgroundColor;
+        rootVisualElement.Add(_root);
+
+        _sidebar = new VisualElement { name = "Sidebar" };
+        _sidebar.style.width = _sidebarWidth;
+        _sidebar.style.minWidth = 100f;
+        _sidebar.style.maxWidth = 300f;
+        _sidebar.style.flexShrink = 0f;
+        _sidebar.style.backgroundColor = BuildPipelineUI.SidebarBackgroundColor;
+        _sidebar.style.paddingLeft = 8f;
+        _sidebar.style.paddingRight = 8f;
+        _sidebar.style.paddingTop = 12f;
+        _root.Add(_sidebar);
+
+        var splitter = new VisualElement { name = "SidebarSplitter" };
+        splitter.style.width = 4f;
+        splitter.style.flexShrink = 0f;
+        splitter.style.backgroundColor = BuildPipelineUI.BorderColor;
+        splitter.RegisterCallback<PointerDownEvent>(OnSplitterPointerDown);
+        splitter.RegisterCallback<PointerMoveEvent>(OnSplitterPointerMove);
+        splitter.RegisterCallback<PointerUpEvent>(OnSplitterPointerUp);
+        _root.Add(splitter);
+
+        var contentShell = new VisualElement { name = "ContentShell" };
+        contentShell.style.flexGrow = 1f;
+        contentShell.style.paddingLeft = 12f;
+        contentShell.style.paddingRight = 12f;
+        contentShell.style.paddingTop = 12f;
+        contentShell.style.paddingBottom = 12f;
+        contentShell.style.flexDirection = FlexDirection.Column;
+        _root.Add(contentShell);
+
+        _disabledHint = new VisualElement { name = "DisabledHint" };
+        _disabledHint.style.height = 28f;
+        _disabledHint.style.marginBottom = 2f;
+        _disabledHint.style.backgroundColor = new Color(0.6f, 0.4f, 0.1f, 0.25f);
+        _disabledHint.style.justifyContent = Justify.Center;
+        _disabledHint.style.display = DisplayStyle.None;
+
+        _disabledHintLabel = BuildPipelineUI.SmallText(string.Empty);
+        _disabledHintLabel.style.marginLeft = 8f;
+        _disabledHint.Add(_disabledHintLabel);
+        contentShell.Add(_disabledHint);
+
+        _contentHost = new VisualElement { name = "ContentHost" };
+        _contentHost.style.flexGrow = 1f;
+        _contentHost.style.flexDirection = FlexDirection.Column;
+        contentShell.Add(_contentHost);
+    }
+
+    /// <summary>
+    /// 根据分组定义构建侧边栏按钮树。
+    /// </summary>
+    private void BuildSidebar()
+    {
+        _panelButtons = new Button[_panels.Length];
+        _groupBodies = new VisualElement[Groups.Length];
+        _groupHeaders = new Label[Groups.Length];
 
         for (int groupIndex = 0; groupIndex < Groups.Length; groupIndex++)
         {
             SidebarGroup group = Groups[groupIndex];
-            Rect headerRect = DrawGroupHeader(group.Label);
+            Label header = CreateGroupHeader(groupIndex, group);
+            _groupHeaders[groupIndex] = header;
+            _sidebar.Add(header);
 
-            bool groupExpanded = IsGroupExpanded(groupIndex);
-            if (group.Collapsible)
-            {
-                if (Event.current.type == EventType.MouseDown && headerRect.Contains(Event.current.mousePosition))
-                {
-                    _expandedGroupIndex = groupIndex;
-                    Repaint();
-                    Event.current.Use();
-                }
-            }
-
-            if (!groupExpanded)
-            {
-                GUILayout.Space(6);
-                continue;
-            }
-
-            bool prevEnabled = GUI.enabled;
-            if (group.Label == "AB PIPELINE" && !FYAssetSettings.Instance.UseABBackend)
-                GUI.enabled = false;
-            else if (group.Label == "LEGACY PIPELINE" && FYAssetSettings.Instance.UseABBackend)
-                GUI.enabled = false;
+            var body = new VisualElement();
+            body.style.marginBottom = 6f;
+            _groupBodies[groupIndex] = body;
+            _sidebar.Add(body);
 
             for (int i = group.StartIndex; i < group.StartIndex + group.Count; i++)
             {
-                if (_panels == null || i >= _panels.Length) continue;
-                DrawPanelButton(i, _panels[i].PanelName);
-            }
+                if (i < 0 || i >= _panels.Length)
+                    continue;
 
-            if (group.Label == "AB PIPELINE" && !FYAssetSettings.Instance.UseABBackend)
-            {
-                GUI.enabled = prevEnabled;
+                int panelIndex = i;
+                Button button = CreatePanelButton(panelIndex, _panels[i].PanelName);
+                _panelButtons[panelIndex] = button;
+                body.Add(button);
             }
-            else if (group.Label == "LEGACY PIPELINE" && FYAssetSettings.Instance.UseABBackend)
-            {
-                GUI.enabled = prevEnabled;
-            }
-
-            GUILayout.Space(6);
         }
 
-        GUILayout.EndVertical();
-        GUILayout.Space(8);
-        GUILayout.EndHorizontal();
-
-        GUILayout.EndArea();
+        RefreshSidebar();
     }
 
-    private Rect DrawGroupHeader(string label)
+    /// <summary>
+    /// 创建所有子面板的 UI Toolkit 内容，并先隐藏到内容宿主中。
+    /// </summary>
+    private void BuildContent()
     {
-        Rect headerRect = EditorGUILayout.GetControlRect(false, 20);
+        _contentHost.Clear();
+        _panelContents = new VisualElement[_panels.Length];
 
-        GUIStyle headerStyle = new GUIStyle(EditorStyles.miniLabel)
+        for (int i = 0; i < _panels.Length; i++)
         {
-            alignment = TextAnchor.MiddleLeft,
-            fontSize = 10,
-            fontStyle = FontStyle.Bold,
-            normal =
-            {
-                textColor = EditorGUIUtility.isProSkin ? new Color(0.5f, 0.5f, 0.5f) : new Color(0.4f, 0.4f, 0.4f)
-            }
-        };
-
-        Rect textRect = headerRect;
-        textRect.xMin += 4;
-        string displayLabel = label;
-        int groupIndex = GetGroupIndexByLabel(label);
-        if (groupIndex >= 0 && Groups[groupIndex].Collapsible)
-        {
-            displayLabel = (IsGroupExpanded(groupIndex) ? "▼ " : "▶ ") + label;
+            VisualElement content = _panels[i].CreateContent();
+            content.style.flexGrow = 1f;
+            content.style.display = DisplayStyle.None;
+            _panelContents[i] = content;
+            _contentHost.Add(content);
         }
-
-        GUI.Label(textRect, displayLabel, headerStyle);
-
-        // 分组标题下方的分隔线
-        float lineY = headerRect.yMax - 1;
-        EditorGUI.DrawRect(new Rect(headerRect.x + 4, lineY, headerRect.width - 8, 1),
-            EditorGUIUtility.isProSkin ? new Color(0.35f, 0.35f, 0.35f) : new Color(0.6f, 0.6f, 0.6f));
-
-        return headerRect;
     }
 
-    private void DrawPanelButton(int index, string panelName)
+    /// <summary>
+    /// 创建侧边栏分组标题；可折叠分组点击后会切换展开状态。
+    /// </summary>
+    private Label CreateGroupHeader(int groupIndex, SidebarGroup group)
     {
-        bool isActive = _activePanelIndex == index;
-        Rect btnRect = EditorGUILayout.GetControlRect(false, 34);
+        var header = new Label();
+        header.style.height = 20f;
+        header.style.unityTextAlign = TextAnchor.MiddleLeft;
+        header.style.fontSize = 10f;
+        header.style.unityFontStyleAndWeight = FontStyle.Bold;
+        header.style.color = EditorGUIUtility.isProSkin ? new Color(0.5f, 0.5f, 0.5f) : new Color(0.4f, 0.4f, 0.4f);
+        header.style.borderBottomWidth = 1f;
+        header.style.borderBottomColor = BuildPipelineUI.BorderColor;
+        header.style.marginBottom = 4f;
+        header.style.paddingLeft = 4f;
 
-        if (isActive)
+        if (group.Collapsible)
         {
-            EditorGUI.DrawRect(btnRect, new Color(0.17f, 0.36f, 0.53f, 1f));
-        }
-        else if (btnRect.Contains(Event.current.mousePosition))
-        {
-            EditorGUI.DrawRect(btnRect, new Color(0.3f, 0.3f, 0.3f, 0.5f));
+            header.RegisterCallback<PointerDownEvent>(evt =>
+            {
+                if (evt.button != 0)
+                    return;
+
+                _expandedGroupIndex = groupIndex;
+                RefreshSidebar();
+                evt.StopPropagation();
+            });
         }
 
-        GUIStyle labelStyle = new GUIStyle(EditorStyles.label)
+        return header;
+    }
+
+    /// <summary>
+    /// 创建单个面板入口按钮。
+    /// </summary>
+    private Button CreatePanelButton(int index, string panelName)
+    {
+        var button = new Button(() => SelectPanel(index, false))
         {
-            alignment = TextAnchor.MiddleLeft,
-            fontSize = 12,
-            fontStyle = isActive ? FontStyle.Bold : FontStyle.Normal,
-            normal = { textColor = isActive ? Color.white : new Color(0.8f, 0.8f, 0.8f) },
-            wordWrap = true
+            text = panelName
         };
-
-        Rect textRect = btnRect;
-        textRect.xMin += 16;
-        GUI.Label(textRect, panelName, labelStyle);
-
-        if (Event.current.type == EventType.MouseDown && Event.current.button == 0 &&
-            btnRect.Contains(Event.current.mousePosition))
-        {
-            _activePanelIndex = index;
-            Event.current.Use();
-            GUI.FocusControl(null);
-        }
-
-        GUILayout.Space(2);
+        button.style.height = 34f;
+        button.style.marginBottom = 2f;
+        button.style.paddingLeft = 16f;
+        button.style.unityTextAlign = TextAnchor.MiddleLeft;
+        button.style.whiteSpace = WhiteSpace.Normal;
+        button.style.borderTopWidth = 0f;
+        button.style.borderRightWidth = 0f;
+        button.style.borderBottomWidth = 0f;
+        button.style.borderLeftWidth = 0f;
+        return button;
     }
 
     #endregion
 
-    #region Content
+    #region Interaction
 
-    private void DrawContent()
+    /// <summary>
+    /// 开始拖拽侧边栏宽度。
+    /// </summary>
+    private void OnSplitterPointerDown(PointerDownEvent evt)
     {
-        if (_panels == null || _activePanelIndex < 0 || _activePanelIndex >= _panels.Length)
+        if (evt.button != 0)
             return;
 
-        UpdatePanelVisibility();
-
-        // LEGACY PIPELINE 与 AB PIPELINE 互斥灰显
-        string activeGroup = GetGroupLabelByPanelIndex(_activePanelIndex);
-        bool abEnabled = FYAssetSettings.Instance.UseABBackend;
-        bool isAbPanel = activeGroup == "AB PIPELINE";
-        bool isLegacyPanel = activeGroup == "LEGACY PIPELINE";
-
-        if ((isAbPanel && !abEnabled) || (isLegacyPanel && abEnabled))
-        {
-            Rect hintRect = new Rect(_contentInnerRect.x, _contentInnerRect.y, _contentInnerRect.width, 28f);
-            EditorGUI.DrawRect(hintRect, new Color(0.6f, 0.4f, 0.1f, 0.25f));
-            string hint = isAbPanel
-                ? "  AB Backend is disabled. Enable UseABBackend in Settings to edit."
-                : "  Legacy Pipeline is disabled while UseABBackend is enabled.";
-            GUI.Label(hintRect, hint, EditorStyles.miniLabel);
-
-            Rect panelRect = new Rect(_contentInnerRect.x, _contentInnerRect.y + 30f,
-                _contentInnerRect.width, Mathf.Max(0f, _contentInnerRect.height - 30f));
-            bool prev = GUI.enabled;
-            GUI.enabled = false;
-            _panels[_activePanelIndex].OnGUI(panelRect);
-            GUI.enabled = prev;
-        }
-        else
-        {
-            _panels[_activePanelIndex].OnGUI(_contentInnerRect);
-        }
+        _isDraggingSidebar = true;
+        _dragStartMouse = evt.position;
+        _dragStartWidth = _sidebarWidth;
+        evt.target.CapturePointer(evt.pointerId);
+        evt.StopPropagation();
     }
 
-    private void UpdatePanelVisibility()
+    /// <summary>
+    /// 拖拽过程中实时更新侧边栏宽度。
+    /// </summary>
+    private void OnSplitterPointerMove(PointerMoveEvent evt)
     {
-        if (_lastVisiblePanelIndex == _activePanelIndex)
+        if (!_isDraggingSidebar)
             return;
 
-        if (_lastVisiblePanelIndex >= 0 && _lastVisiblePanelIndex < _panels.Length
-                                        && _panels[_lastVisiblePanelIndex] is IBuildPipelinePanelVisibility previous)
+        float delta = evt.position.x - _dragStartMouse.x;
+        _sidebarWidth = Mathf.Clamp(_dragStartWidth + delta, 100f, 300f);
+        _sidebar.style.width = _sidebarWidth;
+        evt.StopPropagation();
+    }
+
+    /// <summary>
+    /// 结束侧边栏拖拽。
+    /// </summary>
+    private void OnSplitterPointerUp(PointerUpEvent evt)
+    {
+        if (!_isDraggingSidebar)
+            return;
+
+        _isDraggingSidebar = false;
+        evt.target.ReleasePointer(evt.pointerId);
+        evt.StopPropagation();
+    }
+
+    /// <summary>
+    /// 切换当前激活面板，并同步可见性回调、导航状态与禁用提示。
+    /// </summary>
+    private void SelectPanel(int panelIndex, bool force)
+    {
+        if (_panels == null || panelIndex < 0 || panelIndex >= _panels.Length)
+            return;
+
+        if (!force && _activePanelIndex == panelIndex)
+            return;
+
+        if (_lastVisiblePanelIndex >= 0 && _lastVisiblePanelIndex < _panels.Length &&
+            _panels[_lastVisiblePanelIndex] is IBuildPipelinePanelVisibility previous)
         {
             previous.SetVisible(false);
         }
 
-        if (_panels[_activePanelIndex] is IBuildPipelinePanelVisibility current)
+        _activePanelIndex = panelIndex;
+        _lastVisiblePanelIndex = panelIndex;
+
+        for (int i = 0; i < _panelContents.Length; i++)
+            _panelContents[i].style.display = i == panelIndex ? DisplayStyle.Flex : DisplayStyle.None;
+
+        if (_panels[panelIndex] is IBuildPipelinePanelVisibility current)
             current.SetVisible(true);
 
-        _lastVisiblePanelIndex = _activePanelIndex;
+        RefreshSidebar();
+        RefreshDisabledState();
+    }
+
+    /// <summary>
+    /// 刷新侧边栏的展开状态、按钮高亮和 AA/AB 互斥禁用状态。
+    /// </summary>
+    private void RefreshSidebar()
+    {
+        if (_panels == null || _groupBodies == null)
+            return;
+
+        bool useAB = FYAssetSettings.Instance.UseABBackend;
+
+        for (int groupIndex = 0; groupIndex < Groups.Length; groupIndex++)
+        {
+            SidebarGroup group = Groups[groupIndex];
+            bool expanded = IsGroupExpanded(groupIndex);
+            _groupBodies[groupIndex].style.display = expanded ? DisplayStyle.Flex : DisplayStyle.None;
+
+            string prefix = group.Collapsible ? (expanded ? "▼ " : "▶ ") : string.Empty;
+            _groupHeaders[groupIndex].text = prefix + group.Label;
+
+            bool groupEnabled = true;
+            if (group.Label == "AB PIPELINE" && !useAB)
+                groupEnabled = false;
+            else if (group.Label == "AA PIPELINE" && useAB)
+                groupEnabled = false;
+
+            for (int i = group.StartIndex; i < group.StartIndex + group.Count; i++)
+            {
+                if (i < 0 || i >= _panelButtons.Length || _panelButtons[i] == null)
+                    continue;
+
+                Button button = _panelButtons[i];
+                bool active = i == _activePanelIndex;
+                button.SetEnabled(groupEnabled);
+                button.style.backgroundColor = active ? BuildPipelineUI.ActiveColor : Color.clear;
+                button.style.color = active ? Color.white : new Color(0.8f, 0.8f, 0.8f);
+                button.style.unityFontStyleAndWeight = active ? FontStyle.Bold : FontStyle.Normal;
+                button.style.opacity = groupEnabled ? 1f : 0.45f;
+            }
+        }
+    }
+
+    /// <summary>
+    /// 根据当前 Backend 状态刷新禁用提示，并将当前面板置灰。
+    /// </summary>
+    private void RefreshDisabledState()
+    {
+        string activeGroup = GetGroupLabelByPanelIndex(_activePanelIndex);
+        bool abEnabled = FYAssetSettings.Instance.UseABBackend;
+        bool isAbPanel = activeGroup == "AB PIPELINE";
+        bool isAAPanel = activeGroup == "AA PIPELINE";
+        bool disabled = (isAbPanel && !abEnabled) || (isAAPanel && abEnabled);
+
+        _disabledHint.style.display = disabled ? DisplayStyle.Flex : DisplayStyle.None;
+        _disabledHintLabel.text = isAbPanel
+            ? "AB Backend is disabled. Enable UseABBackend in Settings to edit."
+            : "AA Pipeline is disabled while UseABBackend is enabled.";
+
+        if (_activePanelIndex >= 0 && _activePanelIndex < _panelContents.Length)
+        {
+            _panelContents[_activePanelIndex].SetEnabled(!disabled);
+            _panelContents[_activePanelIndex].style.opacity = disabled ? 0.45f : 1f;
+        }
     }
 
     #endregion
 
     #region Public API
 
+    /// <summary>
+    /// 初始化窗口面板顺序。
+    /// 面板实例顺序必须与侧边栏分组定义保持一致。
+    /// </summary>
     public void InitPanels()
     {
         _panels = new IBuildPipelinePanel[]
         {
-            // 设置（索引 0）
             new SettingsPanel(),
-            // 旧管线（索引 1-3）
-            new LegacyConfigPanel(),
-            new LegacyBuildPanel(),
-            new LegacyReportPanel(),
-            // AB 管线（索引 4-7）
+            new AAConfigPanel(),
+            new AABuildPanel(),
+            new AAReportPanel(),
             new CollectorSettingPanel(),
             new CollectorPanel(),
             new PipelinePanel(),
             new BuilderPanel(),
-            // 管理（索引 8）
             new VersionPanel(),
         };
 
@@ -336,6 +432,15 @@ public sealed class BuildPipelineWindow : EditorWindow
 
         _expandedGroupIndex = 0;
         _lastVisiblePanelIndex = -1;
+    }
+
+    /// <summary>
+    /// 在 Settings 等上层状态变化后刷新窗口壳层表现。
+    /// </summary>
+    public void RefreshShell()
+    {
+        RefreshSidebar();
+        RefreshDisabledState();
     }
 
     private bool IsGroupExpanded(int groupIndex)
@@ -348,21 +453,7 @@ public sealed class BuildPipelineWindow : EditorWindow
         if (activeGroupIndex == groupIndex)
             return true;
 
-        if (_expandedGroupIndex < 0 || _expandedGroupIndex >= Groups.Length)
-            return true;
-
         return _expandedGroupIndex == groupIndex;
-    }
-
-    private int GetGroupIndexByLabel(string label)
-    {
-        for (int i = 0; i < Groups.Length; i++)
-        {
-            if (Groups[i].Label == label)
-                return i;
-        }
-
-        return -1;
     }
 
     private int GetGroupIndexByPanelIndex(int panelIndex)

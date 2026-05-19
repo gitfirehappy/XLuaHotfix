@@ -2,82 +2,115 @@ using System;
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 /// <summary>
-/// Collector 目标选择弹窗 —— 选择 Package / Group，并为指定资产创建 File Collector。
+/// 将 Project 中选中的资源批量加入目标 Collector Group 的 UI Toolkit 窗口。
 /// </summary>
-public sealed class CollectorTargetPickerPopup : PopupWindowContent
+public sealed class CollectorTargetPickerWindow : EditorWindow
 {
-    private readonly string[] _assetPaths;
-    private readonly Action _onApplied;
-
+    private string[] _assetPaths = Array.Empty<string>();
+    private Action _onApplied;
     private CollectorSetting _setting;
     private int _selectedPackageIndex;
     private int _selectedGroupIndex;
     private ECollectorType _collectorType = ECollectorType.Main;
     private EForcePayloadKind _forcePayloadKind = EForcePayloadKind.Auto;
 
-    public CollectorTargetPickerPopup(string[] assetPaths, Action onApplied)
+    public static void Show(string[] assetPaths, Action onApplied)
     {
-        _assetPaths = assetPaths ?? Array.Empty<string>();
-        _onApplied = onApplied;
-        LoadSetting();
+        CollectorTargetPickerWindow window = CreateInstance<CollectorTargetPickerWindow>();
+        window.titleContent = new GUIContent("Add To Collector Group");
+        window.minSize = new Vector2(320f, 220f);
+        window._assetPaths = assetPaths ?? Array.Empty<string>();
+        window._onApplied = onApplied;
+        window.LoadSetting();
+        window.ShowUtility();
     }
 
-    public override Vector2 GetWindowSize()
+    public void CreateGUI()
     {
-        return new Vector2(320f, 220f);
+        Build();
     }
 
-    public override void OnGUI(Rect rect)
+    /// <summary>
+    /// 按当前 Package / Group 选择状态重建整个弹窗内容。
+    /// </summary>
+    private void Build()
     {
-        EditorGUILayout.LabelField("Add To Collector Group", EditorStyles.boldLabel);
-        EditorGUILayout.Space(4f);
+        rootVisualElement.Clear();
+        rootVisualElement.style.paddingLeft = 8f;
+        rootVisualElement.style.paddingRight = 8f;
+        rootVisualElement.style.paddingTop = 8f;
+        rootVisualElement.style.paddingBottom = 8f;
+
+        rootVisualElement.Add(BuildPipelineUI.Header("Add To Collector Group"));
 
         if (_setting == null || _setting.Packages == null || _setting.Packages.Count == 0)
         {
-            EditorGUILayout.HelpBox("CollectorSetting is missing or has no Package configured.", MessageType.Warning);
+            rootVisualElement.Add(BuildPipelineUI.SmallText("CollectorSetting is missing or has no Package configured."));
             return;
         }
 
         string[] packageNames = GetPackageNames();
-        _selectedPackageIndex = EditorGUILayout.Popup("Package", Mathf.Clamp(_selectedPackageIndex, 0, packageNames.Length - 1), packageNames);
+        var packagePopup = new PopupField<string>(new List<string>(packageNames), Mathf.Clamp(_selectedPackageIndex, 0, packageNames.Length - 1));
+        packagePopup.label = "Package";
+        packagePopup.RegisterValueChangedCallback(evt =>
+        {
+            _selectedPackageIndex = Array.IndexOf(packageNames, evt.newValue);
+            _selectedGroupIndex = 0;
+            Build();
+        });
+        rootVisualElement.Add(packagePopup);
 
         string[] groupNames = GetGroupNames(_selectedPackageIndex);
         if (groupNames.Length == 0)
         {
-            EditorGUILayout.HelpBox("Selected Package has no Group. Create one in CollectorSettingPanel first.", MessageType.Warning);
+            rootVisualElement.Add(BuildPipelineUI.SmallText("Selected Package has no Group. Create one in CollectorSettingPanel first."));
             return;
         }
 
-        _selectedGroupIndex = EditorGUILayout.Popup("Group", Mathf.Clamp(_selectedGroupIndex, 0, groupNames.Length - 1), groupNames);
-        _collectorType = (ECollectorType)EditorGUILayout.EnumPopup("Collector Type", _collectorType);
-        _forcePayloadKind = (EForcePayloadKind)EditorGUILayout.EnumPopup("Payload", _forcePayloadKind);
+        var groupPopup = new PopupField<string>(new List<string>(groupNames), Mathf.Clamp(_selectedGroupIndex, 0, groupNames.Length - 1));
+        groupPopup.label = "Group";
+        groupPopup.RegisterValueChangedCallback(evt => _selectedGroupIndex = Array.IndexOf(groupNames, evt.newValue));
+        rootVisualElement.Add(groupPopup);
 
-        EditorGUILayout.Space(6f);
-        EditorGUILayout.LabelField("Assets", EditorStyles.boldLabel);
+        var collectorType = new EnumField("Collector Type", _collectorType);
+        collectorType.RegisterValueChangedCallback(evt => _collectorType = (ECollectorType)evt.newValue);
+        rootVisualElement.Add(collectorType);
+
+        var payload = new EnumField("Payload", _forcePayloadKind);
+        payload.RegisterValueChangedCallback(evt => _forcePayloadKind = (EForcePayloadKind)evt.newValue);
+        rootVisualElement.Add(payload);
+
+        rootVisualElement.Add(BuildPipelineUI.Header("Assets"));
         for (int i = 0; i < _assetPaths.Length; i++)
-            EditorGUILayout.LabelField("• " + _assetPaths[i], EditorStyles.miniLabel);
+            rootVisualElement.Add(BuildPipelineUI.SmallText(_assetPaths[i]));
 
-        EditorGUILayout.Space(8f);
-        EditorGUILayout.BeginHorizontal();
-        GUILayout.FlexibleSpace();
-        if (GUILayout.Button("Cancel", GUILayout.Width(72f)))
-            editorWindow.Close();
-        if (GUILayout.Button("Add", GUILayout.Width(72f)))
-            ApplySelection();
-        EditorGUILayout.EndHorizontal();
+        VisualElement footer = new VisualElement();
+        footer.style.flexDirection = FlexDirection.Row;
+        footer.style.justifyContent = Justify.FlexEnd;
+        footer.style.marginTop = 8f;
+        footer.Add(new Button(Close) { text = "Cancel" });
+        footer.Add(new Button(ApplySelection) { text = "Add" });
+        rootVisualElement.Add(footer);
     }
 
+    /// <summary>
+    /// 加载当前 CollectorSetting，并初始化默认选择项。
+    /// </summary>
     private void LoadSetting()
     {
         CollectorDataMigrator.EnsureDataFolder();
-        CollectorDataMigrator.MigrateFromLegacyPath();
+        CollectorDataMigrator.MigrateFromAAPath();
         _setting = AssetDatabase.LoadAssetAtPath<CollectorSetting>(FYAssetSettings.Instance.CollectorSettingPath);
         _selectedPackageIndex = 0;
         _selectedGroupIndex = 0;
     }
 
+    /// <summary>
+    /// 获取 Package 下拉框显示名列表。
+    /// </summary>
     private string[] GetPackageNames()
     {
         List<string> names = new List<string>();
@@ -86,10 +119,12 @@ public sealed class CollectorTargetPickerPopup : PopupWindowContent
             string packageName = _setting.Packages[i]?.PackageName;
             names.Add(string.IsNullOrEmpty(packageName) ? "(unnamed package)" : packageName);
         }
-
         return names.ToArray();
     }
 
+    /// <summary>
+    /// 获取指定 Package 下的 Group 下拉框显示名列表。
+    /// </summary>
     private string[] GetGroupNames(int packageIndex)
     {
         if (packageIndex < 0 || packageIndex >= _setting.Packages.Count)
@@ -105,10 +140,13 @@ public sealed class CollectorTargetPickerPopup : PopupWindowContent
             string groupName = package.Groups[i]?.GroupName;
             names.Add(string.IsNullOrEmpty(groupName) ? "(unnamed group)" : groupName);
         }
-
         return names.ToArray();
     }
 
+    /// <summary>
+    /// 将当前弹窗中的资源选择写入目标 Group。
+    /// 已被其他 Collector 收录的资源会被跳过，避免重复收录。
+    /// </summary>
     private void ApplySelection()
     {
         if (_setting == null || _selectedPackageIndex < 0 || _selectedPackageIndex >= _setting.Packages.Count)
@@ -119,8 +157,7 @@ public sealed class CollectorTargetPickerPopup : PopupWindowContent
             return;
 
         CollectorGroup group = package.Groups[_selectedGroupIndex];
-        if (group.Collectors == null)
-            group.Collectors = new List<Collector>();
+        group.Collectors ??= new List<Collector>();
 
         Undo.RecordObject(_setting, "Add Asset To Collector Group");
 
@@ -154,7 +191,6 @@ public sealed class CollectorTargetPickerPopup : PopupWindowContent
         AssetDatabase.SaveAssets();
         CollectorReverseIndex.Instance.MarkDirty();
         _onApplied?.Invoke();
-        editorWindow.Close();
+        Close();
     }
-
 }

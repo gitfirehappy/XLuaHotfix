@@ -11,13 +11,13 @@ public static class PackageCleaner
     /// </summary>
     public static void ClearAllHotfix()
     {
-        if (FileHelper.DirectoryExists(PathManager.HotfixRoot))
+        if (FileHelper.DirectoryExists(RuntimePathManager.HotfixRoot))
         {
-            FileHelper.TryDeleteDirectory(PathManager.HotfixRoot, true);
-            Debug.Log($"[PackageCleaner] 已清空热更根目录: {PathManager.HotfixRoot}");
+            FileHelper.TryDeleteDirectory(RuntimePathManager.HotfixRoot, true);
+            Debug.Log($"[PackageCleaner] 已清空热更根目录: {RuntimePathManager.HotfixRoot}");
         }
 
-        PathManager.EnsureDirectories();
+        RuntimePathManager.EnsureDirectories();
     }
 
     /// <summary>
@@ -27,7 +27,7 @@ public static class PackageCleaner
     /// <param name="maxKeepCount">保留最近的包体数量（包括当前包），建议设为2以便进行差异比对</param>
     public static void CleanOldBuildPackages(int maxKeepCount = 2)
     {
-        if (!FileHelper.DirectoryExists(PathManager.HotfixRoot))
+        if (!FileHelper.DirectoryExists(RuntimePathManager.HotfixRoot))
         {
             Debug.Log("[PackageCleaner] HotfixRoot 不存在，无需清理旧包体");
             return;
@@ -36,11 +36,11 @@ public static class PackageCleaner
         try
         {
             // 获取当前定位的包体目录名称 (e.g. Build_xxxx)
-            // PathManager.CurrentGUIDRoot format: .../Hotfix/Build_xxxx
-            string currentBuildDirName = new DirectoryInfo(PathManager.CurrentGUIDRoot).Name;
+            // RuntimePathManager.CurrentGUIDRoot format: .../Hotfix/Build_xxxx
+            string currentBuildDirName = new DirectoryInfo(RuntimePathManager.CurrentGUIDRoot).Name;
 
             // 获取所有 Build_xxxx 目录
-            var allBuildDirs = FileHelper.GetDirectories(PathManager.HotfixRoot, "Build_*")
+            var allBuildDirs = FileHelper.GetDirectories(RuntimePathManager.HotfixRoot, "Build_*")
                 .Select(path => new DirectoryInfo(path))
                 .ToList();
 

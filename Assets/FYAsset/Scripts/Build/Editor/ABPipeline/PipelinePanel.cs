@@ -1,110 +1,171 @@
 using System;
 using UnityEditor;
+using UnityEditor.UIElements;
 using UnityEngine;
 using UnityEngine.UIElements;
 
 /// <summary>
-/// Pipeline 配置面板 —— 顶栏编辑构建选项，下方展示只读 DAG。
-/// 统一管理 DAG 校验、构建执行、状态可视化和配置编辑四大职责。
+/// BuildPipeline 面板。
+/// 负责构建触发、配置校验、Build Options 编辑以及只读 BuildGraph 展示。
 /// </summary>
 public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
 {
-    #region Fields
-
     private BuildPipelineConfig _config;
     private SerializedObject _serializedConfig;
     private EditorWindow _window;
-    private VisualElement _graphRoot;
+    private VisualElement _root;
+    private VisualElement _optionsRow;
+    private VisualElement _graphHost;
     private BuildGraphView _graphView;
-    private string _taskStatus = "0/0 tasks enabled";
-    private string _validationStatus = string.Empty;
-    private Color _validationColor = Color.gray;
+    private Label _taskStatusLabel;
+    private Label _validationStatusLabel;
+    private EnumField _buildModeField;
     private BuildType _buildMode = BuildType.Hotfix;
     private bool _isBuildRunning;
 
-    #endregion
-
-    #region Properties
-
     public string PanelName => "Pipeline";
 
-    #endregion
-
-    #region Lifecycle
-
-    /// <summary>
-    /// 面板启用：创建 GraphView 并注入到 EditorWindow 的 VisualElement 树中。
-    /// </summary>
     public void OnEnable(EditorWindow window)
     {
         _window = window;
-
-        _graphRoot = new VisualElement();
-        _graphRoot.style.position = Position.Absolute;
-        _graphRoot.style.display = DisplayStyle.None;
-        _graphRoot.style.flexDirection = FlexDirection.Column;
-        _graphRoot.style.backgroundColor = new Color(0.235f, 0.235f, 0.235f);
-
-        _graphView = new BuildGraphView();
-        _graphView.style.flexGrow = 1;
-        _graphView.OnConfigChanged += RefreshStatus;
-        _graphRoot.Add(_graphView);
-
-        window.rootVisualElement.Add(_graphRoot);
         LoadConfig();
     }
 
-    /// <summary>
-    /// 面板禁用：清理事件订阅并从 EditorWindow 中移除 GraphView。
-    /// </summary>
+    public VisualElement CreateContent()
+    {
+        _root = new VisualElement();
+        _root.style.flexGrow = 1f;
+        _root.style.flexDirection = FlexDirection.Column;
+        Rebuild();
+        return _root;
+    }
+
     public void OnDisable()
     {
         if (_graphView != null)
-        {
             _graphView.OnConfigChanged -= RefreshStatus;
-        }
 
-        if (_graphRoot != null && _window != null)
-        {
-            _window.rootVisualElement.Remove(_graphRoot);
-        }
+        _root?.Unbind();
+        _root = null;
+        _graphView = null;
+    }
+
+    public void SetVisible(bool visible)
+    {
     }
 
     /// <summary>
-    /// 面板绘制：决定走空配置视图（无 config）还是正常顶栏+构建选项+DAG 视图。
+    /// 按当前 BuildPipelineConfig 重建面板内容。
     /// </summary>
-    public void OnGUI(Rect windowRect)
+    private void Rebuild()
     {
-        GUILayout.BeginArea(windowRect);
+        if (_root == null)
+            return;
+
+        _root.Clear();
+        _root.Unbind();
+
+        DrawTopBar();
 
         if (_config == null)
         {
-            DrawTopBar();
             DrawNoConfig();
-        }
-        else
-        {
-            DrawTopBar();
-            DrawBuildOptionsBar();
-            DrawGraphHost(windowRect);
+            return;
         }
 
-        GUILayout.EndArea();
+        DrawBuildOptionsBar();
+        DrawGraph();
+        RefreshStatus();
     }
 
     /// <summary>
-    /// 面板显隐控制。不销毁 GraphView，仅切换 display 避免重建开销。
+    /// 绘制顶部工具栏：重载、校验、Build Mode、构建按钮和状态文本。
     /// </summary>
-    public void SetVisible(bool visible)
+    private void DrawTopBar()
     {
-        if (_graphRoot == null)
+        VisualElement toolbar = BuildPipelineUI.Toolbar();
+        toolbar.Add(BuildPipelineUI.ToolbarButton("Reload", () =>
+        {
+            LoadConfig();
+            Rebuild();
+        }, 60f));
+        toolbar.Add(BuildPipelineUI.ToolbarButton("Validate", HandleValidate, 70f));
+        toolbar.Add(BuildPipelineUI.ToolbarLabel("Build Mode"));
+
+        _buildModeField = new EnumField(_buildMode);
+        _buildModeField.style.width = 84f;
+        _buildModeField.RegisterValueChangedCallback(evt => _buildMode = (BuildType)evt.newValue);
+        toolbar.Add(_buildModeField);
+
+        toolbar.Add(BuildPipelineUI.ToolbarButton("Build", HandleBuild, 56f));
+        toolbar.Add(BuildPipelineUI.Spacer());
+
+        _taskStatusLabel = BuildPipelineUI.ToolbarLabel("0/0 tasks enabled");
+        _taskStatusLabel.style.width = 120f;
+        toolbar.Add(_taskStatusLabel);
+
+        _validationStatusLabel = BuildPipelineUI.ToolbarLabel(string.Empty);
+        _validationStatusLabel.style.minWidth = 120f;
+        toolbar.Add(_validationStatusLabel);
+        _root.Add(toolbar);
+    }
+
+    /// <summary>
+    /// 绘制 Build Options 行，并绑定到 BuildPipelineConfig。
+    /// </summary>
+    private void DrawBuildOptionsBar()
+    {
+        if (_serializedConfig == null)
             return;
 
-        _graphRoot.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
+        _optionsRow = BuildPipelineUI.Card();
+        _optionsRow.style.flexDirection = FlexDirection.Row;
+        _optionsRow.style.alignItems = Align.Center;
+        _optionsRow.style.paddingTop = 4f;
+        _optionsRow.style.paddingBottom = 4f;
+
+        Label label = BuildPipelineUI.Header("Build Options");
+        label.style.width = 96f;
+        label.style.marginBottom = 0f;
+        _optionsRow.Add(label);
+
+        PropertyField fileNameStyle = new PropertyField(_serializedConfig.FindProperty(nameof(BuildPipelineConfig.FileNameStyle)));
+        fileNameStyle.label = string.Empty;
+        fileNameStyle.style.minWidth = 180f;
+        _optionsRow.Add(fileNameStyle);
+
+        PropertyField compression = new PropertyField(_serializedConfig.FindProperty(nameof(BuildPipelineConfig.BundleCompression)));
+        compression.label = string.Empty;
+        compression.style.width = 130f;
+        _optionsRow.Add(compression);
+
+        PropertyField sequential = new PropertyField(_serializedConfig.FindProperty(nameof(BuildPipelineConfig.SequentialMode)), "Sequential");
+        sequential.style.width = 140f;
+        _optionsRow.Add(sequential);
+        _optionsRow.Add(BuildPipelineUI.Spacer());
+        _optionsRow.Bind(_serializedConfig);
+        _root.Add(_optionsRow);
     }
 
     /// <summary>
-    /// 加载 BuildPipelineConfig SO 并确保 backbone Task 存在，然后刷新 GraphView。
+    /// 创建 BuildGraphView 并重新装载当前配置。
+    /// </summary>
+    private void DrawGraph()
+    {
+        _graphHost = new VisualElement();
+        _graphHost.style.flexGrow = 1f;
+        _graphHost.style.backgroundColor = new Color(0.235f, 0.235f, 0.235f);
+
+        _graphView = new BuildGraphView();
+        _graphView.style.flexGrow = 1f;
+        _graphView.OnConfigChanged += RefreshStatus;
+        _graphView.Reload(_config);
+        _graphHost.Add(_graphView);
+        _root.Add(_graphHost);
+    }
+
+    /// <summary>
+    /// 加载 BuildPipelineConfig，并补齐骨架任务。
     /// </summary>
     private void LoadConfig()
     {
@@ -114,143 +175,20 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
             BuildPipelineConfigRepair.EnsureBackboneTasks(_config);
             _serializedConfig = new SerializedObject(_config);
         }
-
-        _graphView?.Reload(_config);
-        RefreshStatus();
+        else
+        {
+            _serializedConfig = null;
+        }
     }
 
-    #endregion
-
-    #region Top Bar
-
     /// <summary>
-    /// 顶栏：构建模式选择、Validate / Build 按钮、当前 Task 状态和校验结果。
-    /// </summary>
-    private void DrawTopBar()
-    {
-        EditorGUILayout.BeginHorizontal(EditorStyles.toolbar);
-        EditorGUI.BeginDisabledGroup(_isBuildRunning);
-        if (GUILayout.Button("Reload", EditorStyles.toolbarButton, GUILayout.Width(60)))
-        {
-            LoadConfig();
-        }
-        if (GUILayout.Button("Validate", EditorStyles.toolbarButton, GUILayout.Width(70)))
-        {
-            HandleValidate();
-        }
-        GUILayout.Space(10);
-        GUILayout.Label("Build Mode", EditorStyles.miniLabel, GUILayout.Width(66));
-        _buildMode = (BuildType)EditorGUILayout.EnumPopup(_buildMode, EditorStyles.toolbarPopup, GUILayout.Width(72));
-        if (GUILayout.Button("Build", EditorStyles.toolbarButton, GUILayout.Width(56)))
-        {
-            HandleBuild();
-        }
-        EditorGUI.EndDisabledGroup();
-        GUILayout.FlexibleSpace();
-        GUILayout.Label(_taskStatus, EditorStyles.miniLabel, GUILayout.Width(120));
-        if (!string.IsNullOrEmpty(_validationStatus))
-        {
-            Color prev = GUI.color;
-            GUI.color = _validationColor;
-            GUILayout.Label(_validationStatus, EditorStyles.miniLabel, GUILayout.MinWidth(120));
-            GUI.color = prev;
-        }
-        EditorGUILayout.EndHorizontal();
-    }
-
-    #endregion
-
-    #region Build Options
-
-    /// <summary>
-    /// 构建选项栏：FileNameStyle、BundleCompression、SequentialMode 三项配置。
-    /// 通过 SerializedObject 直接编辑 BuildPipelineConfig SO 属性，修改后自动标记 Dirty。
-    /// </summary>
-    private void DrawBuildOptionsBar()
-    {
-        if (_serializedConfig == null)
-            return;
-
-        EditorGUI.BeginDisabledGroup(_isBuildRunning);
-        _serializedConfig.Update();
-
-        EditorGUILayout.BeginVertical(EditorStyles.helpBox);
-        EditorGUILayout.BeginHorizontal();
-        EditorGUILayout.LabelField("Build Options", EditorStyles.boldLabel, GUILayout.Width(96));
-        EditorGUILayout.PropertyField(
-            _serializedConfig.FindProperty(nameof(BuildPipelineConfig.FileNameStyle)),
-            GUIContent.none,
-            GUILayout.MinWidth(180));
-        EditorGUILayout.PropertyField(
-            _serializedConfig.FindProperty(nameof(BuildPipelineConfig.BundleCompression)),
-            GUIContent.none,
-            GUILayout.Width(130));
-        EditorGUILayout.PropertyField(
-            _serializedConfig.FindProperty(nameof(BuildPipelineConfig.SequentialMode)),
-            new GUIContent("Sequential"),
-            GUILayout.Width(120));
-        GUILayout.FlexibleSpace();
-        EditorGUILayout.EndHorizontal();
-        EditorGUILayout.EndVertical();
-
-        if (_serializedConfig.ApplyModifiedProperties())
-        {
-            EditorUtility.SetDirty(_config);
-            RefreshStatus();
-        }
-        EditorGUI.EndDisabledGroup();
-    }
-
-    #endregion
-
-    #region Graph Host
-
-    /// <summary>
-    /// 将 BuildGraphView（UIElement）嵌入到 IMGUI 区域的宿主方法。
-    /// 通过 GUIToScreenRect 将 IMGUI 矩形映射为 VisualElement 的绝对坐标。
-    /// </summary>
-    private void DrawGraphHost(Rect windowRect)
-    {
-        SetVisible(true);
-
-        // 留给顶栏 + 构建选项栏共约 74px 高度，其余给 GraphView
-        Rect hostRect = GUILayoutUtility.GetRect(
-            1f,
-            Mathf.Max(1f, windowRect.height - 74f),
-            GUILayout.ExpandWidth(true),
-            GUILayout.ExpandHeight(true));
-
-        Rect screenRect = GUIUtility.GUIToScreenRect(hostRect);
-        Vector2 windowPos = _window.position.position;
-
-        _graphRoot.style.left = screenRect.x - windowPos.x;
-        _graphRoot.style.top = screenRect.y - windowPos.y;
-        _graphRoot.style.width = hostRect.width;
-        _graphRoot.style.height = hostRect.height;
-        bool graphEnabled = GUI.enabled && !_isBuildRunning;
-        _graphRoot.SetEnabled(graphEnabled);
-        _graphRoot.style.opacity = GUI.enabled ? 1f : 0.4f;
-        _graphView?.SetBuildRunning(_isBuildRunning);
-    }
-
-    #endregion
-
-    #region Build Actions
-
-    /// <summary>
-    /// 处理构建按钮点击。流程：
-    /// 1. DAGScheduler.Validate 校验 DAG 拓扑
-    /// 2. 校验失败则阻断构建
-    /// 3. 设置构建运行状态并刷新 UI
-    /// 4. 根据 BuildMode 调用 BuildFullPackage / BuildHotfix
-    /// 5. 读取 BuildProjectManager.LastBuildSuccess 反馈状态栏
+    /// 先执行 DAG 校验，再按当前 Build Mode 触发 Full 或 Hotfix 构建。
     /// </summary>
     private void HandleBuild()
     {
         if (_config == null || _isBuildRunning)
             return;
 
-        // 1. 预校验
         BuildResult validation;
         try
         {
@@ -260,32 +198,27 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
         catch (Exception ex)
         {
             Debug.LogError($"[PipelinePanel] 构建前校验失败: {ex}");
-            _validationStatus = "Validation error";
-            _validationColor = Color.red;
+            SetValidationText("Validation error", Color.red);
             return;
         }
 
-        // 2. 校验失败阻断
         if (validation == null || !validation.Success)
         {
             Debug.LogError("[PipelinePanel] 构建被校验失败阻断。");
             return;
         }
 
-        // 3. 设置运行态 UI
         _isBuildRunning = true;
-        _validationStatus = "Build running...";
-        _validationColor = new Color(1f, 0.85f, 0.3f);
+        SetValidationText("Build running...", new Color(1f, 0.85f, 0.3f));
         _graphView?.ResetExecutionStatuses();
         _graphView?.SetBuildRunning(true);
-        _window?.Repaint();
+        SetRunningEnabled(false);
 
         var options = new BuildExecutionOptions
         {
             TaskStatusChanged = OnTaskStatusChanged
         };
 
-        // 4. 执行构建
         try
         {
             if (_buildMode == BuildType.Full)
@@ -293,53 +226,46 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
             else
                 BuildProjectManager.BuildHotfix(options);
 
-            // 5. 反馈状态
-            _validationStatus = BuildProjectManager.LastBuildSuccess ? "Build complete" : "Build failed";
-            _validationColor = BuildProjectManager.LastBuildSuccess
-                ? new Color(0.3f, 1f, 0.3f)
-                : Color.red;
+            SetValidationText(BuildProjectManager.LastBuildSuccess ? "Build complete" : "Build failed",
+                BuildProjectManager.LastBuildSuccess ? new Color(0.3f, 1f, 0.3f) : Color.red);
         }
         catch (Exception ex)
         {
             Debug.LogError($"[PipelinePanel] 构建失败: {ex}");
-            _validationStatus = "Build exception";
-            _validationColor = Color.red;
+            SetValidationText("Build exception", Color.red);
         }
         finally
         {
             _isBuildRunning = false;
             _graphView?.SetBuildRunning(false);
-            _window?.Repaint();
+            SetRunningEnabled(true);
         }
     }
 
     /// <summary>
-    /// 处理 Validate 按钮点击。调用 DAGScheduler.Validate 并更新状态栏颜色。
+    /// 执行一次显式校验，并把结果写到状态栏。
     /// </summary>
     private void HandleValidate()
     {
         if (_config == null)
         {
-            _validationStatus = "Validation error";
-            _validationColor = Color.red;
+            SetValidationText("Validation error", Color.red);
             return;
         }
 
         try
         {
-            BuildResult result = DAGScheduler.Validate(_config);
-            SetValidationStatus(result);
+            SetValidationStatus(DAGScheduler.Validate(_config));
         }
         catch (Exception ex)
         {
             Debug.LogError($"[PipelinePanel] 校验失败: {ex.Message}");
-            _validationStatus = "Validation error";
-            _validationColor = Color.red;
+            SetValidationText("Validation error", Color.red);
         }
     }
 
     /// <summary>
-    /// 构建过程中每个 Task 状态变化时回调，将事件转发给 GraphView 更新节点颜色。
+    /// 将构建过程中的单任务执行状态同步到 BuildGraphView。
     /// </summary>
     private void OnTaskStatusChanged(BuildTaskExecutionEvent evt)
     {
@@ -348,34 +274,32 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
     }
 
     /// <summary>
-    /// 刷新顶栏 Task 状态计数（enabled / total）。
+    /// 刷新任务启用计数摘要。
     /// </summary>
     private void RefreshStatus()
     {
         int taskCount = _config?.Tasks?.Count ?? 0;
         int enabledCount = _config?.Tasks?.FindAll(e => e.Enabled).Count ?? 0;
-        _taskStatus = $"{enabledCount}/{taskCount} tasks enabled";
+        if (_taskStatusLabel != null)
+            _taskStatusLabel.text = $"{enabledCount}/{taskCount} tasks enabled";
     }
 
     /// <summary>
-    /// 将 BuildResult 映射为状态栏文字和颜色。
-    /// Success -> 绿色 "N tasks OK"（有 Warning 时黄色 "N warning(s)"）；
-    /// 失败 -> 红色，显示第一个 Fatal Error 的前 60 字符。
+    /// 根据 BuildResult 更新顶部校验状态文本。
     /// </summary>
     private void SetValidationStatus(BuildResult result)
     {
         if (result == null)
         {
-            _validationStatus = "Validation error";
-            _validationColor = Color.red;
+            SetValidationText("Validation error", Color.red);
             return;
         }
 
         if (result.Success)
         {
             int warnings = result.TaskResults?.FindAll(r => !r.Success).Count ?? 0;
-            _validationStatus = warnings > 0 ? $"{warnings} warning(s)" : $"{result.TotalTasks} tasks OK";
-            _validationColor = warnings > 0 ? new Color(1f, 0.85f, 0.3f) : new Color(0.3f, 1f, 0.3f);
+            SetValidationText(warnings > 0 ? $"{warnings} warning(s)" : $"{result.TotalTasks} tasks OK",
+                warnings > 0 ? new Color(1f, 0.85f, 0.3f) : new Color(0.3f, 1f, 0.3f));
             return;
         }
 
@@ -383,59 +307,62 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
         if (errors != null && errors.Count > 0)
         {
             string first = errors[0].ErrorMessage;
-            _validationStatus = first.Length > 60 ? first.Substring(0, 57) + "..." : first;
+            SetValidationText(first.Length > 60 ? first.Substring(0, 57) + "..." : first, Color.red);
         }
         else
         {
-            _validationStatus = "Validation failed";
+            SetValidationText("Validation failed", Color.red);
         }
-        _validationColor = Color.red;
     }
 
-    #endregion
+    /// <summary>
+    /// 统一设置顶部状态文本及颜色。
+    /// </summary>
+    private void SetValidationText(string text, Color color)
+    {
+        if (_validationStatusLabel == null)
+            return;
 
-    #region Empty Config State
+        _validationStatusLabel.text = text;
+        _validationStatusLabel.style.color = color;
+    }
 
     /// <summary>
-    /// 无 BuildPipelineConfig 时的空状态视图，提供创建入口。
+    /// 构建运行时统一禁用可编辑控件，避免并发修改配置。
+    /// </summary>
+    private void SetRunningEnabled(bool enabled)
+    {
+        _buildModeField?.SetEnabled(enabled);
+        _optionsRow?.SetEnabled(enabled);
+        _graphHost?.SetEnabled(enabled);
+    }
+
+    /// <summary>
+    /// BuildPipelineConfig 缺失时显示创建入口。
     /// </summary>
     private void DrawNoConfig()
     {
-        SetVisible(false);
-
-        GUILayout.FlexibleSpace();
-        GUILayout.BeginHorizontal();
-        GUILayout.FlexibleSpace();
-        GUILayout.Label("No BuildPipelineConfig found at " + FYAssetSettings.Instance.PipelineConfigPath, EditorStyles.centeredGreyMiniLabel);
-        GUILayout.FlexibleSpace();
-        GUILayout.EndHorizontal();
-
-        GUILayout.BeginHorizontal();
-        GUILayout.FlexibleSpace();
-        if (GUILayout.Button("Create BuildPipelineConfig", GUILayout.Width(200), GUILayout.Height(36)))
+        VisualElement panel = BuildPipelineUIToolkitPanel.CreateCenteredPanel(_root, 460f);
+        panel.Add(BuildPipelineUIToolkitPanel.CreateBody("No BuildPipelineConfig found at " + FYAssetSettings.Instance.PipelineConfigPath));
+        panel.Add(new Button(CreateConfig)
         {
-            CreateConfig();
-        }
-        GUILayout.FlexibleSpace();
-        GUILayout.EndHorizontal();
-        GUILayout.FlexibleSpace();
+            text = "Create BuildPipelineConfig"
+        });
     }
 
     /// <summary>
-    /// 在 Assets/Build 目录下创建 BuildPipelineConfig SO 并刷新面板。
+    /// 创建新的 BuildPipelineConfig 资产并立即加载。
     /// </summary>
     private void CreateConfig()
     {
         if (!AssetDatabase.IsValidFolder("Assets/Build"))
-        {
             AssetDatabase.CreateFolder("Assets", "Build");
-        }
+
         var config = ScriptableObject.CreateInstance<BuildPipelineConfig>();
         AssetDatabase.CreateAsset(config, FYAssetSettings.Instance.PipelineConfigPath);
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
         LoadConfig();
+        Rebuild();
     }
-
-    #endregion
 }

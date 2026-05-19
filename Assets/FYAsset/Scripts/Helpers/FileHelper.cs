@@ -6,7 +6,7 @@ using UnityEngine.Networking;
 
 /// <summary>
 /// 跨平台文件 I/O 工具类。
-/// 定位：与 NetworkDownloader / PathManager / SerializationUtility 同级的基础设施层。
+/// 定位：与 NetworkDownloader / RuntimePathManager / SerializationUtility 同级的基础设施层。
 /// </summary>
 public static class FileHelper
 {

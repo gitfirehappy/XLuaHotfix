@@ -1,12 +1,11 @@
-using System.Collections;
-using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
 
 /// <summary>
-/// 用户端路径管理
+/// 运行时路径管理。
+/// 管理 persistentDataPath 下的热更、缓存、存档和日志目录。
 /// </summary>
-public static class PathManager
+public static class RuntimePathManager
 {
     public static string PersistentRoot => Path.Combine(Application.persistentDataPath, FYAssetSettings.Instance.ProjectName);
     
@@ -49,7 +48,7 @@ public static class PathManager
         SaveRoot = Path.Combine(EnvRoot, "Saves");
         LogRoot = Path.Combine(EnvRoot, "Logs");
         
-        Debug.Log($"[PathManager] 路径已锁定至 GUID: {guidDir}\nRoot: {CurrentGUIDRoot}");
+        Debug.Log($"[RuntimePathManager] 路径已锁定至 GUID: {guidDir}\nRoot: {CurrentGUIDRoot}");
     }
 
     /// <summary>
@@ -60,7 +59,7 @@ public static class PathManager
     {
         if (string.IsNullOrEmpty(newBuildName))
         {
-            Debug.LogError("[PathManager] SwitchToNewBuild: newBuildName 不能为空");
+            Debug.LogError("[RuntimePathManager] SwitchToNewBuild: newBuildName 不能为空");
             return;
         }
         
@@ -68,7 +67,7 @@ public static class PathManager
         if (!guidDir.StartsWith("Build_")) guidDir = "Build_" + guidDir;
         
         CurrentGUIDRoot = Path.Combine(HotfixRoot, guidDir);
-        Debug.Log($"[PathManager] 已切换至新 Build: {guidDir}\nRoot: {CurrentGUIDRoot}");
+        Debug.Log($"[RuntimePathManager] 已切换至新 Build: {guidDir}\nRoot: {CurrentGUIDRoot}");
     }
 
     public static void EnsureDirectories()

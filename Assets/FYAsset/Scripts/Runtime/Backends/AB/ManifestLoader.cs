@@ -6,7 +6,7 @@ using UnityEngine;
 /// 最小化清单加载器 — 负责从磁盘读取 ABManifest.bin/.json 并反序列化。
 ///
 /// 路径策略：
-/// 1. Primary: PathManager.CurrentGUIDRoot/（热更目录）
+/// 1. Primary: RuntimePathManager.CurrentGUIDRoot/（热更目录）
 /// 2. Fallback: Application.streamingAssetsPath/（包内初始资源）
 ///
 /// 文件搜索顺序（每个目录）：
@@ -29,7 +29,7 @@ public static class ManifestLoader
     /// </summary>
     public static async Task<ABManifest> LoadAsync()
     {
-        string primaryDir = PathManager.CurrentGUIDRoot;
+        string primaryDir = RuntimePathManager.CurrentGUIDRoot;
         string fallbackDir = Application.streamingAssetsPath;
 
         string primaryBinPath = Path.Combine(primaryDir, ManifestFileNameBin);

@@ -8,7 +8,7 @@ using UnityEngine;
 /// AB 热更后端 — 基于自研 ABManifest 方案的 IHotfixPipeline 实现。
 ///
 /// 设计说明：
-/// - 直接替代 LegacyHotfixBackend，无需 Addressables 依赖
+/// - 直接替代 AAHotfixBackend，无需 Addressables 依赖
 /// - 使用 ABManifest 替代 AAManifest.json + catalog.json 双文件结构
 /// - 通过 SerializationUtility 支持二进制(.bin)和 JSON 两种格式
 /// - 优先读取二进制格式（体积更小、解析更快），回退到 JSON 格式
@@ -20,7 +20,7 @@ using UnityEngine;
 /// 4. GetBundleDownloadList → 从 ABManifest 提取 Bundle 列表
 /// 5. PostDownloadAsync → 将缓存的 ABManifest 写入目标目录
 ///
-/// 与 Legacy 后端的差异：
+/// 与 AA 后端的差异：
 /// - 无需 Addressables.InitializeAsync
 /// - 无需下载 catalog.json
 /// - 元数据文件从 2 个减少到 1 个

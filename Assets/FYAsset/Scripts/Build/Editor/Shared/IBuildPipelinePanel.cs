@@ -1,20 +1,21 @@
 using UnityEditor;
+using UnityEngine.UIElements;
 
 /// <summary>
-/// BuildPipelineWindow 子面板统一接口。
-/// 每个功能区域（Collector / Pipeline / Builder / Inspector / Settings）分别实现。
+/// BuildPipelineWindow 子面板协议。
+/// 面板统一通过 UI Toolkit 渲染，并由 BuildPipelineWindow 承载。
 /// </summary>
 public interface IBuildPipelinePanel
 {
     string PanelName { get; }
     void OnEnable(EditorWindow window);
-    void OnGUI(UnityEngine.Rect rect);
+    VisualElement CreateContent();
     void OnDisable();
 }
 
 /// <summary>
-/// 可见性回调接口。用于 IMGUI 面板切换时显式控制 UI Toolkit 覆盖层，
-/// 避免面板自行通过 EditorApplication.update 猜测显示状态。
+/// 可选可见性回调。
+/// 供需要感知显示/隐藏生命周期的面板实现。
 /// </summary>
 public interface IBuildPipelinePanelVisibility
 {

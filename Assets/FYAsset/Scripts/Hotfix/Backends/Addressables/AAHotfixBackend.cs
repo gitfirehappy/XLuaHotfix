@@ -7,7 +7,7 @@ using UnityEngine;
 using UnityEngine.AddressableAssets;
 
 /// <summary>
-/// Legacy 热更后端 — 封装现有 Addressables 版本链路的 IHotfixPipeline 实现。
+/// AA 热更后端 — 封装现有 Addressables 版本链路的 IHotfixPipeline 实现。
 ///
 /// 设计说明：
 /// - 保持与重构前 HotfixManager 完全相同的行为（零变更）
@@ -27,7 +27,7 @@ using UnityEngine.AddressableAssets;
 /// - 需要下载 catalog.json 并加载外部 Catalog
 /// - 元数据文件为 2 类（manifest + catalog）
 /// </summary>
-public class LegacyHotfixBackend : IHotfixPipeline
+public class AAHotfixBackend : IHotfixPipeline
 {
     /// <summary>远端 AAManifest 原始内容，用于 PostDownload 写入本地</summary>
     private byte[] _remoteManifestData;
@@ -42,7 +42,7 @@ public class LegacyHotfixBackend : IHotfixPipeline
 
     /// <summary>
     /// 后端初始化。
-    /// Legacy: Addressables.InitializeAsync；AB: 无操作。
+    /// AA: Addressables.InitializeAsync；AB: 无操作。
     /// </summary>
     /// <returns>初始化是否成功。</returns>
     public async Task<HotfixStepResult> InitializeBackendAsync()
@@ -52,7 +52,7 @@ public class LegacyHotfixBackend : IHotfixPipeline
         try
         {
             await initHandle.Task;
-            Debug.Log("[LegacyHotfixBackend] Addressables 本地包初始化成功");
+            Debug.Log("[AAHotfixBackend] Addressables 本地包初始化成功");
             return HotfixStepResult.Ok;
         }
         catch (Exception e)
@@ -73,12 +73,13 @@ public class LegacyHotfixBackend : IHotfixPipeline
         try
         {
             var localManifest = LoadLocalManifest(currentGUIDRoot);
-            Debug.Log($"[LegacyHotfixBackend] 本地版本: {localManifest?.Version.GetVersionString()}, Hash: {localManifest?.FileHash}");
+            Debug.Log(
+                $"[AAHotfixBackend] 本地版本: {localManifest?.Version.GetVersionString()}, Hash: {localManifest?.FileHash}");
             return Task.FromResult(ToHotfixVersionInfo(localManifest));
         }
         catch (Exception ex)
         {
-            Debug.LogWarning($"[LegacyHotfixBackend] 本地 AAManifest 读取失败: {ex.Message}");
+            Debug.LogWarning($"[AAHotfixBackend] 本地 AAManifest 读取失败: {ex.Message}");
             return Task.FromResult<HotfixVersionInfo>(null);
         }
     }
@@ -108,12 +109,12 @@ public class LegacyHotfixBackend : IHotfixPipeline
         try
         {
             _remoteManifest = SerializationUtility.Deserialize<AAManifest>(_remoteManifestData);
-            Debug.Log($"[LegacyHotfixBackend] 远端版本: {_remoteManifest?.Version.GetVersionString()}");
+            Debug.Log($"[AAHotfixBackend] 远端版本: {_remoteManifest?.Version.GetVersionString()}");
             return ToHotfixVersionInfo(_remoteManifest);
         }
         catch (Exception ex)
         {
-            Debug.LogError($"[LegacyHotfixBackend] 远端 AAManifest 解析失败: {ex.Message}");
+            Debug.LogError($"[AAHotfixBackend] 远端 AAManifest 解析失败: {ex.Message}");
             return null;
         }
     }
@@ -148,8 +149,12 @@ public class LegacyHotfixBackend : IHotfixPipeline
             return HotfixStepResult.Fail(
                 RuntimeMessage.Error(RuntimeErrorCodes.BundleNotFound, "远端 AAManifest 缓存为空"));
 
-        string fileName = _remoteManifestIsBinary ? FYAssetSettings.AA_MANIFEST_FILE_NAME_BIN : FYAssetSettings.AA_MANIFEST_FILE_NAME;
-        string alternateFileName = _remoteManifestIsBinary ? FYAssetSettings.AA_MANIFEST_FILE_NAME : FYAssetSettings.AA_MANIFEST_FILE_NAME_BIN;
+        string fileName = _remoteManifestIsBinary
+            ? FYAssetSettings.AA_MANIFEST_FILE_NAME_BIN
+            : FYAssetSettings.AA_MANIFEST_FILE_NAME;
+        string alternateFileName = _remoteManifestIsBinary
+            ? FYAssetSettings.AA_MANIFEST_FILE_NAME
+            : FYAssetSettings.AA_MANIFEST_FILE_NAME_BIN;
         FileHelper.TryDelete(Path.Combine(ctx.TargetGUIDRoot, alternateFileName));
         FileHelper.WriteAllBytesAtomic(Path.Combine(ctx.TargetGUIDRoot, fileName), _remoteManifestData);
 
@@ -160,7 +165,7 @@ public class LegacyHotfixBackend : IHotfixPipeline
             return HotfixStepResult.Fail(
                 RuntimeMessage.Error(RuntimeErrorCodes.LoadFailed, "外部 Catalog 加载失败"));
 
-        Debug.Log("[LegacyHotfixBackend] Catalog 下载并加载成功");
+        Debug.Log("[AAHotfixBackend] Catalog 下载并加载成功");
         return HotfixStepResult.Ok;
     }
 

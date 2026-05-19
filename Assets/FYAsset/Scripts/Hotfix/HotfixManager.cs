@@ -145,12 +145,12 @@ public static class HotfixManager
             return null;
         }
 
-        PathManager.Initialize(buildIndex);
+        RuntimePathManager.Initialize(buildIndex);
         CheckAndCleanIfNewBuild(buildIndex);
 
         // 尝试读取已保存的 manifest.json 来覆盖 GUID (断点续传/二次启动)
-        // 使用 PathManager.HotfixRoot 确保读取路径与 StepApplyUpdate 的保存路径一致
-        string localManifestPath = Path.Combine(PathManager.HotfixRoot, "manifest.json");
+        // 使用 RuntimePathManager.HotfixRoot 确保读取路径与 StepApplyUpdate 的保存路径一致
+        string localManifestPath = Path.Combine(RuntimePathManager.HotfixRoot, "manifest.json");
         if (FileHelper.Exists(localManifestPath))
         {
             try
@@ -162,7 +162,7 @@ public static class HotfixManager
                     buildIndex.BuildGUID = localManifest.LatestPackage;
 
                     // 第二次初始化：应用新的 BuildGUID，将 CurrentGUIDRoot 修正为热更包目录
-                    PathManager.Initialize(buildIndex);
+                    RuntimePathManager.Initialize(buildIndex);
                 }
             }
             catch (Exception ex)
@@ -171,7 +171,7 @@ public static class HotfixManager
             }
         }
 
-        PathManager.EnsureDirectories();
+        RuntimePathManager.EnsureDirectories();
         CompleteStep();
         return buildIndex;
     }
@@ -217,7 +217,7 @@ public static class HotfixManager
 
         ctx.TargetPackageName = manifest.LatestPackage;
         ctx.RemoteUrlRoot = $"{HotfixUrl}/Packages/{ctx.TargetPackageName}";
-        ctx.TargetGUIDRoot = Path.Combine(PathManager.HotfixRoot, ctx.TargetPackageName);
+        ctx.TargetGUIDRoot = Path.Combine(RuntimePathManager.HotfixRoot, ctx.TargetPackageName);
 
         Debug.Log($"[HotfixManager] 获取最新包体: {ctx.TargetPackageName}，URL已更新: {ctx.RemoteUrlRoot}");
         CompleteStep();
@@ -230,7 +230,7 @@ public static class HotfixManager
     private static async Task<HotfixVersionInfo> StepLoadLocalVersionAsync(IHotfixPipeline pipeline)
     {
         BeginStep("Load local version", 3);
-        var localInfo = await pipeline.LoadLocalVersionAsync(PathManager.CurrentGUIDRoot);
+        var localInfo = await pipeline.LoadLocalVersionAsync(RuntimePathManager.CurrentGUIDRoot);
         CompleteStep();
         return localInfo;
     }
@@ -267,8 +267,7 @@ public static class HotfixManager
             }
             else
             {
-                ReportError(
-                    $"[HotfixManager] 检测到整包版本不一致，请下载最新整包。本地版本:{buildIndex.Version.GetVersionString()}, 远端版本:{remoteInfo.Version.GetVersionString()}");
+                ReportError($"[HotfixManager] 检测到整包版本不一致，请下载最新整包。本地版本:{buildIndex.Version.GetVersionString()}, 远端版本:{remoteInfo.Version.GetVersionString()}");
                 return Task.FromResult(false);
             }
         }
@@ -338,7 +337,7 @@ public static class HotfixManager
             bool copied = false;
             if (localBundleMap.TryGetValue(bundleInfo.FileHash, out string localName))
             {
-                string localPath = Path.Combine(PathManager.CurrentGUIDRoot, "bundles", localName);
+                string localPath = Path.Combine(RuntimePathManager.CurrentGUIDRoot, "bundles", localName);
                 if (FileHelper.Exists(localPath))
                 {
                     try
@@ -421,7 +420,7 @@ public static class HotfixManager
         BeginStep("Apply update", 9);
 
         // 更新本地记录的 PackageIndex，指向新的包体
-        string manifestPath = Path.Combine(PathManager.HotfixRoot, "manifest.json");
+        string manifestPath = Path.Combine(RuntimePathManager.HotfixRoot, "manifest.json");
         var manifest = new PackageIndex
         {
             LatestPackage = ctx.TargetPackageName,
@@ -431,8 +430,8 @@ public static class HotfixManager
         SerializationUtility.WriteToFile(manifestPath, manifest);
         Debug.Log($"[HotfixManager] 更新 PackageIndex 指针 -> {ctx.TargetPackageName}");
 
-        // 关键：立即切换 PathManager 到新目录，确保后续 InternalIdTransformFunc 能找到正确的 bundles
-        PathManager.SwitchToNewBuild(ctx.TargetPackageName);
+        // 关键：立即切换 RuntimePathManager 到新目录，确保后续 InternalIdTransformFunc 能找到正确的 bundles
+        RuntimePathManager.SwitchToNewBuild(ctx.TargetPackageName);
 
         CompleteStep();
     }
@@ -588,6 +587,6 @@ public static class HotfixManager
     {
         return FYAssetSettings.Instance.UseABBackend
             ? new ABHotfixBackend()
-            : new LegacyHotfixBackend();
+            : new AAHotfixBackend();
     }
 }

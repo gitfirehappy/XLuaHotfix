@@ -1,20 +1,17 @@
 #if UNITY_EDITOR
-using System.Collections.Generic;
 using System.IO;
-using UnityEditor;
 using UnityEngine;
 
 /// <summary>
-/// 构建后路径整理工具
-/// 将 AA 的构建结果整理为：
+/// Addressables 构建产物整理器。
+/// 将 AA 的 ServerData 构建结果整理为：
 /// OutputRoot/
 ///   ├─ catalog.json
-///   ├─ AAManifest.json （这步还没生成）
 ///   └─ bundles/
 ///        ├─ bundle_a.bundle
 ///        └─ bundle_b.bundle
 /// </summary>
-public static class BuildPathCustomizer
+public static class AddressablesBuildOutputOrganizer
 {
     /// <summary>
     /// 整理构建产物
@@ -44,7 +41,7 @@ public static class BuildPathCustomizer
             {
                 string targetPath = Path.Combine(finalOutputDir, "catalog.json");
                 FileHelper.CopyFile(file, targetPath, true);
-                Debug.Log($"[PathCustomizer] Catalog 已复制并重命名: {targetPath}");
+                Debug.Log($"[AddressablesBuildOutputOrganizer] Catalog 已复制并重命名: {targetPath}");
             }
             // 架构使用 AAManifest.json 进行版本比对，不需要 AA 自带的 hash 校验
             else if (fileName.StartsWith("catalog") && extension == ".hash")
@@ -67,27 +64,24 @@ public static class BuildPathCustomizer
             }
         }
         
-        Debug.Log($"[PathCustomizer] 构建产物整理完毕: {finalOutputDir}");
+        Debug.Log($"[AddressablesBuildOutputOrganizer] 构建产物整理完毕: {finalOutputDir}");
     }
     
     /// <summary>
     /// 清理 Addressables 的默认输出目录 (ServerData/[Platform])
     /// </summary>
-    public static void CleanServerData()
+    public static void CleanServerData(string serverDataPath)
     {
-        string platformSubDir = EditorUserBuildSettings.activeBuildTarget.ToString();
-        string serverDataPath = Path.Combine(Directory.GetParent(Application.dataPath).FullName, "ServerData", platformSubDir);
-        
         if (FileHelper.DirectoryExists(serverDataPath))
         {
             try 
             {
                 FileHelper.TryDeleteDirectory(serverDataPath, true);
-                Debug.Log($"[BuildPathCustomizer] 已清空旧构建数据: {serverDataPath}");
+                Debug.Log($"[AddressablesBuildOutputOrganizer] 已清空旧构建数据: {serverDataPath}");
             }
             catch (System.Exception e)
             {
-                Debug.LogWarning($"[BuildPathCustomizer] 清空 ServerData 失败 (可能是文件占用)，请手动检查: {e.Message}");
+                Debug.LogWarning($"[AddressablesBuildOutputOrganizer] 清空 ServerData 失败 (可能是文件占用)，请手动检查: {e.Message}");
             }
         }
         

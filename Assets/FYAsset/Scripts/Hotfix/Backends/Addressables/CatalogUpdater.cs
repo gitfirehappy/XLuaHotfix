@@ -79,7 +79,7 @@ public static class CatalogUpdater
             {
                 string fileName = Path.GetFileName(id);
                 // 所有有效资源位于 CurrentGUIDRoot/bundles 下
-                string localPath = Path.Combine(PathManager.CurrentGUIDRoot, "bundles", fileName);
+                string localPath = Path.Combine(RuntimePathManager.CurrentGUIDRoot, "bundles", fileName);
 
                 // 如果本地已有下载的包，则强制使用本地路径
                 if (FileHelper.Exists(localPath))

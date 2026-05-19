@@ -3,9 +3,10 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 using UnityEngine;
-using UnityEngine.AddressableAssets;
-using UnityEngine.ResourceManagement.AsyncOperations;
 
+/// <summary>
+/// 运行时查询资源索引和加载资源的统一管理器
+/// </summary>
 public class AssetPackageManager : Singleton<AssetPackageManager>
 {
     #region Fields
@@ -31,7 +32,7 @@ public class AssetPackageManager : Singleton<AssetPackageManager>
         if (FYAssetSettings.Instance.UseABBackend)
             await InitializeWithABIndex();
         else
-            await InitializeWithLegacyIndex();
+            await InitializeWithAAIndex();
 
         _isInitialized = true;
     }
@@ -41,7 +42,7 @@ public class AssetPackageManager : Singleton<AssetPackageManager>
     /// <summary>
     /// AB 索引路径：ManifestLoader -> ABManifest -> ABAssetIndex + ABBundleLoader + ABPackageBackend。
     /// 同时初始化索引和加载后端，一个开关控制两个维度。
-    /// 加载失败回退到 Legacy 路径并发出结构化警告，避免静默进入不可用状态。
+    /// 加载失败回退到 AA 路径并发出结构化警告，避免静默进入不可用状态。
     /// </summary>
     private async Task InitializeWithABIndex()
     {
@@ -49,9 +50,9 @@ public class AssetPackageManager : Singleton<AssetPackageManager>
         if (manifest == null)
         {
             Debug.LogWarning(
-                "[AssetPackageManager] ABManifest 加载失败，回退到 Legacy (Addressables) 路径。" +
+                "[AssetPackageManager] ABManifest 加载失败，回退到 AA (Addressables) 路径。" +
                 "请检查 AB 资源是否已正确构建并部署到热更目录或 StreamingAssets。");
-            await InitializeWithLegacyIndex();
+            await InitializeWithAAIndex();
             return;
         }
 
@@ -73,12 +74,12 @@ public class AssetPackageManager : Singleton<AssetPackageManager>
     }
 
     /// <summary>
-    /// Legacy 索引路径：从当前包目录的 AAManifest 构建查询缓存。
+    /// AA 索引路径：从当前包目录的 AAManifest 构建查询缓存。
     /// </summary>
-    private Task InitializeWithLegacyIndex()
+    private Task InitializeWithAAIndex()
     {
-        if (!TryInitializeLegacyIndexFromAAManifest())
-            Debug.LogError("[AssetPackageManager] Legacy AAManifest 索引初始化失败。");
+        if (!TryInitializeAAIndexFromAAManifest())
+            Debug.LogError("[AssetPackageManager] AA AAManifest 索引初始化失败。");
 
         return Task.CompletedTask;
     }
@@ -89,25 +90,25 @@ public class AssetPackageManager : Singleton<AssetPackageManager>
     /// 从当前 GUID 目录读取 AAManifest（优先 .bin，回退 .json），
     /// 填充 _typeToKeys / _labelToKeys / _addressSet 查询缓存。
     /// </summary>
-    private bool TryInitializeLegacyIndexFromAAManifest()
+    private bool TryInitializeAAIndexFromAAManifest()
     {
-        if (string.IsNullOrEmpty(PathManager.CurrentGUIDRoot))
+        if (string.IsNullOrEmpty(RuntimePathManager.CurrentGUIDRoot))
         {
-            Debug.LogWarning("[AssetPackageManager] PathManager.CurrentGUIDRoot 为空，无法读取 AAManifest。");
+            Debug.LogWarning("[AssetPackageManager] RuntimePathManager.CurrentGUIDRoot 为空，无法读取 AAManifest。");
             return false;
         }
 
-        string manifestPath = GetAAManifestPath(PathManager.CurrentGUIDRoot);
+        string manifestPath = GetAAManifestPath(RuntimePathManager.CurrentGUIDRoot);
         if (!FileHelper.Exists(manifestPath))
         {
-            Debug.LogWarning($"[AssetPackageManager] 未找到 AAManifest: {PathManager.CurrentGUIDRoot}");
+            Debug.LogWarning($"[AssetPackageManager] 未找到 AAManifest: {RuntimePathManager.CurrentGUIDRoot}");
             return false;
         }
 
         try
         {
             var manifest = SerializationUtility.ReadFromFile<AAManifest>(manifestPath);
-            if (!HasLegacyIndex(manifest))
+            if (!HasAAIndex(manifest))
             {
                 Debug.LogWarning($"[AssetPackageManager] AAManifest 缺少索引数据: {manifestPath}");
                 return false;
@@ -136,7 +137,7 @@ public class AssetPackageManager : Singleton<AssetPackageManager>
                 _addressSet.Add(entry.key);
             }
 
-            Debug.Log($"[AssetPackageManager] Legacy AAManifest 索引初始化完成。Entries: {manifest.AssetEntries.Count}");
+            Debug.Log($"[AssetPackageManager] AA AAManifest 索引初始化完成。Entries: {manifest.AssetEntries.Count}");
             return true;
         }
         catch (Exception ex)
@@ -147,7 +148,7 @@ public class AssetPackageManager : Singleton<AssetPackageManager>
     }
 
     /// <summary>检测 AAManifest 是否包含完整的 AA 资源索引数据</summary>
-    private static bool HasLegacyIndex(AAManifest manifest)
+    private static bool HasAAIndex(AAManifest manifest)
     {
         return manifest != null
                && manifest.AssetEntries != null
@@ -460,7 +461,7 @@ public class AssetPackageManager : Singleton<AssetPackageManager>
         if (abBackend != null)
             return await LoadResolvedWithABAsync<T>(abBackend, entry);
 
-        return await LoadResolvedWithLegacyAsync<T>(entry);
+        return await LoadResolvedWithAAAsync<T>(entry);
     }
 
     private AssetHandle<T> LoadResolvedSync<T>(RuntimeAssetEntry entry) where T : UnityEngine.Object
@@ -469,7 +470,7 @@ public class AssetPackageManager : Singleton<AssetPackageManager>
         if (abBackend != null)
             return LoadResolvedWithABSync<T>(abBackend, entry);
 
-        return LoadResolvedWithLegacySync<T>(entry);
+        return LoadResolvedWithAASync<T>(entry);
     }
 
     private async Task<AssetHandle<T>> LoadResolvedWithABAsync<T>(
@@ -494,7 +495,7 @@ public class AssetPackageManager : Singleton<AssetPackageManager>
         return CreateABHandle(entry, asset, bundleName, abBackend);
     }
 
-    private async Task<AssetHandle<T>> LoadResolvedWithLegacyAsync<T>(RuntimeAssetEntry entry)
+    private async Task<AssetHandle<T>> LoadResolvedWithAAAsync<T>(RuntimeAssetEntry entry)
         where T : UnityEngine.Object
     {
         var (asset, loadError) = await _backend.LoadAssetAsync<T>(entry.Address, entry.EntryId);
@@ -504,10 +505,10 @@ public class AssetPackageManager : Singleton<AssetPackageManager>
         if (asset == null)
             return new AssetHandle<T>(RuntimeMessage.LoadFailed(entry.EntryId, "Backend 返回 null"));
 
-        return CreateLegacyHandle(entry, asset);
+        return CreateAAHandle(entry, asset);
     }
 
-    private AssetHandle<T> LoadResolvedWithLegacySync<T>(RuntimeAssetEntry entry)
+    private AssetHandle<T> LoadResolvedWithAASync<T>(RuntimeAssetEntry entry)
         where T : UnityEngine.Object
     {
         var (asset, loadError) = _backend.LoadAssetSync<T>(entry.Address, entry.EntryId);
@@ -517,7 +518,7 @@ public class AssetPackageManager : Singleton<AssetPackageManager>
         if (asset == null)
             return new AssetHandle<T>(RuntimeMessage.LoadFailed(entry.EntryId, "Backend 返回 null"));
 
-        return CreateLegacyHandle(entry, asset);
+        return CreateAAHandle(entry, asset);
     }
 
     private static AssetHandle<T> CreateABHandle<T>(
@@ -535,7 +536,7 @@ public class AssetPackageManager : Singleton<AssetPackageManager>
         return new AssetHandle<T>(handleId, generation, asset);
     }
 
-    private AssetHandle<T> CreateLegacyHandle<T>(RuntimeAssetEntry entry, T asset)
+    private AssetHandle<T> CreateAAHandle<T>(RuntimeAssetEntry entry, T asset)
         where T : UnityEngine.Object
     {
         var releaseEntryId = entry.EntryId;

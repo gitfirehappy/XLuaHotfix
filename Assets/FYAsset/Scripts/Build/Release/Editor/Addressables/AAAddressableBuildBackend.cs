@@ -11,13 +11,13 @@ using UnityEditor.AddressableAssets.Settings.GroupSchemas;
 using UnityEngine;
 
 /// <summary>
-/// Legacy Addressables 构建后端。
-/// 保留 Addressables 构建链路，并生成 Legacy AA package manifest。
+/// AA Addressables 构建后端。
+/// 保留 Addressables 构建链路，并生成 AA package manifest。
 ///
 /// 构建流程：配置 AddressableAssetSettings -> AddressableAssetSettings.BuildPlayerContent ->
 /// 从 ServerData 目录搬运产物 -> 生成 AAManifest.json/.bin。
 /// </summary>
-public class LegacyAddressableBuildBackend : IBuildBackend
+public class AAAddressableBuildBackend : IBuildBackend
 {
     private const long MaxHotfixSizeBytes = 1L * 1024 * 1024 * 1024;
 
@@ -41,31 +41,28 @@ public class LegacyAddressableBuildBackend : IBuildBackend
         var settings = AddressableAssetSettingsDefaultObject.Settings;
         if (settings == null)
             return Task.FromResult(BuildBackendResult.Fail(
-                BuildMessage.Error(BuildErrorCodes.SettingNull, "AddressableAssetSettings 为空。", "LegacyAddressableBuildBackend")));
+                BuildMessage.Error(BuildErrorCodes.SettingNull, "AddressableAssetSettings 为空。", "AAAddressableBuildBackend")));
 
         try
         {
             ConfigureBasicSettings(settings);
             AssetDatabase.Refresh();
 
-            BuildPathCustomizer.CleanServerData();
-            Debug.Log("[LegacyAddressableBuildBackend] 开始执行 Addressables BuildPlayerContent...");
+            _serverDataPath = BuildPathManager.GetServerDataDir();
+            AddressablesBuildOutputOrganizer.CleanServerData(_serverDataPath);
+            Debug.Log("[AAAddressableBuildBackend] 开始执行 Addressables BuildPlayerContent...");
             AddressableAssetSettings.BuildPlayerContent(out AddressablesPlayerBuildResult result);
 
             if (!string.IsNullOrEmpty(result.Error))
                 return Task.FromResult(BuildBackendResult.Fail(
-                    BuildMessage.Error(BuildErrorCodes.BuildFailed, result.Error, "LegacyAddressableBuildBackend")));
+                    BuildMessage.Error(BuildErrorCodes.BuildFailed, result.Error, "AAAddressableBuildBackend")));
 
-            _serverDataPath = Path.Combine(
-                Directory.GetParent(Application.dataPath).FullName,
-                "ServerData",
-                EditorUserBuildSettings.activeBuildTarget.ToString());
             return Task.FromResult(BuildBackendResult.Ok());
         }
         catch (Exception ex)
         {
             return Task.FromResult(BuildBackendResult.Fail(
-                BuildMessage.Error(BuildErrorCodes.BuildFailed, ex.Message, "LegacyAddressableBuildBackend")));
+                BuildMessage.Error(BuildErrorCodes.BuildFailed, ex.Message, "AAAddressableBuildBackend")));
         }
     }
 
@@ -75,16 +72,16 @@ public class LegacyAddressableBuildBackend : IBuildBackend
     public void OrganizeOutput(string outputDir, VersionNumber version)
     {
         if (string.IsNullOrEmpty(_serverDataPath))
-            throw new InvalidOperationException("Legacy 构建输出尚未就绪，请先调用 BuildAsync。");
+            throw new InvalidOperationException("AA 构建输出尚未就绪，请先调用 BuildAsync。");
 
-        BuildPathCustomizer.OrganizeBuildOutput(_serverDataPath, outputDir);
+        AddressablesBuildOutputOrganizer.OrganizeBuildOutput(_serverDataPath, outputDir);
         _lastOutputDir = outputDir;
 
-        string bundlesDir = Path.Combine(outputDir, "bundles");
+        string bundlesDir = BuildPathManager.GetBundlesDir(outputDir);
         _bundleCount = Directory.Exists(bundlesDir)
             ? Directory.GetFiles(bundlesDir, "*.bundle", SearchOption.TopDirectoryOnly).Length
             : 0;
-        Debug.Log($"[LegacyAddressableBuildBackend] Output 整理完毕: {outputDir}, Bundles: {_bundleCount}");
+        Debug.Log($"[AAAddressableBuildBackend] Output 整理完毕: {outputDir}, Bundles: {_bundleCount}");
     }
 
     /// <summary>
@@ -93,7 +90,7 @@ public class LegacyAddressableBuildBackend : IBuildBackend
     /// </summary>
     public void GeneratePackageManifest(string outputDir, VersionNumber version)
     {
-        Debug.Log("[LegacyAddressableBuildBackend] 正在生成 AAManifest.json...");
+        Debug.Log("[AAAddressableBuildBackend] 正在生成 AAManifest.json...");
 
         var manifest = new AAManifest
         {
@@ -107,7 +104,7 @@ public class LegacyAddressableBuildBackend : IBuildBackend
         manifest.KeysByType = indexData.KeysByType;
         manifest.KeysByLabel = indexData.KeysByLabel;
 
-        string bundlesDir = Path.Combine(outputDir, "bundles");
+        string bundlesDir = BuildPathManager.GetBundlesDir(outputDir);
         if (Directory.Exists(bundlesDir))
         {
             var files = Directory.GetFiles(bundlesDir, "*", SearchOption.TopDirectoryOnly);
@@ -132,11 +129,11 @@ public class LegacyAddressableBuildBackend : IBuildBackend
 
         if (manifest.TotalSize >= MaxHotfixSizeBytes)
         {
-            Debug.LogError($"[LegacyAddressableBuildBackend] 热更包大小过大，需缩减大小: {manifest.TotalSize} >= {MaxHotfixSizeBytes}");
+            Debug.LogError($"[AAAddressableBuildBackend] 热更包大小过大，需缩减大小: {manifest.TotalSize} >= {MaxHotfixSizeBytes}");
 
             if (Application.isBatchMode)
             {
-                Debug.LogError("[LegacyAddressableBuildBackend] BatchMode 下已阻断构建：热更包大小超过阈值。请缩减资源后重试。");
+                Debug.LogError("[AAAddressableBuildBackend] BatchMode 下已阻断构建：热更包大小超过阈值。请缩减资源后重试。");
                 throw new Exception("热更包大小超过阈值");
             }
 
@@ -161,8 +158,8 @@ public class LegacyAddressableBuildBackend : IBuildBackend
         SerializationUtility.WriteToFile(jsonSavePath, manifest);
         SerializationUtility.WriteToFile(binSavePath, manifest, "binary", false);
 
-        Debug.Log($"[LegacyAddressableBuildBackend] Package Manifest 已生成: {_lastOutputDir ?? outputDir}, Bundles: {_bundleCount}, JSON: {jsonSavePath}, Binary: {binSavePath}");
-        Debug.Log($"[LegacyAddressableBuildBackend] AAManifest.json 生成完毕。Hash: {manifest.FileHash} BundleSize: {manifest.TotalSize}");
+        Debug.Log($"[AAAddressableBuildBackend] Package Manifest 已生成: {_lastOutputDir ?? outputDir}, Bundles: {_bundleCount}, JSON: {jsonSavePath}, Binary: {binSavePath}");
+        Debug.Log($"[AAAddressableBuildBackend] AAManifest.json 生成完毕。Hash: {manifest.FileHash} BundleSize: {manifest.TotalSize}");
     }
 
     private static void ConfigureBasicSettings(AddressableAssetSettings settings)
@@ -179,7 +176,7 @@ public class LegacyAddressableBuildBackend : IBuildBackend
             {
                 if (group.HasSchema<BundledAssetGroupSchema>())
                 {
-                    Debug.LogWarning($"[LegacyAddressableBuildBackend] 修复冲突：移除 {group.Name} 中错误的 BundledAssetGroupSchema");
+                    Debug.LogWarning($"[AAAddressableBuildBackend] 修复冲突：移除 {group.Name} 中错误的 BundledAssetGroupSchema");
                     group.RemoveSchema<BundledAssetGroupSchema>();
                     EditorUtility.SetDirty(group);
                 }
@@ -217,7 +214,7 @@ public class LegacyAddressableBuildBackend : IBuildBackend
         }
 
         if (changed)
-            Debug.Log($"[LegacyAddressableBuildBackend] 已将 Schema 路径修正为 Remote: {schema.Group.Name}");
+            Debug.Log($"[AAAddressableBuildBackend] 已将 Schema 路径修正为 Remote: {schema.Group.Name}");
     }
 }
 #endif
