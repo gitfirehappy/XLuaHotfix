@@ -2,7 +2,7 @@
 
 > **Risk**: Low (pure data definitions, zero runtime logic)
 > **Dependencies**: None (foundational layer for E1-2/E1-3/E1-4/E2)
-> **Status**: ⚠️ Needs back-change (2026-04-26 direction audit: IGroupRule interface missing)
+> **Status**: Archived — 2026-05-19; executed and back-change completed
 >
 > **Audit finding**: E1-1 was executed on 2026-04-25 with only 3 rule interfaces (IAddressRule/IPackRule/IFilterRule). The 2026-04-26 direction audit determined that IGroupRule was incorrectly omitted — the approved draft plan specified a three-rule model (CollectRule/GroupRule/PackRule) and GroupRule was silently dropped during E1-1 precise planning without developer sign-off. IGroupRule must be added.
 

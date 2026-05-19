@@ -2,8 +2,8 @@
 
 > **Risk**: High overall, split into small approval-gated sub-plans
 > **Dependencies**: HU-1 hash metadata unification, existing serialization infrastructure, existing Legacy Addressables backend
-> **Status**: DONE
-> **Source Draft**: `drafts/draft-aa-ab-alignment-analysis-20260518.md` — naming, HelperBuildData fusion, and AA binary serialization sections
+> **Status**: Archived — 2026-05-19; DONE
+> **Source Draft**: `../drafts/archive/draft-aa-ab-alignment-analysis-20260518.md` — naming, HelperBuildData fusion, and AA binary serialization sections
 
 ---
 

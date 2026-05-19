@@ -1,6 +1,6 @@
 # Draft: AA-AB 管线统一与差异分析
 
-> **Status**: Draft — 2026-05-18
+> **Status**: Archived — 2026-05-19; promoted plan slices moved to executable plans
 > **Purpose**: 系统梳理 AA（Legacy Addressables）和 AB（自研管线）在构建、版本管理、运行时热更三个维度的统一点与差异点，为 Build Repository 和后续重构提供决策依据。
 
 ---
@@ -265,7 +265,7 @@ ABBuildBackend.BuildAsync 完成后:
 
 ## 命名统一决策
 
-> Promotion note: the VersionState rename and HelperBuildData fusion direction has been promoted into executable master plan `../plan-aamanifest-helperbuilddata-20260518.md`. This draft remains the analysis trace.
+> Promotion note: the VersionState rename and HelperBuildData fusion direction has been promoted into executable master plan `../../archive/plan-aamanifest-helperbuilddata-20260518.md`. This draft remains the analysis trace.
 
 ### 已确认
 
@@ -307,7 +307,7 @@ ABBuildBackend.BuildAsync 完成后:
 
 ## Hash 统一决策
 
-> Promotion note: the executable first-step plan for this section is `../plan-hash-unification-20260518.md`. The rest of this draft remains non-executable planning material.
+> Promotion note: the executable first-step plan for this section is `../../archive/plan-hash-unification-20260518.md`. The rest of this draft remains non-executable planning material.
 
 ### 使用场景分析
 
@@ -549,9 +549,10 @@ HelperBuildData 是 AA 管线的补丁机制 — Addressables 原生不提供的
 | 2026-05-18 | 初始草稿：系统分析 AA-AB 统一与差异，确认 Build Repository 设计决策 |
 | 2026-05-18 | 补充命名统一决策：Manifest→PackageIndex 确认；VersionState→AAManifest 确认 |
 | 2026-05-18 | 补充 Hash 统一决策：方案 A 确认（统一添加 CRC32），MD5=内容标识 + CRC32=快速校验 |
-| 2026-05-18 | Hash 统一决策部分提升为正式小任务计划：`../plan-hash-unification-20260518.md` |
+| 2026-05-18 | Hash 统一决策部分提升为正式小任务计划：`../../archive/plan-hash-unification-20260518.md` |
 | 2026-05-18 | 补充路径管理精简决策：删 BuildPathCustomizer + 新建 BuildPathManager + PathManager 改名 |
 | 2026-05-18 | 补充 HelperBuildData 融合决策：AddressableLabelsConfig 融入 AAManifest，LuaScriptsIndex 独立为普通 SO，删除 HelperBuildData Group |
 | 2026-05-18 | 补充 Bundle 条目决策：保持独立（语义不同、变化方向不同），不做基类抽取 |
 | 2026-05-18 | 补充序列化格式决策：AA 也支持 Binary（对标 AB），AAManifest.json + .bin 双输出 |
-| 2026-05-18 | VersionState→AAManifest + HelperBuildData 融合方向提升为正式分步计划：`../plan-aamanifest-helperbuilddata-20260518.md` |
+| 2026-05-18 | VersionState→AAManifest + HelperBuildData 融合方向提升为正式分步计划：`../../archive/plan-aamanifest-helperbuilddata-20260518.md` |
+| 2026-05-19 | 归档：已提升的 Hash、AAManifest/HelperBuildData、path management 切片均进入正式 plan 或已执行 |

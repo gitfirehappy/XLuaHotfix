@@ -1,9 +1,9 @@
 # Plan-E12: Pipeline BuildGraph and Build Execution Editor
 
-> **Status**: E12-1 Reworked Complete; E12-2 Executed, awaiting developer sign-off (2026-05-14)
+> **Status**: Archived — 2026-05-19; E12-1 Reworked Complete; E12-2 Executed, awaiting developer sign-off (2026-05-14)
 > **Risk**: Medium (Editor integration + build trigger wiring; build backend path already exists)
 > **Dependencies**: E5-1 (IBuildTask/BuildPipelineConfig/DAGScheduler realized), E10 (BuildProjectManager dual backend realized), E11 (FYAssetSettings + AB PIPELINE gating realized)
-> **Supersedes**: `drafts/draft-buildgraph-visualization.md`
+> **Supersedes**: `../drafts/archive/draft-buildgraph-visualization.md`
 > **Scope**: AB Pipeline editor only. Builder/report browsing is deferred to a separate post-E7 plan.
 
 ---

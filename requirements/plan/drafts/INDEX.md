@@ -15,7 +15,6 @@ Promoted, superseded, or deprecated drafts go to `archive/`.
 | File | Status | Description |
 |------|--------|-------------|
 | draft-build-repository-20260518.md | Draft | Build Repository — Git-like 构建产物版本管理系统（合并 E7 + Smart Versioning） |
-| draft-aa-ab-alignment-analysis-20260518.md | Draft, partially promoted | AA-AB 管线统一与差异分析（Hash decision promoted to `../plan-hash-unification-20260518.md`） |
 | draft-offline-standalone-package-20260513.md | Draft | Offline standalone package design |
 | draft-debug-panel-20260512.md | Draft | Runtime debugger panel |
 | plan-playmode-draft.md | Draft | PlayMode 三模式设计 |

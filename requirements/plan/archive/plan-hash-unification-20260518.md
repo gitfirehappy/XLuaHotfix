@@ -2,8 +2,8 @@
 
 > **Risk**: Low-Medium
 > **Dependencies**: Existing `HashGenerator.GenerateFileHash` / `HashGenerator.GenerateFileCRC`, existing AB `ManifestBundleEntry.FileCRC`
-> **Status**: Executed — 2026-05-18
-> **Source Draft**: `drafts/draft-aa-ab-alignment-analysis-20260518.md` — Hash unification section
+> **Status**: Archived — 2026-05-19; Executed 2026-05-18
+> **Source Draft**: `../drafts/archive/draft-aa-ab-alignment-analysis-20260518.md` — Hash unification section
 
 ---
 

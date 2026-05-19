@@ -13,22 +13,7 @@ Completed and abandoned plans go to `archive/`.
 
 ## Active Plans
 
-| File | Status | Description |
-|------|--------|-------------|
-| plan-A.md | A1/A2 done, A3 pending | UIForm animation and dynamic form system |
-| plan-B5-4.md | Deferred | Migration strategy — evolves with implementation |
-| plan-D.md | Draft | Awaiting developer approval |
-| plan-E1-1.md | Needs back-change | IGroupRule interface missing |
-| plan-E12-buildgraph-editor.md | E12-1/E12-2 done, awaiting sign-off | BuildGraph editor visualization and build trigger |
-| plan-aamanifest-helperbuilddata-20260518.md | DONE | AAManifest rename and HelperBuildData fusion completed |
-| plan-hash-unification-20260518.md | Executed, awaiting sign-off | HU-1 hash metadata unification: MD5 identity + CRC32 fast verification |
-| ../folder-cleanup-20260518/plan/plan-folder-cleanup.md | Executed, awaiting sign-off | FYAsset Hotfix + Runtime folder boundary cleanup |
-| ../folder-cleanup-20260518/plan/plan-build-folder-cleanup.md | Executed, awaiting sign-off | FYAsset Build folder path cleanup |
-| ../folder-cleanup-20260518/plan/plan-build-aa-ab-boundary-fix.md | Executed, awaiting sign-off | Corrective Build AA/AB boundary cleanup |
-| plan-S1.md | Awaiting approval | — |
-| plan-S2.md | Awaiting approval | — |
-| plan-serialization.md | — | — |
-| plan-urgent-tools.md | — | — |
+No active executable plan files. New approved work should add a new plan here; completed, superseded, deferred, or stale plans stay under `archive/`.
 
 ## Subdirectories
 

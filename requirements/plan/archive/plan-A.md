@@ -1,6 +1,6 @@
 # Sub-Plan A: UI Framework Optimization
 
-> **Status**: A1/A2 completed, A3 not executed
+> **Status**: Archived — 2026-05-19; A1/A2 completed, A3 deferred optional
 > **Dependencies**: None (can execute independently)
 > **Sub-tasks**: ~~A1 UIAnimation parameterization~~ Done | ~~A2 DynamicGroup responsibility expansion~~ Done | A3 UIViewModel (optional, not executing this round)
 

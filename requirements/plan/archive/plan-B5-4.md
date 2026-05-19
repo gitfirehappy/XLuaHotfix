@@ -2,7 +2,7 @@
 
 > **Risk**: Medium
 > **Dependencies**: B5-1 + B5-2 + B5-3 approval completed
-> **Status**: Deferred — migration strategy evolves with implementation (decision: 2026-04-07)
+> **Status**: Archived — 2026-05-19; Deferred indefinitely — migration strategy evolves with implementation (decision: 2026-04-07)
 
 ---
 

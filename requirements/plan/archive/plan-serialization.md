@@ -1,5 +1,7 @@
 ## 序列化模块草稿计划（草案）
 
+> **Status**: Archived — 2026-05-19; superseded by S1/S2/S3/S4 serialization plans and implemented infrastructure
+
 目标
 --
 - 为资源管理链路（Build ↔ Snapshot ↔ Runtime）提供一套轻量且可扩展的序列化工具层，作为“通用工具”（类似 HashGenerator），不与业务模块反向耦合。

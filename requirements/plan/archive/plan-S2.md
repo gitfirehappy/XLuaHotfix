@@ -2,7 +2,7 @@
 
 > **Risk**: Medium (core infrastructure, but no runtime behavioral change until S3 integrates)
 > **Dependencies**: S1 completed (ISerializationCodec + SerializationUtility available)
-> **Status**: Awaiting approval
+> **Status**: Archived — 2026-05-19; approved and executed as part of serialization series
 
 ---
 

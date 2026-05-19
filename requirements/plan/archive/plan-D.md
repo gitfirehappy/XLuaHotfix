@@ -1,6 +1,6 @@
 # Plan-D: Modular Assembly Splitting
 
-> **Status**: Draft, awaiting developer approval before execution
+> **Status**: Archived — 2026-05-19; stale draft, not executed as written
 > **Created**: 2026-03-22
 > **Updated**: 2026-03-22 - Adjusted to independent modules + static glue layer architecture
 
