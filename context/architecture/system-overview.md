@@ -1,6 +1,6 @@
 # System Overview
 
-Last reviewed: 2026-05-18
+Last reviewed: 2026-05-19
 
 ## Purpose
 
@@ -8,7 +8,7 @@ This document gives AI agents the current architectural map of `XLuaHotfix`. It 
 
 ## Technology Baseline
 
-- Engine: Unity `2022.3.6f1c1`
+- Engine: Unity `2022.3.62f3`
 - Primary languages: C# and Lua
 - Lua integration: XLua
 - Current shipping runtime resource path: Unity Addressables-based flow behind `AssetPackageManager`
@@ -36,7 +36,7 @@ Main code roots:
 Responsibilities:
 
 - export build metadata such as `BuildIndexData`, `AAManifest`, `LuaScriptsIndex`, and hotfix `PackageIndex`
-- build the Legacy AA asset index through `AAAssetIndexBuilder`, then write it into `AAManifest`
+- build the AA asset index through `AAAssetIndexBuilder`, then write it into `AAManifest`
 - manage differential snapshots and hotfix group reassignment
 - drive full package, hotfix package, release confirmation, and group reset workflows
 - host the new collector foundation used for future build-pipeline refactoring
@@ -44,7 +44,7 @@ Responsibilities:
 Primary Build subdirectories:
 
 - `Build/Release/Editor/Shared/` for release orchestration contracts and shared entry points
-- `Build/Release/Editor/Addressables/` for Legacy Addressables release backend and AA export helpers
+- `Build/Release/Editor/Addressables/` for AA Addressables release backend and AA export helpers
 - `Build/Release/Editor/AB/` for AB release backend
 - `Runtime/Manifests/Addressables/` and `Runtime/Manifests/AB/` for runtime-readable AA and AB manifest models
 - `Runtime/Manifests/Shared/` for the shared `PackageIndex` pointer model
@@ -65,8 +65,10 @@ Main code roots:
 Responsibilities:
 
 - expose the project-approved runtime loading entry point: `AssetPackageManager`
-- choose either the Legacy Addressables path or the custom AB path from one feature flag
+- choose either the AA Addressables path or the custom AB path from one feature flag
 - orchestrate hotfix startup, version comparison, download, and local pointer switching
+- keep `RuntimePathManager` at the Runtime root, while AB-only handle/resolve models live under `Runtime/Backends/AB/Models/`
+- keep `Runtime/Models/` reserved for shared runtime diagnostics such as `RuntimeMessage`
 
 See `runtime-resource-loading.md`.
 
@@ -106,14 +108,14 @@ This repository contains both the current production-oriented path and an in-pro
 
 ### Current default runtime path
 
-- `AssetPackageManager` uses the Legacy index and Legacy backend when `FYAssetSettings.Instance.UseABBackend` is `false`
-- `HotfixManager` still orchestrates startup and chooses `LegacyHotfixBackend` or `ABHotfixBackend`
-- direct Addressables usage still exists in hotfix and legacy loading code
+- `AssetPackageManager` uses the AA index and AA backend when `FYAssetSettings.Instance.UseABBackend` is `false`
+- `HotfixManager` still orchestrates startup and chooses `AAHotfixBackend` or `ABHotfixBackend`
+- direct Addressables usage still exists in hotfix and AA loading code
 
 ### In-progress replacement path
 
 - `ABAssetIndex`, `ABBundleLoader`, `ABPackageBackend`, `ABHotfixBackend`, and collector-related code are already present
-- this path is not an independent parallel public API; it is selected by the same feature flag and still coexists with the Legacy path
+- this path is not an independent parallel public API; it is selected by the same feature flag and still coexists with the AA path
 - human docs about a full Addressables replacement describe the direction of travel, not the default assumption for all current code
 
 ## Project-Wide Rules for AI Changes
@@ -127,14 +129,14 @@ This repository contains both the current production-oriented path and an in-pro
 ## Editor Layout
 
 - The landed build-pipeline editor lives under `Assets/FYAsset/Scripts/Build/Editor/` and `Assets/FYAsset/Scripts/Build/Collector/Editor/UI/`.
-- `BuildPipelineWindow` uses a resizable left sidebar with four groups: `SETTINGS`, `LEGACY PIPELINE`, `AB PIPELINE`, and `MANAGE`.
-- `LEGACY PIPELINE` and `AB PIPELINE` are mutually gray-disabled depending on `FYAssetSettings.Instance.UseABBackend`; both groups are collapsible and keep the active group expanded.
-- `LEGACY PIPELINE` contains `Legacy Config`, `Legacy Build`, and `Legacy Report`.
+- `BuildPipelineWindow` is a UI Toolkit `CreateGUI()` editor window with a resizable left sidebar and four groups: `SETTINGS`, `AA PIPELINE`, `AB PIPELINE`, and `MANAGE`.
+- `AA PIPELINE` and `AB PIPELINE` are mutually gray-disabled depending on `FYAssetSettings.Instance.UseABBackend`; both groups are collapsible and keep the active group expanded.
+- `AA PIPELINE` contains `AA Config`, `AA Build`, and `AA Report`.
 - `AB PIPELINE` contains `Collect Config`, `Collector`, `Pipeline`, and `Builder`.
-- `CollectorSettingInspector` is a shortcut inspector that opens `BuildPipelineWindow` directly.
-- `CollectorSettingPanel` edits `CollectorSetting` with package/group navigation and collector editing.
-- `CollectorPanel` focuses on the current group's collector list plus validation and scan preview.
-- `PipelinePanel` loads `BuildPipelineConfig` through `AssetDatabase`, renders Reload, Validate, Build Mode, and Build controls in its IMGUI top bar, renders build options (`FileNameStyle`, `BundleCompression`, `SequentialMode`) in a separate options bar, and hosts the BuildGraph DAG view below.
+- `CollectorSettingInspector` is a UI Toolkit shortcut inspector that opens `BuildPipelineWindow` directly.
+- `CollectorSettingPanel` is a UI Toolkit panel that edits `CollectorSetting` with package/group navigation and collector editing.
+- `CollectorPanel` is a UI Toolkit panel focused on the current group's collector list plus validation and scan preview.
+- `PipelinePanel` loads `BuildPipelineConfig` through `AssetDatabase`, renders Reload, Validate, Build Mode, and Build controls in a UI Toolkit top bar, renders build options (`FileNameStyle`, `BundleCompression`, `SequentialMode`) in a separate options row, and hosts the BuildGraph DAG view below.
 - `PipelinePanel` uses a `BuildGraphView` GraphView DAG visualization powered by `BuildGraphLayoutEngine` and `BuildTaskNode`. The graph shows code-level execution edges, SO-level execution edges, and data-flow edges derived from `ReadKeys`/`WriteKeys`. It supports Reload, `DAGScheduler.Validate()`, a right-click optional-task creation menu, and Pipeline-triggered Full/Hotfix builds through `BuildProjectManager`.
 - Pipeline-triggered builds validate first. Fatal validation failures block execution. When execution starts, `BuildExecutionOptions` carries a `TaskStatusChanged` callback through `BuildProjectManager` and the active backend into `DAGScheduler`; `BuildTaskExecutionEvent` / `BuildTaskExecutionStatus` drive node states (`Pending`, `Running`, `Success`, `Failed`, `Skipped`) in `BuildTaskNode`.
 - `BuildPipelineConfigRepair` guarantees the backbone task entries exist when `PipelinePanel` loads the config. This prevents an empty `BuildPipelineConfig.Tasks` list from rendering a blank DAG.
@@ -142,5 +144,10 @@ This repository contains both the current production-oriented path and an in-pro
 - BuildGraph edges and ports are display-only: users may drag task nodes to adjust the visual layout, but cannot select, delete, or reconnect existing lines. Code dependency and SO dependency edges are opaque white/blue execution lines; data-flow edges are low-opacity green lines drawn behind execution lines and de-duplicated per producer-consumer task pair.
 - `TaskCollectAssets` is the backbone scan task. It loads `CollectorSetting`, runs `CollectionScanner.Scan()`, writes `CollectedAssets` and `SharePolicies` into `BuildContext`, and is the dependency source for dependency analysis and builtin collection.
 - `BuilderPanel` does not host the DAG. Build result/report querying is deferred until after E7 because E7 will define diff snapshot and digest outputs that affect report inputs.
-- `BuildGraph/` contains `BuildGraphView.cs` (GraphView surface), `BuildTaskNode.cs` (task node rendering and execution status display), `BuildGraphLayoutEngine.cs` (topological layer layout), and `EdgeStyle.cs` (edge type enum). The legacy `BuildGraphToolbar` file has been removed.
+- `SettingsPanel`, `VersionPanel`, `AAConfigPanel`, `AABuildPanel`, `AAReportPanel`, `CollectorSettingPanel`, `CollectorPanel`, `PipelinePanel`, `BuilderPanel`, and generic `PlaceholderPanel` all expose UI Toolkit content through `IBuildPipelinePanel.CreateContent()`.
+- The previous Collector IMGUI helper files (`CollectorTreeView`, `CollectorPropertyPanel`, `CollectorResultPanel`, and `CollectorTargetPickerPopup`) are no longer active compile targets.
+- `SOAddressableTagger` is also a UI Toolkit `CreateGUI()` helper window.
+- `CollectorAssetInspectorGUI` still uses `Editor.finishedDefaultHeaderGUI`; this is a Unity default Inspector header extension point and remains IMGUI-bound.
+- `BuildGraph/` contains `BuildGraphView.cs` (GraphView surface), `BuildTaskNode.cs` (task node rendering and execution status display), `BuildGraphLayoutEngine.cs` (topological layer layout), and `EdgeStyle.cs` (edge type enum). The AA `BuildGraphToolbar` file has been removed.
 - The `AB PIPELINE` sidebar group is visually disabled when `FYAssetSettings.Instance.UseABBackend` is `false`.
+

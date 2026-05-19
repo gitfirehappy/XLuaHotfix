@@ -1,10 +1,10 @@
 # Runtime Resource Loading
 
-Last reviewed: 2026-05-18
+Last reviewed: 2026-05-19
 
 ## Scope
 
-This document covers the current runtime asset-loading entry points, the Legacy-vs-AB split, and the hotfix orchestration boundary.
+This document covers the current runtime asset-loading entry points, the AA-vs-AB split, and the hotfix orchestration boundary.
 
 ## Primary Entry Point
 
@@ -17,7 +17,7 @@ Key responsibilities:
 - initialize one runtime asset index
 - initialize one loading backend
 - expose query APIs by key, type, label, and label intersection
-- expose both legacy object-returning APIs and newer resolve-and-handle APIs
+- expose both AA object-returning APIs and newer resolve-and-handle APIs
 
 New runtime code should prefer `AssetPackageManager` instead of calling Addressables directly.
 
@@ -31,13 +31,13 @@ New runtime code should prefer `AssetPackageManager` instead of calling Addressa
 There is intentionally no supported mixed mode such as:
 
 - AB index + Addressables backend
-- Legacy index + AB backend
+- AA index + AB backend
 
-## Legacy Runtime Path
+## AA Runtime Path
 
 When `FYAssetSettings.Instance.UseABBackend` is `false`:
 
-- index source: `AAManifest.bin` or `AAManifest.json` under `PathManager.CurrentGUIDRoot`
+- index source: `AAManifest.bin` or `AAManifest.json` under `RuntimePathManager.CurrentGUIDRoot`
 - backend: `AddressablesBackend`
 - query caches are built from `AAManifest.AssetEntries`, `AAManifest.KeysByType`, and `AAManifest.KeysByLabel`
 
@@ -52,7 +52,7 @@ When `FYAssetSettings.Instance.UseABBackend` is `true`:
 - `ABBundleLoader` manages bundle loading and dependency traversal
 - `ABPackageBackend` becomes the active `IPackageBackend`
 
-Initialization is fail-fast. If AB manifest loading fails, the manager does not silently fall back to the Legacy path.
+Initialization is fail-fast. If AB manifest loading fails, the manager does not silently fall back to the AA path.
 
 All public load methods return `(T asset, RuntimeMessage error)` tuples — errors are values, not exceptions. The internal tuple API `LoadAssetTupleAsync/Sync` returns `(T, string bundleName, RuntimeMessage)` and is used by `AssetPackageManager` for Handle allocation.
 
@@ -74,7 +74,7 @@ Main methods:
 
 ### Load stage
 
-- Legacy path: backend returns `(asset, error)` tuple and the manager wraps unload logic into a handle callback
+- AA path: backend returns `(asset, error)` tuple and the manager wraps unload logic into a handle callback
 - AB path: backend returns `(asset, bundleName, error)` and the manager allocates a handle via `HandleRegistry.Alloc`; the release callback calls `ABPackageBackend.UnloadByEntryId` only when `HandleRegistry._entryActiveCounts` for that EntryId reaches zero (all Handles released)
 
 ### Handle lifecycle
@@ -82,6 +82,8 @@ Main methods:
 - `HandleRegistry` tracks per-EntryId active Handle count via `_entryActiveCounts` dictionary
 - `Alloc` increments the count; `Release` decrements and fires the unload callback only when the count reaches zero
 - This prevents use-after-free when multiple Handles reference the same asset
+
+The handle/resolve runtime models (`AssetHandle`, `HandleRegistry`, `ResolveResult`, and `RuntimeAssetEntry`) live under `Assets/FYAsset/Scripts/Runtime/Backends/AB/Models/` because they belong to the AB runtime loading model. `RuntimeMessage` stays under `Assets/FYAsset/Scripts/Runtime/Models/` as the shared runtime diagnostic type.
 
 ## Index And Backend Abstractions
 
@@ -96,7 +98,7 @@ Represents runtime lookup capabilities such as:
 
 Current implementations:
 
-- `AAManifest` data as the Legacy query-cache source
+- `AAManifest` data as the AA query-cache source
 - `ABAssetIndex` as the AB implementation
 
 Build-time AA index data is produced by `AAAssetIndexBuilder` and written into `AAManifest`.
@@ -129,30 +131,31 @@ Source location: `Assets/FYAsset/Scripts/Hotfix/HotfixManager.cs`.
 Responsibilities:
 
 - load `BuildIndexData` from `StreamingAssets`
-- initialize `PathManager`
+- initialize `RuntimePathManager`
 - detect package GUID changes and clean caches when needed
 - download the remote `manifest.json`
-- choose either `LegacyHotfixBackend` or `ABHotfixBackend`
+- choose either `AAHotfixBackend` or `ABHotfixBackend`
 - compare local and remote versions
 - prepare and download required bundles
 - verify copied or downloaded bundles by CRC32 when metadata is available
 - write the local manifest pointer and switch paths
 - call `AssetPackageManager.Instance.Initialize()` as the final resource bootstrap step
 
-Legacy hotfix metadata prefers `AAManifest.bin` and falls back to `AAManifest.json`; it still downloads `catalog.json` for Addressables resource location.
+AA hotfix metadata prefers `AAManifest.bin` and falls back to `AAManifest.json`; it still downloads `catalog.json` for Addressables resource location.
 
 Hotfix backend locations:
 
 - AB: `Assets/FYAsset/Scripts/Hotfix/Backends/AB/ABHotfixBackend.cs`
-- Legacy Addressables: `Assets/FYAsset/Scripts/Hotfix/Backends/Addressables/LegacyHotfixBackend.cs`
+- AA Addressables: `Assets/FYAsset/Scripts/Hotfix/Backends/Addressables/AAHotfixBackend.cs`
 - Addressables catalog adapter: `Assets/FYAsset/Scripts/Hotfix/Backends/Addressables/CatalogUpdater.cs`
 
-`BundleDownloadItem` carries `BundleName`, `FileHash`, `FileCRC`, and `FileSize` for both Legacy and AB hotfix backends. `FileHash` remains the content identity used for reuse/download decisions. `FileCRC` is the fast verification checksum. `FileCRC == 0` means CRC metadata is unavailable; CRC verification is skipped in that case.
+`BundleDownloadItem` carries `BundleName`, `FileHash`, `FileCRC`, and `FileSize` for both AA and AB hotfix backends. `FileHash` remains the content identity used for reuse/download decisions. `FileCRC` is the fast verification checksum. `FileCRC == 0` means CRC metadata is unavailable; CRC verification is skipped in that case.
 
 ## Shared Runtime Support Components
 
-### `PathManager`
+### `RuntimePathManager`
 
+- source location: `Assets/FYAsset/Scripts/Runtime/RuntimePathManager.cs`
 - centralizes package root resolution
 - uses build GUIDs to isolate package directories
 - switches to the new build root after a hotfix is applied
@@ -165,7 +168,7 @@ Hotfix backend locations:
 
 ### `FileHelper`
 
-- cross-platform file I/O utility, same tier as `NetworkDownloader` / `PathManager`
+- cross-platform file I/O utility, same shared helper tier as `NetworkDownloader`; `RuntimePathManager` is runtime-root owned
 - Android StreamingAssets reads go through `UnityWebRequest`; other platforms use `Task.Run(File.ReadAllBytes)`
 - atomic writes via temp-file + rename pattern (`WriteAllBytesAtomic` / `WriteAllTextAtomic`)
 - safe deletion via `TryDelete` / `TryDeleteDirectory` that return bool and never throw
@@ -205,7 +208,7 @@ Hotfix backend locations:
 
 ### Verified current truth
 
-- the Legacy path still exists and remains a first-class runtime path
+- the AA path still exists and remains a first-class runtime path
 - hotfix startup still depends on `HotfixManager`
 - Addressables is not fully removed from the repository
 
@@ -214,3 +217,4 @@ Hotfix backend locations:
 - AB manifest/index/backend types exist and already plug into the same public manager
 - the repository is moving toward backend separation through `IAssetIndex` and `IPackageBackend`
 - do not assume the fully custom AB flow is the universal default unless the flag and calling context say so
+

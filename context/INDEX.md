@@ -6,7 +6,7 @@ Start here before any task.
 - `architecture/INDEX.md` - module structure, technical stack, runtime systems
 - `architecture/system-overview.md` - verified top-level module map, stack baseline, and architecture boundaries
 - `architecture/resource-build-and-release.md` - build-time exports, differential snapshots, and release operations
-- `architecture/runtime-resource-loading.md` - runtime loading facade, hotfix boundary, and Legacy-vs-AB split
+- `architecture/runtime-resource-loading.md` - runtime loading facade, hotfix boundary, and AA-vs-AB split
 - `architecture/collector-framework.md` - collector data model, rule contracts, and current classification behavior
 - `architecture/xlua-runtime.md` - project-side XLua integration, bridge lifecycle, and cross-language runtime services
 - `architecture/xlua-third-party.md` - third-party XLua internals used to reason about wrappers, delegates, GC, and hotfix

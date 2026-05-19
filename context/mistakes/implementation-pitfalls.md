@@ -74,7 +74,7 @@
 
 ## IP-08: Re-Init Not Clearing Previous State
 
-**Symptom:** `Initialize()` does not clear caches before repopulating. AB init can fall back to legacy, mixing stale data.
+**Symptom:** `Initialize()` does not clear caches before repopulating. AB init can fall back to AA, mixing stale data.
 
 **Root cause:** Idempotency/cleanup not considered.
 
@@ -154,7 +154,7 @@
 
 ## IP-16: Raw File/Directory I/O Bypassing Shared Helper
 
-**Symptom:** `File.Exists`, `Directory.CreateDirectory`, `File.Copy`, `File.WriteAllText` used raw instead of `FileHelper`. Atomic-write used in AB path but not Legacy. Error handling fragmented.
+**Symptom:** `File.Exists`, `Directory.CreateDirectory`, `File.Copy`, `File.WriteAllText` used raw instead of `FileHelper`. Atomic-write used in AB path but not AA. Error handling fragmented.
 
 **Root cause:** `FileHelper` not extended with needed operations; developers fell back to raw I/O.
 
@@ -302,7 +302,7 @@
 
 ## IP-31: Interface Default Methods Throwing NotSupportedException
 
-**Symptom:** `IAssetIndex` has both legacy and new methods; old impl throws for new methods. Callers must know which impl they have.
+**Symptom:** `IAssetIndex` has both AA and new methods; old impl throws for new methods. Callers must know which impl they have.
 
 **Root cause:** One interface used as migration bridge for incompatible capability sets.
 
@@ -357,3 +357,4 @@
 **Root cause:** The de-duplication rule suppressed data-flow edges whenever the same producer-consumer pair already had an execution edge. This optimized visual noise by deleting information instead of layering it.
 
 **Prevention:** Do not remove a semantic edge layer just because another layer shares endpoints. Render secondary layers with lower opacity, behind primary lines, and de-duplicate only within the same semantic layer.
+

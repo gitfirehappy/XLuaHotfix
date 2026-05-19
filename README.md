@@ -16,7 +16,7 @@
 | 数据类型 | 文件 | 用途 |
 |----------|------|------|
 | **BuildIndexData** | Bootstrap | 整包构建唯一标识(guid)、版本号、时间，大版本检测依赖 |
-| **AAManifest** | AAManifest.json / AAManifest.bin | Legacy AA 版本号 + Bundle哈希/CRC/size 映射表，并嵌入 AA 资源索引数据 |
+| **AAManifest** | AAManifest.json / AAManifest.bin | AA 版本号 + Bundle哈希/CRC/size 映射表，并嵌入 AA 资源索引数据 |
 | **LuaScriptsIndex** | Build/LuaScriptsIndex.asset | AddressableKey → 内部脚本名映射，运行期加载Lua；按普通 Addressable 资产参与索引；类型定义归属 XLuaFramework |
 | **PackageIndex** | manifest.json | 远程构建定位，指向最新导出包路径 |
 
@@ -39,23 +39,26 @@
 - **BuildPipelineWindow / PipelinePanel**:
   - AB Pipeline 的 Pipeline 页负责 BuildGraph DAG、Reload、Validate、构建选项、Build Mode 与 Build 入口
   - 构建入口复用 `BuildProjectManager` 的 Full/Hotfix 语义；DAGScheduler 执行事件会回显到节点状态
-  - Builder 页不承载 DAG；构建报告查询待 E7 差异快照与 digest 输出稳定后单独规划
-  - Legacy Pipeline 侧栏已补齐为 SETTINGS / LEGACY PIPELINE / AB PIPELINE / MANAGE；LEGACY 与 AB 组互斥灰显，Legacy Config 面板仅做 Addressables 摘要与 Groups 窗口入口
+  - Builder 页不承载 DAG；当前为 UI Toolkit 占位壳，构建报告查询待 E7 差异快照与 digest 输出稳定后单独规划
+  - Build Pipeline 编辑器窗口已迁移为 UI Toolkit `CreateGUI()` 壳层，侧栏保持 SETTINGS / AA PIPELINE / AB PIPELINE / MANAGE；AA 与 AB 组互斥灰显，AA Config 面板仅做 Addressables 摘要与 Groups 窗口入口
+  - Settings、AA Config、AA Build、AA Report、Collect Config、Collector、Pipeline、Builder、Version 等 active 面板通过 UI Toolkit `CreateContent()` 承载；Pipeline 页继续复用现有 GraphView DAG
+  - Collector 资产 Inspector 头部勾选入口仍使用 Unity 的 `Editor.finishedDefaultHeaderGUI` 回调，这是 Unity 默认 Inspector header 的 IMGUI 边界
 
 ### 1.4 运行时资源管理
 
 - **AssetPackageManager**:
-  - 资源索引：Legacy 路径从 `AAManifest.bin/json` 构建 Type/Label 查询缓存；AB 路径使用 ABAssetIndex + ABManifest
+  - 资源索引：AA 路径从 `AAManifest.bin/json` 构建 Type/Label 查询缓存；AB 路径使用 ABAssetIndex + ABManifest
   - 资源池：引用计数管理，支持按标签/类型加载/卸载
   - B5-2 新增 Resolve/Load API：`LoadByAddress<T>` / `LoadByTypeKey<T>` 返回 `AssetHandle<T>`
 - **HotfixManager**: 已重构为 orchestrator，仅负责公共步骤编排、进度回调、错误上报；后端差异由 `IHotfixPipeline` 实现
-- **LegacyHotfixBackend / ABHotfixBackend**: Legacy 路径使用 Addressables `AAManifest.bin/json + catalog` 流程，runtime 从 `AAManifest` 读取 AA 索引；AB 路径使用 `ABManifest.bin/json` + bundles 流程；两条路径统一通过 `BundleDownloadItem` 传递 `FileHash` 与 `FileCRC`，下载/复用后由 `HotfixManager` 做 CRC 校验
+- **AAHotfixBackend / ABHotfixBackend**: AA 路径使用 Addressables `AAManifest.bin/json + catalog` 流程，runtime 从 `AAManifest` 读取 AA 索引；AB 路径使用 `ABManifest.bin/json` + bundles 流程；两条路径统一通过 `BundleDownloadItem` 传递 `FileHash` 与 `FileCRC`，下载/复用后由 `HotfixManager` 做 CRC 校验
 - **ABAssetIndex**: 基于 ABManifest 的完整 IAssetIndex 实现，预缓存 RuntimeAssetEntry，零分配查询热路径
 - **ManifestLoader**: 异步清单加载器（热更目录优先，StreamingAssets 回退）
 - **ABBundleLoader**: 运行时从 `CurrentGUIDRoot/bundles/` 与 `StreamingAssets/bundles/` 查找 Bundle，依赖环按错误处理而不是静默跳过
 - **ABPackageBackend**: 内部以 `EntryId` 作为缓存与释放的唯一身份，`Address` 只作为查询入口，兼容 duplicate Address 设计
-- **PathManager**: 热更路径统一管理，包体GUID隔离
-- **NetworkDownloader**: 位于共享 `Helpers/`，供 Legacy/AB 双后端共用下载能力
+- **RuntimePathManager**: 位于 `Runtime/` 根，统一管理运行时热更路径，包体GUID隔离
+- **AB runtime models**: `AssetHandle` / `HandleRegistry` / `ResolveResult` / `RuntimeAssetEntry` 归入 `Runtime/Backends/AB/Models/`；`RuntimeMessage` 保留在 `Runtime/Models/` 作为共用诊断类型
+- **NetworkDownloader**: 位于共享 `Helpers/`，供 AA/AB 双后端共用下载能力
 
 ---
 

@@ -139,3 +139,15 @@
 **Root cause:** Async called without lifecycle awareness.
 
 **Prevention:** Quit-time code must avoid fire-and-forget async. Either await with timeout, or use synchronous cleanup.
+
+---
+
+## PL-15: Unity 2022.3 UI Toolkit Cursor API Mismatch
+
+**Symptom:** Editor build fails when assigning `new StyleCursor(MouseCursor.ResizeHorizontal)` or similar values to `VisualElement.style.cursor`.
+
+**Root cause:** In Unity `2022.3.62f3`, `style.cursor` expects a UI Toolkit `Cursor` value shape, not an IMGUI `MouseCursor` enum wrapped by `StyleCursor`.
+
+**Fix:** Remove the cursor style assignment for splitter handles and keep pointer-event drag behavior intact.
+
+**Prevention:** Do not port IMGUI cursor enums directly into UI Toolkit styles. Verify editor UI API assumptions with `dotnet build` after migration.

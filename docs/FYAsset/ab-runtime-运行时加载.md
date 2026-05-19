@@ -208,7 +208,7 @@ ABBundleLoader.UnloadBundle(bundleName)
 
 ## AssetPackageManager — 上层入口
 
-`AssetPackageManager` 是外部使用的统一入口，封装了 AB 和 Legacy 两种后端的差异。主要 API：
+`AssetPackageManager` 是外部使用的统一入口，封装了 AB 和 AA 两种后端的差异。主要 API：
 
 ```csharp
 // 初始化
@@ -224,7 +224,7 @@ handle.Release();
 AssetPackageManager.Instance.UnloadByLabel("ui");
 ```
 
-所有加载方法返回 `AssetHandle<T>`。内部按后端模式（AB / Legacy）路由到对应的 `IPackageBackend` 实现。
+所有加载方法返回 `AssetHandle<T>`。内部按后端模式（AB / AA）路由到对应的 `IPackageBackend` 实现。
 
 ---
 

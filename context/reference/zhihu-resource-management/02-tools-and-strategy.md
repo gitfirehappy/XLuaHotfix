@@ -487,7 +487,7 @@ These are the problems that motivate building visualization and analysis tooling
 **Build Determinism**
 
 - Requirement: with unchanged source files, repeated builds must produce binary-identical output (identical hashes).
-- Challenge: certain Unity versions or legacy pipelines (`BuildPipeline`) may include non-deterministic data (e.g., randomly ordered serialization), causing patch packages to grow meaninglessly. The Scriptable Build Pipeline (SBP) made significant improvements here.
+- Challenge: certain Unity versions or AA pipelines (`BuildPipeline`) may include non-deterministic data (e.g., randomly ordered serialization), causing patch packages to grow meaninglessly. The Scriptable Build Pipeline (SBP) made significant improvements here.
 
 **Dependency Tracking and Load Order**
 
@@ -601,3 +601,4 @@ Relative to Addressables' "grouping list" model, the planned Build Graph tool of
 - **Self-built system** is "modular building blocks": requires self-assembly, but you can build any custom pipeline shape matching project needs. It provides extreme control, performance transparency, and architectural flexibility.
 
 The self-built system, especially in runtime memory control, GC optimization, and packaging pipeline customization/visualization, demonstrates advantages that Addressables struggles to match. This makes it a better choice for medium-to-large mobile projects pursuing high performance, deep customization, and multi-type resource hybrid processing.
+

@@ -15,4 +15,4 @@ Rules:
 | `process-pitfalls.md` | Plan-implementation drift, doc sync, naming, cross-plan coordination | 15 |
 | `implementation-pitfalls.md` | Silent failure, dual truth, infrastructure bypass, data structure contracts | 36 |
 | `platform-performance.md` | Editor/Runtime boundary, platform I/O, allocations, wasted computation | 14 |
-| `troubleshooting.md` | Legacy Chinese notes — superseded, retained for git history | — |
+| `troubleshooting.md` | Historical Chinese notes — superseded, retained for git history | — |

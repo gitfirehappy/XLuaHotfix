@@ -75,7 +75,7 @@ TaskA (WriteKeys: ["CollectedAssets"])     TaskB (ReadKeys: ["CollectedAssets"],
 
 | 值 | 含义 |
 |----|------|
-| `LegacyAddressable` | 基于 AAManifest 的旧版构建 |
+| `AAAddressable` | 基于 AAManifest 的 AA 构建 |
 | `ABManifest` | 基于 ABManifest 的新版构建（默认） |
 
 由 `BuildPipelineConfig.DefaultBackendMode` 配置，CLI 可通过 `--backend` 覆盖。DAG 调度器通过 W-W 冲突检测确保一个 Task 独占写入 BackendMode 相关 Key。
@@ -88,7 +88,7 @@ ScriptableObject，存储路径 `Assets/Build/BuildPipelineConfig.asset`。
 
 ```
 BuildPipelineConfig
-├─ DefaultBackendMode    (ABManifest / LegacyAddressable)
+├─ DefaultBackendMode    (ABManifest / AAAddressable)
 ├─ FileNameStyle         (BundleName / HashName / BundleName_HashName)
 ├─ SequentialMode        (Debug 串行模式)
 └─ Tasks[]               (TaskEntry 列表)

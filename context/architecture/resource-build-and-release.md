@@ -13,7 +13,7 @@ The build pipeline exports several data assets used later by runtime loading and
 Current source locations:
 
 - Release orchestration shared entry points: `Assets/FYAsset/Scripts/Build/Release/Editor/Shared/`
-- Legacy Addressables release backend and AA export helpers: `Assets/FYAsset/Scripts/Build/Release/Editor/Addressables/`
+- AA Addressables release backend and AA export helpers: `Assets/FYAsset/Scripts/Build/Release/Editor/Addressables/`
 - AB release backend: `Assets/FYAsset/Scripts/Build/Release/Editor/AB/`
 - Runtime-readable manifest models: `Assets/FYAsset/Scripts/Runtime/Manifests/`
 - Lua routing data model: `Assets/XLuaFramework/Scripts/XLuaLoader/LuaScriptsIndex.cs`
@@ -24,7 +24,7 @@ Current source locations:
 | Data | Role |
 | --- | --- |
 | `BuildIndexData` | packaged build identity, version, and GUID used for major-version validation |
-| `AAManifest` | version plus bundle hash/CRC/size mapping for Legacy hotfix comparison and fast bundle verification; also embeds the AA asset index lists; emitted as JSON and binary |
+| `AAManifest` | version plus bundle hash/CRC/size mapping for AA hotfix comparison and fast bundle verification; also embeds the AA asset index lists; emitted as JSON and binary |
 | `LuaScriptsIndex` | Lua module name to Addressables key mapping; normal Addressable asset in the `LuaScripts` group; type lives with `XLuaLoader` |
 | `PackageIndex` | remote package pointer written to `manifest.json` and used to locate the latest package root |
 
@@ -57,20 +57,20 @@ The hotfix build flow relies on snapshot comparison instead of manual group main
 - increments the patch version
 - relies on `DifferentialProcessor` to detect changed assets automatically
 - produces incremental content for hotfix distribution
-- uses `DifferentialProcessor.PrepareHotfix()` only on the Legacy Addressables backend path
+- uses `DifferentialProcessor.PrepareHotfix()` only on the AA Addressables backend path
 - routes actual package generation through the backend selected by `FYAssetSettings.Instance.UseABBackend`
 
 ### `ConfirmRelease`
 
 - promotes the staged snapshot into the published head snapshot
 - should be called only after a release is accepted as the new baseline
-- remains a Legacy-only operation; AB backend mode logs and skips it
+- remains a AA-only operation; AB backend mode logs and skips it
 
 ### `ResetGroupsToOriginal`
 
 - restores assets from hotfix groups back to their original groups
 - is a prerequisite for correct full-package publishing
-- remains a Legacy-only operation; AB backend mode logs and skips it
+- remains a AA-only operation; AB backend mode logs and skips it
 
 ## Build Backend Split
 
@@ -82,9 +82,9 @@ The build entry point is now split with the same orchestration pattern already u
 - `BuildCommandLine` still calls `BuildProjectManager.BuildFullPackage()` / `BuildHotfix()` and does not bypass backend selection
 - backend selection is centralized in `BuildProjectManager.CreateBackend()` using `FYAssetSettings.Instance.UseABBackend`
 
-### Legacy backend
+### AA backend
 
-- `LegacyAddressableBuildBackend` owns Addressables-specific setup (`BuildRemoteCatalog`, `PackTogetherByLabel`, LuaScripts remote path fix)
+- `AAAddressableBuildBackend` owns Addressables-specific setup (`BuildRemoteCatalog`, `PackTogetherByLabel`, LuaScripts remote path fix)
 - it still builds through `AddressableAssetSettings.BuildPlayerContent`
 - it exports `AAManifest.json` and `AAManifest.bin` by scanning `{PackageRoot}/bundles/*.bundle`
 - each exported `BundleInfo` stores `FileHash` (MD5 content identity), `FileCRC` (CRC32 fast verification), and `FileSize`
@@ -98,6 +98,11 @@ The build entry point is now split with the same orchestration pattern already u
 - it reorganizes package output into `{PackageRoot}/bundles/` so the runtime contracts stay aligned with `HotfixManager` download layout and `ABBundleLoader` lookup rules
 - it exports `ABManifest.json` at the package root as the AB-side version descriptor
 
+### Build path helpers
+
+- `BuildPathManager` is the Editor-only source for build output paths; it preserves the current `HotfixOutput/Packages/Build_{date}_{version}` layout.
+- `AddressablesBuildOutputOrganizer` owns AA Addressables `ServerData` cleanup and package output copying rules.
+
 ## FYAssetSettings
 
 `FYAssetSettings` is a `ScriptableObject` (Runtime assembly) that replaced the deleted `FYAssetConstants` static class.
@@ -107,7 +112,7 @@ The build entry point is now split with the same orchestration pattern already u
 - Editor: `LoadOrCreate()` searches `Assets/Resources/FYAssetSettings.asset`, creates the asset if missing, and saves it through `AssetDatabase`
 - Player: `LoadOrCreate()` loads the asset through `Resources.Load<FYAssetSettings>("FYAssetSettings")`; only if that fails does it fall back to `CreateInstance<FYAssetSettings>()`
 - Instance fields (configurable in Inspector): `ProjectName`, `HotfixUrl`, `UseABBackend`, `VersionDataBasePath`, `LuaScriptsIndexPath`, `SnapshotAssetPath`, `BuildIndexJsonPath`, `CollectorDataFolder`, `CollectorSettingPath`, `PipelineConfigPath`
-- Runtime consumers read configuration via `FYAssetSettings.Instance` at use sites; no `static readonly` settings snapshots remain in `PathManager` / `HotfixManager`
+- Runtime consumers read configuration via `FYAssetSettings.Instance` at use sites; no `static readonly` settings snapshots remain in `RuntimePathManager` / `HotfixManager`
 - Static `const` members: all rule name strings (`RULE_*`), group/label identifiers (`LUA_SCRIPTS_INDEX`, `HOTFIX_GROUP_NAME`, `DEFAULT_XLUA_TYPE_CONFIG_LOAD_LABEL`), file names (`MANIFEST_FILE_NAME`, `MANIFEST_FILE_NAME_BIN`, `AA_MANIFEST_FILE_NAME`, `AA_MANIFEST_FILE_NAME_BIN`, `BUILD_INDEX_FILENAME`), and editor paths (`BUILD_PIPELINE_WINDOW_MENU_PATH`, `BINARY_SERIALIZER_GENERATE_PATH`)
 - `UseABBackend` is the single source of truth for backend selection — `BuildPipelineConfig.DefaultBackendMode` was removed
 
@@ -144,3 +149,4 @@ Tradeoff:
 The collector framework under `Assets/FYAsset/Scripts/Build/Collector/` is the current foundation for a future build-pipeline refactor. It already defines the configuration model and rule contracts, but it is not yet the only build system in the repository.
 
 See `collector-framework.md` for the verified current scope.
+

@@ -3,6 +3,7 @@
 ## Core Rules
 - Read `context/INDEX.md` before starting non-trivial work.
 - Use Chinese for developer communication; keep code, commit messages, and technical identifiers in English.
+- For user-facing editor/UI code comments, prefer Chinese descriptions while keeping technical terms and proper nouns in English.
 - New Lua-callable C# types must sync `TypeMemberListSO` configuration.
 - Keep `context/` in English and aligned with the latest verified project reality.
 - Keep plans, approvals, sequencing, and progress tracking inside `requirements/`.
@@ -33,7 +34,36 @@
 - Direct `Debug.Log*` diagnostics in FYAsset framework, tool, backend, manager, editor, and cross-module code may use a `[Component]` prefix for Unity Console filtering.
 - `RuntimeMessage.Message`, `BuildMessage.Message`, and `BuildTaskResult.ErrorMessage` human-readable descriptions must not start with a `[Component]` prefix; component ownership belongs in direct logs, source fields, or call-site context.
 - UI-facing and upper-layer runtime error display should prefer `RuntimeMessage.ToString()` / `BuildMessage.ToString()` style output: `[Code] Message`.
-- Avoid combining component prefixes and error-code prefixes in the same user-facing message, for example avoid `[LOAD_FAILED] [LegacyHotfixBackend] ...`.
+- Avoid combining component prefixes and error-code prefixes in the same user-facing message, for example avoid `[LOAD_FAILED] [AAHotfixBackend] ...`.
+
+## ScriptableObject Rules
+- Add `[CreateAssetMenu]` only when the SO type must be created manually by a developer via the Project window right-click menu.
+- Do NOT add `[CreateAssetMenu]` when the SO is already auto-created by code (singleton, build pipeline, directory scanner, etc.) or when a dedicated EditorWindow/GUI panel provides a unified creation flow.
+
+  **Known auto/GUI-created SOs (have `[CreateAssetMenu]` but should not):**
+  | SO Type | Creation Mechanism |
+  |---|---|
+  | `FYAssetSettings` | Auto via singleton `LoadOrCreate()` |
+  | `ScriptObjectDataBase` | GUI via `SOAddressableTagger` EditorWindow |
+  | `VersionDataBase` | GUI via `VersionPanel` |
+  | `LuaScriptContainer` | GUI via `LuaFileCreatorWindow` + auto via `LuaDirectoryScanner` |
+  | `LuaDataBase` | GUI via 3 EditorWindows |
+
+  **Known manual-only SOs (correctly have `[CreateAssetMenu]`):**
+  | SO Type | menuName |
+  |---|---|
+  | `ScriptObjectContainer` | `Addressables/MyWork/SO Container` |
+  | `LuaAutoSyncConfig` | `XLua/Lua Auto Sync Config` |
+  | `TypeMemberListSO` | `XLua/Type List` |
+  | `ScriptObjectBridgeConfig` | `XLua/Bridge/SOBridgeConfig` |
+  | `LuaBehaviourConfigSO` | `XLua/Bridge/Behaviour Config SO` |
+  | `StateAnimationConfigSO` | `XLua/Bridge/State Animation Config` |
+  | `CharacterConfig` | `Dialogue/Character Config` |
+  | `PlayerControllerSO` | `Player/PlayerControllerSO` |
+  | `UIResourceConfigSO` | `UI/Resource Config` |
+  | `UIFormConfigSO` | `UI/UI Form Config` |
+  | `ConfigConvertSettings` | `Config/ConfigConvertSetting` |
+  | `ConfigConvertChannel` | `Config/ConfigConvertChannel` |
 
 ## Git Rules
 - Commit types: `feat`, `fix`, `refactor`, `docs`, `chore`.
