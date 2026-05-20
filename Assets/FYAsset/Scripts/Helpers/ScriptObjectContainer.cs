@@ -5,7 +5,6 @@ using UnityEngine;
 /// <summary>
 /// 打标签用的构建工具，仅编辑器模式下使用
 /// </summary>
-[CreateAssetMenu(fileName = "SOContainer", menuName = "Addressables/MyWork/SO Container")]
 public class ScriptObjectContainer : ScriptableObject
 {
     [Header("标签管理")]

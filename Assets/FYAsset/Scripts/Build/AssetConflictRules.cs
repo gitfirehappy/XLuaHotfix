@@ -43,24 +43,24 @@ public static class AssetConflictRules
     public enum ConflictType
     {
         /// <summary>
-        /// 同一 EntryId 出现多次 → 阻断
+        /// 同一 EntryId 出现多次 -> 阻断
         /// </summary>
         DuplicateEntryId,
 
         /// <summary>
-        /// 同一 Address + PrimaryType + 完全相同 LabelSet → 阻断
+        /// 同一 Address + PrimaryType + 完全相同 LabelSet -> 阻断
         /// （运行时 Resolve 无法区分）
         /// </summary>
         IdenticalAddressTypeLabelSet,
 
         /// <summary>
-        /// 同一 Address + PrimaryType，靠不同 Labels 区分 → 警告
+        /// 同一 Address + PrimaryType，靠不同 Labels 区分 -> 警告
         /// </summary>
         AddressTypeSameLabelsDiffer,
 
         /// <summary>
         /// 标签子集歧义：条目 A 的 LabelSet 是条目 B 的子集，
-        /// 查询时可能意外命中 → 警告
+        /// 查询时可能意外命中 -> 警告
         /// </summary>
         LabelSubsetAmbiguity,
     }

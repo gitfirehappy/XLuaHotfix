@@ -19,11 +19,10 @@ using UnityEngine;
 /// </summary>
 public class AAAddressableBuildBackend : IBuildBackend
 {
-    private const long MaxHotfixSizeBytes = 1L * 1024 * 1024 * 1024;
-
     private string _serverDataPath;
     private string _lastOutputDir;
     private int _bundleCount;
+    private BuildPackageRequest _request;
 
     /// <summary>
     /// 便捷重载，无额外执行选项。
@@ -38,6 +37,12 @@ public class AAAddressableBuildBackend : IBuildBackend
     /// </summary>
     public Task<BuildBackendResult> BuildAsync(VersionNumber version, BuildType buildType, BuildExecutionOptions options)
     {
+        var request = BuildPackageRequest.Create(version, buildType, BackendMode.AAAddressable);
+        return BuildAsync(request, options);
+    }
+
+    public Task<BuildBackendResult> BuildAsync(BuildPackageRequest request, BuildExecutionOptions options)
+    {
         var settings = AddressableAssetSettingsDefaultObject.Settings;
         if (settings == null)
             return Task.FromResult(BuildBackendResult.Fail(
@@ -45,6 +50,7 @@ public class AAAddressableBuildBackend : IBuildBackend
 
         try
         {
+            _request = request ?? throw new ArgumentNullException(nameof(request));
             ConfigureBasicSettings(settings);
             AssetDatabase.Refresh();
 
@@ -71,6 +77,8 @@ public class AAAddressableBuildBackend : IBuildBackend
     /// </summary>
     public void OrganizeOutput(string outputDir, VersionNumber version)
     {
+        ValidateRequestOutput(outputDir);
+
         if (string.IsNullOrEmpty(_serverDataPath))
             throw new InvalidOperationException("AA 构建输出尚未就绪，请先调用 BuildAsync。");
 
@@ -90,6 +98,8 @@ public class AAAddressableBuildBackend : IBuildBackend
     /// </summary>
     public void GeneratePackageManifest(string outputDir, VersionNumber version)
     {
+        ValidateRequestOutput(outputDir);
+
         Debug.Log("[AAAddressableBuildBackend] 正在生成 AAManifest.json...");
 
         var manifest = new AAManifest
@@ -127,41 +137,37 @@ public class AAAddressableBuildBackend : IBuildBackend
             }
         }
 
-        if (manifest.TotalSize >= MaxHotfixSizeBytes)
-        {
-            Debug.LogError($"[AAAddressableBuildBackend] 热更包大小过大，需缩减大小: {manifest.TotalSize} >= {MaxHotfixSizeBytes}");
-
-            if (Application.isBatchMode)
-            {
-                Debug.LogError("[AAAddressableBuildBackend] BatchMode 下已阻断构建：热更包大小超过阈值。请缩减资源后重试。");
-                throw new Exception("热更包大小超过阈值");
-            }
-
-            EditorUtility.DisplayDialog(
-                "热更包过大",
-                $"热更包大小 ({manifest.TotalSize / (1024 * 1024)} MB) 已超过阈值 ({MaxHotfixSizeBytes / (1024 * 1024)} MB)。请缩减资源大小。",
-                "OK");
+        if (!HotfixPackageSizeGuard.ValidateOrAbort(manifest.TotalSize, "AAAddressableBuildBackend"))
             return;
-        }
 
         string jsonSavePath = Path.Combine(outputDir, FYAssetSettings.AA_MANIFEST_FILE_NAME);
         string binSavePath = Path.Combine(outputDir, FYAssetSettings.AA_MANIFEST_FILE_NAME_BIN);
         string tempManifestPath = jsonSavePath + ".tmp";
 
-        if (File.Exists(tempManifestPath))
-            File.Delete(tempManifestPath);
+        FileHelper.TryDelete(tempManifestPath);
 
         SerializationUtility.WriteToFile(tempManifestPath, manifest);
         manifest.FileHash = HashGenerator.GenerateFileHash(tempManifestPath);
-        File.Delete(tempManifestPath);
+        FileHelper.TryDelete(tempManifestPath);
 
-        SerializationUtility.WriteToFile(jsonSavePath, manifest);
-        SerializationUtility.WriteToFile(binSavePath, manifest, "binary", false);
+        ManifestOutputFormat outputFormat = FYAssetSettings.Instance.ManifestOutputFormat;
+        if (outputFormat != ManifestOutputFormat.BinaryOnly)
+            SerializationUtility.WriteToFile(jsonSavePath, manifest);
+        else
+            FileHelper.TryDelete(jsonSavePath);
+
+        if (outputFormat != ManifestOutputFormat.JsonOnly)
+            SerializationUtility.WriteToFile(binSavePath, manifest, "binary", false);
+        else
+            FileHelper.TryDelete(binSavePath);
 
         Debug.Log($"[AAAddressableBuildBackend] Package Manifest 已生成: {_lastOutputDir ?? outputDir}, Bundles: {_bundleCount}, JSON: {jsonSavePath}, Binary: {binSavePath}");
         Debug.Log($"[AAAddressableBuildBackend] AAManifest.json 生成完毕。Hash: {manifest.FileHash} BundleSize: {manifest.TotalSize}");
     }
 
+    /// <summary>
+    /// 配置 AddressableAssetSettings 基本参数。
+    /// </summary>
     private static void ConfigureBasicSettings(AddressableAssetSettings settings)
     {
         settings.BuildRemoteCatalog = true;
@@ -197,6 +203,9 @@ public class AAAddressableBuildBackend : IBuildBackend
         AssetDatabase.SaveAssets();
     }
 
+    /// <summary>
+    /// 将 BundledAssetGroupSchema 路径修正为 Remote。
+    /// </summary>
     private static void SetSchemaPathToRemote(AddressableAssetSettings settings, BundledAssetGroupSchema schema)
     {
         bool changed = false;
@@ -215,6 +224,14 @@ public class AAAddressableBuildBackend : IBuildBackend
 
         if (changed)
             Debug.Log($"[AAAddressableBuildBackend] 已将 Schema 路径修正为 Remote: {schema.Group.Name}");
+    }
+
+    private void ValidateRequestOutput(string outputDir)
+    {
+        if (_request == null)
+            throw new InvalidOperationException("AA 构建请求尚未就绪，请先调用 BuildAsync。");
+        if (!string.Equals(_request.OutputDir, outputDir, StringComparison.Ordinal))
+            throw new InvalidOperationException($"AA 输出目录必须来自 BuildPackageRequest。Expected: {_request.OutputDir}, Actual: {outputDir}");
     }
 }
 #endif

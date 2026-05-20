@@ -5,7 +5,6 @@ using UnityEngine;
 /// <summary>
 /// 版本号存储，仅编辑器和构建时使用
 /// </summary>
-[CreateAssetMenu(fileName = "VersionDataBase", menuName = "Build/VersionDataBase", order = 1)]
 public class VersionDataBase : ScriptableObject
 {
     [Header("当前版本号")]

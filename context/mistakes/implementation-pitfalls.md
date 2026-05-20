@@ -160,6 +160,8 @@
 
 **Prevention:** All file I/O must go through `FileHelper`. When a new pattern is needed, extend `FileHelper` first. Non-append persistent writes MUST use atomic write (temp + rename).
 
+**2026-05-20 recurrence:** Review after BOU-1/HPU-1 found raw `Directory.CreateDirectory`/`File.Delete` in recently touched bootstrap, download retry, and AA manifest-temp paths. The fix routed those paths through `FileHelper.EnsureDirectory` / `FileHelper.TryDelete`. Prevention addendum: after touching a file that already has a `FileHelper` boundary, run a targeted raw I/O grep on that file before verification.
+
 ---
 
 ## IP-17: Build Artifact Logic Triplicated

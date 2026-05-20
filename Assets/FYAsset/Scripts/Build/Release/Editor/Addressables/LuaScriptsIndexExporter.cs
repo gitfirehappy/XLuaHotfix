@@ -81,7 +81,7 @@ public class LuaScriptsIndexExporter
         {
             asset = ScriptableObject.CreateInstance<T>();
             var directory = System.IO.Path.GetDirectoryName(path);
-            if (!System.IO.Directory.Exists(directory)) System.IO.Directory.CreateDirectory(directory);
+            FileHelper.EnsureDirectory(directory);
             AssetDatabase.CreateAsset(asset, path);
         }
         return asset;

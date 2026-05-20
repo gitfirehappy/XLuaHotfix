@@ -71,6 +71,8 @@ public class SettingsPanel : IBuildPipelinePanel
 
         DrawSection("Project", "ProjectName", "HotfixUrl");
         DrawSection("Backend", "UseABBackend");
+        DrawSection("Hotfix", "MaxHotfixSizeBytes", "HotfixMaxRetryCount", "HotfixRetryBaseDelaySeconds");
+        DrawSection("Manifest Output", "ManifestOutputFormat");
         DrawSection("Version", "VersionDataBasePath");
         DrawSection("AA Pipeline Paths", "LuaScriptsIndexPath", "SnapshotAssetPath", "BuildIndexJsonPath");
         DrawSection("New Pipeline Paths", "CollectorDataFolder", "CollectorSettingPath", "PipelineConfigPath");

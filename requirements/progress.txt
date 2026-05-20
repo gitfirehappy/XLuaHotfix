@@ -1029,3 +1029,27 @@
 [done] 2026-05-19 requirements housekeeping — archived executed plans, promoted drafts, and archived review reports; cleaned active plan/draft/review indexes
 [done] 2026-05-19 plan directory cleanup — archived remaining active plan files after code/progress alignment; plan-D marked stale/unexecuted, others archived as completed, superseded, or deferred
 [done] 2026-05-19 runtime folder cleanup — moved RuntimePathManager to Runtime root and AB-only handle/resolve models to Runtime/Backends/AB/Models; Runtime/Models now only keeps shared RuntimeMessage
+[done] 2026-05-20 plan-so-createassetmenu-entry-unification-20260519.md APPROVED by developer — all 4 checklist items confirmed
+[done] 2026-05-20 plan-hotfix-pipeline-unification-20260519.md APPROVED by developer — all 7 checklist items confirmed
+[done] 2026-05-20 SOE-1 executed — removed duplicate `CreateAssetMenu` from `FYAssetSettings`, `VersionDataBase`, `ScriptObjectDataBase`, and `ScriptObjectContainer`; verified dedicated creation entries remain documented in `docs/FYAsset/so-创建入口说明.md`.
+[done] 2026-05-20 SOE-1 docs/context sync — `docs/FYAsset/资源管理架构文档.md` links the SO creation guide; README points developers to the guide; `context/conventions/collaboration.md` now records the four tool-owned SO types as non-menu-created.
+[blocked] 2026-05-20 SOE-1 compile verification — `dotnet build XLuaHotfix.sln` failed in existing hotfix-pipeline dirty state because `HotfixPackageSizeGuard` is referenced by AA/AB build backends but is not included in `Assembly-CSharp-Editor.csproj`; SOE-1 source audit itself passed.
+[next] 2026-05-20 Await developer sign-off for SOE-1 before starting `plan-hotfix-pipeline-unification-20260519.md`.
+[done] 2026-05-20 SOE-1 SIGNED OFF - developer said continue after SO creation entry unification summary; proceed to plan-hotfix-pipeline-unification-20260519.md.
+[done] 2026-05-20 HPU-1 executed — added hotfix retry settings and manifest output format to `FYAssetSettings`; default manifest output remains JSON + binary.
+[done] 2026-05-20 HPU-1 bundle safety — bundle download and same-hash local reuse now write to `.tmp`, verify CRC when available, then replace the target file; stale `.tmp` files are cleaned before bundle download starts.
+[done] 2026-05-20 HPU-1 retry policy — bundle network failure and CRC mismatch share the same retry policy; default max retry count is 3 with exponential backoff from 1 second.
+[done] 2026-05-20 HPU-1 manifest output — AA package output writes `AAManifest.json` and `AAManifest.bin` by default; AB package/bootstrap output writes `ABManifest.json` and `ABManifest.bin` by default; no generic manifest helper was introduced.
+[done] 2026-05-20 HPU-1 logging boundary — low-layer hotfix/build diagnostics that are summarized by outer orchestrators were downgraded to Warning; final Error summaries remain in `HotfixManager` and `BuildProjectManager`.
+[done] 2026-05-20 HPU-1 docs/context sync — updated hotfix docs, FYAsset architecture overview, runtime loading context, and build/release context with verified retry/tmp/manifest-output behavior.
+[done] 2026-05-20 HPU-1 verification — source audit confirmed retry/tmp/CRC warning/default JSON+binary/no generic manifest helper/logging boundary; `dotnet build XLuaHotfix.sln` passed with 0 errors and existing System.Net.Http warnings.
+[done] 2026-05-20 BOU-1 plan promoted — extracted Plan-1 from AA/AB Task alignment draft into `requirements/plan/plan-build-request-output-ownership-20260520.md`; draft now marks the promoted scope and remaining slices.
+[next] 2026-05-20 Await developer approval checklist confirmation for BOU-1 before execution.
+[done] 2026-05-20 BOU-1 APPROVED by developer — all checklist items confirmed, including request creation timestamp and PackageIndex update ownership; begin execution.
+[done] 2026-05-20 BOU-1 implementation — added Editor-only `BuildPackageRequest`, request-aware `IBuildBackend.BuildAsync`, AB `BuildContext` request key, and request-owned PackageIndex update.
+[done] 2026-05-20 BOU-1 docs/context sync — README and resource build context now record `BuildProjectManager` request ownership and backend request consumption.
+[done] 2026-05-20 BOU-1 verification — source audit confirmed package name/path computation is centralized in `BuildPackageRequest`, main `RunBuild()` creates one request before backend execution, AB writes the request into `BuildContext`, and `dotnet build XLuaHotfix.sln` passed with 0 errors and existing System.Net.Http warnings.
+[next] 2026-05-20 Await developer sign-off for BOU-1 before starting the next AA/AB Task alignment sub-plan.
+[done] 2026-05-20 mistake-audit fix — applied PL-12/IP-16 review: `BuildPackageRequest` now uses UTC timestamp for package identity, and `LocalStatusExporter` routes touched directory/delete operations through `FileHelper`.
+[done] 2026-05-20 mistake-audit follow-up — replaced raw delete in touched `NetworkDownloader` retry cleanup and AA manifest temp cleanup; updated IP-16 and PL-12 mistake records with the 2026-05-20 recurrence and prevention addenda.
+[done] 2026-05-20 mistake-audit release-folder cleanup — replaced the remaining raw directory creation in `LuaScriptsIndexExporter` with `FileHelper.EnsureDirectory`; targeted grep now leaves only `FileHelper` internals for raw I/O in touched release/bootstrap/hotfix/helper scope.

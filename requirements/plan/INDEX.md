@@ -13,7 +13,11 @@ Completed and abandoned plans go to `archive/`.
 
 ## Active Plans
 
-No active executable plan files. New approved work should add a new plan here; completed, superseded, deferred, or stale plans stay under `archive/`.
+| File | Status | Description |
+|------|--------|-------------|
+| plan-build-request-output-ownership-20260520.md | Executed, awaiting sign-off | AA/AB Task 统一第一步：统一 build request 与最终 output ownership |
+| plan-hotfix-pipeline-unification-20260519.md | Executed, awaiting sign-off | Hotfix 双管线统一与健壮性改进（下载重试、tmp 文件、Manifest 输出、日志边界） |
+| plan-so-createassetmenu-entry-unification-20260519.md | Signed off | SO 创建入口统一（移除重复 CreateAssetMenu，补充 docs 入口说明） |
 
 ## Subdirectories
 

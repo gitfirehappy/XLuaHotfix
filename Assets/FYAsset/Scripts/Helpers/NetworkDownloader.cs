@@ -19,12 +19,25 @@ public static class NetworkDownloader
     /// </summary>
     public static async Task<bool> DownloadFile(string url, string savePath)
     {
-        for (int i = 0; i <= MAX_RETRIES; i++)
+        return await DownloadFileInternal(url, savePath, MAX_RETRIES, true);
+    }
+
+    /// <summary>
+    /// 下载文件一次，不做内部重试。用于由上层统一控制重试策略的流程。
+    /// </summary>
+    public static async Task<bool> DownloadFileOnce(string url, string savePath)
+    {
+        return await DownloadFileInternal(url, savePath, 0, false);
+    }
+
+    private static async Task<bool> DownloadFileInternal(string url, string savePath, int maxRetries, bool logFinalError)
+    {
+        for (int i = 0; i <= maxRetries; i++)
         {
             if (i > 0)
             {
                 Debug.LogWarning($"[NetworkDownloader] 开始第 {i} 次重试下载: {url}");
-                if (File.Exists(savePath)) File.Delete(savePath);
+                FileHelper.TryDelete(savePath);
             }
 
             using var uwr = UnityWebRequest.Get(url);
@@ -45,13 +58,15 @@ public static class NetworkDownloader
 
             if (uwr.responseCode == 404)
             {
-                Debug.LogError($"[NetworkDownloader] 文件未找到 (404)，停止重试: {url}");
+                if (logFinalError)
+                    Debug.LogError($"[NetworkDownloader] 文件未找到 (404)，停止重试: {url}");
                 return false;
             }
 
-            if (i == MAX_RETRIES)
+            if (i == maxRetries)
             {
-                Debug.LogError($"[NetworkDownloader] 下载文件失败 (已重试{MAX_RETRIES}次): {url}\n错误: {uwr.error}");
+                if (logFinalError)
+                    Debug.LogError($"[NetworkDownloader] 下载文件失败 (已重试{maxRetries}次): {url}\n错误: {uwr.error}");
                 return false;
             }
 

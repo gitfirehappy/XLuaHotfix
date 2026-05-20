@@ -5,7 +5,7 @@ using UnityEngine;
 /// <summary>
 /// 采集器全局配置资产（单例 ScriptableObject）。
 /// 存放路径：Assets/FYAsset/CollectorData/CollectorSetting.asset。
-/// 包含所有 Package 的层级配置：Setting → Package → Group → Collector。
+/// 包含所有 Package 的层级配置：Setting -> Package -> Group -> Collector。
 /// </summary>
 public class CollectorSetting : ScriptableObject
 {

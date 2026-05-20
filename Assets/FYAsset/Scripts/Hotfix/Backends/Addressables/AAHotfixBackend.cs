@@ -114,7 +114,7 @@ public class AAHotfixBackend : IHotfixPipeline
         }
         catch (Exception ex)
         {
-            Debug.LogError($"[AAHotfixBackend] 远端 AAManifest 解析失败: {ex.Message}");
+            Debug.LogWarning($"[AAHotfixBackend] 远端 AAManifest 解析失败: {ex.Message}");
             return null;
         }
     }

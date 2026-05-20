@@ -43,7 +43,7 @@ public static class RuntimePathManager
         if (!guidDir.StartsWith("Build_")) guidDir = "Build_" + guidDir;
         CurrentGUIDRoot = Path.Combine(HotfixRoot, guidDir);
         
-        // Save, Logs, Cache 提升到 EnvRoot 下
+        // Save, Logs, Cache 在 EnvRoot 下
         CacheRoot = Path.Combine(EnvRoot, "Cache");
         SaveRoot = Path.Combine(EnvRoot, "Saves");
         LogRoot = Path.Combine(EnvRoot, "Logs");

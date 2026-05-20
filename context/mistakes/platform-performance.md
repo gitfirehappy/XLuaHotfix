@@ -120,6 +120,8 @@
 
 **Prevention:** Version strings, build timestamps, sortable IDs must use `DateTime.UtcNow`. `DateTime.Now` is for user-display only.
 
+**2026-05-20 recurrence:** `BuildPackageRequest` initially used `DateTime.Now` for package identity after moving package-name creation earlier in the build flow. The fix changed request creation to `DateTime.UtcNow`. Prevention addendum: when moving existing package/version naming code, re-check the timestamp source instead of preserving the old local-time expression.
+
 ---
 
 ## PL-13: CLI Parsing Missing Bounds Check

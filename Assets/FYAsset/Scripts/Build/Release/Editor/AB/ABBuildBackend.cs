@@ -8,7 +8,7 @@ using UnityEngine;
 
 /// <summary>
 /// ABManifest 新管线构建后端。
-/// 通过 DAGScheduler 驱动已落地的 7 个 Task，并在 BuildProjectManager 统一入口下对齐旧包目录结构。
+/// 通过 DAGScheduler 驱动 Task 在 BuildProjectManager 统一入口导出
 ///
 /// 构建流程：DAGScheduler.Execute -> 从 BuildContext 提取 ABManifest 与输出路径 -> 拷贝产物到目标目录 -> 生成 PackageManifest。
 /// </summary>
@@ -19,6 +19,7 @@ public class ABBuildBackend : IBuildBackend
     private BuildContext _context;
     private ABManifest _manifest;
     private string _pipelineOutputDir;
+    private BuildPackageRequest _request;
 
     #endregion
 
@@ -36,6 +37,12 @@ public class ABBuildBackend : IBuildBackend
     /// </summary>
     public Task<BuildBackendResult> BuildAsync(VersionNumber version, BuildType buildType, BuildExecutionOptions options)
     {
+        var request = BuildPackageRequest.Create(version, buildType, BackendMode.ABManifest);
+        return BuildAsync(request, options);
+    }
+
+    public Task<BuildBackendResult> BuildAsync(BuildPackageRequest request, BuildExecutionOptions options)
+    {
         var config = AssetDatabase.LoadAssetAtPath<BuildPipelineConfig>(FYAssetSettings.Instance.PipelineConfigPath);
         if (config == null)
             return Task.FromResult(BuildBackendResult.Fail(
@@ -43,7 +50,9 @@ public class ABBuildBackend : IBuildBackend
 
         try
         {
+            _request = request ?? throw new ArgumentNullException(nameof(request));
             _context = new BuildContext();
+            _context.Set(BuildContextKeys.BuildPackageRequest, _request);
             BuildResult result = DAGScheduler.Execute(config, _context, options);
             if (!result.Success)
             {
@@ -70,6 +79,8 @@ public class ABBuildBackend : IBuildBackend
     /// </summary>
     public void OrganizeOutput(string outputDir, VersionNumber version)
     {
+        ValidateRequestOutput(outputDir);
+
         if (string.IsNullOrEmpty(_pipelineOutputDir))
             throw new InvalidOperationException("AB 管线输出尚未就绪，请先调用 BuildAsync。");
 
@@ -105,24 +116,58 @@ public class ABBuildBackend : IBuildBackend
     /// </summary>
     public void GeneratePackageManifest(string outputDir, VersionNumber version)
     {
+        ValidateRequestOutput(outputDir);
+
         if (_manifest == null)
             throw new InvalidOperationException("AB Manifest 尚未就绪，请先调用 BuildAsync。");
 
+        long totalSize = 0;
+        for (int i = 0; i < _manifest.BundleEntries.Count; i++)
+            totalSize += _manifest.BundleEntries[i].FileSize;
+
+        if (!HotfixPackageSizeGuard.ValidateOrAbort(totalSize, "ABBuildBackend"))
+            return;
+
+        ManifestOutputFormat outputFormat = FYAssetSettings.Instance.ManifestOutputFormat;
         string manifestPath = Path.Combine(outputDir, FYAssetSettings.MANIFEST_FILE_NAME);
-        if (!FileHelper.Exists(manifestPath))
+        string manifestBinPath = Path.Combine(outputDir, FYAssetSettings.MANIFEST_FILE_NAME_BIN);
+
+        if (!FileHelper.DirectoryExists(outputDir))
+            FileHelper.EnsureDirectory(outputDir);
+
+        if (outputFormat != ManifestOutputFormat.BinaryOnly)
         {
-            if (!FileHelper.DirectoryExists(outputDir))
-                FileHelper.EnsureDirectory(outputDir);
             FileHelper.WriteAllTextAtomic(manifestPath, _manifest.SerializeToJson(), Encoding.UTF8);
         }
+        else
+        {
+            FileHelper.TryDelete(manifestPath);
+        }
 
-        Debug.Log($"[ABBuildBackend] Package Manifest 已生成: {outputDir}, Assets: {_manifest.AssetEntries.Count}, Bundles: {_manifest.BundleEntries.Count}, Manifest: {manifestPath}");
+        if (outputFormat != ManifestOutputFormat.JsonOnly)
+        {
+            SerializationUtility.WriteToFile(manifestBinPath, _manifest, "binary", false);
+        }
+        else
+        {
+            FileHelper.TryDelete(manifestBinPath);
+        }
+
+        Debug.Log($"[ABBuildBackend] Package Manifest 已生成: {outputDir}, Assets: {_manifest.AssetEntries.Count}, Bundles: {_manifest.BundleEntries.Count}, JSON: {manifestPath}, Binary: {manifestBinPath}");
     }
 
     private static void CopyFileIfExists(string sourcePath, string targetPath)
     {
         if (FileHelper.Exists(sourcePath))
             FileHelper.CopyFile(sourcePath, targetPath, true);
+    }
+
+    private void ValidateRequestOutput(string outputDir)
+    {
+        if (_request == null)
+            throw new InvalidOperationException("AB 构建请求尚未就绪，请先调用 BuildAsync。");
+        if (!string.Equals(_request.OutputDir, outputDir, StringComparison.Ordinal))
+            throw new InvalidOperationException($"AB 输出目录必须来自 BuildPackageRequest。Expected: {_request.OutputDir}, Actual: {outputDir}");
     }
 
     /// <summary>
@@ -138,7 +183,7 @@ public class ABBuildBackend : IBuildBackend
             if (taskResult == null || taskResult.Success)
                 continue;
 
-            Debug.LogError($"[ABBuildBackend] {taskResult.ErrorCode}: {taskResult.ErrorMessage}");
+            Debug.LogWarning($"[ABBuildBackend] {taskResult.ErrorCode}: {taskResult.ErrorMessage}");
         }
     }
 }

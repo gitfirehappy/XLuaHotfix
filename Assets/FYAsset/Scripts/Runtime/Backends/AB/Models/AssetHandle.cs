@@ -9,8 +9,8 @@ using UnityEngine;
 /// - 生命周期由 HandleRegistry 集中管理（类似 C++ shared_ptr 控制块模式）。
 /// - 每个 Handle 持有 (HandleId, Generation) 元组，通过 Generation 校验判断有效性。
 /// - Release() 递减引用计数，归零时通过 HandleRegistry 回调释放底层资源。
-/// - 拷贝体的 Release 会被 Generation 拦截为空操作（安全网）。
-/// - 显式 Retain() 支持共享所有权（类似 shared_ptr 拷贝构造增加引用计数）。
+/// - 普通 struct 拷贝不会增加引用计数，也不会创建独立 owner。
+/// - 显式 Retain() 支持共享所有权；每个 Retain 成功后的 owner 都需要 Release。
 ///
 /// 双重职责：
 /// 1. Result 容器（IsValid + Error 用于 Result 风格错误处理）
@@ -19,7 +19,8 @@ using UnityEngine;
 /// 使用合同：
 /// - 默认单 Owner：Load 返回 Handle(refCount=1)，Release 归零释放。
 /// - 共享所有权：显式调用 Retain() 增加引用计数，每个 Owner 各自 Release。
-/// - 拷贝体不调 Retain 时 Release = 空操作 + Warning。
+/// - 普通拷贝不应作为独立 owner 调用 Release；需要共享时先调用 Retain()。
+/// - 已释放或过期的 Handle 再次 Release 会被 Generation 拦截并输出 Warning。
 /// - 加载失败时返回 IsValid=false、Error 已填充的句柄（HandleId=-1，不占用 Registry 槽位）。
 /// </summary>
 public struct AssetHandle<T> where T : UnityEngine.Object
@@ -133,7 +134,7 @@ public struct AssetHandle<T> where T : UnityEngine.Object
 
     /// <summary>
     /// 释放此句柄的引用。引用计数 -1，归零时通过 HandleRegistry 回调释放底层资源。
-    /// 拷贝体或已释放的 Handle 调用时为安全的空操作（Generation 校验拦截）。
+    /// 已释放或过期的 Handle 调用时为安全的空操作（Generation 校验拦截）。
     /// </summary>
     public void Release()
     {

@@ -1,6 +1,6 @@
 # Resource Build And Release
 
-Last reviewed: 2026-05-18
+Last reviewed: 2026-05-20
 
 ## Scope
 
@@ -24,7 +24,8 @@ Current source locations:
 | Data | Role |
 | --- | --- |
 | `BuildIndexData` | packaged build identity, version, and GUID used for major-version validation |
-| `AAManifest` | version plus bundle hash/CRC/size mapping for AA hotfix comparison and fast bundle verification; also embeds the AA asset index lists; emitted as JSON and binary |
+| `AAManifest` | version plus bundle hash/CRC/size mapping for AA hotfix comparison and fast bundle verification; also embeds the AA asset index lists; emitted as JSON and binary by default |
+| `ABManifest` | AB asset/bundle manifest; emitted as JSON and binary by default for package output and StreamingAssets bootstrap |
 | `LuaScriptsIndex` | Lua module name to Addressables key mapping; normal Addressable asset in the `LuaScripts` group; type lives with `XLuaLoader` |
 | `PackageIndex` | remote package pointer written to `manifest.json` and used to locate the latest package root |
 
@@ -78,25 +79,26 @@ The build entry point is now split with the same orchestration pattern already u
 
 ### Shared orchestrator
 
-- `BuildProjectManager` owns version increment, Lua index export, package naming, `manifest.json` (`PackageIndex`) update, and full-build post steps
+- `BuildProjectManager` owns version increment, Lua index export, `BuildPackageRequest` creation, package naming, `manifest.json` (`PackageIndex`) update, and full-build post steps
+- `BuildPackageRequest` is created before backend execution and carries version, build type, backend mode, package name, final package output directory, bundles directory, and `PackageIndex` path
 - `BuildCommandLine` still calls `BuildProjectManager.BuildFullPackage()` / `BuildHotfix()` and does not bypass backend selection
 - backend selection is centralized in `BuildProjectManager.CreateBackend()` using `FYAssetSettings.Instance.UseABBackend`
 
 ### AA backend
 
-- `AAAddressableBuildBackend` owns Addressables-specific setup (`BuildRemoteCatalog`, `PackTogetherByLabel`, LuaScripts remote path fix)
+- `AAAddressableBuildBackend` receives the shared `BuildPackageRequest` and owns Addressables-specific setup (`BuildRemoteCatalog`, `PackTogetherByLabel`, LuaScripts remote path fix)
 - it still builds through `AddressableAssetSettings.BuildPlayerContent`
-- it exports `AAManifest.json` and `AAManifest.bin` by scanning `{PackageRoot}/bundles/*.bundle`
+- it exports `AAManifest.json` and `AAManifest.bin` by default by scanning `{PackageRoot}/bundles/*.bundle`
 - each exported `BundleInfo` stores `FileHash` (MD5 content identity), `FileCRC` (CRC32 fast verification), and `FileSize`
 - `AAManifest` also stores `AssetEntries`, `KeysByType`, and `KeysByLabel`
 - `AAAssetIndexBuilder` is the single Editor-only source for those AA index lists and writes them into `AAManifest`
 
 ### AB backend
 
-- `ABBuildBackend` runs the already-landed E5/E6 task graph through `DAGScheduler.Execute()`
+- `ABBuildBackend` receives the shared `BuildPackageRequest`, writes it into `BuildContext`, and runs the already-landed E5/E6 task graph through `DAGScheduler.Execute()`
 - it consumes `ABManifest` and `OutputPath` produced by the pipeline tasks
 - it reorganizes package output into `{PackageRoot}/bundles/` so the runtime contracts stay aligned with `HotfixManager` download layout and `ABBundleLoader` lookup rules
-- it exports `ABManifest.json` at the package root as the AB-side version descriptor
+- it exports `ABManifest.json` and `ABManifest.bin` by default at the package root as the AB-side version descriptor
 
 ### Build path helpers
 
@@ -111,7 +113,8 @@ The build entry point is now split with the same orchestration pattern already u
 - Singleton access: `FYAssetSettings.Instance`
 - Editor: `LoadOrCreate()` searches `Assets/Resources/FYAssetSettings.asset`, creates the asset if missing, and saves it through `AssetDatabase`
 - Player: `LoadOrCreate()` loads the asset through `Resources.Load<FYAssetSettings>("FYAssetSettings")`; only if that fails does it fall back to `CreateInstance<FYAssetSettings>()`
-- Instance fields (configurable in Inspector): `ProjectName`, `HotfixUrl`, `UseABBackend`, `VersionDataBasePath`, `LuaScriptsIndexPath`, `SnapshotAssetPath`, `BuildIndexJsonPath`, `CollectorDataFolder`, `CollectorSettingPath`, `PipelineConfigPath`
+- Instance fields (configurable in Inspector): `ProjectName`, `HotfixUrl`, `UseABBackend`, `MaxHotfixSizeBytes`, `HotfixMaxRetryCount`, `HotfixRetryBaseDelaySeconds`, `ManifestOutputFormat`, `VersionDataBasePath`, `LuaScriptsIndexPath`, `SnapshotAssetPath`, `BuildIndexJsonPath`, `CollectorDataFolder`, `CollectorSettingPath`, `PipelineConfigPath`
+- `ManifestOutputFormat.JsonAndBinary` is the release-safe default. `BinaryOnly` exists as an option but is not the formal release default.
 - Runtime consumers read configuration via `FYAssetSettings.Instance` at use sites; no `static readonly` settings snapshots remain in `RuntimePathManager` / `HotfixManager`
 - Static `const` members: all rule name strings (`RULE_*`), group/label identifiers (`LUA_SCRIPTS_INDEX`, `HOTFIX_GROUP_NAME`, `DEFAULT_XLUA_TYPE_CONFIG_LOAD_LABEL`), file names (`MANIFEST_FILE_NAME`, `MANIFEST_FILE_NAME_BIN`, `AA_MANIFEST_FILE_NAME`, `AA_MANIFEST_FILE_NAME_BIN`, `BUILD_INDEX_FILENAME`), and editor paths (`BUILD_PIPELINE_WINDOW_MENU_PATH`, `BINARY_SERIALIZER_GENERATE_PATH`)
 - `UseABBackend` is the single source of truth for backend selection — `BuildPipelineConfig.DefaultBackendMode` was removed

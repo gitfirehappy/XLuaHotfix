@@ -5,7 +5,6 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
-using UnityEngine.Networking;
 
 /// <summary>
 /// 热更管理器，控制总流程
@@ -132,6 +131,8 @@ public static class HotfixManager
         OnFinished?.Invoke();
     }
 
+    #region 热更流程步骤
+
     /// <summary>
     /// 步骤1：加载 BuildIndex 并初始化路径
     /// </summary>
@@ -238,8 +239,7 @@ public static class HotfixManager
     /// <summary>
     /// 步骤5：获取远端热更版本信息
     /// </summary>
-    private static async Task<HotfixVersionInfo> StepFetchRemoteVersionAsync(IHotfixPipeline pipeline,
-        HotfixContext ctx)
+    private static async Task<HotfixVersionInfo> StepFetchRemoteVersionAsync(IHotfixPipeline pipeline, HotfixContext ctx)
     {
         BeginStep("Fetch remote version", 4);
         var remoteInfo = await pipeline.FetchRemoteVersionAsync(ctx.RemoteUrlRoot);
@@ -306,6 +306,7 @@ public static class HotfixManager
         // 目标 Bundles 目录
         string targetBundleRoot = Path.Combine(ctx.TargetGUIDRoot, "bundles");
         if (!FileHelper.DirectoryExists(targetBundleRoot)) FileHelper.EnsureDirectory(targetBundleRoot);
+        CleanupStaleTempFiles(targetBundleRoot);
 
         int totalBundles = remoteBundles.Count;
         int completedBundles = 0;
@@ -340,11 +341,14 @@ public static class HotfixManager
                 string localPath = Path.Combine(RuntimePathManager.CurrentGUIDRoot, "bundles", localName);
                 if (FileHelper.Exists(localPath))
                 {
+                    string copyTempPath = savePath + ".tmp";
                     try
                     {
-                        FileHelper.CopyFile(localPath, savePath);
-                        if (VerifyBundleCRC(savePath, bundleInfo))
+                        FileHelper.TryDelete(copyTempPath);
+                        FileHelper.CopyFile(localPath, copyTempPath);
+                        if (VerifyBundleCRC(copyTempPath, bundleInfo))
                         {
+                            FileHelper.ReplaceFile(copyTempPath, savePath);
                             copied = true;
                             Interlocked.Increment(ref skippedBundles);
                             int done = Interlocked.Increment(ref completedBundles);
@@ -353,7 +357,6 @@ public static class HotfixManager
                         }
                         else
                         {
-                            FileHelper.TryDelete(savePath);
                             Debug.LogWarning($"[HotfixManager] 本地复用资源 CRC 校验失败: {localName}，将回退到下载。");
                         }
                     }
@@ -361,6 +364,10 @@ public static class HotfixManager
                     {
                         Debug.LogWarning(
                             $"[HotfixManager] 复制资源失败: {localName} -> {savePath}, 错误: {ex.Message}，将回退到下载。");
+                    }
+                    finally
+                    {
+                        FileHelper.TryDelete(copyTempPath);
                     }
                 }
             }
@@ -436,6 +443,13 @@ public static class HotfixManager
         CompleteStep();
     }
 
+    #endregion
+
+    #region 辅助方法
+
+    /// <summary>
+    /// 下载单个 Bundle 的辅助方法，包含并发控制和 CRC 校验
+    /// </summary>
     private static async Task<bool> DownloadBundleWithThrottle(
         SemaphoreSlim semaphore,
         string url,
@@ -446,12 +460,7 @@ public static class HotfixManager
         await semaphore.WaitAsync();
         try
         {
-            bool ok = await NetworkDownloader.DownloadFile(url, savePath);
-            if (ok)
-                ok = VerifyBundleCRC(savePath, bundleInfo);
-
-            onDone?.Invoke();
-            return ok;
+            return await DownloadBundleWithRetry(url, savePath, bundleInfo, onDone);
         }
         finally
         {
@@ -459,14 +468,73 @@ public static class HotfixManager
         }
     }
 
+    private static async Task<bool> DownloadBundleWithRetry(
+        string url,
+        string savePath,
+        BundleDownloadItem bundleInfo,
+        Action onDone)
+    {
+        int maxRetries = Mathf.Max(0, FYAssetSettings.Instance.HotfixMaxRetryCount);
+        int totalAttempts = maxRetries + 1;
+        float baseDelaySeconds = Mathf.Max(0f, FYAssetSettings.Instance.HotfixRetryBaseDelaySeconds);
+        string tempPath = savePath + ".tmp";
+
+        for (int attempt = 1; attempt <= totalAttempts; attempt++)
+        {
+            FileHelper.TryDelete(tempPath);
+
+            bool downloaded = await NetworkDownloader.DownloadFileOnce(url, tempPath);
+            bool verified = downloaded && VerifyBundleCRC(tempPath, bundleInfo);
+            if (verified)
+            {
+                try
+                {
+                    FileHelper.ReplaceFile(tempPath, savePath);
+                    onDone?.Invoke();
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogWarning($"[HotfixManager] Bundle 替换失败: {bundleInfo.BundleName}, attempt={attempt}/{totalAttempts}, error={ex.Message}");
+                }
+            }
+            else if (downloaded)
+            {
+                Debug.LogWarning($"[HotfixManager] Bundle 校验失败，将按下载失败重试: {bundleInfo.BundleName}, attempt={attempt}/{totalAttempts}");
+            }
+            else
+            {
+                Debug.LogWarning($"[HotfixManager] Bundle 下载失败: {bundleInfo.BundleName}, attempt={attempt}/{totalAttempts}");
+            }
+
+            FileHelper.TryDelete(tempPath);
+
+            if (attempt < totalAttempts && baseDelaySeconds > 0f)
+            {
+                int delayMs = Mathf.RoundToInt(baseDelaySeconds * 1000f * Mathf.Pow(2f, attempt - 1));
+                await Task.Delay(delayMs);
+            }
+        }
+
+        Debug.LogWarning($"[HotfixManager] Bundle 下载失败且重试已耗尽: {bundleInfo.BundleName}");
+        onDone?.Invoke();
+        return false;
+    }
+
+    /// <summary>
+    /// 验证下载完成的 Bundle 文件的 CRC 是否正确
+    /// </summary>
     private static bool VerifyBundleCRC(string path, BundleDownloadItem bundleInfo)
     {
         if (bundleInfo.FileCRC == 0)
+        {
+            Debug.LogWarning($"[HotfixManager] Bundle CRC 为 0，跳过校验: {bundleInfo.BundleName}");
             return true;
+        }
 
         if (!FileHelper.Exists(path))
         {
-            Debug.LogError($"[HotfixManager] Bundle 文件不存在，无法 CRC 校验: {path}");
+            Debug.LogWarning($"[HotfixManager] Bundle 文件不存在，无法 CRC 校验: {path}");
             return false;
         }
 
@@ -474,9 +542,19 @@ public static class HotfixManager
         if (actualCrc == bundleInfo.FileCRC)
             return true;
 
-        Debug.LogError(
+        Debug.LogWarning(
             $"[HotfixManager] Bundle CRC 校验失败: {bundleInfo.BundleName}, expected={bundleInfo.FileCRC:X8}, actual={actualCrc:X8}");
         return false;
+    }
+
+    private static void CleanupStaleTempFiles(string bundleRoot)
+    {
+        string[] tempFiles = FileHelper.GetFiles(bundleRoot, "*.tmp");
+        for (int i = 0; i < tempFiles.Length; i++)
+            FileHelper.TryDelete(tempFiles[i]);
+
+        if (tempFiles.Length > 0)
+            Debug.LogWarning($"[HotfixManager] 已清理残留临时 Bundle 文件: {tempFiles.Length}");
     }
 
     /// <summary>
@@ -589,4 +667,6 @@ public static class HotfixManager
             ? new ABHotfixBackend()
             : new AAHotfixBackend();
     }
+
+    #endregion
 }

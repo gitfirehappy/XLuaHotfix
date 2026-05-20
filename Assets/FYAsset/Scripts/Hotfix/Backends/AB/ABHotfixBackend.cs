@@ -8,17 +8,16 @@ using UnityEngine;
 /// AB 热更后端 — 基于自研 ABManifest 方案的 IHotfixPipeline 实现。
 ///
 /// 设计说明：
-/// - 直接替代 AAHotfixBackend，无需 Addressables 依赖
 /// - 使用 ABManifest 替代 AAManifest.json + catalog.json 双文件结构
 /// - 通过 SerializationUtility 支持二进制(.bin)和 JSON 两种格式
 /// - 优先读取二进制格式（体积更小、解析更快），回退到 JSON 格式
 ///
 /// 热更流程：
-/// 1. InitializeBackendAsync → 无操作（AB 方案无需初始化）
-/// 2. LoadLocalVersionAsync → 从 currentGUIDRoot 读取本地 ABManifest
-/// 3. FetchRemoteVersionAsync → 下载远端 ABManifest 并缓存原始数据
-/// 4. GetBundleDownloadList → 从 ABManifest 提取 Bundle 列表
-/// 5. PostDownloadAsync → 将缓存的 ABManifest 写入目标目录
+/// 1. InitializeBackendAsync -> 无操作（AB 方案无需初始化）
+/// 2. LoadLocalVersionAsync -> 从 currentGUIDRoot 读取本地 ABManifest
+/// 3. FetchRemoteVersionAsync -> 下载远端 ABManifest 并缓存原始数据
+/// 4. GetBundleDownloadList -> 从 ABManifest 提取 Bundle 列表
+/// 5. PostDownloadAsync -> 将缓存的 ABManifest 写入目标目录
 ///
 /// 与 AA 后端的差异：
 /// - 无需 Addressables.InitializeAsync
@@ -105,7 +104,7 @@ public class ABHotfixBackend : IHotfixPipeline
         }
         catch (Exception ex)
         {
-            Debug.LogError($"[ABHotfixBackend] 远端 ABManifest 解析失败: {ex.Message}");
+            Debug.LogWarning($"[ABHotfixBackend] 远端 ABManifest 解析失败: {ex.Message}");
             return null;
         }
     }
@@ -134,7 +133,6 @@ public class ABHotfixBackend : IHotfixPipeline
         try
         {
             FileHelper.TryDelete(alternateFilePath);
-
             FileHelper.WriteAllBytesAtomic(filePath, _remoteManifestData);
             Debug.Log($"[ABHotfixBackend] 已写入热更清单: {filePath}");
             return Task.FromResult(HotfixStepResult.Ok);

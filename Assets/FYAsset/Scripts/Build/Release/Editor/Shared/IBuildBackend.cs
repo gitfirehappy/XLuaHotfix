@@ -9,6 +9,7 @@ public interface IBuildBackend
 {
     Task<BuildBackendResult> BuildAsync(VersionNumber version, BuildType buildType);
     Task<BuildBackendResult> BuildAsync(VersionNumber version, BuildType buildType, BuildExecutionOptions options);
+    Task<BuildBackendResult> BuildAsync(BuildPackageRequest request, BuildExecutionOptions options);
     void OrganizeOutput(string outputDir, VersionNumber version);
     void GeneratePackageManifest(string outputDir, VersionNumber version);
 }

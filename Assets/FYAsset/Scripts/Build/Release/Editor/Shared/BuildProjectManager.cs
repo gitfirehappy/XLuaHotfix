@@ -130,8 +130,11 @@ public static class BuildProjectManager
                     Debug.LogWarning("[BuildProjectManager] 无资源变更，继续执行热更构建。");
             }
 
+            BackendMode backendMode = FYAssetSettings.Instance.UseABBackend ? BackendMode.ABManifest : BackendMode.AAAddressable;
+            BuildPackageRequest request = BuildPackageRequest.Create(version, buildType, backendMode);
+
             IBuildBackend backend = CreateBackend();
-            var buildResult = backend.BuildAsync(version, buildType, options).GetAwaiter().GetResult();
+            var buildResult = backend.BuildAsync(request, options).GetAwaiter().GetResult();
             if (!buildResult.Success)
             {
                 var err = buildResult.Error;
@@ -139,13 +142,11 @@ public static class BuildProjectManager
                 return false;
             }
 
-            string currentPackageName = $"Build_{DateTime.Now:yyyyMMdd}_{version.GetFullVersionString()}";
             FileHelper.EnsureDirectory(BuildPathManager.PackagesDir);
-            string outputDir = BuildPathManager.GetPackageDir(currentPackageName);
 
-            backend.OrganizeOutput(outputDir, version);
-            backend.GeneratePackageManifest(outputDir, version);
-            UpdateManifestFile(currentPackageName, version);
+            backend.OrganizeOutput(request.OutputDir, request.Version);
+            backend.GeneratePackageManifest(request.OutputDir, request.Version);
+            UpdateManifestFile(request);
 
             if (buildType == BuildType.Full)
             {
@@ -153,9 +154,9 @@ public static class BuildProjectManager
                 DifferentialProcessor.ReBuildSnapShots(version);
             }
 
-            Debug.Log($"[BuildProjectManager] 包体构建完毕: {outputDir}");
+            Debug.Log($"[BuildProjectManager] 包体构建完毕: {request.OutputDir}");
             if (!Application.isBatchMode)
-                EditorUtility.RevealInFinder(outputDir);
+                EditorUtility.RevealInFinder(request.OutputDir);
 
             return true;
         }
@@ -185,19 +186,19 @@ public static class BuildProjectManager
     }
     
     /// <summary>
-    /// 更新 manifest.json（PackageIndex）
+    /// 更新 PackageIndex 文件，包含最新包体名和版本
     /// </summary>
-    private static void UpdateManifestFile(string packageName, VersionNumber version)
+    private static void UpdateManifestFile(BuildPackageRequest request)
     {
         var data = new PackageIndex
         {
-            LatestPackage = packageName,
-            LatestVersion = version
+            LatestPackage = request.PackageName,
+            LatestVersion = request.Version
         };
         
         // 生成 PackageIndex 内容（包含最新包体名）
-        SerializationUtility.WriteToFile(BuildPathManager.PackageIndexPath, data);
-        Debug.Log($"[BuildProjectManager] 更新 manifest.json 包体名: {packageName}，版本: {version.GetFullVersionString()}");
+        SerializationUtility.WriteToFile(request.PackageIndexPath, data);
+        Debug.Log($"[BuildProjectManager] 更新 PackageIndex 包体名: {request.PackageName}，版本: {request.Version.GetFullVersionString()}");
     }
 }
 #endif

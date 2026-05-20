@@ -7,6 +7,8 @@
 
 > 目前正在重构，详情见代码
 
+> SO 创建入口：各类 `ScriptableObject` 的推荐创建方式见 `docs/FYAsset/so-创建入口说明.md`。
+
 ## 一、热更资源管理体系（核心模块）
 
 > **最重要模块**，负责运行时资源加载与热更更新
@@ -36,6 +38,7 @@
   - `BuildHotfix`: 小版本更新，Patch版本号自增
   - `ConfirmRelease`: 快照转正
   - `ResetGroupsToOriginal`: 还原资源分组
+  - 每次构建先创建 `BuildPackageRequest`，统一持有版本、后端模式、包名、最终输出目录和 `PackageIndex` 写入路径
 - **BuildPipelineWindow / PipelinePanel**:
   - AB Pipeline 的 Pipeline 页负责 BuildGraph DAG、Reload、Validate、构建选项、Build Mode 与 Build 入口
   - 构建入口复用 `BuildProjectManager` 的 Full/Hotfix 语义；DAGScheduler 执行事件会回显到节点状态

@@ -2,7 +2,6 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-[CreateAssetMenu(fileName = "SODataBase", menuName = "Addressables/MyWork/SO Database")]
 public class ScriptObjectDataBase : ScriptableObject
 {
     [Tooltip("所有 SOContainer 资源的引用")]

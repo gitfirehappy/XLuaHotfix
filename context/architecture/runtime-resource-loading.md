@@ -1,6 +1,6 @@
 # Runtime Resource Loading
 
-Last reviewed: 2026-05-19
+Last reviewed: 2026-05-20
 
 ## Scope
 
@@ -138,6 +138,9 @@ Responsibilities:
 - compare local and remote versions
 - prepare and download required bundles
 - verify copied or downloaded bundles by CRC32 when metadata is available
+- write bundles to `.tmp` files and replace the target bundle only after download/copy and verification succeed
+- retry bundle download failures and CRC failures through the configured hotfix retry policy
+- clean stale `.tmp` bundle files before each bundle download/apply stage
 - write the local manifest pointer and switch paths
 - call `AssetPackageManager.Instance.Initialize()` as the final resource bootstrap step
 
@@ -149,7 +152,9 @@ Hotfix backend locations:
 - AA Addressables: `Assets/FYAsset/Scripts/Hotfix/Backends/Addressables/AAHotfixBackend.cs`
 - Addressables catalog adapter: `Assets/FYAsset/Scripts/Hotfix/Backends/Addressables/CatalogUpdater.cs`
 
-`BundleDownloadItem` carries `BundleName`, `FileHash`, `FileCRC`, and `FileSize` for both AA and AB hotfix backends. `FileHash` remains the content identity used for reuse/download decisions. `FileCRC` is the fast verification checksum. `FileCRC == 0` means CRC metadata is unavailable; CRC verification is skipped in that case.
+`BundleDownloadItem` carries `BundleName`, `FileHash`, `FileCRC`, and `FileSize` for both AA and AB hotfix backends. `FileHash` remains the content identity used for reuse/download decisions. `FileCRC` is the fast verification checksum. `FileCRC == 0` means CRC metadata is unavailable (following Unity's convention where CRC=0 signals "skip verification"); CRC verification is skipped in that case but a Warning is logged.
+
+`FYAssetSettings` owns the runtime hotfix retry settings: `HotfixMaxRetryCount` and `HotfixRetryBaseDelaySeconds`. The default behavior retries failed bundle downloads and CRC mismatches up to 3 times with exponential backoff from 1 second.
 
 ## Shared Runtime Support Components
 
@@ -165,6 +170,7 @@ Hotfix backend locations:
 - shared helper under `Assets/FYAsset/Scripts/Helpers/`
 - used by both hotfix backends
 - provides text/file download primitives instead of backend-specific download code
+- bundle downloads use `DownloadFileOnce()` so `HotfixManager` can own one retry policy for network failure and CRC failure
 
 ### `FileHelper`
 
@@ -172,6 +178,7 @@ Hotfix backend locations:
 - Android StreamingAssets reads go through `UnityWebRequest`; other platforms use `Task.Run(File.ReadAllBytes)`
 - atomic writes via temp-file + rename pattern (`WriteAllBytesAtomic` / `WriteAllTextAtomic`)
 - safe deletion via `TryDelete` / `TryDeleteDirectory` that return bool and never throw
+- bundle download/copy commit uses `ReplaceFile` after verification
 - used by `ManifestLoader`, `HotfixManager.LoadBuildIndexFromStreamingAssets`, and `ABHotfixBackend.PostDownloadAsync`
 
 ### `HashGenerator`
@@ -217,4 +224,3 @@ Hotfix backend locations:
 - AB manifest/index/backend types exist and already plug into the same public manager
 - the repository is moving toward backend separation through `IAssetIndex` and `IPackageBackend`
 - do not assume the fully custom AB flow is the universal default unless the flag and calling context say so
-

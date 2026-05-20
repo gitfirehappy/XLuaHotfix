@@ -7,7 +7,6 @@ using UnityEngine;
 /// FYAsset 全局设置 ScriptableObject —— 统一承载可配置字段与编译期常量，替代 FYAssetConstants。
 /// Runtime 程序集，打包时包含在 build 中。
 /// </summary>
-[CreateAssetMenu(fileName = "FYAssetSettings", menuName = "FYAsset/Settings")]
 public class FYAssetSettings : ScriptableObject
 {
     // ═══ 可配置字段（SO 实例数据） ═══
@@ -18,6 +17,14 @@ public class FYAssetSettings : ScriptableObject
 
     [Header("Backend")]
     public bool UseABBackend = false;
+
+    [Header("Hotfix")]
+    public long MaxHotfixSizeBytes = 1L * 1024 * 1024 * 1024;
+    public int HotfixMaxRetryCount = 3;
+    public float HotfixRetryBaseDelaySeconds = 1f;
+
+    [Header("Manifest Output")]
+    public ManifestOutputFormat ManifestOutputFormat = ManifestOutputFormat.JsonAndBinary;
 
     [Header("Version")]
     public string VersionDataBasePath = "Assets/Build/VersionDataBase.asset";
@@ -88,4 +95,11 @@ public class FYAssetSettings : ScriptableObject
         return Resources.Load<FYAssetSettings>(RESOURCE_LOAD_PATH) ?? CreateInstance<FYAssetSettings>();
 #endif
     }
+}
+
+public enum ManifestOutputFormat
+{
+    JsonOnly = 0,
+    JsonAndBinary = 1,
+    BinaryOnly = 2
 }

@@ -13,8 +13,6 @@ public static class LocalStatusExporter
     private const string MANIFEST_FILENAME_JSON = FYAssetSettings.MANIFEST_FILE_NAME;
     private const string MANIFEST_FILENAME_BIN = FYAssetSettings.MANIFEST_FILE_NAME_BIN;
 
-    private static bool ExportBinaryManifest = true;
-
     public static string BuildIndexStreamingPath => Path.Combine(Application.streamingAssetsPath, BUILD_INDEX_FILENAME);
     public static string ManifestJsonStreamingPath => Path.Combine(Application.streamingAssetsPath, MANIFEST_FILENAME_JSON);
     public static string ManifestBinStreamingPath => Path.Combine(Application.streamingAssetsPath, MANIFEST_FILENAME_BIN);
@@ -25,11 +23,8 @@ public static class LocalStatusExporter
     public static void ExportData(VersionNumber version)
     {
         Debug.Log("[LocalStatusExporter] 开始导出所有本地构建数据到 StreamingAssets...");
-        
-        if (!Directory.Exists(Application.streamingAssetsPath))
-        {
-            Directory.CreateDirectory(Application.streamingAssetsPath);
-        }
+
+        FileHelper.EnsureDirectory(Application.streamingAssetsPath);
 
         ExportBuildIndex(version);
         ExportABManifest(version);
@@ -55,10 +50,7 @@ public static class LocalStatusExporter
         
         string projectPath = FYAssetSettings.Instance.BuildIndexJsonPath;
         string projectDir = Path.GetDirectoryName(projectPath);
-        if (!Directory.Exists(projectDir))
-        {
-            Directory.CreateDirectory(projectDir);
-        }
+        FileHelper.EnsureDirectory(projectDir);
         SerializationUtility.WriteToFile(projectPath, buildIndexData);
         
         Debug.Log($"[LocalStatusExporter] BuildIndex 已写入: {BuildIndexStreamingPath}");
@@ -80,13 +72,25 @@ public static class LocalStatusExporter
             return;
         }
 
-        SerializationUtility.WriteToFile(ManifestJsonStreamingPath, manifest, "json", true);
-        Debug.Log($"[LocalStatusExporter] ABManifest.json 已写入: {ManifestJsonStreamingPath}");
+        ManifestOutputFormat outputFormat = FYAssetSettings.Instance.ManifestOutputFormat;
+        if (outputFormat != ManifestOutputFormat.BinaryOnly)
+        {
+            SerializationUtility.WriteToFile(ManifestJsonStreamingPath, manifest, "json", true);
+            Debug.Log($"[LocalStatusExporter] ABManifest.json 已写入: {ManifestJsonStreamingPath}");
+        }
+        else
+        {
+            FileHelper.TryDelete(ManifestJsonStreamingPath);
+        }
 
-        if (ExportBinaryManifest)
+        if (outputFormat != ManifestOutputFormat.JsonOnly)
         {
             SerializationUtility.WriteToFile(ManifestBinStreamingPath, manifest, "binary", false);
             Debug.Log($"[LocalStatusExporter] ABManifest.bin 已写入: {ManifestBinStreamingPath}");
+        }
+        else
+        {
+            FileHelper.TryDelete(ManifestBinStreamingPath);
         }
 
         Debug.Log($"[LocalStatusExporter] ABManifest Info - Package: {manifest.PackageName}, Ver: {manifest.PackageVersion.GetVersionString()}");
@@ -112,9 +116,9 @@ public static class LocalStatusExporter
     /// </summary>
     public static void CleanBuildIndex()
     {
-        if (File.Exists(BuildIndexStreamingPath))
+        if (FileHelper.Exists(BuildIndexStreamingPath))
         {
-            File.Delete(BuildIndexStreamingPath);
+            FileHelper.TryDelete(BuildIndexStreamingPath);
             AssetDatabase.Refresh();
             Debug.Log("[LocalStatusExporter] 已清理旧的 BuildIndex.json");
         }
@@ -126,14 +130,14 @@ public static class LocalStatusExporter
     public static void CleanABManifest()
     {
         bool cleaned = false;
-        if (File.Exists(ManifestJsonStreamingPath))
+        if (FileHelper.Exists(ManifestJsonStreamingPath))
         {
-            File.Delete(ManifestJsonStreamingPath);
+            FileHelper.TryDelete(ManifestJsonStreamingPath);
             cleaned = true;
         }
-        if (File.Exists(ManifestBinStreamingPath))
+        if (FileHelper.Exists(ManifestBinStreamingPath))
         {
-            File.Delete(ManifestBinStreamingPath);
+            FileHelper.TryDelete(ManifestBinStreamingPath);
             cleaned = true;
         }
         if (cleaned)

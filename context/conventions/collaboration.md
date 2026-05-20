@@ -40,19 +40,19 @@
 - Add `[CreateAssetMenu]` only when the SO type must be created manually by a developer via the Project window right-click menu.
 - Do NOT add `[CreateAssetMenu]` when the SO is already auto-created by code (singleton, build pipeline, directory scanner, etc.) or when a dedicated EditorWindow/GUI panel provides a unified creation flow.
 
-  **Known auto/GUI-created SOs (have `[CreateAssetMenu]` but should not):**
+  **Known auto/GUI-created SOs (must not have `[CreateAssetMenu]`):**
   | SO Type | Creation Mechanism |
   |---|---|
   | `FYAssetSettings` | Auto via singleton `LoadOrCreate()` |
   | `ScriptObjectDataBase` | GUI via `SOAddressableTagger` EditorWindow |
   | `VersionDataBase` | GUI via `VersionPanel` |
+  | `ScriptObjectContainer` | Tool/database-driven SO container workflow |
   | `LuaScriptContainer` | GUI via `LuaFileCreatorWindow` + auto via `LuaDirectoryScanner` |
   | `LuaDataBase` | GUI via 3 EditorWindows |
 
   **Known manual-only SOs (correctly have `[CreateAssetMenu]`):**
   | SO Type | menuName |
   |---|---|
-  | `ScriptObjectContainer` | `Addressables/MyWork/SO Container` |
   | `LuaAutoSyncConfig` | `XLua/Lua Auto Sync Config` |
   | `TypeMemberListSO` | `XLua/Type List` |
   | `ScriptObjectBridgeConfig` | `XLua/Bridge/SOBridgeConfig` |

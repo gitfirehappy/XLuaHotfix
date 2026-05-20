@@ -231,6 +231,24 @@ public static class FileHelper
     }
 
     /// <summary>
+    /// 替换文件。目标存在时先删除，再移动源文件到目标路径。
+    /// </summary>
+    public static void ReplaceFile(string sourcePath, string targetPath)
+    {
+        if (string.IsNullOrEmpty(sourcePath))
+            throw new ArgumentNullException(nameof(sourcePath));
+        if (string.IsNullOrEmpty(targetPath))
+            throw new ArgumentNullException(nameof(targetPath));
+        if (!File.Exists(sourcePath))
+            throw new FileNotFoundException($"[FileHelper] 替换源文件不存在: {sourcePath}", sourcePath);
+
+        EnsureDirectoryForFile(targetPath);
+        if (File.Exists(targetPath))
+            File.Delete(targetPath);
+        File.Move(sourcePath, targetPath);
+    }
+
+    /// <summary>
     /// 拷贝文件，失败时返回 false 并输出警告日志。绝不抛异常。
     /// </summary>
     public static bool TryCopyFile(string src, string dest, bool overwrite = true)
@@ -276,5 +294,15 @@ public static class FileHelper
         if (!File.Exists(path))
             throw new FileNotFoundException($"[FileHelper] 文件不存在: {path}");
         return File.ReadAllText(path, System.Text.Encoding.UTF8);
+    }
+
+    /// <summary>
+    /// 枚举目录下的文件。目录不存在时返回空数组。
+    /// </summary>
+    public static string[] GetFiles(string path, string searchPattern = "*", SearchOption searchOption = SearchOption.TopDirectoryOnly)
+    {
+        if (string.IsNullOrEmpty(path) || !Directory.Exists(path))
+            return new string[0];
+        return Directory.GetFiles(path, searchPattern, searchOption);
     }
 }

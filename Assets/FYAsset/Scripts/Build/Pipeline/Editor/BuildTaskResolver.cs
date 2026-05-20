@@ -12,7 +12,7 @@ public static class BuildTaskResolver
     private static Dictionary<string, Type> _index;
     private static bool _initialized;
 
-    /// <summary>扫描全部程序集构建 TaskName → Type 索引，重复调用仅执行一次</summary>
+    /// <summary>扫描全部程序集构建 TaskName -> Type 索引，重复调用仅执行一次</summary>
     public static void Initialize()
     {
         if (_initialized) return;
