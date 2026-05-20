@@ -86,12 +86,14 @@ The build entry point is now split with the same orchestration pattern already u
 
 ### AA backend
 
-- `AAAddressableBuildBackend` receives the shared `BuildPackageRequest` and owns Addressables-specific setup (`BuildRemoteCatalog`, `PackTogetherByLabel`, LuaScripts remote path fix)
-- it still builds through `AddressableAssetSettings.BuildPlayerContent`
-- it exports `AAManifest.json` and `AAManifest.bin` by default by scanning `{PackageRoot}/bundles/*.bundle`
+- `AAAddressableBuildBackend` receives the shared `BuildPackageRequest`, writes it into `BuildContext`, loads `FYAssetSettings.Instance.AAPipelineConfigPath`, and runs the AA task graph through `DAGScheduler.Execute()`
+- `TaskBuildAddressablesContent` owns Addressables-specific setup (`BuildRemoteCatalog`, `PackTogetherByLabel`, LuaScripts remote path fix), ServerData cleanup, and `AddressableAssetSettings.BuildPlayerContent`
+- `TaskOrganizeAAOutput` copies Addressables ServerData output into the request-owned final package directory and sets `BuildContextKeys.OutputPath` to `BuildPackageRequest.OutputDir`
+- `TaskWriteAAPackageManifest` exports `AAManifest.json` and `AAManifest.bin` by default by scanning `{PackageRoot}/bundles/*.bundle`
 - each exported `BundleInfo` stores `FileHash` (MD5 content identity), `FileCRC` (CRC32 fast verification), and `FileSize`
 - `AAManifest` also stores `AssetEntries`, `KeysByType`, and `KeysByLabel`
 - `AAAssetIndexBuilder` is the single Editor-only source for those AA index lists and writes them into `AAManifest`
+- `AAAddressableBuildBackend.OrganizeOutput()` and `GeneratePackageManifest()` remain for `IBuildBackend` compatibility, but the normal request-driven AA path no longer copies bundles or writes manifests in backend post methods
 
 ### AB backend
 
@@ -116,6 +118,7 @@ The build entry point is now split with the same orchestration pattern already u
 - Editor: `LoadOrCreate()` searches `Assets/Resources/FYAssetSettings.asset`, creates the asset if missing, and saves it through `AssetDatabase`
 - Player: `LoadOrCreate()` loads the asset through `Resources.Load<FYAssetSettings>("FYAssetSettings")`; only if that fails does it fall back to `CreateInstance<FYAssetSettings>()`
 - Instance fields (configurable in Inspector): `ProjectName`, `HotfixUrl`, `UseABBackend`, `MaxHotfixSizeBytes`, `HotfixMaxRetryCount`, `HotfixRetryBaseDelaySeconds`, `ManifestOutputFormat`, `VersionDataBasePath`, `LuaScriptsIndexPath`, `SnapshotAssetPath`, `BuildIndexJsonPath`, `CollectorDataFolder`, `CollectorSettingPath`, `PipelineConfigPath`
+- `AAPipelineConfigPath` points to the AA task graph asset. The existing `PipelineConfigPath` remains the AB graph path.
 - `ManifestOutputFormat.JsonAndBinary` is the release-safe default. `BinaryOnly` exists as an option but is not the formal release default.
 - Runtime consumers read configuration via `FYAssetSettings.Instance` at use sites; no `static readonly` settings snapshots remain in `RuntimePathManager` / `HotfixManager`
 - Static `const` members: all rule name strings (`RULE_*`), group/label identifiers (`LUA_SCRIPTS_INDEX`, `HOTFIX_GROUP_NAME`, `DEFAULT_XLUA_TYPE_CONFIG_LOAD_LABEL`), file names (`MANIFEST_FILE_NAME`, `MANIFEST_FILE_NAME_BIN`, `AA_MANIFEST_FILE_NAME`, `AA_MANIFEST_FILE_NAME_BIN`, `BUILD_INDEX_FILENAME`), and editor paths (`BUILD_PIPELINE_WINDOW_MENU_PATH`, `BINARY_SERIALIZER_GENERATE_PATH`)

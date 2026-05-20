@@ -38,6 +38,7 @@ public class FYAssetSettings : ScriptableObject
     public string CollectorDataFolder = "Assets/FYAsset/CollectorData";
     public string CollectorSettingPath = "Assets/FYAsset/CollectorData/CollectorSetting.asset";
     public string PipelineConfigPath = "Assets/Build/BuildPipelineConfig.asset";
+    public string AAPipelineConfigPath = "Assets/Build/AABuildPipelineConfig.asset";
 
     // ═══ 纯编译期常量（static const） ═══
 

@@ -39,6 +39,7 @@
   - `ConfirmRelease`: 快照转正
   - `ResetGroupsToOriginal`: 还原资源分组
   - 每次构建先创建 `BuildPackageRequest`，统一持有版本、后端模式、包名、最终输出目录和 `PackageIndex` 写入路径
+  - AA 后端通过独立 `AABuildPipelineConfig.asset` 执行 DAG Task，最终 package layout 与 AAManifest 输出已由 Task 图负责
   - AB 后端的最终 package layout 已由 DAG Task 直接写入 `BuildPackageRequest.OutputDir`；backend post 方法只保留兼容校验
 - **BuildPipelineWindow / PipelinePanel**:
   - AB Pipeline 的 Pipeline 页负责 BuildGraph DAG、Reload、Validate、构建选项、Build Mode 与 Build 入口

@@ -11,6 +11,15 @@ Date: 2026-05-19
 > Scope extracted: AB final package output organization and AB manifest JSON/binary emission into the Task graph.
 > Remaining draft scope: AA build graph migration, bootstrap tail Task, and backend interface cleanup after both pipelines are task-managed.
 
+> Promotion note (2026-05-20): Plan-3 was extracted as `../plan-aa-build-graph-migration-20260520.md`.
+> Scope extracted: AA build graph migration, including Lua index export, Addressables build, AA output organization, and AAManifest publication into an AA Task graph.
+
+> Open decision (2026-05-20): LuaScriptsIndexExporter pipeline-independence.
+> Current state: exporter depends on Addressables API for address lookup and group registration. AB runtime also needs LuaScriptsIndex (loaded by address via ABPackageBackend). Both AA and AB share the same address namespace.
+> Question: Should exporter be refactored to read addresses from a unified registry (e.g., AssetAddressGenerator) instead of Addressables settings, making it pipeline-agnostic? This would allow it to be a shared AA/AB task.
+> Decision: Deferred. Does not block AAG-1 execution — current plan keeps BuildProjectManager outer call for both pipelines. Revisit after AAG-1 lands.
+> Remaining draft scope: bootstrap tail Task and backend interface cleanup after both pipelines are task-managed.
+
 ## Background
 
 AA and AB are converging on the same build orchestration model: `IBuildTask` + `BuildContext` + `DAGScheduler`.

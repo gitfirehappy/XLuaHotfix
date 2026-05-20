@@ -11,6 +11,8 @@ public static class BuildContextKeys
     public const string BundleDependencyGraph = "BundleDependencyGraph";
     public const string BundleBuildResults = "BundleBuildResults";
     public const string ABManifest = "ABManifest";
+    public const string AAManifest = "AAManifest";
+    public const string AAServerDataPath = "AAServerDataPath";
     public const string OutputPath = "OutputPath";
     public const string BuildVerificationResult = "BuildVerificationResult";
 }

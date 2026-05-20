@@ -22,12 +22,32 @@ public static class BuildPipelineConfigRepair
         "TaskWriteABPackageManifest",
     };
 
+    private static readonly string[] AABackboneTaskNames =
+    {
+        "TaskBuildAddressablesContent",
+        "TaskOrganizeAAOutput",
+        "TaskWriteAAPackageManifest",
+    };
+
     /// <summary>
     /// 确保 SO Task 列表包含全部主干 Task。
     /// 缺失的主干 Task 追加到列表末尾，Enabled=true，不强制覆盖已有条目。
     /// 返回 true 表示有变更并已保存 SO。
     /// </summary>
     public static bool EnsureBackboneTasks(BuildPipelineConfig config)
+    {
+        return EnsureTasks(config, BackboneTaskNames);
+    }
+
+    /// <summary>
+    /// 确保 AA Pipeline SO 包含完整 AA 主干 Task。
+    /// </summary>
+    public static bool EnsureAABackboneTasks(BuildPipelineConfig config)
+    {
+        return EnsureTasks(config, AABackboneTaskNames);
+    }
+
+    private static bool EnsureTasks(BuildPipelineConfig config, string[] taskNames)
     {
         if (config == null)
             return false;
@@ -41,7 +61,7 @@ public static class BuildPipelineConfigRepair
         }
 
         bool changed = false;
-        foreach (string taskName in BackboneTaskNames)
+        foreach (string taskName in taskNames)
         {
             if (existing.Contains(taskName))
                 continue;
@@ -67,7 +87,8 @@ public static class BuildPipelineConfigRepair
     /// <summary>判断 TaskName 是否为主干 Task（不可通过右键菜单删除）</summary>
     public static bool IsBackboneTask(string taskName)
     {
-        return Array.IndexOf(BackboneTaskNames, taskName) >= 0;
+        return Array.IndexOf(BackboneTaskNames, taskName) >= 0
+            || Array.IndexOf(AABackboneTaskNames, taskName) >= 0;
     }
 
     /// <summary>
@@ -77,6 +98,10 @@ public static class BuildPipelineConfigRepair
     public static int GetDisplayOrder(string taskName)
     {
         int index = Array.IndexOf(BackboneTaskNames, taskName);
-        return index >= 0 ? index : 1000;
+        if (index >= 0)
+            return index;
+
+        int aaIndex = Array.IndexOf(AABackboneTaskNames, taskName);
+        return aaIndex >= 0 ? aaIndex : 1000;
     }
 }
