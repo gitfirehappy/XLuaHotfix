@@ -40,3 +40,6 @@ MonoBehaviour:
   - TaskName: TaskOrganizeOutput
     Enabled: 1
     DependsOn: []
+  - TaskName: TaskWriteABPackageManifest
+    Enabled: 1
+    DependsOn: []

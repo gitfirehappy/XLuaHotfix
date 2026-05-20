@@ -19,6 +19,7 @@ public static class BuildPipelineConfigRepair
         "TaskGenerateManifest",
         "TaskVerifyBuildResult",
         "TaskOrganizeOutput",
+        "TaskWriteABPackageManifest",
     };
 
     /// <summary>

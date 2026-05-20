@@ -3,9 +3,9 @@ using System.IO;
 using System.Text;
 
 /// <summary>
-/// 构建输出组织 Task — 拷贝 bundle、序列化 ABManifest、生成构建摘要、清理临时产物。
+/// 构建输出组织 Task — 按 BuildPackageRequest 输出最终 AB 包目录、拷贝 bundle、生成构建摘要、清理临时产物。
 /// 以 ABManifest.BundleEntries 为拷贝数据源（不依赖文件扩展名）。
-/// 在 TaskVerifyBuildResult 之后执行。
+/// 在 TaskVerifyBuildResult 之后、TaskWriteABPackageManifest 之前执行。
 /// </summary>
 public class TaskOrganizeOutput : IBuildTask
 {
@@ -14,6 +14,7 @@ public class TaskOrganizeOutput : IBuildTask
     public string[] ReadKeys => new[]
     {
         BuildContextKeys.BuildConfig,
+        BuildContextKeys.BuildPackageRequest,
         BuildContextKeys.ABManifest,
         BuildContextKeys.BundleBuildResults
     };
@@ -22,6 +23,7 @@ public class TaskOrganizeOutput : IBuildTask
     public BuildTaskResult Execute(BuildContext ctx)
     {
         var cfg = ctx.Require<BuildConfig>(BuildContextKeys.BuildConfig);
+        var request = ctx.Require<BuildPackageRequest>(BuildContextKeys.BuildPackageRequest);
         var manifest = ctx.Require<ABManifest>(BuildContextKeys.ABManifest);
         var buildResults = ctx.Require<List<BundleBuildInfo>>(BuildContextKeys.BundleBuildResults);
         string outputRoot = cfg.OutputRoot;
@@ -30,30 +32,30 @@ public class TaskOrganizeOutput : IBuildTask
         var backendMode = cfg.BackendMode;
 
         string tempDir = Path.Combine(outputRoot, "_temp");
-        string outputDir = Path.Combine(outputRoot, buildVersion);
+        string outputDir = request.OutputDir;
+        string bundleOutputDir = request.BundlesDir;
 
-        // ① 创建输出目录
-        if (!FileHelper.DirectoryExists(outputDir))
-            FileHelper.EnsureDirectory(outputDir);
+        // ① 重建最终输出目录
+        if (FileHelper.DirectoryExists(outputDir))
+            FileHelper.TryDeleteDirectory(outputDir, true);
+        FileHelper.EnsureDirectory(outputDir);
+        FileHelper.EnsureDirectory(bundleOutputDir);
 
         // ② 以 ABManifest.BundleEntries 为源拷贝所有输出文件
         var copiedFiles = new List<string>();
         foreach (var bundle in manifest.BundleEntries)
         {
             string srcPath = Path.Combine(tempDir, bundle.BundleName);
-            string destPath = Path.Combine(outputDir, bundle.BundleName);
-            if (File.Exists(srcPath))
-            {
-                FileHelper.CopyFile(srcPath, destPath, true);
-                copiedFiles.Add(bundle.BundleName);
-            }
+            string destPath = Path.Combine(bundleOutputDir, bundle.BundleName);
+            if (!FileHelper.Exists(srcPath))
+                return BuildTaskResult.Fail(BuildErrorCodes.BundleFileNotFound,
+                    $"AB 最终输出缺少 Bundle 文件: '{srcPath}'。", true);
+
+            FileHelper.CopyFile(srcPath, destPath, true);
+            copiedFiles.Add(bundle.BundleName);
         }
 
-        // ③ 序列化 ABManifest
-        string manifestPath = Path.Combine(outputDir, "ABManifest.json");
-        FileHelper.WriteAllTextAtomic(manifestPath, manifest.SerializeToJson(), Encoding.UTF8);
-
-        // ④ 生成构建摘要
+        // ③ 生成构建摘要
         long totalSize = 0;
         foreach (var b in buildResults)
             totalSize += b.Size;
@@ -87,19 +89,19 @@ public class TaskOrganizeOutput : IBuildTask
         string summaryPath = Path.Combine(outputDir, "build_summary.txt");
         FileHelper.WriteAllTextAtomic(summaryPath, summary.ToString(), Encoding.UTF8);
 
-        // ⑤ 清理临时构建产物
+        // ④ 清理临时构建产物
         if (FileHelper.DirectoryExists(tempDir))
         {
             try { FileHelper.TryDeleteDirectory(tempDir, true); }
             catch (IOException) { /* best-effort */ }
         }
 
-        // ⑥ 写入 OutputPath
+        // ⑤ 写入 OutputPath
         ctx.Set(BuildContextKeys.OutputPath, outputDir);
 
         return BuildTaskResult.Ok(new List<string>
         {
-            $"[ORGANIZE] {copiedFiles.Count} files → {outputDir}"
+            $"[ORGANIZE] {copiedFiles.Count} bundles → {bundleOutputDir}"
         });
     }
 }

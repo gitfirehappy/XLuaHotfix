@@ -7,6 +7,10 @@ Date: 2026-05-19
 > Scope extracted: build request model, package identity creation, and final output path ownership.
 > Remaining draft scope: AB finalization Task migration, AA build graph migration, bootstrap tail Task, and backend interface cleanup after both pipelines are task-managed.
 
+> Promotion note (2026-05-20): Plan-2 was extracted as `../plan-ab-finalization-task-20260520.md`.
+> Scope extracted: AB final package output organization and AB manifest JSON/binary emission into the Task graph.
+> Remaining draft scope: AA build graph migration, bootstrap tail Task, and backend interface cleanup after both pipelines are task-managed.
+
 ## Background
 
 AA and AB are converging on the same build orchestration model: `IBuildTask` + `BuildContext` + `DAGScheduler`.

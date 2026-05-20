@@ -96,9 +96,11 @@ The build entry point is now split with the same orchestration pattern already u
 ### AB backend
 
 - `ABBuildBackend` receives the shared `BuildPackageRequest`, writes it into `BuildContext`, and runs the already-landed E5/E6 task graph through `DAGScheduler.Execute()`
-- it consumes `ABManifest` and `OutputPath` produced by the pipeline tasks
-- it reorganizes package output into `{PackageRoot}/bundles/` so the runtime contracts stay aligned with `HotfixManager` download layout and `ABBundleLoader` lookup rules
-- it exports `ABManifest.json` and `ABManifest.bin` by default at the package root as the AB-side version descriptor
+- `TaskOrganizeOutput` consumes the request and writes the final AB package layout directly under `BuildPackageRequest.OutputDir`, copying bundles into `BuildPackageRequest.BundlesDir`
+- `TaskWriteABPackageManifest` publishes `ABManifest.json` and/or `ABManifest.bin` at the final package root according to `FYAssetSettings.ManifestOutputFormat` and applies `HotfixPackageSizeGuard`
+- `BuildContextKeys.OutputPath` is the request-owned final package directory after AB finalization
+- `ABBuildBackend.OrganizeOutput()` and `GeneratePackageManifest()` remain for `IBuildBackend` compatibility, but the normal request-driven AB path no longer copies bundles or writes manifests in backend post methods
+- missing manifest-listed bundle files during AB finalization fail the task instead of being silently skipped
 
 ### Build path helpers
 
