@@ -16,7 +16,7 @@ MonoBehaviour:
   HotfixUrl: https://firehappy-cfy.com/
   UseABBackend: 0
   MaxHotfixSizeBytes: 1073741824
-  HotfixMaxRetryCount: 3
+  HotfixMaxRetryCount: 10
   HotfixRetryBaseDelaySeconds: 1
   ManifestOutputFormat: 1
   VersionDataBasePath: Assets/Build/VersionDataBase.asset

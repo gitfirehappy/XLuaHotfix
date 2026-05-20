@@ -20,6 +20,7 @@ public static class BuildPipelineConfigRepair
         "TaskVerifyBuildResult",
         "TaskOrganizeOutput",
         "TaskWriteABPackageManifest",
+        "TaskExportLocalBuildData",
     };
 
     private static readonly string[] AABackboneTaskNames =
@@ -27,6 +28,7 @@ public static class BuildPipelineConfigRepair
         "TaskBuildAddressablesContent",
         "TaskOrganizeAAOutput",
         "TaskWriteAAPackageManifest",
+        "TaskExportLocalBuildData",
     };
 
     /// <summary>
@@ -36,7 +38,7 @@ public static class BuildPipelineConfigRepair
     /// </summary>
     public static bool EnsureBackboneTasks(BuildPipelineConfig config)
     {
-        return EnsureTasks(config, BackboneTaskNames);
+        return EnsureTasks(config, BackboneTaskNames, "TaskWriteABPackageManifest");
     }
 
     /// <summary>
@@ -44,10 +46,10 @@ public static class BuildPipelineConfigRepair
     /// </summary>
     public static bool EnsureAABackboneTasks(BuildPipelineConfig config)
     {
-        return EnsureTasks(config, AABackboneTaskNames);
+        return EnsureTasks(config, AABackboneTaskNames, "TaskWriteAAPackageManifest");
     }
 
-    private static bool EnsureTasks(BuildPipelineConfig config, string[] taskNames)
+    private static bool EnsureTasks(BuildPipelineConfig config, string[] taskNames, string localBuildDataDependency)
     {
         if (config == null)
             return false;
@@ -61,6 +63,26 @@ public static class BuildPipelineConfigRepair
         }
 
         bool changed = false;
+        foreach (TaskEntry entry in config.Tasks)
+        {
+            if (entry == null || string.IsNullOrEmpty(entry.TaskName))
+                continue;
+
+            List<string> requiredDependencies = GetDefaultDependencies(entry.TaskName, localBuildDataDependency);
+            if (requiredDependencies.Count == 0)
+                continue;
+
+            entry.DependsOn ??= new List<string>();
+            foreach (string dependency in requiredDependencies)
+            {
+                if (entry.DependsOn.Contains(dependency))
+                    continue;
+
+                entry.DependsOn.Add(dependency);
+                changed = true;
+            }
+        }
+
         foreach (string taskName in taskNames)
         {
             if (existing.Contains(taskName))
@@ -70,7 +92,7 @@ public static class BuildPipelineConfigRepair
             {
                 TaskName = taskName,
                 Enabled = true,
-                DependsOn = new List<string>()
+                DependsOn = GetDefaultDependencies(taskName, localBuildDataDependency)
             });
             changed = true;
         }
@@ -82,6 +104,15 @@ public static class BuildPipelineConfigRepair
         }
 
         return changed;
+    }
+
+    private static List<string> GetDefaultDependencies(string taskName, string localBuildDataDependency)
+    {
+        return taskName switch
+        {
+            "TaskExportLocalBuildData" => new List<string> { localBuildDataDependency },
+            _ => new List<string>()
+        };
     }
 
     /// <summary>判断 TaskName 是否为主干 Task（不可通过右键菜单删除）</summary>

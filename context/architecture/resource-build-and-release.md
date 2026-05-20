@@ -51,7 +51,7 @@ The hotfix build flow relies on snapshot comparison instead of manual group main
 - requires hotfix groups to be reset to original grouping first
 - represents a packaged baseline refresh
 - always goes through `BuildProjectManager.CreateBackend()`
-- runs shared post-build steps in the orchestrator: package manifest update, `LocalStatusExporter.ExportData`, and snapshot rebuild
+- runs shared post-build steps in the orchestrator: package manifest update and snapshot rebuild; full-build local bootstrap export is task-managed
 
 ### `BuildHotfix`
 
@@ -79,29 +79,31 @@ The build entry point is now split with the same orchestration pattern already u
 
 ### Shared orchestrator
 
-- `BuildProjectManager` owns version increment, Lua index export, `BuildPackageRequest` creation, package naming, `manifest.json` (`PackageIndex`) update, and full-build post steps
+- `BuildProjectManager` owns version increment, Lua index export, `BuildPackageRequest` creation, package naming, `manifest.json` (`PackageIndex`) update, and snapshot rebuild
 - `BuildPackageRequest` is created before backend execution and carries version, build type, backend mode, package name, final package output directory, bundles directory, and `PackageIndex` path
+- `BuildContextKeys.BuildType` is written by each backend before DAG execution so shared tail tasks can preserve full-build-only behavior without reading global state
 - `BuildCommandLine` still calls `BuildProjectManager.BuildFullPackage()` / `BuildHotfix()` and does not bypass backend selection
 - backend selection is centralized in `BuildProjectManager.CreateBackend()` using `FYAssetSettings.Instance.UseABBackend`
+- `IBuildBackend` exposes only `BuildAsync(BuildPackageRequest, BuildExecutionOptions)`; output organization and manifest publication are not backend post-build API methods
 
 ### AA backend
 
-- `AAAddressableBuildBackend` receives the shared `BuildPackageRequest`, writes it into `BuildContext`, loads `FYAssetSettings.Instance.AAPipelineConfigPath`, and runs the AA task graph through `DAGScheduler.Execute()`
+- `AAAddressableBuildBackend` is a stateless DAG runner: it receives the shared `BuildPackageRequest`, writes it into `BuildContext`, loads `FYAssetSettings.Instance.AAPipelineConfigPath`, and runs the AA task graph through `DAGScheduler.Execute()`
 - `TaskBuildAddressablesContent` owns Addressables-specific setup (`BuildRemoteCatalog`, `PackTogetherByLabel`, LuaScripts remote path fix), ServerData cleanup, and `AddressableAssetSettings.BuildPlayerContent`
 - `TaskOrganizeAAOutput` copies Addressables ServerData output into the request-owned final package directory and sets `BuildContextKeys.OutputPath` to `BuildPackageRequest.OutputDir`
 - `TaskWriteAAPackageManifest` exports `AAManifest.json` and `AAManifest.bin` by default by scanning `{PackageRoot}/bundles/*.bundle`
+- `TaskExportLocalBuildData` is the AA graph tail task; it exports local startup data only for full builds and returns success without exporting for hotfix builds
 - each exported `BundleInfo` stores `FileHash` (MD5 content identity), `FileCRC` (CRC32 fast verification), and `FileSize`
 - `AAManifest` also stores `AssetEntries`, `KeysByType`, and `KeysByLabel`
 - `AAAssetIndexBuilder` is the single Editor-only source for those AA index lists and writes them into `AAManifest`
-- `AAAddressableBuildBackend.OrganizeOutput()` and `GeneratePackageManifest()` remain for `IBuildBackend` compatibility, but the normal request-driven AA path no longer copies bundles or writes manifests in backend post methods
 
 ### AB backend
 
-- `ABBuildBackend` receives the shared `BuildPackageRequest`, writes it into `BuildContext`, and runs the already-landed E5/E6 task graph through `DAGScheduler.Execute()`
+- `ABBuildBackend` is a stateless DAG runner: it receives the shared `BuildPackageRequest`, writes it into `BuildContext`, and runs the AB task graph through `DAGScheduler.Execute()`
 - `TaskOrganizeOutput` consumes the request and writes the final AB package layout directly under `BuildPackageRequest.OutputDir`, copying bundles into `BuildPackageRequest.BundlesDir`
 - `TaskWriteABPackageManifest` publishes `ABManifest.json` and/or `ABManifest.bin` at the final package root according to `FYAssetSettings.ManifestOutputFormat` and applies `HotfixPackageSizeGuard`
+- `TaskExportLocalBuildData` is the AB graph tail task; it exports local startup data only for full builds and returns success without exporting for hotfix builds
 - `BuildContextKeys.OutputPath` is the request-owned final package directory after AB finalization
-- `ABBuildBackend.OrganizeOutput()` and `GeneratePackageManifest()` remain for `IBuildBackend` compatibility, but the normal request-driven AB path no longer copies bundles or writes manifests in backend post methods
 - missing manifest-listed bundle files during AB finalization fail the task instead of being silently skipped
 
 ### Build path helpers

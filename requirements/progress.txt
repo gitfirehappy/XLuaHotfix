@@ -1075,3 +1075,22 @@
 [done] 2026-05-20 AAG-1 APPROVED by developer (adjusted) — D3 Lua index task removed (exporter stays as BuildProjectManager outer call, pipeline-agnostic refactor deferred); D1 separate AA config confirmed; D4 three new tasks confirmed (TaskBuildAddressablesContent, TaskOrganizeAAOutput, TaskWriteAAPackageManifest); D5/D6 confirmed.
 [next] 2026-05-20 AAG-1 approved and ready for execution; await developer explicit execution instruction.
 [done] 2026-05-20 plan-AAG-1 SIGNED OFF - developer confirmed AA build graph migration; archived `plan-aa-build-graph-migration-20260520.md`.
+[done] 2026-05-20 BTT-1 plan promoted — extracted Plan-4 from AA/AB Task alignment draft into `requirements/plan/plan-bootstrap-tail-task-20260520.md`; draft now marks bootstrap tail Task scope as promoted.
+[next] 2026-05-20 Await developer approval checklist confirmation for BTT-1 before execution. Remaining unpromoted draft scope: backend interface cleanup; LuaScriptsIndexExporter pipeline-independence remains a deferred open decision.
+[done] 2026-05-20 BTT-1 APPROVED by developer (adjusted) — D1 changed from separate BootstrapBuildPipelineConfig to AA/AB graph tail; task renamed to `TaskExportLocalBuildData`; PackageIndex validation removed from task scope; risk lowered to Low-Medium.
+[done] 2026-05-20 BTT-1 implementation — added `TaskExportLocalBuildData`, wrote `BuildContextKeys.BuildType` from AA/AB backends, registered the task after AA/AB manifest publication, and removed direct `LocalStatusExporter.ExportData(version)` from `BuildProjectManager`.
+[done] 2026-05-20 BTT-1 docs/context sync — README and resource build context now record full-build local startup data export as DAG-tail-owned while snapshot rebuild remains orchestrator-owned.
+[done] 2026-05-20 BTT-1 verification — source audit confirmed `LocalStatusExporter.ExportData` is no longer called directly by `BuildProjectManager`, `TaskExportLocalBuildData` is registered in AA/AB configs and `Assembly-CSharp-Editor.csproj`, touched files avoid raw File/Directory I/O, and `dotnet build XLuaHotfix.sln` passed with 0 errors and existing System.Net.Http warnings.
+[next] 2026-05-20 Await developer sign-off for BTT-1 before archiving and extracting backend interface cleanup.
+[next] 2026-05-20 BTT-1 approved and ready for execution; await developer explicit execution instruction.
+[done] 2026-05-20 plan-BTT-1 SIGNED OFF - developer requested next plan extraction and draft archive; archived `plan-bootstrap-tail-task-20260520.md`.
+[done] 2026-05-20 BIC-1 plan promoted — extracted final backend interface cleanup scope into `requirements/plan/plan-backend-interface-cleanup-20260520.md`.
+[done] 2026-05-20 AA/AB Task alignment draft archived — `draft-aa-ab-task-alignment-20260519.md` moved to `requirements/plan/drafts/archive/`; no unpromoted scope remains in that draft.
+[next] 2026-05-20 Await developer approval checklist confirmation for BIC-1 before execution.
+[done] 2026-05-20 BIC-1 APPROVED by developer (adjusted) — D3 changed from "keep convenience overloads" to "delete them"; backends become fully stateless (no instance fields); all post methods, helpers, and unused fields to be removed.
+[done] 2026-05-20 Created `drafts/draft-lua-index-pipeline-independence-20260520.md` — LuaScriptsIndexExporter pipeline-agnostic refactor as standalone deferred open decision draft.
+[next] 2026-05-20 BIC-1 approved and ready for execution; await developer explicit execution instruction.
+[done] 2026-05-20 BIC-1 implementation — removed backend post-build methods and convenience `BuildAsync` overloads from `IBuildBackend`; removed post calls from `BuildProjectManager`; AA/AB backends are now stateless DAG runners using only `BuildAsync(BuildPackageRequest, BuildExecutionOptions)`.
+[done] 2026-05-20 BIC-1 docs/context sync — README and resource build context now record the single request-based backend API and DAG-owned output/manifest publication.
+[done] 2026-05-20 BIC-1 verification — grep confirmed removed backend post methods, convenience overloads, and backend instance fields are gone; `BuildProjectManager` still updates `PackageIndex`, keeps Lua index export, and runs full-build snapshot rebuild; AA/AB config repair still registers finalization/local-data tasks; `dotnet build XLuaHotfix.sln` passed with 0 errors and existing System.Net.Http warnings.
+[done] 2026-05-20 plan-BIC-1 SIGNED OFF - developer requested workflow execution and commit all git changes; archived `plan-backend-interface-cleanup-20260520.md`.

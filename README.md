@@ -40,7 +40,9 @@
   - `ResetGroupsToOriginal`: 还原资源分组
   - 每次构建先创建 `BuildPackageRequest`，统一持有版本、后端模式、包名、最终输出目录和 `PackageIndex` 写入路径
   - AA 后端通过独立 `AABuildPipelineConfig.asset` 执行 DAG Task，最终 package layout 与 AAManifest 输出已由 Task 图负责
-  - AB 后端的最终 package layout 已由 DAG Task 直接写入 `BuildPackageRequest.OutputDir`；backend post 方法只保留兼容校验
+  - AB 后端的最终 package layout 已由 DAG Task 直接写入 `BuildPackageRequest.OutputDir`
+  - AA / AB 后端都是 stateless DAG runner，只暴露 `BuildAsync(BuildPackageRequest, BuildExecutionOptions)` 入口
+  - 整包构建的本地启动数据导出（BuildIndex + baseline manifest 到 StreamingAssets）由 `TaskExportLocalBuildData` 挂在 AA/AB DAG 尾部执行；Hotfix 构建在该 Task 内跳过
 - **BuildPipelineWindow / PipelinePanel**:
   - AB Pipeline 的 Pipeline 页负责 BuildGraph DAG、Reload、Validate、构建选项、Build Mode 与 Build 入口
   - 构建入口复用 `BuildProjectManager` 的 Full/Hotfix 语义；DAGScheduler 执行事件会回显到节点状态

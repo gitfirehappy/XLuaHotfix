@@ -43,3 +43,7 @@ MonoBehaviour:
   - TaskName: TaskWriteABPackageManifest
     Enabled: 1
     DependsOn: []
+  - TaskName: TaskExportLocalBuildData
+    Enabled: 1
+    DependsOn:
+    - TaskWriteABPackageManifest

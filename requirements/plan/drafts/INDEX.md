@@ -14,8 +14,8 @@ Promoted, superseded, or deprecated drafts go to `archive/`.
 
 | File | Status | Description |
 |------|--------|-------------|
-| draft-aa-ab-task-alignment-20260519.md | Draft | AA/AB Task 对齐与后半段统一管理（Task 图、输出整理、Bootstrap、Lua 索引） |
 | draft-build-repository-20260518.md | Draft | Build Repository — Git-like 构建产物版本管理系统（合并 E7 + Smart Versioning） |
+| draft-lua-index-pipeline-independence-20260520.md | Draft | LuaScriptsIndexExporter pipeline-independence open decision |
 | draft-offline-standalone-package-20260513.md | Draft | Offline standalone package design |
 | draft-debug-panel-20260512.md | Draft | Runtime debugger panel |
 | plan-playmode-draft.md | Draft | PlayMode 三模式设计 |

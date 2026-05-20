@@ -144,15 +144,10 @@ public static class BuildProjectManager
 
             FileHelper.EnsureDirectory(BuildPathManager.PackagesDir);
 
-            backend.OrganizeOutput(request.OutputDir, request.Version);
-            backend.GeneratePackageManifest(request.OutputDir, request.Version);
             UpdateManifestFile(request);
 
             if (buildType == BuildType.Full)
-            {
-                LocalStatusExporter.ExportData(version);
                 DifferentialProcessor.ReBuildSnapShots(version);
-            }
 
             Debug.Log($"[BuildProjectManager] 包体构建完毕: {request.OutputDir}");
             if (!Application.isBatchMode)

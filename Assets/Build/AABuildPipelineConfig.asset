@@ -25,3 +25,7 @@ MonoBehaviour:
   - TaskName: TaskWriteAAPackageManifest
     Enabled: 1
     DependsOn: []
+  - TaskName: TaskExportLocalBuildData
+    Enabled: 1
+    DependsOn:
+    - TaskWriteAAPackageManifest
