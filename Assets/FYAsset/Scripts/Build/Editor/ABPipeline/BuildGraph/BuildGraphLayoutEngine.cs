@@ -122,11 +122,11 @@ public static class BuildGraphLayoutEngine
 
     #region Helpers
 
-    /// <summary>按 BuildPipelineConfigRepair 预定义顺序排列，同序时按字母序</summary>
+    /// <summary>按 BuildPipelineBackbone 预定义顺序排列，同序时按字母序</summary>
     private static int CompareDisplayOrder(string left, string right)
     {
-        int orderCompare = BuildPipelineConfigRepair.GetDisplayOrder(left)
-            .CompareTo(BuildPipelineConfigRepair.GetDisplayOrder(right));
+        int orderCompare = BuildPipelineBackbone.GetDisplayOrder(left)
+            .CompareTo(BuildPipelineBackbone.GetDisplayOrder(right));
         return orderCompare != 0 ? orderCompare : string.Compare(left, right, StringComparison.Ordinal);
     }
 

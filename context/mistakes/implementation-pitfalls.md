@@ -360,3 +360,43 @@
 
 **Prevention:** Do not remove a semantic edge layer just because another layer shares endpoints. Render secondary layers with lower opacity, behind primary lines, and de-duplicate only within the same semantic layer.
 
+---
+
+## IP-37: Pointer File Reused Manifest Naming
+
+**Symptom:** The remote package pointer used ABManifest filename constants in build output while runtime downloaded a separate `manifest.json` literal.
+
+**Root cause:** `PackageIndex` and resource manifests were both described as "manifest" files, so build-time and runtime code developed separate filenames.
+
+**Prevention:** Pointer files and content manifests must have distinct constants and names. `PackageIndex` uses `PACKAGE_INDEX_FILE_NAME`; AB/AA content manifests use ABManifest/AAManifest constants only.
+
+---
+
+## IP-38: Bootstrap Baseline Generated Placeholder Data
+
+**Symptom:** Full AB builds exported an empty ABManifest to `StreamingAssets` even though the task graph had already produced the real package output.
+
+**Root cause:** The bootstrap exporter recreated placeholder data instead of consuming the final package output owned by `BuildPackageRequest`.
+
+**Prevention:** Bootstrap/export steps must consume upstream build artifacts, not regenerate substitute state. If a task graph produces the canonical package, downstream bootstrap must copy from that package.
+
+---
+
+## IP-39: Task Migration Left Implementation In Legacy Helper
+
+**Symptom:** A workflow was described as task-managed, but the task only delegated to a legacy helper that still owned the real implementation.
+
+**Root cause:** The migration moved scheduling ownership but not implementation ownership, so the old boundary remained active and contradicted the architectural intent.
+
+**Prevention:** When converting behavior into a pipeline task, move the execution logic or explicitly document the helper as shared infrastructure. Verification must grep for the retired helper/type and confirm source and project-file references are gone when the helper is meant to be replaced.
+
+---
+
+## IP-40: Auto-Repair Creates A Second Config Truth
+
+**Symptom:** Build pipeline assets were expected to define the task backbone, but runtime/editor load paths also auto-added missing backbone tasks.
+
+**Root cause:** Default configuration metadata was implemented as a repair pass that mutated existing assets, mixing template creation, validation, and source-of-truth ownership.
+
+**Prevention:** Default backbone definitions may create new config assets and support validation/UI behavior, but must not silently modify existing config assets during load or build execution. Missing required tasks should fail validation.
+

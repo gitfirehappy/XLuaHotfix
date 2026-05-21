@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 
 /// <summary>
-/// AA 输出组织 Task — 将 Addressables ServerData 产物整理到 BuildPackageRequest 指向的最终包目录。
+/// AA 输出组织 Task — 将 ServerData 产物整理到 BuildPackageRequest 指向的最终包目录。
 /// </summary>
 public class TaskOrganizeAAOutput : IBuildTask
 {

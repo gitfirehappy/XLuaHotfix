@@ -8,7 +8,7 @@ using UnityEditor.AddressableAssets.Settings.GroupSchemas;
 using UnityEngine;
 
 /// <summary>
-/// AA Addressables 构建 Task — 配置 Addressables、清理 ServerData、执行 BuildPlayerContent。
+/// AA 构建 Task — 配置 catalog、清理 ServerData、执行 BuildPlayerContent。
 /// </summary>
 public class TaskBuildAddressablesContent : IBuildTask
 {

@@ -55,6 +55,16 @@ public class BuildGraphView : GraphView
     {
         base.BuildContextualMenu(evt);
 
+        BuildTaskNode taskNode = FindTaskNode(evt.target as VisualElement);
+        if (taskNode != null)
+        {
+            DropdownMenuAction.Status sourceStatus = taskNode.IsValid
+                ? DropdownMenuAction.Status.Normal
+                : DropdownMenuAction.Status.Disabled;
+            evt.menu.AppendAction("Open Source", _ => OpenTaskSource(taskNode.TaskName), sourceStatus);
+            evt.menu.AppendSeparator();
+        }
+
         if (_isBuildRunning)
         {
             evt.menu.AppendAction(
@@ -78,7 +88,7 @@ public class BuildGraphView : GraphView
             : new HashSet<string>(StringComparer.Ordinal);
 
         string[] candidates = BuildTaskResolver.GetTaskNames()
-            .Where(name => !BuildPipelineConfigRepair.IsBackboneTask(name) && !existing.Contains(name))
+            .Where(name => !BuildPipelineBackbone.IsBackboneTask(name) && !existing.Contains(name))
             .ToArray();
 
         if (candidates.Length == 0)
@@ -184,6 +194,43 @@ public class BuildGraphView : GraphView
         EditorUtility.SetDirty(_config);
         Reload(_config);
         OnConfigChanged?.Invoke();
+    }
+
+    /// <summary>从右键事件目标向上查找被点击的 Task 节点。</summary>
+    private static BuildTaskNode FindTaskNode(VisualElement element)
+    {
+        while (element != null)
+        {
+            if (element is BuildTaskNode node)
+                return node;
+            element = element.parent;
+        }
+
+        return null;
+    }
+
+    /// <summary>定位并打开 Task 对应的 C# 源码。</summary>
+    private static void OpenTaskSource(string taskName)
+    {
+        if (!BuildTaskResolver.TryGetTaskType(taskName, out Type taskType))
+        {
+            Debug.LogWarning($"[BuildGraphView] 未找到 Task 源码：TaskName={taskName} 未注册。");
+            return;
+        }
+
+        string[] guids = AssetDatabase.FindAssets($"{taskType.Name} t:MonoScript");
+        foreach (string guid in guids)
+        {
+            string path = AssetDatabase.GUIDToAssetPath(guid);
+            MonoScript script = AssetDatabase.LoadAssetAtPath<MonoScript>(path);
+            if (script != null && script.GetClass() == taskType)
+            {
+                AssetDatabase.OpenAsset(script);
+                return;
+            }
+        }
+
+        Debug.LogWarning($"[BuildGraphView] 未找到 Task 源码：TaskName={taskName}, Type={taskType.FullName}。");
     }
 
     #endregion

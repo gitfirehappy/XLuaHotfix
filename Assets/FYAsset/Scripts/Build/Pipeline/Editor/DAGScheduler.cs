@@ -86,6 +86,16 @@ public static class DAGScheduler
             return ErrorResult(config, new List<BuildTaskResult> { BuildTaskResult.Fail(
                 "NO_ENABLED_TASKS", "管线配置中无已启用的 Task。", true) });
 
+        List<string> missingBackboneTasks = BuildPipelineBackbone.GetMissingRequiredTasks(config);
+        if (missingBackboneTasks.Count > 0)
+        {
+            errors.Add(BuildTaskResult.Fail(
+                "MISSING_BACKBONE_TASK",
+                $"管线配置缺少必需主干 Task: {string.Join(", ", missingBackboneTasks)}。请更新 BuildPipelineConfig asset。",
+                true));
+            return ErrorResult(config, errors);
+        }
+
         // 解析所有 Enabled Task
         var instances = new Dictionary<string, IBuildTask>(StringComparer.Ordinal);
         var enabledNames = new HashSet<string>(enabled.Select(e => e.TaskName), StringComparer.Ordinal);

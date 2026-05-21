@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 ///
 /// 设计说明：
 /// - 将热更流程中的后端特定操作抽象为 5 个方法
-/// - AA 后端：封装 Addressables 初始化、AAManifest/catalog 下载
+/// - AA 后端：封装 catalog 初始化、AAManifest/catalog 下载
 /// - AB 后端：使用 ABManifest 替代双文件结构，无需 Addressables 依赖
 ///
 /// 编排流程（HotfixManager 控制）：
@@ -20,7 +20,7 @@ public interface IHotfixPipeline
 {
     /// <summary>
     /// 后端初始化。
-    /// AA: Addressables.InitializeAsync；AB: 无操作。
+    /// AA: catalog 初始化；AB: 无操作。
     /// </summary>
     Task<HotfixStepResult> InitializeBackendAsync();
 

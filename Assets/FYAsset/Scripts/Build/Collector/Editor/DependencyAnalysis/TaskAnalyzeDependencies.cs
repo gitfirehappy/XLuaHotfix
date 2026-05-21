@@ -5,7 +5,7 @@ using UnityEditor;
 /// 管线 Task：依赖分析 + Bundle 依赖图构建 + 隐式依赖发现 + 共享提取决策。
 /// 在管线中位于采集 Task 之后、打包 Task 之前。
 /// ReadKeys: CollectedAssets, SharePolicies（可选，回退到 CollectorSetting SO）
-/// WriteKeys: CollectedAssets（增强后）, BundleDependencyGraph
+/// WriteKeys: CollectedAssets, BundleDependencyGraph
 /// </summary>
 public class TaskAnalyzeDependencies : IBuildTask
 {

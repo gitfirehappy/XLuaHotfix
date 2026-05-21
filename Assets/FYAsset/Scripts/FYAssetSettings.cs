@@ -35,6 +35,8 @@ public class FYAssetSettings : ScriptableObject
     public string BuildIndexJsonPath = "Assets/Build/Bootstrap/BuildIndex.json";
 
     [Header("New Pipeline Paths")]
+    public string BuildOutputRoot = "HotfixOutput";
+    public string BuildPackagesFolderName = "Packages";
     public string CollectorDataFolder = "Assets/FYAsset/CollectorData";
     public string CollectorSettingPath = "Assets/FYAsset/CollectorData/CollectorSetting.asset";
     public string PipelineConfigPath = "Assets/Build/BuildPipelineConfig.asset";
@@ -49,6 +51,7 @@ public class FYAssetSettings : ScriptableObject
     public const string BUILD_INDEX_FILENAME = "BuildIndex.json";
 
     // --- 新管线文件命名 ---
+    public const string PACKAGE_INDEX_FILE_NAME = "PackageIndex.json";
     public const string MANIFEST_FILE_NAME = "ABManifest.json";
     public const string MANIFEST_FILE_NAME_BIN = "ABManifest.bin";
     public const string AA_MANIFEST_FILE_NAME = "AAManifest.json";

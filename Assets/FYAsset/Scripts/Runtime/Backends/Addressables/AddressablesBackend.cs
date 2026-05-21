@@ -3,6 +3,14 @@ using System.Threading.Tasks;
 using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
 
+/// <summary>
+/// AA runtime 资源加载后端。
+///
+/// 职责边界：
+/// - 通过 Addressables API 按 key 加载和卸载 UnityEngine.Object。
+/// - 维护 Addressables handle 的本地引用计数缓存。
+/// - 不读取 AAManifest，也不构建 Type/Label/Address 查询索引；AA manifest/index 数据由 AAManifestLoader 和 AssetPackageManager 处理。
+/// </summary>
 public class AddressablesBackend : IPackageBackend
 {
     private readonly Dictionary<string, ResourceEntry> _resourceCache = new();

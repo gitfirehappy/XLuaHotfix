@@ -12,7 +12,7 @@ using UnityEngine.Networking;
 /// - 替代 Addressables 内部的 BundleProvider，将 Bundle 加载逻辑从黑盒变为白盒
 /// - 通过 ABManifest 查询 Bundle 依赖关系，递归加载所有依赖 Bundle
 /// - 维护 Bundle 级缓存与引用计数，RefCount=0 时调用 AssetBundle.Unload(true)
-/// - 路径策略与 ManifestLoader 一致：热更目录优先，StreamingAssets 回退
+/// - 路径策略与 ABManifestLoader 一致：热更目录优先，StreamingAssets 回退
 /// - 同步/异步两套独立实现，互不调用
 /// - 不依赖 Addressables — 零 Addressables 引用
 ///
@@ -67,7 +67,7 @@ public class ABBundleLoader
     /// <summary>
     /// 创建 ABBundleLoader 实例。
     /// </summary>
-    /// <param name="manifest">已初始化的 ABManifest（由 ManifestLoader 加载）</param>
+    /// <param name="manifest">已初始化的 ABManifest（由 ABManifestLoader 加载）</param>
     public ABBundleLoader(ABManifest manifest)
     {
         _manifest = manifest ?? throw new ArgumentNullException(nameof(manifest));

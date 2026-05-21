@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Threading.Tasks;
 using UnityEngine;
 
@@ -40,17 +39,17 @@ public class AssetPackageManager : Singleton<AssetPackageManager>
     #region 初始化路径
 
     /// <summary>
-    /// AB 索引路径：ManifestLoader -> ABManifest -> ABAssetIndex + ABBundleLoader + ABPackageBackend。
+    /// AB 索引路径：ABManifestLoader -> ABManifest -> ABAssetIndex + ABBundleLoader + ABPackageBackend。
     /// 同时初始化索引和加载后端，一个开关控制两个维度。
     /// 加载失败回退到 AA 路径并发出结构化警告，避免静默进入不可用状态。
     /// </summary>
     private async Task InitializeWithABIndex()
     {
-        var manifest = await ManifestLoader.LoadAsync();
+        var manifest = await ABManifestLoader.LoadAsync();
         if (manifest == null)
         {
             Debug.LogWarning(
-                "[AssetPackageManager] ABManifest 加载失败，回退到 AA (Addressables) 路径。" +
+                "[AssetPackageManager] ABManifest 加载失败，回退到 AA 路径。" +
                 "请检查 AB 资源是否已正确构建并部署到热更目录或 StreamingAssets。");
             await InitializeWithAAIndex();
             return;
@@ -76,41 +75,25 @@ public class AssetPackageManager : Singleton<AssetPackageManager>
     /// <summary>
     /// AA 索引路径：从当前包目录的 AAManifest 构建查询缓存。
     /// </summary>
-    private Task InitializeWithAAIndex()
+    private async Task InitializeWithAAIndex()
     {
-        if (!TryInitializeAAIndexFromAAManifest())
+        var manifest = await AAManifestLoader.LoadAsync();
+        if (!TryInitializeAAIndexFromAAManifest(manifest))
             Debug.LogError("[AssetPackageManager] AA AAManifest 索引初始化失败。");
-
-        return Task.CompletedTask;
     }
 
     #endregion
 
     /// <summary>
-    /// 从当前 GUID 目录读取 AAManifest（优先 .bin，回退 .json），
-    /// 填充 _typeToKeys / _labelToKeys / _addressSet 查询缓存。
+    /// 从已加载的 AAManifest 填充 _typeToKeys / _labelToKeys / _addressSet 查询缓存。
     /// </summary>
-    private bool TryInitializeAAIndexFromAAManifest()
+    private bool TryInitializeAAIndexFromAAManifest(AAManifest manifest)
     {
-        if (string.IsNullOrEmpty(RuntimePathManager.CurrentGUIDRoot))
-        {
-            Debug.LogWarning("[AssetPackageManager] RuntimePathManager.CurrentGUIDRoot 为空，无法读取 AAManifest。");
-            return false;
-        }
-
-        string manifestPath = GetAAManifestPath(RuntimePathManager.CurrentGUIDRoot);
-        if (!FileHelper.Exists(manifestPath))
-        {
-            Debug.LogWarning($"[AssetPackageManager] 未找到 AAManifest: {RuntimePathManager.CurrentGUIDRoot}");
-            return false;
-        }
-
         try
         {
-            var manifest = SerializationUtility.ReadFromFile<AAManifest>(manifestPath);
             if (!HasAAIndex(manifest))
             {
-                Debug.LogWarning($"[AssetPackageManager] AAManifest 缺少索引数据: {manifestPath}");
+                Debug.LogWarning("[AssetPackageManager] AAManifest 缺少索引数据。");
                 return false;
             }
 
@@ -155,16 +138,6 @@ public class AssetPackageManager : Singleton<AssetPackageManager>
                && manifest.AssetEntries.Count > 0
                && manifest.KeysByType != null
                && manifest.KeysByLabel != null;
-    }
-
-    /// <summary>获取 AAManifest 路径：优先 .bin 二进制格式，回退 .json</summary>
-    private static string GetAAManifestPath(string packageRoot)
-    {
-        string binPath = Path.Combine(packageRoot, FYAssetSettings.AA_MANIFEST_FILE_NAME_BIN);
-        if (FileHelper.Exists(binPath))
-            return binPath;
-
-        return Path.Combine(packageRoot, FYAssetSettings.AA_MANIFEST_FILE_NAME);
     }
 
     private void BuildQueryCaches(IReadOnlyList<RuntimeAssetEntry> entries)

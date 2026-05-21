@@ -85,11 +85,11 @@ Start
   ├─[0] Load BuildIndex ── 从 StreamingAssets 读取 BuildIndex.json
   │     ├─ 初始化 RuntimePathManager（确定目录结构）
   │     ├─ 检查是否需要清理旧包（BuildGUID 变更检测）
-  │     └─ 尝试从本地 manifest.json 恢复断点续传状态
+  │     └─ 尝试从本地 PackageIndex.json 恢复断点续传状态
   │
   ├─[1] Initialize Backend ── 后端初始化（AB 路径无操作，AA 路径调 InitializeAsync）
   │
-  ├─[2] Download Manifest ── 下载远端 manifest.json（PackageIndex）
+  ├─[2] Download PackageIndex ── 下载远端 PackageIndex.json
   │     └─ 解析 LatestPackage → 确定目标包名和 URL
   │
   ├─[3] Load Local Version ── 从当前 GUID 目录读取本地版本信息
@@ -132,7 +132,7 @@ Start
 
 - `OnError(string message)` — 非致命错误通过此事件通知 UI
 - 致命错误（如无法加载 BuildIndex）直接 return，整个热更流程中止
-- manifest 下载失败会降级使用本地已有资源；Bundle 下载失败会按配置重试，重试耗尽后中止本次热更并保留旧资源
+- PackageIndex 下载失败会降级使用本地已有资源；Bundle 下载失败会按配置重试，重试耗尽后中止本次热更并保留旧资源
 
 ### Bundle 下载安全策略
 

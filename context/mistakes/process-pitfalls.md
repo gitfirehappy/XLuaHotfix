@@ -157,3 +157,13 @@
 **Root cause:** The repository relies on Unity-generated `Assembly-CSharp-Editor.csproj` entries for external build verification, and new editor `.cs` files are not guaranteed to appear there immediately.
 
 **Prevention:** After adding Runtime/Editor scripts in this project, verify the corresponding `.csproj` `Compile Include` entries before relying on `dotnet build` as the validation signal.
+
+---
+
+## PP-17: Scope Expansion From Partial UI Parity
+
+**Symptom:** A request asked to align AA with AB for `BuildMode` and `Build`, but implementation also exposed AB `Build Options` in the AA panel.
+
+**Root cause:** "Align with AB" was applied to the whole toolbar instead of the explicitly requested controls. AA uses Addressables-owned configuration, so AB `BuildPipelineConfig` options are not automatically valid for AA.
+
+**Prevention:** When a request names specific UI controls, implement only those controls. For partial parity requests, list excluded adjacent controls before editing and keep configuration surfaces tied to their real owner; AA Build Options require an explicit Addressables integration plan before being exposed.

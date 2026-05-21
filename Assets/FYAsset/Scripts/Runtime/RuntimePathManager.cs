@@ -38,7 +38,7 @@ public static class RuntimePathManager
         
         // .../ProjectName/[Platform]/Release/Hotfix/Build_abc-123-guid (当前生效目录)
         // 注意：这里假设 buildIndex.BuildGUID 已经是完整的目录名 (如 Build_2023...) 或者只是 GUID 部分
-        // 根据之前的逻辑，BuildProjectManager 生成的是 Build_YYYYMMDD_Ver
+        // BuildProjectManager 生成的是完整包目录名，例如 Build_20260209123045_2.0.0
         // 这里的 guidDir 需要与热更流程中记录的一致
         if (!guidDir.StartsWith("Build_")) guidDir = "Build_" + guidDir;
         CurrentGUIDRoot = Path.Combine(HotfixRoot, guidDir);
@@ -54,7 +54,7 @@ public static class RuntimePathManager
     /// <summary>
     /// 切换当前活动的 Build 目录（热更下载完成后调用）
     /// </summary>
-    /// <param name="newBuildName">新的 Build 目录名，例如 "Build_20260209_2.0.0"</param>
+    /// <param name="newBuildName">新的 Build 目录名，例如 "Build_20260209123045_2.0.0"</param>
     public static void SwitchToNewBuild(string newBuildName)
     {
         if (string.IsNullOrEmpty(newBuildName))

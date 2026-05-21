@@ -5,20 +5,19 @@ using UnityEditor;
 using UnityEngine;
 
 /// <summary>
-/// AA Addressables 构建后端。
-/// 通过 AA BuildPipelineConfig 驱动 Task 图执行 Addressables 构建与最终输出。
+/// AA 构建后端。
+/// 通过 AA BuildPipelineConfig 驱动 Task 图执行构建与最终输出。
 ///
 /// 构建流程：DAGScheduler.Execute -> Task 图直接写入最终 AA 包目录。
 /// </summary>
-public class AAAddressableBuildBackend : IBuildBackend
+public class AABuildBackend : IBuildBackend
 {
     public Task<BuildBackendResult> BuildAsync(BuildPackageRequest request, BuildExecutionOptions options)
     {
         var config = AssetDatabase.LoadAssetAtPath<BuildPipelineConfig>(FYAssetSettings.Instance.AAPipelineConfigPath);
         if (config == null)
             return Task.FromResult(BuildBackendResult.Fail(
-                BuildMessage.Error(BuildErrorCodes.SettingNull, "未找到 AA BuildPipelineConfig。", "AAAddressableBuildBackend")));
-        BuildPipelineConfigRepair.EnsureAABackboneTasks(config);
+                BuildMessage.Error(BuildErrorCodes.SettingNull, "未找到 AA BuildPipelineConfig。", nameof(AABuildBackend))));
 
         try
         {
@@ -32,7 +31,7 @@ public class AAAddressableBuildBackend : IBuildBackend
                 LogBuildResultErrors(result);
                 return Task.FromResult(BuildBackendResult.Fail(
                     BuildMessage.Error(BuildErrorCodes.BuildFailed,
-                        $"AA 管线构建失败。已完成: {result.CompletedTasks}/{result.TotalTasks}", "AAAddressableBuildBackend")));
+                        $"AA 管线构建失败。已完成: {result.CompletedTasks}/{result.TotalTasks}", nameof(AABuildBackend))));
             }
 
             return Task.FromResult(BuildBackendResult.Ok());
@@ -40,7 +39,7 @@ public class AAAddressableBuildBackend : IBuildBackend
         catch (Exception ex)
         {
             return Task.FromResult(BuildBackendResult.Fail(
-                BuildMessage.Error(BuildErrorCodes.BuildFailed, ex.Message, "AAAddressableBuildBackend")));
+                BuildMessage.Error(BuildErrorCodes.BuildFailed, ex.Message, nameof(AABuildBackend))));
         }
     }
 
@@ -57,7 +56,7 @@ public class AAAddressableBuildBackend : IBuildBackend
             if (taskResult == null || taskResult.Success)
                 continue;
 
-            Debug.LogWarning($"[AAAddressableBuildBackend] {taskResult.ErrorCode}: {taskResult.ErrorMessage}");
+            Debug.LogWarning($"[{nameof(AABuildBackend)}] {taskResult.ErrorCode}: {taskResult.ErrorMessage}");
         }
     }
 }

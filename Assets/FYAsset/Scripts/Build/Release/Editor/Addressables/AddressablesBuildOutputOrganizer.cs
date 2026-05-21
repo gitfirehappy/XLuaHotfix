@@ -17,7 +17,7 @@ public static class AddressablesBuildOutputOrganizer
     /// 整理构建产物
     /// </summary>
     /// <param name="buildSourceDir">Addressables 默认输出目录 (ServerData/Platform)</param>
-    /// <param name="finalOutputDir">最终打包输出目录 (Project/HotfixOutput/Packages/ProjectName_...)</param>
+    /// <param name="finalOutputDir">最终打包输出目录，默认形如 Project/HotfixOutput/Packages/Build_yyyyMMddHHmmss_version</param>
     public static void OrganizeBuildOutput(string buildSourceDir, string finalOutputDir)
     {
         if (FileHelper.DirectoryExists(finalOutputDir))

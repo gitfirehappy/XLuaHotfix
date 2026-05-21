@@ -211,8 +211,7 @@ public sealed class CollectorPanel : IBuildPipelinePanel
         _tablePane.style.minWidth = 100f;
         _middle.Add(_tablePane);
 
-        _detailSplitter = new VisualElement();
-        _detailSplitter.style.width = 8f;
+        _detailSplitter = BuildPipelineUI.Splitter(true);
         _detailSplitter.RegisterCallback<PointerDownEvent>(evt => BeginSplitter(evt, true));
         _detailSplitter.RegisterCallback<PointerMoveEvent>(OnSplitterMove);
         _detailSplitter.RegisterCallback<PointerUpEvent>(OnSplitterUp);
@@ -360,9 +359,7 @@ public sealed class CollectorPanel : IBuildPipelinePanel
     /// </summary>
     private void DrawBottomPanel()
     {
-        _bottomSplitter = new VisualElement();
-        _bottomSplitter.style.height = 4f;
-        _bottomSplitter.style.backgroundColor = BuildPipelineUI.BorderColor;
+        _bottomSplitter = BuildPipelineUI.Splitter(false);
         _bottomSplitter.RegisterCallback<PointerDownEvent>(evt => BeginSplitter(evt, false));
         _bottomSplitter.RegisterCallback<PointerMoveEvent>(OnSplitterMove);
         _bottomSplitter.RegisterCallback<PointerUpEvent>(OnSplitterUp);
@@ -402,6 +399,7 @@ public sealed class CollectorPanel : IBuildPipelinePanel
 
         ScrollView content = new ScrollView();
         content.style.flexGrow = 1f;
+        content.style.minHeight = 0f;
         _bottomPane.Add(content);
 
         if (_bottomMode == BottomMode.Validation)
@@ -470,6 +468,8 @@ public sealed class CollectorPanel : IBuildPipelinePanel
         TextField area = new TextField { multiline = true, value = builder.ToString() };
         area.isReadOnly = true;
         area.style.flexGrow = 1f;
+        area.style.minHeight = 120f;
+        area.style.whiteSpace = WhiteSpace.Normal;
         parent.Add(area);
     }
 

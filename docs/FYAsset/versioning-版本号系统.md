@@ -4,7 +4,7 @@
 
 > **关联代码**
 >
-> `Assets/FYAsset/Scripts/Build/Versioning/VersionDataBase.cs` · `Assets/FYAsset/Scripts/Build/Versioning/VersionNumber.cs`（定义在 VersionDataBase.cs 内）
+> `Assets/FYAsset/Scripts/Build/Versioning/VersionDataBase.cs` · `Assets/FYAsset/Scripts/Build/Versioning/VersionNumber.cs`
 
 ---
 

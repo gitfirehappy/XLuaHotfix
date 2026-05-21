@@ -7,7 +7,7 @@ using UnityEditor.AddressableAssets.Settings;
 /// AA 资源索引构建器 — 从 AddressableAssetSettings 提取全部 Entry，
 /// 按 Type（首标签）和 Label 分组构建 KeysByType / KeysByLabel 索引。
 ///
-/// 用于 AA Addressables 构建链路中填充 AAManifest 的索引字段。
+/// 用于 AA 构建链路中填充 AAManifest 的索引字段。
 /// </summary>
 public static class AAAssetIndexBuilder
 {

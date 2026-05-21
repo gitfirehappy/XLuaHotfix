@@ -18,7 +18,6 @@ public class ABBuildBackend : IBuildBackend
         if (config == null)
             return Task.FromResult(BuildBackendResult.Fail(
                 BuildMessage.Error(BuildErrorCodes.SettingNull, "未找到 BuildPipelineConfig。", "ABBuildBackend")));
-        BuildPipelineConfigRepair.EnsureBackboneTasks(config);
 
         try
         {

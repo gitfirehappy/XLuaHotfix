@@ -108,8 +108,7 @@ public class VersionPanel : IBuildPipelinePanel
     /// </summary>
     private void CreateVersionDB()
     {
-        if (!AssetDatabase.IsValidFolder("Assets/Build"))
-            AssetDatabase.CreateFolder("Assets", "Build");
+        BuildPipelineUI.EnsureAssetParentFolder(VersionAssetPath);
 
         var asset = ScriptableObject.CreateInstance<VersionDataBase>();
         AssetDatabase.CreateAsset(asset, VersionAssetPath);

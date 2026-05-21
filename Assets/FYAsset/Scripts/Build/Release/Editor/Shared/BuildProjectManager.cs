@@ -5,8 +5,8 @@ using UnityEngine;
 
 /// <summary>
 /// 构建编排入口。
-/// 统一管理版本号更新、后端路由（AB / AA Addressables）、包体产物组织和 PackageIndex 更新。
-/// 通过 MenuItem 提供 Full Package / Hotfix Package / Confirm Release / Reset Groups 四个工具入口。
+/// 统一管理版本号更新、后端路由（AB / AA）、包体产物组织和 PackageIndex 更新。
+/// 通过 legacy MenuItem 保留 Full Package / Hotfix Package / Confirm Release / Reset Groups 四个旧工具入口。
 /// </summary>
 public static class BuildProjectManager
 {
@@ -18,7 +18,7 @@ public static class BuildProjectManager
     /// <summary>
     /// 构建完整包，用于大版本更新
     /// </summary>
-    [MenuItem("Tools/Build/Build Full Package",false, 1)]
+    [MenuItem("Tools/Build/[Legacy] Build Full Package",false, 1)]
     public static void BuildFullPackage()
     {
         BuildFullPackage(null);
@@ -51,7 +51,7 @@ public static class BuildProjectManager
     /// <summary>
     /// 构建热更包，用于小版本更新
     /// </summary>
-    [MenuItem("Tools/Build/Build Hotfix Package",false, 2)]
+    [MenuItem("Tools/Build/[Legacy] Build Hotfix Package",false, 2)]
     public static void BuildHotfix()
     {
         BuildHotfix(null);
@@ -79,12 +79,12 @@ public static class BuildProjectManager
     /// 确认发布上线 (Manual Trigger)
     /// 将 Staged 快照转正为 Head，通常在热更包上传 CDN 后点击
     /// </summary>
-    [MenuItem("Tools/Build/Confirm Release Hotfix",false, 3)]
+    [MenuItem("Tools/Build/[Legacy] Confirm Release Hotfix",false, 3)]
     public static void ConfirmReleaseHotfix()
     {
         if (FYAssetSettings.Instance.UseABBackend)
         {
-            Debug.LogWarning("[BuildProjectManager] ConfirmReleaseHotfix 仅适用于 AA Addressables 构建链路，AB backend 下已跳过。");
+            Debug.LogWarning("[BuildProjectManager] ConfirmReleaseHotfix 仅适用于 AA 构建链路，AB backend 下已跳过。");
             return;
         }
 
@@ -95,12 +95,12 @@ public static class BuildProjectManager
     /// 重置分组 (Manual Trigger)
     /// 将位于 Hotfix 组的资源还原回它们原始的分组 (通常在打整包前，或者放弃本次热更时使用)
     /// </summary>
-    [MenuItem("Tools/Build/Reset Remote Groups to Original",false, 0)]
+    [MenuItem("Tools/Build/[Legacy] Reset Remote Groups to Original",false, 0)]
     public static void ResetGroupsToOriginal()
     {
         if (FYAssetSettings.Instance.UseABBackend)
         {
-            Debug.LogWarning("[BuildProjectManager] ResetGroupsToOriginal 仅适用于 AA Addressables 构建链路，AB backend 下已跳过。");
+            Debug.LogWarning("[BuildProjectManager] ResetGroupsToOriginal 仅适用于 AA 构建链路，AB backend 下已跳过。");
             return;
         }
 
@@ -130,7 +130,7 @@ public static class BuildProjectManager
                     Debug.LogWarning("[BuildProjectManager] 无资源变更，继续执行热更构建。");
             }
 
-            BackendMode backendMode = FYAssetSettings.Instance.UseABBackend ? BackendMode.ABManifest : BackendMode.AAAddressable;
+            BackendMode backendMode = FYAssetSettings.Instance.UseABBackend ? BackendMode.ABManifest : BackendMode.AA;
             BuildPackageRequest request = BuildPackageRequest.Create(version, buildType, backendMode);
 
             IBuildBackend backend = CreateBackend();
@@ -144,7 +144,7 @@ public static class BuildProjectManager
 
             FileHelper.EnsureDirectory(BuildPathManager.PackagesDir);
 
-            UpdateManifestFile(request);
+            UpdatePackageIndexFile(request);
 
             if (buildType == BuildType.Full)
                 DifferentialProcessor.ReBuildSnapShots(version);
@@ -166,7 +166,7 @@ public static class BuildProjectManager
     {
         return FYAssetSettings.Instance.UseABBackend
             ? new ABBuildBackend()
-            : new AAAddressableBuildBackend();
+            : new AABuildBackend();
     }
     
     private static VersionDataBase LoadVersionDataBase()
@@ -183,7 +183,7 @@ public static class BuildProjectManager
     /// <summary>
     /// 更新 PackageIndex 文件，包含最新包体名和版本
     /// </summary>
-    private static void UpdateManifestFile(BuildPackageRequest request)
+    private static void UpdatePackageIndexFile(BuildPackageRequest request)
     {
         var data = new PackageIndex
         {

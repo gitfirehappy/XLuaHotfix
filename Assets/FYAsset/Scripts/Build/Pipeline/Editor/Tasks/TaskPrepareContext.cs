@@ -5,7 +5,7 @@ using System.IO;
 
 /// <summary>
 /// 管线起点 Task —— 初始化构建环境：后端模式、版本号、输出目录、目标平台。
-/// 优先级：命令行参数 > BuildPipelineConfig SO > 默认值。
+/// 优先级：命令行参数 > FYAssetSettings SO > 默认值。
 /// CLI 参数先写入 SO 再读取，保持 SO 唯一来源原则。
 /// </summary>
 public class TaskPrepareContext : IBuildTask
@@ -20,18 +20,18 @@ public class TaskPrepareContext : IBuildTask
         // 读取 SO 配置
         var config = AssetDatabase.LoadAssetAtPath<BuildPipelineConfig>(
             FYAssetSettings.Instance.PipelineConfigPath);
-        BackendMode mode = FYAssetSettings.Instance.UseABBackend ? BackendMode.ABManifest : BackendMode.AAAddressable;
+        BackendMode mode = FYAssetSettings.Instance.UseABBackend ? BackendMode.ABManifest : BackendMode.AA;
 
-        // CLI 覆盖: --backend AAAddressable | ABManifest
+        // CLI 覆盖: --backend AA | ABManifest
         string cliBackend = GetCommandLineArg("--backend");
         if (!string.IsNullOrEmpty(cliBackend))
         {
             if (!Enum.TryParse(cliBackend, true, out mode))
                 return BuildTaskResult.Fail(BuildErrorCodes.InvalidBackend,
-                $"未知 Backend '{cliBackend}'。有效值: AAAddressable, ABManifest。", true);
+                $"未知 Backend '{cliBackend}'。有效值: AA, ABManifest。", true);
         }
 
-        // BuildVersionString: CLI --version > 时间戳（用于目录命名）
+        // BuildVersionString: CLI --version > 时间戳（用于构建摘要；正式包目录名由 BuildPackageRequest 决定）
         string buildVersionString = GetCommandLineArg("--version")
             ?? DateTime.UtcNow.ToString("yyyyMMdd-HHmmss");
 
@@ -87,4 +87,5 @@ public class TaskPrepareContext : IBuildTask
         }
         return null;
     }
+
 }

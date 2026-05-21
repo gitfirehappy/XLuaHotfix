@@ -153,3 +153,13 @@
 **Fix:** Remove the cursor style assignment for splitter handles and keep pointer-event drag behavior intact.
 
 **Prevention:** Do not port IMGUI cursor enums directly into UI Toolkit styles. Verify editor UI API assumptions with `dotnet build` after migration.
+
+---
+
+## PL-16: Raw File Precheck Before Platform-Aware Helper
+
+**Symptom:** Android StreamingAssets fallback could not load ABManifest because raw `File.Exists` rejected paths before `FileHelper.ReadAllBytesAsync` could use UnityWebRequest.
+
+**Root cause:** A platform-aware helper was called only after a platform-unaware precondition check.
+
+**Prevention:** For StreamingAssets or other virtualized paths, do not guard helper reads with raw `File` / `Directory` checks. Let the platform-aware helper attempt the operation and handle failures.

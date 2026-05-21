@@ -3,7 +3,7 @@ using System.Threading.Tasks;
 using UnityEngine;
 
 /// <summary>
-/// 最小化清单加载器 — 负责从磁盘读取 ABManifest.bin/.json 并反序列化。
+/// AB Manifest 加载器 — 负责从磁盘读取 ABManifest.bin/.json 并反序列化。
 ///
 /// 路径策略：
 /// 1. Primary: RuntimePathManager.CurrentGUIDRoot/（热更目录）
@@ -13,10 +13,9 @@ using UnityEngine;
 /// 1. ABManifest.bin（二进制格式，优先）
 /// 2. ABManifest.json（JSON 格式，fallback）
 ///
-/// 当前实现使用 File.ReadAllBytes（同步 I/O + Task.Run 包装），并通过 SerializationUtility 自动探测格式。
-/// Android StreamingAssets 路径需要 UnityWebRequest，已记录为后续多平台统一处理项。
+/// 当前实现通过 FileHelper.ReadAllBytesAsync 读取，并通过 SerializationUtility 自动探测格式。
 /// </summary>
-public static class ManifestLoader
+public static class ABManifestLoader
 {
     private const string ManifestFileNameBin = FYAssetSettings.MANIFEST_FILE_NAME_BIN;
     private const string ManifestFileNameJson = FYAssetSettings.MANIFEST_FILE_NAME;
@@ -40,33 +39,33 @@ public static class ManifestLoader
         var manifest = await TryLoadFromFile(primaryBinPath);
         if (manifest != null)
         {
-            Debug.Log($"[ManifestLoader] 从热更目录加载二进制清单成功: {primaryBinPath}");
+            Debug.Log($"[ABManifestLoader] 从热更目录加载二进制清单成功: {primaryBinPath}");
             return manifest;
         }
 
         manifest = await TryLoadFromFile(primaryJsonPath);
         if (manifest != null)
         {
-            Debug.Log($"[ManifestLoader] 从热更目录加载 JSON 清单成功: {primaryJsonPath}");
+            Debug.Log($"[ABManifestLoader] 从热更目录加载 JSON 清单成功: {primaryJsonPath}");
             return manifest;
         }
 
         manifest = await TryLoadFromFile(fallbackBinPath);
         if (manifest != null)
         {
-            Debug.Log($"[ManifestLoader] 从 StreamingAssets 加载二进制清单成功: {fallbackBinPath}");
+            Debug.Log($"[ABManifestLoader] 从 StreamingAssets 加载二进制清单成功: {fallbackBinPath}");
             return manifest;
         }
 
         manifest = await TryLoadFromFile(fallbackJsonPath);
         if (manifest != null)
         {
-            Debug.Log($"[ManifestLoader] 从 StreamingAssets 加载 JSON 清单成功: {fallbackJsonPath}");
+            Debug.Log($"[ABManifestLoader] 从 StreamingAssets 加载 JSON 清单成功: {fallbackJsonPath}");
             return manifest;
         }
 
         Debug.LogError(
-            $"[ManifestLoader] ABManifest 加载失败。\n" +
+            $"[ABManifestLoader] ABManifest 加载失败。\n" +
             $"  Primary (.bin): {primaryBinPath}\n" +
             $"  Primary (.json): {primaryJsonPath}\n" +
             $"  Fallback (.bin): {fallbackBinPath}\n" +
@@ -83,16 +82,13 @@ public static class ManifestLoader
         if (string.IsNullOrEmpty(path))
             return null;
 
-        if (!File.Exists(path))
-            return null;
-
         try
         {
             byte[] data = await FileHelper.ReadAllBytesAsync(path);
 
             if (data == null || data.Length == 0)
             {
-                Debug.LogWarning($"[ManifestLoader] 文件内容为空: {path}");
+                Debug.LogWarning($"[ABManifestLoader] 文件内容为空: {path}");
                 return null;
             }
 
@@ -102,7 +98,7 @@ public static class ManifestLoader
         }
         catch (System.Exception ex)
         {
-            Debug.LogWarning($"[ManifestLoader] 读取失败: {path}\n{ex.Message}");
+            Debug.LogWarning($"[ABManifestLoader] 读取失败: {path}\n{ex.Message}");
             return null;
         }
     }

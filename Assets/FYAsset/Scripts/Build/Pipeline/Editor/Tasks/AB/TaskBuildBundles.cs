@@ -258,11 +258,12 @@ public class TaskBuildBundles : IBuildTask
             }
 
             var destInfo = new FileInfo(destPath);
+            string hash = HashGenerator.GenerateFileHash(destPath);
             results.Add(new BundleBuildInfo
             {
                 BundleName = bundleName,
                 OutputFileName = bundleName,
-                Hash = "",
+                Hash = hash,
                 Size = destInfo.Exists ? destInfo.Length : 0,
                 AssetPaths = new List<string> { assetPath },
                 PayloadKind = EPayloadKind.RawFile

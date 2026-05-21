@@ -19,7 +19,7 @@ public class BuildTaskResult
     /// <summary>非致命警告列表，成功时可为 null 或空</summary>
     public List<string> Warnings;
 
-    /// <summary>true → 调度器中止所有后续批次；false → 继续执行</summary>
+    /// <summary>true -> 调度器中止所有后续批次；false -> 继续执行</summary>
     public bool IsFatal;
 
     private BuildTaskResult()

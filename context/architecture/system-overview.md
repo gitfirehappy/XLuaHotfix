@@ -1,6 +1,6 @@
 # System Overview
 
-Last reviewed: 2026-05-19
+Last reviewed: 2026-05-21
 
 ## Purpose
 
@@ -44,7 +44,7 @@ Responsibilities:
 Primary Build subdirectories:
 
 - `Build/Release/Editor/Shared/` for release orchestration contracts and shared entry points
-- `Build/Release/Editor/Addressables/` for AA Addressables release backend and AA export helpers
+- `Build/Release/Editor/Addressables/` for the catalog-backed release backend and export helpers
 - `Build/Release/Editor/AB/` for AB release backend
 - `Runtime/Manifests/Addressables/` and `Runtime/Manifests/AB/` for runtime-readable AA and AB manifest models
 - `Runtime/Manifests/Shared/` for the shared `PackageIndex` pointer model
@@ -65,7 +65,7 @@ Main code roots:
 Responsibilities:
 
 - expose the project-approved runtime loading entry point: `AssetPackageManager`
-- choose either the AA Addressables path or the custom AB path from one feature flag
+- choose either the AA path or the custom AB path from one feature flag
 - orchestrate hotfix startup, version comparison, download, and local pointer switching
 - keep `RuntimePathManager` at the Runtime root, while AB-only handle/resolve models live under `Runtime/Backends/AB/Models/`
 - keep `Runtime/Models/` reserved for shared runtime diagnostics such as `RuntimeMessage`
@@ -110,7 +110,7 @@ This repository contains both the current production-oriented path and an in-pro
 
 - `AssetPackageManager` uses the AA index and AA backend when `FYAssetSettings.Instance.UseABBackend` is `false`
 - `HotfixManager` still orchestrates startup and chooses `AAHotfixBackend` or `ABHotfixBackend`
-- direct Addressables usage still exists in hotfix and AA loading code
+- direct Addressables usage still exists in hotfix and runtime loading code
 
 ### In-progress replacement path
 
@@ -135,12 +135,14 @@ This repository contains both the current production-oriented path and an in-pro
 - `AB PIPELINE` contains `Collect Config`, `Collector`, `Pipeline`, and `Builder`.
 - `CollectorSettingInspector` is a UI Toolkit shortcut inspector that opens `BuildPipelineWindow` directly.
 - `CollectorSettingPanel` is a UI Toolkit panel that edits `CollectorSetting` with package/group navigation and collector editing.
-- `CollectorPanel` is a UI Toolkit panel focused on the current group's collector list plus validation and scan preview.
-- `PipelinePanel` loads `BuildPipelineConfig` through `AssetDatabase`, renders Reload, Validate, Build Mode, and Build controls in a UI Toolkit top bar, renders build options (`FileNameStyle`, `BundleCompression`, `SequentialMode`) in a separate options row, and hosts the BuildGraph DAG view below.
-- `PipelinePanel` uses a `BuildGraphView` GraphView DAG visualization powered by `BuildGraphLayoutEngine` and `BuildTaskNode`. The graph shows code-level execution edges, SO-level execution edges, and data-flow edges derived from `ReadKeys`/`WriteKeys`. It supports Reload, `DAGScheduler.Validate()`, a right-click optional-task creation menu, and Pipeline-triggered Full/Hotfix builds through `BuildProjectManager`.
+- `CollectorPanel` is a UI Toolkit panel focused on the current group's collector list plus validation and scan preview. Its scan preview remains in the bottom tab and uses scrollable content so compact windows can still inspect the full asset-to-bundle list.
+- `PipelinePanel` is parameterized by config path, default backbone factory, Build Options visibility, and Build controls visibility. The AB sidebar entry uses it with `FYAssetSettings.Instance.PipelineConfigPath` and `BuildPipelineBackbone.CreateABTasks()`, exposing Reload, Validate, Build Options, Build Mode, Build controls, and BuildGraph inspection. The AA Build sidebar entry delegates to the same panel with `FYAssetSettings.Instance.AAPipelineConfigPath` and `BuildPipelineBackbone.CreateAATasks()`, exposing Reload, Validate, Build Mode, Build controls, and BuildGraph inspection, but not Build Options because AA configuration remains owned by Addressables.
+- `PipelinePanel` uses a `BuildGraphView` GraphView DAG visualization powered by `BuildGraphLayoutEngine` and `BuildTaskNode`. The graph shows code-level execution edges, SO-level execution edges, and data-flow edges derived from `ReadKeys`/`WriteKeys`. It supports Reload, `DAGScheduler.Validate()`, a right-click optional-task creation menu, node-level source opening for registered Task types, and Pipeline-triggered Full/Hotfix builds through `BuildProjectManager`.
+- `PipelinePanel` keeps top validation status as a short summary and shows full validation details in a hidden-until-needed bottom bar with copy and close controls.
+- The old production `Tools/Build` menu entries in `BuildProjectManager` are marked `[Legacy]` but remain available.
 - Pipeline-triggered builds validate first. Fatal validation failures block execution. When execution starts, `BuildExecutionOptions` carries a `TaskStatusChanged` callback through `BuildProjectManager` and the active backend into `DAGScheduler`; `BuildTaskExecutionEvent` / `BuildTaskExecutionStatus` drive node states (`Pending`, `Running`, `Success`, `Failed`, `Skipped`) in `BuildTaskNode`.
-- `BuildPipelineConfigRepair` guarantees the backbone task entries exist when `PipelinePanel` loads the config. This prevents an empty `BuildPipelineConfig.Tasks` list from rendering a blank DAG.
-- BuildGraph right-click task creation excludes backbone tasks (`TaskPrepareContext`, `TaskCollectAssets`, `TaskAnalyzeDependencies`, `TaskCollectBuiltins`, `TaskBuildBundles`, `TaskGenerateManifest`, `TaskVerifyBuildResult`, `TaskOrganizeOutput`). Backbone tasks are displayed in the DAG but are not normal creation candidates.
+- `BuildPipelineConfig.asset` and `AABuildPipelineConfig.asset` are the task-backbone source of truth. `BuildPipelineBackbone` only provides default task-entry creation, UI backbone recognition, display ordering, and validation metadata; it does not modify existing config assets during panel load or backend build execution.
+- BuildGraph right-click task creation excludes backbone tasks (`TaskPrepareContext`, `TaskCollectAssets`, `TaskAnalyzeDependencies`, `TaskCollectBuiltins`, `TaskBuildBundles`, `TaskGenerateManifest`, `TaskVerifyBuildResult`, `TaskOrganizeOutput`, `TaskWriteABPackageManifest`, `TaskBuildAddressablesContent`, `TaskOrganizeAAOutput`, `TaskWriteAAPackageManifest`, `TaskExportLocalBuildData`). Backbone tasks are displayed in the DAG but are not normal creation candidates.
 - BuildGraph edges and ports are display-only: users may drag task nodes to adjust the visual layout, but cannot select, delete, or reconnect existing lines. Code dependency and SO dependency edges are opaque white/blue execution lines; data-flow edges are low-opacity green lines drawn behind execution lines and de-duplicated per producer-consumer task pair.
 - `TaskCollectAssets` is the backbone scan task. It loads `CollectorSetting`, runs `CollectionScanner.Scan()`, writes `CollectedAssets` and `SharePolicies` into `BuildContext`, and is the dependency source for dependency analysis and builtin collection.
 - `BuilderPanel` does not host the DAG. Build result/report querying is deferred until after E7 because E7 will define diff snapshot and digest outputs that affect report inputs.

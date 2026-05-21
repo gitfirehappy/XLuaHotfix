@@ -2,6 +2,7 @@ using UnityEditor;
 using UnityEditor.UIElements;
 using UnityEngine;
 using UnityEngine.UIElements;
+using System.IO;
 
 /// <summary>
 /// FYAsset 构建编辑器面板共用的 UI Toolkit 样式与小型元素工厂。
@@ -78,6 +79,38 @@ public static class BuildPipelineUI
     }
 
     /// <summary>
+    /// 创建 UI Toolkit 拖拽分隔条；不设置 cursor，避免 Unity 2022.3 API 差异。
+    /// </summary>
+    public static VisualElement Splitter(bool vertical)
+    {
+        var splitter = new VisualElement();
+        splitter.style.flexShrink = 0f;
+        splitter.style.backgroundColor = BorderColor;
+        if (vertical)
+        {
+            splitter.style.width = 6f;
+            splitter.style.minWidth = 6f;
+            splitter.style.borderLeftWidth = 1f;
+            splitter.style.borderRightWidth = 1f;
+            splitter.style.borderLeftColor = new Color(0f, 0f, 0f, 0.18f);
+            splitter.style.borderRightColor = new Color(1f, 1f, 1f, 0.08f);
+        }
+        else
+        {
+            splitter.style.height = 6f;
+            splitter.style.minHeight = 6f;
+            splitter.style.borderTopWidth = 1f;
+            splitter.style.borderBottomWidth = 1f;
+            splitter.style.borderTopColor = new Color(0f, 0f, 0f, 0.18f);
+            splitter.style.borderBottomColor = new Color(1f, 1f, 1f, 0.08f);
+        }
+
+        splitter.RegisterCallback<PointerEnterEvent>(_ => splitter.style.backgroundColor = HoverColor);
+        splitter.RegisterCallback<PointerLeaveEvent>(_ => splitter.style.backgroundColor = BorderColor);
+        return splitter;
+    }
+
+    /// <summary>
     /// 创建统一 Card 容器。
     /// </summary>
     public static VisualElement Card()
@@ -132,5 +165,28 @@ public static class BuildPipelineUI
         var field = label == null ? new PropertyField(property) : new PropertyField(property, label);
         field.style.marginBottom = 2f;
         return field;
+    }
+
+    /// <summary>
+    /// 按 asset 路径确保父目录存在，避免面板创建资产时硬编码目录。
+    /// </summary>
+    public static void EnsureAssetParentFolder(string assetPath)
+    {
+        string folderPath = Path.GetDirectoryName(assetPath)?.Replace('\\', '/');
+        if (string.IsNullOrEmpty(folderPath) || AssetDatabase.IsValidFolder(folderPath))
+            return;
+
+        string[] parts = folderPath.Split('/');
+        if (parts.Length == 0 || parts[0] != "Assets")
+            return;
+
+        string current = parts[0];
+        for (int i = 1; i < parts.Length; i++)
+        {
+            string next = current + "/" + parts[i];
+            if (!AssetDatabase.IsValidFolder(next))
+                AssetDatabase.CreateFolder(current, parts[i]);
+            current = next;
+        }
     }
 }

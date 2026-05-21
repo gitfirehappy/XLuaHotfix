@@ -2,44 +2,37 @@ using UnityEditor;
 using UnityEngine.UIElements;
 
 /// <summary>
-/// AA Pipeline 构建占位面板。
+/// AA Pipeline Task 图验收面板。
 /// </summary>
-public sealed class AABuildPanel : BuildPipelineUIToolkitPanel
+public sealed class AABuildPanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
 {
-    private string _lastBuildTime = string.Empty;
-    private Label _lastBuildTimeLabel;
+    private readonly PipelinePanel _pipelinePanel = new PipelinePanel(
+        "AA Build",
+        () => FYAssetSettings.Instance.AAPipelineConfigPath,
+        BuildPipelineBackbone.CreateAATasks,
+        "AABuildPanel",
+        false,
+        true);
 
-    public override string PanelName => "AA Build";
+    public string PanelName => "AA Build";
 
-    public override void OnEnable(EditorWindow window)
+    public void OnEnable(EditorWindow window)
     {
-        LoadLastBuildTime();
-        base.OnEnable(window);
-        RefreshLabels();
+        _pipelinePanel.OnEnable(window);
     }
 
-    protected override void BuildContent(VisualElement root)
+    public VisualElement CreateContent()
     {
-        VisualElement panel = CreateCenteredPanel(root);
-        panel.Add(CreateTitle("AA build entry is reserved."));
-        _lastBuildTimeLabel = CreateBody(string.Empty);
-        panel.Add(_lastBuildTimeLabel);
-        panel.Add(CreateBody("Build trigger will be added in a later sub-plan."));
+        return _pipelinePanel.CreateContent();
     }
 
-    private void LoadLastBuildTime()
+    public void OnDisable()
     {
-        VersionDataBase versionData = AssetDatabase.LoadAssetAtPath<VersionDataBase>(FYAssetSettings.Instance.VersionDataBasePath);
-        _lastBuildTime = versionData != null ? versionData.LastBuildTime : string.Empty;
+        _pipelinePanel.OnDisable();
     }
 
-    private void RefreshLabels()
+    public void SetVisible(bool visible)
     {
-        if (_lastBuildTimeLabel == null)
-            return;
-
-        _lastBuildTimeLabel.text = string.IsNullOrEmpty(_lastBuildTime)
-            ? "Last build time: (not available)"
-            : "Last build time: " + _lastBuildTime;
+        _pipelinePanel.SetVisible(visible);
     }
 }

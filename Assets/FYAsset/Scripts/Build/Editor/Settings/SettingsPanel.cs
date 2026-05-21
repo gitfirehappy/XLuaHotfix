@@ -75,7 +75,7 @@ public class SettingsPanel : IBuildPipelinePanel
         DrawSection("Manifest Output", "ManifestOutputFormat");
         DrawSection("Version", "VersionDataBasePath");
         DrawSection("AA Pipeline Paths", "LuaScriptsIndexPath", "SnapshotAssetPath", "BuildIndexJsonPath");
-        DrawSection("New Pipeline Paths", "CollectorDataFolder", "CollectorSettingPath", "PipelineConfigPath");
+        DrawSection("New Pipeline Paths", "BuildOutputRoot", "BuildPackagesFolderName", "CollectorDataFolder", "CollectorSettingPath", "PipelineConfigPath", "AAPipelineConfigPath");
 
         SerializedProperty useAb = _so.FindProperty("UseABBackend");
         if (useAb != null)

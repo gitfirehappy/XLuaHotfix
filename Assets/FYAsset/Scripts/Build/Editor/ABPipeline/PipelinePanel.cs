@@ -1,4 +1,5 @@
 using System;
+using System.Text;
 using UnityEditor;
 using UnityEditor.UIElements;
 using UnityEngine;
@@ -10,20 +11,62 @@ using UnityEngine.UIElements;
 /// </summary>
 public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
 {
+    private readonly string _panelName;
+    private readonly Func<string> _configPathGetter;
+    private readonly Func<System.Collections.Generic.List<TaskEntry>> _defaultTasksFactory;
+    private readonly string _logPrefix;
+    private readonly bool _showBuildOptions;
+    private readonly bool _showBuildControls;
+
     private BuildPipelineConfig _config;
     private SerializedObject _serializedConfig;
     private EditorWindow _window;
     private VisualElement _root;
     private VisualElement _optionsRow;
     private VisualElement _graphHost;
+    private VisualElement _validationSplitter;
+    private VisualElement _validationDetailPane;
+    private ScrollView _validationDetailScroll;
+    private TextField _validationDetailText;
     private BuildGraphView _graphView;
     private Label _taskStatusLabel;
     private Label _validationStatusLabel;
     private EnumField _buildModeField;
     private BuildType _buildMode = BuildType.Hotfix;
     private bool _isBuildRunning;
+    private bool _validationDetailVisible;
+    private string _validationDetail = string.Empty;
+    private string _validationSummaryText = string.Empty;
+    private Color _validationSummaryColor = BuildPipelineUI.SecondaryTextColor;
 
-    public string PanelName => "Pipeline";
+    public PipelinePanel()
+        : this(
+            "Pipeline",
+            () => FYAssetSettings.Instance.PipelineConfigPath,
+            BuildPipelineBackbone.CreateABTasks,
+            "PipelinePanel",
+            true,
+            true)
+    {
+    }
+
+    public PipelinePanel(
+        string panelName,
+        Func<string> configPathGetter,
+        Func<System.Collections.Generic.List<TaskEntry>> defaultTasksFactory,
+        string logPrefix,
+        bool showBuildOptions,
+        bool showBuildControls)
+    {
+        _panelName = panelName;
+        _configPathGetter = configPathGetter;
+        _defaultTasksFactory = defaultTasksFactory;
+        _logPrefix = logPrefix;
+        _showBuildOptions = showBuildOptions;
+        _showBuildControls = showBuildControls;
+    }
+
+    public string PanelName => _panelName;
 
     public void OnEnable(EditorWindow window)
     {
@@ -64,6 +107,10 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
 
         _root.Clear();
         _root.Unbind();
+        _validationSplitter = null;
+        _validationDetailPane = null;
+        _validationDetailScroll = null;
+        _validationDetailText = null;
 
         DrawTopBar();
 
@@ -73,8 +120,11 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
             return;
         }
 
-        DrawBuildOptionsBar();
+        if (_showBuildOptions)
+            DrawBuildOptionsBar();
+
         DrawGraph();
+        DrawValidationDetailBar();
         RefreshStatus();
     }
 
@@ -90,14 +140,23 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
             Rebuild();
         }, 60f));
         toolbar.Add(BuildPipelineUI.ToolbarButton("Validate", HandleValidate, 70f));
-        toolbar.Add(BuildPipelineUI.ToolbarLabel("Build Mode"));
 
-        _buildModeField = new EnumField(_buildMode);
-        _buildModeField.style.width = 84f;
-        _buildModeField.RegisterValueChangedCallback(evt => _buildMode = (BuildType)evt.newValue);
-        toolbar.Add(_buildModeField);
+        if (_showBuildControls)
+        {
+            toolbar.Add(BuildPipelineUI.ToolbarLabel("Build Mode"));
 
-        toolbar.Add(BuildPipelineUI.ToolbarButton("Build", HandleBuild, 56f));
+            _buildModeField = new EnumField(_buildMode);
+            _buildModeField.style.width = 84f;
+            _buildModeField.RegisterValueChangedCallback(evt => _buildMode = (BuildType)evt.newValue);
+            toolbar.Add(_buildModeField);
+
+            toolbar.Add(BuildPipelineUI.ToolbarButton("Build", HandleBuild, 56f));
+        }
+        else
+        {
+            _buildModeField = null;
+        }
+
         toolbar.Add(BuildPipelineUI.Spacer());
 
         _taskStatusLabel = BuildPipelineUI.ToolbarLabel("0/0 tasks enabled");
@@ -106,6 +165,8 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
 
         _validationStatusLabel = BuildPipelineUI.ToolbarLabel(string.Empty);
         _validationStatusLabel.style.minWidth = 120f;
+        _validationStatusLabel.text = _validationSummaryText;
+        _validationStatusLabel.style.color = _validationSummaryColor;
         toolbar.Add(_validationStatusLabel);
         _root.Add(toolbar);
     }
@@ -165,14 +226,61 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
     }
 
     /// <summary>
-    /// 加载 BuildPipelineConfig，并补齐骨架任务。
+    /// 绘制按需显示的 Validate 明细底栏，提供关闭和复制入口。
+    /// </summary>
+    private void DrawValidationDetailBar()
+    {
+        if (!_validationDetailVisible)
+            return;
+
+        _validationSplitter = BuildPipelineUI.Splitter(false);
+        _root.Add(_validationSplitter);
+
+        _validationDetailPane = new VisualElement();
+        _validationDetailPane.style.height = 150f;
+        _validationDetailPane.style.minHeight = 86f;
+        _validationDetailPane.style.flexShrink = 0f;
+        _validationDetailPane.style.flexDirection = FlexDirection.Column;
+        _validationDetailPane.style.borderTopWidth = 1f;
+        _validationDetailPane.style.borderTopColor = BuildPipelineUI.BorderColor;
+        _validationDetailPane.style.backgroundColor = BuildPipelineUI.CardBackgroundColor;
+
+        VisualElement toolbar = BuildPipelineUI.Toolbar();
+        toolbar.Add(BuildPipelineUI.ToolbarLabel("Validation Details"));
+        toolbar.Add(BuildPipelineUI.Spacer());
+        toolbar.Add(BuildPipelineUI.ToolbarButton("Copy", () =>
+        {
+            EditorGUIUtility.systemCopyBuffer = _validationDetail ?? string.Empty;
+        }, 48f));
+        toolbar.Add(BuildPipelineUI.ToolbarButton("Close", () =>
+        {
+            _validationDetailVisible = false;
+            Rebuild();
+        }, 52f));
+        _validationDetailPane.Add(toolbar);
+
+        _validationDetailText = new TextField { multiline = true, value = _validationDetail ?? string.Empty };
+        _validationDetailText.isReadOnly = true;
+        _validationDetailText.style.marginLeft = 4f;
+        _validationDetailText.style.marginRight = 4f;
+        _validationDetailText.style.marginBottom = 4f;
+
+        _validationDetailScroll = new ScrollView();
+        _validationDetailScroll.style.flexGrow = 1f;
+        _validationDetailScroll.style.minHeight = 0f;
+        _validationDetailScroll.Add(_validationDetailText);
+        _validationDetailPane.Add(_validationDetailScroll);
+        _root.Add(_validationDetailPane);
+    }
+
+    /// <summary>
+    /// 加载 BuildPipelineConfig。
     /// </summary>
     private void LoadConfig()
     {
-        _config = AssetDatabase.LoadAssetAtPath<BuildPipelineConfig>(FYAssetSettings.Instance.PipelineConfigPath);
+        _config = AssetDatabase.LoadAssetAtPath<BuildPipelineConfig>(GetConfigPath());
         if (_config != null)
         {
-            BuildPipelineConfigRepair.EnsureBackboneTasks(_config);
             _serializedConfig = new SerializedObject(_config);
         }
         else
@@ -197,14 +305,15 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
         }
         catch (Exception ex)
         {
-            Debug.LogError($"[PipelinePanel] 构建前校验失败: {ex}");
+            Debug.LogError($"[{_logPrefix}] 构建前校验失败: {ex}");
             SetValidationText("Validation error", Color.red);
+            ShowValidationDetail($"Validation exception before build:{Environment.NewLine}{ex}");
             return;
         }
 
         if (validation == null || !validation.Success)
         {
-            Debug.LogError("[PipelinePanel] 构建被校验失败阻断。");
+            Debug.LogError($"[{_logPrefix}] 构建被校验失败阻断。");
             return;
         }
 
@@ -231,8 +340,9 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
         }
         catch (Exception ex)
         {
-            Debug.LogError($"[PipelinePanel] 构建失败: {ex}");
+            Debug.LogError($"[{_logPrefix}] 构建失败: {ex}");
             SetValidationText("Build exception", Color.red);
+            ShowValidationDetail($"Build exception:{Environment.NewLine}{ex}");
         }
         finally
         {
@@ -250,6 +360,7 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
         if (_config == null)
         {
             SetValidationText("Validation error", Color.red);
+            ShowValidationDetail("Validation error: BuildPipelineConfig is null.");
             return;
         }
 
@@ -259,8 +370,9 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
         }
         catch (Exception ex)
         {
-            Debug.LogError($"[PipelinePanel] 校验失败: {ex.Message}");
+            Debug.LogError($"[{_logPrefix}] 校验失败: {ex.Message}");
             SetValidationText("Validation error", Color.red);
+            ShowValidationDetail($"Validation exception:{Environment.NewLine}{ex}");
         }
     }
 
@@ -292,6 +404,7 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
         if (result == null)
         {
             SetValidationText("Validation error", Color.red);
+            ShowValidationDetail("Validation error: DAGScheduler returned null result.");
             return;
         }
 
@@ -300,6 +413,7 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
             int warnings = result.TaskResults?.FindAll(r => !r.Success).Count ?? 0;
             SetValidationText(warnings > 0 ? $"{warnings} warning(s)" : $"{result.TotalTasks} tasks OK",
                 warnings > 0 ? new Color(1f, 0.85f, 0.3f) : new Color(0.3f, 1f, 0.3f));
+            ShowValidationDetail(BuildValidationDetail(result));
             return;
         }
 
@@ -313,6 +427,8 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
         {
             SetValidationText("Validation failed", Color.red);
         }
+
+        ShowValidationDetail(BuildValidationDetail(result));
     }
 
     /// <summary>
@@ -323,8 +439,73 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
         if (_validationStatusLabel == null)
             return;
 
+        _validationSummaryText = text;
+        _validationSummaryColor = color;
         _validationStatusLabel.text = text;
         _validationStatusLabel.style.color = color;
+    }
+
+    /// <summary>
+    /// 更新底部 Validate 明细文本，并确保底栏可见。
+    /// </summary>
+    private void ShowValidationDetail(string text)
+    {
+        _validationDetail = text ?? string.Empty;
+        _validationDetailVisible = true;
+        if (_validationDetailText != null)
+            _validationDetailText.value = _validationDetail;
+        else
+            Rebuild();
+    }
+
+    /// <summary>
+    /// 将 BuildResult 转为可复制的完整校验报告。
+    /// </summary>
+    private static string BuildValidationDetail(BuildResult result)
+    {
+        if (result == null)
+            return "Validation result: null";
+
+        var builder = new StringBuilder();
+        builder.AppendLine(result.Success ? "Validation passed." : "Validation failed.");
+        builder.AppendLine($"TotalTasks: {result.TotalTasks}");
+        builder.AppendLine($"CompletedTasks: {result.CompletedTasks}");
+        builder.AppendLine($"SkippedTasks: {result.SkippedTasks}");
+
+        int count = result.TaskResults?.Count ?? 0;
+        builder.AppendLine($"Messages: {count}");
+        if (count == 0)
+            return builder.ToString();
+
+        for (int i = 0; i < result.TaskResults.Count; i++)
+        {
+            BuildTaskResult taskResult = result.TaskResults[i];
+            if (taskResult == null)
+            {
+                builder.AppendLine($"{i + 1}. <null>");
+                continue;
+            }
+
+            builder.Append(i + 1)
+                .Append(". ")
+                .Append(taskResult.Success ? "OK" : "ISSUE")
+                .Append(taskResult.IsFatal ? " Fatal" : " NonFatal");
+
+            if (!string.IsNullOrEmpty(taskResult.ErrorCode))
+                builder.Append(" [").Append(taskResult.ErrorCode).Append(']');
+            builder.AppendLine();
+
+            if (!string.IsNullOrEmpty(taskResult.ErrorMessage))
+                builder.AppendLine("   " + taskResult.ErrorMessage);
+
+            if (taskResult.Warnings == null || taskResult.Warnings.Count == 0)
+                continue;
+
+            for (int warningIndex = 0; warningIndex < taskResult.Warnings.Count; warningIndex++)
+                builder.AppendLine("   Warning: " + taskResult.Warnings[warningIndex]);
+        }
+
+        return builder.ToString();
     }
 
     /// <summary>
@@ -343,7 +524,7 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
     private void DrawNoConfig()
     {
         VisualElement panel = BuildPipelineUIToolkitPanel.CreateCenteredPanel(_root, 460f);
-        panel.Add(BuildPipelineUIToolkitPanel.CreateBody("No BuildPipelineConfig found at " + FYAssetSettings.Instance.PipelineConfigPath));
+        panel.Add(BuildPipelineUIToolkitPanel.CreateBody("No BuildPipelineConfig found at " + GetConfigPath()));
         panel.Add(new Button(CreateConfig)
         {
             text = "Create BuildPipelineConfig"
@@ -355,14 +536,19 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
     /// </summary>
     private void CreateConfig()
     {
-        if (!AssetDatabase.IsValidFolder("Assets/Build"))
-            AssetDatabase.CreateFolder("Assets", "Build");
+        BuildPipelineUI.EnsureAssetParentFolder(GetConfigPath());
 
         var config = ScriptableObject.CreateInstance<BuildPipelineConfig>();
-        AssetDatabase.CreateAsset(config, FYAssetSettings.Instance.PipelineConfigPath);
+        config.Tasks = _defaultTasksFactory();
+        AssetDatabase.CreateAsset(config, GetConfigPath());
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
         LoadConfig();
         Rebuild();
+    }
+
+    private string GetConfigPath()
+    {
+        return _configPathGetter();
     }
 }

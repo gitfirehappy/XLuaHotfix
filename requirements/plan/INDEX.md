@@ -15,7 +15,8 @@ Completed and abandoned plans go to `archive/`.
 
 | File | Status | Description |
 |------|--------|-------------|
-| _None_ | - | - |
+| `plan-aa-editor-task-acceptance-20260521.md` | Executed; awaiting sign-off | Validate AA Task migration from the Unity Editor by matching the AB BuildGraph/Validate workflow and avoiding duplicate Addressables UI |
+| `plan-editor-ux-polish-20260521.md` | Executed; awaiting sign-off | Low-risk Editor UX polish for BuildGraph source navigation, Pipeline Validate details, splitter visibility, and Collector scan scrolling |
 
 ## Subdirectories
 

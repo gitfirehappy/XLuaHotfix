@@ -12,7 +12,7 @@ using UnityEngine;
 public static class HotfixManager
 {
     private static string HotfixUrl => FYAssetSettings.Instance.HotfixUrl;
-    private static string ManifestUrl => $"{HotfixUrl}manifest.json";
+    private static string PackageIndexUrl => $"{HotfixUrl}{FYAssetSettings.PACKAGE_INDEX_FILE_NAME}";
 
     /// <summary>
     /// 当热更步骤发生改变时触发
@@ -101,7 +101,7 @@ public static class HotfixManager
             return;
         }
 
-        if (!await StepDownloadManifestAsync(ctx))
+        if (!await StepDownloadPackageIndexAsync(ctx))
         {
             await FinishHotfix();
             return;
@@ -149,18 +149,18 @@ public static class HotfixManager
         RuntimePathManager.Initialize(buildIndex);
         CheckAndCleanIfNewBuild(buildIndex);
 
-        // 尝试读取已保存的 manifest.json 来覆盖 GUID (断点续传/二次启动)
+        // 尝试读取已保存的 PackageIndex.json 来覆盖 GUID (断点续传/二次启动)
         // 使用 RuntimePathManager.HotfixRoot 确保读取路径与 StepApplyUpdate 的保存路径一致
-        string localManifestPath = Path.Combine(RuntimePathManager.HotfixRoot, "manifest.json");
-        if (FileHelper.Exists(localManifestPath))
+        string localPackageIndexPath = Path.Combine(RuntimePathManager.HotfixRoot, FYAssetSettings.PACKAGE_INDEX_FILE_NAME);
+        if (FileHelper.Exists(localPackageIndexPath))
         {
             try
             {
-                var localManifest = SerializationUtility.ReadFromFile<PackageIndex>(localManifestPath);
-                if (!string.IsNullOrEmpty(localManifest.LatestPackage))
+                var localPackageIndex = SerializationUtility.ReadFromFile<PackageIndex>(localPackageIndexPath);
+                if (!string.IsNullOrEmpty(localPackageIndex.LatestPackage))
                 {
-                    Debug.Log($"[HotfixManager] 发现本地热更记录，重定向至: {localManifest.LatestPackage}");
-                    buildIndex.BuildGUID = localManifest.LatestPackage;
+                    Debug.Log($"[HotfixManager] 发现本地热更记录，重定向至: {localPackageIndex.LatestPackage}");
+                    buildIndex.BuildGUID = localPackageIndex.LatestPackage;
 
                     // 第二次初始化：应用新的 BuildGUID，将 CurrentGUIDRoot 修正为热更包目录
                     RuntimePathManager.Initialize(buildIndex);
@@ -168,7 +168,7 @@ public static class HotfixManager
             }
             catch (Exception ex)
             {
-                Debug.LogWarning($"[HotfixManager] 本地 manifest 读取失败: {ex.Message}");
+                Debug.LogWarning($"[HotfixManager] 本地 PackageIndex 读取失败: {ex.Message}");
             }
         }
 
@@ -195,29 +195,29 @@ public static class HotfixManager
     }
 
     /// <summary>
-    /// 步骤3：下载清单文件(manifest.json)
+    /// 步骤3：下载包体索引文件(PackageIndex.json)
     /// </summary>
-    private static async Task<bool> StepDownloadManifestAsync(HotfixContext ctx)
+    private static async Task<bool> StepDownloadPackageIndexAsync(HotfixContext ctx)
     {
-        BeginStep("Download manifest", 2);
-        string manifestJson = await NetworkDownloader.DownloadText(ManifestUrl);
-        if (string.IsNullOrEmpty(manifestJson))
+        BeginStep("Download PackageIndex", 2);
+        string packageIndexJson = await NetworkDownloader.DownloadText(PackageIndexUrl);
+        if (string.IsNullOrEmpty(packageIndexJson))
         {
-            ReportError("[HotfixManager] 无法获取manifest.json，使用本地资源运行。");
+            ReportError("[HotfixManager] 无法获取 PackageIndex.json，使用本地资源运行。");
             CompleteStep();
             return false;
         }
 
-        PackageIndex manifest = SerializationUtility.DeserializeJson<PackageIndex>(manifestJson);
-        if (string.IsNullOrEmpty(manifest.LatestPackage))
+        PackageIndex packageIndex = SerializationUtility.DeserializeJson<PackageIndex>(packageIndexJson);
+        if (string.IsNullOrEmpty(packageIndex.LatestPackage))
         {
-            ReportError("[HotfixManager] manifest.json 无效，使用本地资源运行。");
+            ReportError("[HotfixManager] PackageIndex.json 无效，使用本地资源运行。");
             CompleteStep();
             return false;
         }
 
-        ctx.TargetPackageName = manifest.LatestPackage;
-        ctx.RemoteUrlRoot = $"{HotfixUrl}/Packages/{ctx.TargetPackageName}";
+        ctx.TargetPackageName = packageIndex.LatestPackage;
+        ctx.RemoteUrlRoot = $"{HotfixUrl}/{FYAssetSettings.Instance.BuildPackagesFolderName}/{ctx.TargetPackageName}";
         ctx.TargetGUIDRoot = Path.Combine(RuntimePathManager.HotfixRoot, ctx.TargetPackageName);
 
         Debug.Log($"[HotfixManager] 获取最新包体: {ctx.TargetPackageName}，URL已更新: {ctx.RemoteUrlRoot}");
@@ -420,21 +420,21 @@ public static class HotfixManager
     }
 
     /// <summary>
-    /// 步骤10：应用更新（保存 manifest 记录）
+    /// 步骤10：应用更新（保存 PackageIndex 记录）
     /// </summary>
     private static void StepApplyUpdate(HotfixContext ctx, HotfixVersionInfo remoteVersionInfo)
     {
         BeginStep("Apply update", 9);
 
         // 更新本地记录的 PackageIndex，指向新的包体
-        string manifestPath = Path.Combine(RuntimePathManager.HotfixRoot, "manifest.json");
-        var manifest = new PackageIndex
+        string packageIndexPath = Path.Combine(RuntimePathManager.HotfixRoot, FYAssetSettings.PACKAGE_INDEX_FILE_NAME);
+        var packageIndex = new PackageIndex
         {
             LatestPackage = ctx.TargetPackageName,
             LatestVersion = remoteVersionInfo.Version
         };
 
-        SerializationUtility.WriteToFile(manifestPath, manifest);
+        SerializationUtility.WriteToFile(packageIndexPath, packageIndex);
         Debug.Log($"[HotfixManager] 更新 PackageIndex 指针 -> {ctx.TargetPackageName}");
 
         // 关键：立即切换 RuntimePathManager 到新目录，确保后续 InternalIdTransformFunc 能找到正确的 bundles

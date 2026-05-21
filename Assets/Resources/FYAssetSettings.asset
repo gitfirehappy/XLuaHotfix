@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   ProjectName: ProjectName1
   HotfixUrl: https://firehappy-cfy.com/
-  UseABBackend: 0
+  UseABBackend: 1
   MaxHotfixSizeBytes: 1073741824
   HotfixMaxRetryCount: 10
   HotfixRetryBaseDelaySeconds: 1
@@ -23,6 +23,8 @@ MonoBehaviour:
   LuaScriptsIndexPath: Assets/Build/LuaScriptsIndex.asset
   SnapshotAssetPath: Assets/Build/Snapshots.asset
   BuildIndexJsonPath: Assets/Build/Bootstrap/BuildIndex.json
+  BuildOutputRoot: HotfixOutput
+  BuildPackagesFolderName: Packages
   CollectorDataFolder: Assets/FYAsset/CollectorData
   CollectorSettingPath: Assets/FYAsset/CollectorData/CollectorSetting.asset
   PipelineConfigPath: Assets/Build/BuildPipelineConfig.asset

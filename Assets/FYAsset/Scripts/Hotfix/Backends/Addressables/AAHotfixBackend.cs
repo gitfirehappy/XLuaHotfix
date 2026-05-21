@@ -7,7 +7,7 @@ using UnityEngine;
 using UnityEngine.AddressableAssets;
 
 /// <summary>
-/// AA 热更后端 — 封装现有 Addressables 版本链路的 IHotfixPipeline 实现。
+/// AA 热更后端 — 封装现有 catalog 版本链路的 IHotfixPipeline 实现。
 ///
 /// 设计说明：
 /// - 保持与重构前 HotfixManager 完全相同的行为（零变更）
@@ -42,7 +42,7 @@ public class AAHotfixBackend : IHotfixPipeline
 
     /// <summary>
     /// 后端初始化。
-    /// AA: Addressables.InitializeAsync；AB: 无操作。
+    /// AA: catalog 初始化；AB: 无操作。
     /// </summary>
     /// <returns>初始化是否成功。</returns>
     public async Task<HotfixStepResult> InitializeBackendAsync()
@@ -52,7 +52,7 @@ public class AAHotfixBackend : IHotfixPipeline
         try
         {
             await initHandle.Task;
-            Debug.Log("[AAHotfixBackend] Addressables 本地包初始化成功");
+            Debug.Log("[AAHotfixBackend] catalog 本地包初始化成功");
             return HotfixStepResult.Ok;
         }
         catch (Exception e)
@@ -208,15 +208,7 @@ public class AAHotfixBackend : IHotfixPipeline
 
     private static AAManifest LoadLocalManifest(string currentGUIDRoot)
     {
-        string localManifestBinPath = Path.Combine(currentGUIDRoot, FYAssetSettings.AA_MANIFEST_FILE_NAME_BIN);
-        if (FileHelper.Exists(localManifestBinPath))
-            return SerializationUtility.ReadFromFile<AAManifest>(localManifestBinPath);
-
-        string localManifestJsonPath = Path.Combine(currentGUIDRoot, FYAssetSettings.AA_MANIFEST_FILE_NAME);
-        if (FileHelper.Exists(localManifestJsonPath))
-            return SerializationUtility.ReadFromFile<AAManifest>(localManifestJsonPath);
-
-        return null;
+        return AAManifestLoader.LoadFromDirectory(currentGUIDRoot);
     }
 
     #endregion

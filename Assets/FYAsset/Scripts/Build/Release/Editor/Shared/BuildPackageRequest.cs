@@ -7,6 +7,8 @@ using System;
 /// </summary>
 public sealed class BuildPackageRequest
 {
+    public const string PackageTimestampFormat = "yyyyMMddHHmmss";
+
     public VersionNumber Version { get; }
     public BuildType BuildType { get; }
     public BackendMode BackendMode { get; }
@@ -39,7 +41,7 @@ public sealed class BuildPackageRequest
     public static BuildPackageRequest Create(VersionNumber version, BuildType buildType, BackendMode backendMode)
     {
         var createdAt = DateTime.UtcNow;
-        string packageName = $"Build_{createdAt:yyyyMMdd}_{version.GetFullVersionString()}";
+        string packageName = CreatePackageName(version, createdAt);
         string outputDir = BuildPathManager.GetPackageDir(packageName);
         return new BuildPackageRequest(
             version,
@@ -50,6 +52,11 @@ public sealed class BuildPackageRequest
             BuildPathManager.GetBundlesDir(outputDir),
             BuildPathManager.PackageIndexPath,
             createdAt);
+    }
+
+    public static string CreatePackageName(VersionNumber version, DateTime createdAt)
+    {
+        return $"Build_{createdAt.ToString(PackageTimestampFormat)}_{version.GetFullVersionString()}";
     }
 }
 #endif

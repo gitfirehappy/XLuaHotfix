@@ -20,7 +20,7 @@
 | **BuildIndexData** | Bootstrap | 整包构建唯一标识(guid)、版本号、时间，大版本检测依赖 |
 | **AAManifest** | AAManifest.json / AAManifest.bin | AA 版本号 + Bundle哈希/CRC/size 映射表，并嵌入 AA 资源索引数据 |
 | **LuaScriptsIndex** | Build/LuaScriptsIndex.asset | AddressableKey → 内部脚本名映射，运行期加载Lua；按普通 Addressable 资产参与索引；类型定义归属 XLuaFramework |
-| **PackageIndex** | manifest.json | 远程构建定位，指向最新导出包路径 |
+| **PackageIndex** | PackageIndex.json | 远程构建定位，指向最新导出包路径 |
 
 ### 1.2 差异快照系统
 
@@ -42,12 +42,17 @@
   - AA 后端通过独立 `AABuildPipelineConfig.asset` 执行 DAG Task，最终 package layout 与 AAManifest 输出已由 Task 图负责
   - AB 后端的最终 package layout 已由 DAG Task 直接写入 `BuildPackageRequest.OutputDir`
   - AA / AB 后端都是 stateless DAG runner，只暴露 `BuildAsync(BuildPackageRequest, BuildExecutionOptions)` 入口
-  - 整包构建的本地启动数据导出（BuildIndex + baseline manifest 到 StreamingAssets）由 `TaskExportLocalBuildData` 挂在 AA/AB DAG 尾部执行；Hotfix 构建在该 Task 内跳过
+  - 构建输出根目录与 Packages 子目录由 `FYAssetSettings.BuildOutputRoot` / `BuildPackagesFolderName` 配置，默认保持 `HotfixOutput/Packages`
+  - `BuildPipelineConfig.asset` / `AABuildPipelineConfig.asset` 是 Task 主干事实源；`BuildPipelineBackbone` 只提供默认创建、UI 主干识别和校验，不在加载或构建时自动修复配置
+  - 整包构建的本地启动数据导出（BuildIndex + baseline 到 StreamingAssets）由 `TaskExportLocalBuildData` 挂在 AA/AB DAG 尾部执行并直接实现；Hotfix 构建在该 Task 内跳过
 - **BuildPipelineWindow / PipelinePanel**:
   - AB Pipeline 的 Pipeline 页负责 BuildGraph DAG、Reload、Validate、构建选项、Build Mode 与 Build 入口
+  - AA Pipeline 的 AA Build 页复用同一套 BuildGraph DAG、Reload、Validate、Build Mode 与 Build 入口，加载 `AABuildPipelineConfig.asset`；AA 不显示 Build Options，配置仍归 Addressables 自身配置体系
+  - Pipeline Validate 会在触发后显示可关闭、可复制的底部明细栏；BuildGraph Task 节点右键支持打开对应 C# 源码
   - 构建入口复用 `BuildProjectManager` 的 Full/Hotfix 语义；DAGScheduler 执行事件会回显到节点状态
+  - 旧 `Tools/Build` 生产菜单项已标记为 `[Legacy]` 并暂时保留
   - Builder 页不承载 DAG；当前为 UI Toolkit 占位壳，构建报告查询待 E7 差异快照与 digest 输出稳定后单独规划
-  - Build Pipeline 编辑器窗口已迁移为 UI Toolkit `CreateGUI()` 壳层，侧栏保持 SETTINGS / AA PIPELINE / AB PIPELINE / MANAGE；AA 与 AB 组互斥灰显，AA Config 面板仅做 Addressables 摘要与 Groups 窗口入口
+  - Build Pipeline 编辑器窗口已迁移为 UI Toolkit `CreateGUI()` 壳层，侧栏保持 SETTINGS / AA PIPELINE / AB PIPELINE / MANAGE；AA 与 AB 组互斥灰显，AA Config 面板仅做 catalog 摘要与 Groups 窗口入口
   - Settings、AA Config、AA Build、AA Report、Collect Config、Collector、Pipeline、Builder、Version 等 active 面板通过 UI Toolkit `CreateContent()` 承载；Pipeline 页继续复用现有 GraphView DAG
   - Collector 资产 Inspector 头部勾选入口仍使用 Unity 的 `Editor.finishedDefaultHeaderGUI` 回调，这是 Unity 默认 Inspector header 的 IMGUI 边界
 
@@ -58,9 +63,9 @@
   - 资源池：引用计数管理，支持按标签/类型加载/卸载
   - B5-2 新增 Resolve/Load API：`LoadByAddress<T>` / `LoadByTypeKey<T>` 返回 `AssetHandle<T>`
 - **HotfixManager**: 已重构为 orchestrator，仅负责公共步骤编排、进度回调、错误上报；后端差异由 `IHotfixPipeline` 实现
-- **AAHotfixBackend / ABHotfixBackend**: AA 路径使用 Addressables `AAManifest.bin/json + catalog` 流程，runtime 从 `AAManifest` 读取 AA 索引；AB 路径使用 `ABManifest.bin/json` + bundles 流程；两条路径统一通过 `BundleDownloadItem` 传递 `FileHash` 与 `FileCRC`，下载/复用后由 `HotfixManager` 做 CRC 校验
+- **AAHotfixBackend / ABHotfixBackend**: AA 路径使用 `AAManifest.bin/json + catalog` 流程，runtime 从 `AAManifest` 读取 AA 索引；AB 路径使用 `ABManifest.bin/json` + bundles 流程；两条路径统一通过 `BundleDownloadItem` 传递 `FileHash` 与 `FileCRC`，下载/复用后由 `HotfixManager` 做 CRC 校验
 - **ABAssetIndex**: 基于 ABManifest 的完整 IAssetIndex 实现，预缓存 RuntimeAssetEntry，零分配查询热路径
-- **ManifestLoader**: 异步清单加载器（热更目录优先，StreamingAssets 回退）
+- **AAManifestLoader / ABManifestLoader**: AA/AB 专用清单加载器；AA 从当前包目录读取 `AAManifest.bin/json`，AB 按热更目录优先、StreamingAssets 回退读取 `ABManifest.bin/json`
 - **ABBundleLoader**: 运行时从 `CurrentGUIDRoot/bundles/` 与 `StreamingAssets/bundles/` 查找 Bundle，依赖环按错误处理而不是静默跳过
 - **ABPackageBackend**: 内部以 `EntryId` 作为缓存与释放的唯一身份，`Address` 只作为查询入口，兼容 duplicate Address 设计
 - **RuntimePathManager**: 位于 `Runtime/` 根，统一管理运行时热更路径，包体GUID隔离
