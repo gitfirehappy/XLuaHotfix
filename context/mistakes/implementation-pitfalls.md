@@ -400,3 +400,27 @@
 
 **Prevention:** Default backbone definitions may create new config assets and support validation/UI behavior, but must not silently modify existing config assets during load or build execution. Missing required tasks should fail validation.
 
+---
+
+## IP-41: Traversal Cache Reused As Reference Accounting
+
+**Symptom:** Collector dependency analysis could under-count which bundles referenced the same implicit dependency.
+
+**Root cause:** A package-wide visited set was used both to avoid expanding dependency subtrees repeatedly and to decide whether later bundle roots should traverse far enough to record references.
+
+**Fix:** Keep dependency query caching separate from per-root traversal/reference accounting. Each root bundle still records its own references even when dependency query results are reused.
+
+**Prevention:** Caches that optimize traversal cost must not become semantic ownership/reference gates. If a pass computes counts, every contributing source must still be visited for accounting.
+
+---
+
+## IP-42: System-Generated Enum Value Exposed As User Configuration
+
+**Symptom:** `ECollectorType.Implicit` appeared in manual Collector UI even though `AssetClassifier` did not support it for user-authored collectors.
+
+**Root cause:** A shared enum contained both user-configurable values and pipeline-generated values, and generic enum UI exposed all values without a policy boundary.
+
+**Fix:** Keep the enum value for generated intermediate data, but block manual usage in validation/scanning and expose only allowed values in editor UI.
+
+**Prevention:** When an enum mixes public configuration values with internal/system-generated states, UI and validators must explicitly whitelist user-selectable values.
+

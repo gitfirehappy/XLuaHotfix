@@ -15,6 +15,7 @@ Completed and abandoned plans go to `archive/`.
 
 | File | Status | Description |
 |------|--------|-------------|
+| `plan-collector-review-fix-20260522.md` | Executed; awaiting sign-off | Fix Collector review P0/P1 issues around implicit dependency accounting, manual Implicit config, scanner diagnostics, and build validation |
 | `plan-aa-editor-task-acceptance-20260521.md` | Executed; awaiting sign-off | Validate AA Task migration from the Unity Editor by matching the AB BuildGraph/Validate workflow and avoiding duplicate Addressables UI |
 | `plan-editor-ux-polish-20260521.md` | Executed; awaiting sign-off | Low-risk Editor UX polish for BuildGraph source navigation, Pipeline Validate details, splitter visibility, and Collector scan scrolling |
 

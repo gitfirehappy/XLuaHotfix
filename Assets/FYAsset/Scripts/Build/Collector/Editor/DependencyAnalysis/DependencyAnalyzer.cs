@@ -7,7 +7,7 @@ using UnityEngine;
 /// 依赖分析器 —— 单次 BFS 遍历完成三项工作：
 ///   第一步： Bundle 依赖边构建 + 隐式依赖发现（refCount 计数）
 ///   第二步： SharePolicy 决策（共享 vs 复制）
-/// 全局 visited set 防止无限展开。
+/// 单资产 visited set 防止无限展开，并缓存 AssetDatabase 依赖查询结果。
 /// </summary>
 public static class DependencyAnalyzer
 {
@@ -99,14 +99,11 @@ public static class DependencyAnalyzer
         Dictionary<string, ImplicitCandidate> implicitCandidates,
         List<(string fromPath, string toPath)> cycleEntries)
     {
-        var globalVisited = new HashSet<string>(); // 跨资产共享：所有已展开过的 GUID
+        var dependencyCache = new Dictionary<string, string[]>(StringComparer.Ordinal);
 
         foreach (var asset in packageAssets)
         {
             if (string.IsNullOrEmpty(asset.AssetGUID))
-                continue;
-
-            if (globalVisited.Contains(asset.AssetGUID))
                 continue;
 
             var bfsStack = new List<(string guid, string path)>();
@@ -114,31 +111,22 @@ public static class DependencyAnalyzer
             var queue = new Queue<string>();
             queue.Enqueue(asset.AssetGUID);
             var localVisited = new HashSet<string>(); // 本次 BFS 已入队的 GUID
+            localVisited.Add(asset.AssetGUID);
 
             while (queue.Count > 0)
             {
                 string guid = queue.Dequeue();
-                if (globalVisited.Contains(guid))
-                    continue;
 
                 string depPath = AssetDatabase.GUIDToAssetPath(guid);
                 if (string.IsNullOrEmpty(depPath))
                     continue;
 
-                globalVisited.Add(guid);
                 bfsStack.Add((guid, depPath));
                 bfsGuidSet.Add(guid);
 
-                string[] deps;
-                try
+                if (!TryGetDependencies(guid, depPath, dependencyCache, out string[] deps))
                 {
-                    deps = AssetDatabase.GetDependencies(depPath, false);
-                }
-                catch (Exception ex)
-                {
-                    bfsStack.RemoveAt(bfsStack.Count - 1);
-                    bfsGuidSet.Remove(guid);
-                    Debug.LogWarning($"[DependencyAnalyzer] GetDependencies failed for '{depPath}': {ex.Message}");
+                    PopBfsFrame(bfsStack, bfsGuidSet, guid);
                     continue;
                 }
 
@@ -171,10 +159,7 @@ public static class DependencyAnalyzer
                     {
                         // 已归属 → 记录 Bundle 边（排除同 Bundle）
                         if (asset.BundleName != ownedAsset.BundleName)
-                        {
-                            string depType = AssetDatabase.GetMainAssetTypeAtPath(dep)?.Name ?? "Unknown";
                             graph.AddEdge(asset.BundleName, ownedAsset.BundleName, dep);
-                        }
                         continue;
                     }
 
@@ -186,7 +171,7 @@ public static class DependencyAnalyzer
                         {
                             AssetPath = dep,
                             PrimaryType = primaryType,
-                            PackageName = string.Empty // 由调用方填充
+                            PackageName = asset.PackageName ?? string.Empty
                         };
                         implicitCandidates[depGuid] = candidate;
                     }
@@ -195,17 +180,46 @@ public static class DependencyAnalyzer
                         candidate.ReferencingBundles.Add(asset.BundleName);
 
                     // 展开隐式依赖的子依赖
-                    if (!localVisited.Contains(depGuid) && !globalVisited.Contains(depGuid))
+                    if (!localVisited.Contains(depGuid))
                     {
                         localVisited.Add(depGuid);
                         queue.Enqueue(depGuid);
                     }
                 }
 
-                bfsStack.RemoveAt(bfsStack.Count - 1);
-                bfsGuidSet.Remove(guid);
+                PopBfsFrame(bfsStack, bfsGuidSet, guid);
             }
         }
+    }
+
+    private static bool TryGetDependencies(
+        string guid,
+        string assetPath,
+        Dictionary<string, string[]> dependencyCache,
+        out string[] deps)
+    {
+        if (dependencyCache.TryGetValue(guid, out deps))
+            return true;
+
+        try
+        {
+            deps = AssetDatabase.GetDependencies(assetPath, false);
+            dependencyCache[guid] = deps;
+            return true;
+        }
+        catch (Exception ex)
+        {
+            deps = Array.Empty<string>();
+            Debug.LogWarning($"[DependencyAnalyzer] GetDependencies failed for '{assetPath}': {ex.Message}");
+            return false;
+        }
+    }
+
+    private static void PopBfsFrame(List<(string guid, string path)> bfsStack, HashSet<string> bfsGuidSet, string guid)
+    {
+        if (bfsStack.Count > 0)
+            bfsStack.RemoveAt(bfsStack.Count - 1);
+        bfsGuidSet.Remove(guid);
     }
 
     /// <summary>报告 BFS 阶段发现的循环依赖（限制前 20 条，避免日志爆炸）</summary>
@@ -219,7 +233,7 @@ public static class DependencyAnalyzer
         {
             if (cycleCount < 20)
             {
-                messages.Add(BuildMessage.Error("CYCLE_DEPENDENCY",
+                messages.Add(BuildMessage.Error(BuildErrorCodes.CycleDependency,
                     $"检测到循环依赖: '{fromPath}' -> ... -> '{toPath}' -> '{fromPath}'。",
                     fromPath));
             }
@@ -228,11 +242,11 @@ public static class DependencyAnalyzer
 
         if (cycleCount > 0)
         {
-            messages.Add(BuildMessage.Warning("CYCLE_COUNT",
+            messages.Add(BuildMessage.Warning(BuildErrorCodes.CycleCount,
                 $"Package '{packageName}' 中发现 {cycleCount} 个循环依赖，已上报前 20 个。",
                 packageName));
             if (cycleCount > 20)
-                messages.Add(BuildMessage.Warning("CYCLE_TRUNCATED",
+                messages.Add(BuildMessage.Warning(BuildErrorCodes.CycleTruncated,
                     $"另有 {cycleCount - 20} 个循环依赖未显示。", packageName));
         }
     }
@@ -258,7 +272,7 @@ public static class DependencyAnalyzer
             // 规则冲突检测：同时匹配 ForceShare 和 NoShare → 配置错误
             if (forceShare && noShare)
             {
-                messages.Add(BuildMessage.Error("SHAREPOLICY_CONFLICT",
+                messages.Add(BuildMessage.Error(BuildErrorCodes.SharePolicyConflict,
                     $"Asset '{candidate.AssetPath}' 同时匹配 ForceShare 和 NoShare 规则。请修正 Package '{packageName}' 的 SharePolicyConfig。",
                     candidate.AssetPath));
                 continue;
@@ -281,7 +295,7 @@ public static class DependencyAnalyzer
             {
                 // 共享：打入 "$shared" Bundle
                 string packKey = candidate.PrimaryType;
-                bundleName = BundleNameBuilder.Build(packageName, "$shared", packKey);
+                bundleName = BundleNameBuilder.Build(packageName, SystemIdentifiers.SharedGroupName, packKey);
                 isShared = true;
                 isDuplicated = false;
 
@@ -323,7 +337,7 @@ public static class DependencyAnalyzer
     {
         // 共享型 → GroupName = "$shared"
         // 复制型 → GroupName = PackageName（与 "$shared" 明确区分，避免数据模型语义冲突）
-        string groupName = isShared ? "$shared" : candidate.PackageName;
+        string groupName = isShared ? SystemIdentifiers.SharedGroupName : candidate.PackageName;
 
         return new CollectedAssetInfo
         {

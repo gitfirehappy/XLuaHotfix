@@ -1,6 +1,6 @@
 # Collector Framework
 
-Last reviewed: 2026-04-29
+Last reviewed: 2026-05-22
 
 ## Scope
 
@@ -45,6 +45,9 @@ The collector model is a four-level hierarchy:
   - `FilterRuleName`
   - collector-level `Tags`
   - `IgnorePatterns`
+
+Manual collector configuration supports only `Main`, `Static`, and `Depend` collector types.
+`Implicit` is a system-generated collector type produced by dependency analysis and must not be selected for user-authored collectors.
 
 ## Rule Contracts
 
@@ -115,6 +118,9 @@ Important constraint:
 - the framework already defines the build-time vocabulary needed for later pipeline work
 - `CollectionScanner` produces `ScanResult` containing `BuildMessage` entries via factory methods (`BuildMessage.Error` / `BuildMessage.Warning`)
 - `BuildSeverity { Warning, Error }` × `Code` (string, from `BuildErrorCodes`) × `Message` × `Source` (file/collector path)
+- `TaskCollectAssets` runs `CollectorSettingValidator` before scanner execution, so invalid package names and invalid manual collector types block the build before asset traversal.
+- scanner rule execution failures are converted into structured `RULE_EXECUTION_FAILED` build messages instead of raw exceptions.
+- implicit dependency entries preserve the source package name during dependency analysis; dependency query caching is separate from per-bundle reference accounting.
 
 ## What This Document Does Not Claim
 

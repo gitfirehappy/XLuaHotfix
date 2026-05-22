@@ -16,6 +16,12 @@ public sealed class CollectorTargetPickerWindow : EditorWindow
     private int _selectedGroupIndex;
     private ECollectorType _collectorType = ECollectorType.Main;
     private EForcePayloadKind _forcePayloadKind = EForcePayloadKind.Auto;
+    private static readonly List<string> ManualCollectorTypeNames = new List<string>
+    {
+        ECollectorType.Main.ToString(),
+        ECollectorType.Static.ToString(),
+        ECollectorType.Depend.ToString()
+    };
 
     public static void Show(string[] assetPaths, Action onApplied)
     {
@@ -75,8 +81,12 @@ public sealed class CollectorTargetPickerWindow : EditorWindow
         groupPopup.RegisterValueChangedCallback(evt => _selectedGroupIndex = Array.IndexOf(groupNames, evt.newValue));
         rootVisualElement.Add(groupPopup);
 
-        var collectorType = new EnumField("Collector Type", _collectorType);
-        collectorType.RegisterValueChangedCallback(evt => _collectorType = (ECollectorType)evt.newValue);
+        var collectorType = new PopupField<string>("Collector Type", ManualCollectorTypeNames, _collectorType.ToString());
+        collectorType.RegisterValueChangedCallback(evt =>
+        {
+            if (Enum.TryParse(evt.newValue, out ECollectorType parsed) && parsed != ECollectorType.Implicit)
+                _collectorType = parsed;
+        });
         rootVisualElement.Add(collectorType);
 
         var payload = new EnumField("Payload", _forcePayloadKind);

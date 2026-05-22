@@ -94,6 +94,9 @@ public static class CollectorSettingValidator
 
                 string colSrc = string.Concat("Package[", pkgIdx, "].Group[", gi, "].Collector[", ci, "]");
 
+                if (col.CollectorType == ECollectorType.Implicit)
+                    messages.Add(BuildMessage.InvalidCollectorType(col.CollectorType, colSrc));
+
                 // 3. 空的 CollectPath
                 if (string.IsNullOrEmpty(col.CollectPath))
                 {
@@ -202,8 +205,7 @@ public static class CollectorSettingValidator
     {
         if (string.IsNullOrEmpty(className))
         {
-            messages.Add(BuildMessage.Error(BuildErrorCodes.RuleNotFound,
-                string.Concat("Empty ", ruleType, " class name: ", source), source));
+            messages.Add(BuildMessage.EmptyRuleName(ruleType, source));
             return;
         }
 

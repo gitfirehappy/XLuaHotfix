@@ -303,7 +303,7 @@ public sealed class CollectorPanel : IBuildPipelinePanel
         row.Add(first);
 
         VisualElement second = new VisualElement { style = { flexDirection = FlexDirection.Row } };
-        AddCompactProperty(second, collectorProp.FindPropertyRelative("CollectorType"), 92f);
+        AddCollectorTypePopup(second, collectorProp.FindPropertyRelative("CollectorType"), 92f);
         AddCompactProperty(second, collectorProp.FindPropertyRelative("ForcePayloadKind"), 104f);
         AddRulePopup(second, collectorProp.FindPropertyRelative("AddressRuleName"), RuleDropdownHelper.GetAddressRuleNames(), 92f);
         AddRulePopup(second, collectorProp.FindPropertyRelative("PackRuleName"), RuleDropdownHelper.GetPackRuleNames(), 92f);
@@ -343,7 +343,7 @@ public sealed class CollectorPanel : IBuildPipelinePanel
         _detailScroll.Add(BuildPipelineUI.Header("Collector Detail"));
         _detailScroll.Add(new PropertyField(collectorProp.FindPropertyRelative("CollectPathType"), "Path Type"));
         _detailScroll.Add(new PropertyField(collectorProp.FindPropertyRelative("CollectPath"), "Collect Path"));
-        _detailScroll.Add(new PropertyField(collectorProp.FindPropertyRelative("CollectorType"), "Collector Type"));
+        AddLabeledCollectorTypePopup(_detailScroll, "Collector Type", collectorProp.FindPropertyRelative("CollectorType"));
         _detailScroll.Add(new PropertyField(collectorProp.FindPropertyRelative("ForcePayloadKind"), "Payload"));
         _detailScroll.Add(BuildPipelineUI.Header("Rules"));
         AddLabeledRulePopup(_detailScroll, "Address", collectorProp.FindPropertyRelative("AddressRuleName"), RuleDropdownHelper.GetAddressRuleNames());
@@ -482,6 +482,80 @@ public sealed class CollectorPanel : IBuildPipelinePanel
         field.label = string.Empty;
         field.style.width = width;
         parent.Add(field);
+    }
+
+    private static readonly ECollectorType[] ManualCollectorTypes =
+    {
+        ECollectorType.Main,
+        ECollectorType.Static,
+        ECollectorType.Depend
+    };
+
+    private static readonly string[] ManualCollectorTypeNames =
+    {
+        ECollectorType.Main.ToString(),
+        ECollectorType.Static.ToString(),
+        ECollectorType.Depend.ToString()
+    };
+
+    private void AddCollectorTypePopup(VisualElement parent, SerializedProperty property, float width)
+    {
+        int enumValue = property.enumValueIndex;
+        string current = IsManualCollectorType(enumValue)
+            ? ((ECollectorType)enumValue).ToString()
+            : string.Concat("Invalid: ", ((ECollectorType)enumValue).ToString());
+
+        List<string> choices = new List<string>(ManualCollectorTypeNames);
+        if (!choices.Contains(current))
+            choices.Insert(0, current);
+
+        var popup = new PopupField<string>(choices, current);
+        popup.style.width = width;
+        popup.RegisterValueChangedCallback(evt =>
+        {
+            if (TryParseManualCollectorType(evt.newValue, out ECollectorType collectorType))
+            {
+                property.enumValueIndex = (int)collectorType;
+                ApplyChanges();
+            }
+        });
+        parent.Add(popup);
+    }
+
+    private void AddLabeledCollectorTypePopup(VisualElement parent, string label, SerializedProperty property)
+    {
+        VisualElement row = new VisualElement { style = { flexDirection = FlexDirection.Row } };
+        Label title = BuildPipelineUI.SmallText(label);
+        title.style.width = 70f;
+        row.Add(title);
+        AddCollectorTypePopup(row, property, 220f);
+        parent.Add(row);
+    }
+
+    private static bool IsManualCollectorType(int enumValue)
+    {
+        for (int i = 0; i < ManualCollectorTypes.Length; i++)
+        {
+            if ((int)ManualCollectorTypes[i] == enumValue)
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryParseManualCollectorType(string value, out ECollectorType collectorType)
+    {
+        for (int i = 0; i < ManualCollectorTypes.Length; i++)
+        {
+            if (string.Equals(value, ManualCollectorTypeNames[i], StringComparison.Ordinal))
+            {
+                collectorType = ManualCollectorTypes[i];
+                return true;
+            }
+        }
+
+        collectorType = ECollectorType.Main;
+        return false;
     }
 
     /// <summary>

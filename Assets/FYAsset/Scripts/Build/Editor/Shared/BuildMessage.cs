@@ -51,6 +51,21 @@ public static class BuildErrorCodes
     /// <summary>Rule 类名无法通过反射解析为实例</summary>
     public const string RuleNotFound = "RULE_NOT_FOUND";
 
+    /// <summary>Rule 类名为空</summary>
+    public const string EmptyRuleName = "EMPTY_RULE_NAME";
+
+    /// <summary>Rule 执行过程中抛出异常</summary>
+    public const string RuleExecutionFailed = "RULE_EXECUTION_FAILED";
+
+    /// <summary>CollectorType 不能作为用户配置使用</summary>
+    public const string InvalidCollectorType = "INVALID_COLLECTOR_TYPE";
+
+    /// <summary>Bundle 命名片段包含非法字符</summary>
+    public const string InvalidBundleNameSegment = "INVALID_BUNDLE_NAME_SEGMENT";
+
+    /// <summary>Label 包含非法字符</summary>
+    public const string InvalidLabel = "INVALID_LABEL";
+
     /// <summary>Collector 扫描后采集到零个资源（Warning，可能是配置错误）</summary>
     public const string EmptyCollector = "EMPTY_COLLECTOR";
 
@@ -59,6 +74,9 @@ public static class BuildErrorCodes
 
     /// <summary>构建后端类型无效</summary>
     public const string InvalidBackend = "INVALID_BACKEND";
+
+    /// <summary>Collector 采集阶段失败</summary>
+    public const string CollectAssetsFailed = "COLLECT_ASSETS_FAILED";
 
     /// <summary>目标平台不支持或未识别</summary>
     public const string InvalidPlatform = "INVALID_PLATFORM";
@@ -83,6 +101,18 @@ public static class BuildErrorCodes
 
     /// <summary>构建结果校验失败</summary>
     public const string VerificationFailed = "VERIFICATION_FAILED";
+
+    /// <summary>依赖图中发现循环依赖</summary>
+    public const string CycleDependency = "CYCLE_DEPENDENCY";
+
+    /// <summary>循环依赖数量摘要</summary>
+    public const string CycleCount = "CYCLE_COUNT";
+
+    /// <summary>循环依赖日志被截断</summary>
+    public const string CycleTruncated = "CYCLE_TRUNCATED";
+
+    /// <summary>SharePolicy 规则存在冲突</summary>
+    public const string SharePolicyConflict = "SHAREPOLICY_CONFLICT";
 }
 
 /// <summary>
@@ -183,6 +213,24 @@ public class BuildMessage
     public static BuildMessage RuleNotFound(string ruleClassName, string source)
         => Error(BuildErrorCodes.RuleNotFound,
             string.Concat("Rule class '", ruleClassName, "' cannot be resolved."), source);
+
+    public static BuildMessage EmptyRuleName(string ruleType, string source)
+        => Error(BuildErrorCodes.EmptyRuleName,
+            string.Concat(ruleType, " class name is empty."), source);
+
+    public static BuildMessage InvalidCollectorType(ECollectorType collectorType, string source)
+        => Error(BuildErrorCodes.InvalidCollectorType,
+            string.Concat("CollectorType '", collectorType.ToString(), "' is not valid for manual Collector configuration."), source);
+
+    public static BuildMessage RuleExecutionFailed(string ruleType, string ruleClassName, string assetPath, string message, string source)
+        => Error(BuildErrorCodes.RuleExecutionFailed,
+            string.Concat(ruleType, " '", ruleClassName, "' failed for asset '", assetPath, "': ", message), source);
+
+    public static BuildMessage InvalidBundleNameSegment(string message, string source)
+        => Error(BuildErrorCodes.InvalidBundleNameSegment, message, source);
+
+    public static BuildMessage InvalidLabel(string message, string source)
+        => Error(BuildErrorCodes.InvalidLabel, message, source);
 
     public static BuildMessage EmptyCollector(string collectorPath, string source)
         => Warning(BuildErrorCodes.EmptyCollector,

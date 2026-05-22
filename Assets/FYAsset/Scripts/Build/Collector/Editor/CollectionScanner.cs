@@ -37,8 +37,14 @@ public static class CollectionScanner
         for (int pkgIdx = 0; pkgIdx < setting.Packages.Count; pkgIdx++)
         {
             CollectorPackage package = setting.Packages[pkgIdx];
-            if (package == null || string.IsNullOrEmpty(package.PackageName))
+            if (package == null)
                 continue;
+
+            if (string.IsNullOrEmpty(package.PackageName))
+            {
+                result.Messages.Add(BuildMessage.EmptyPackageName(string.Concat("Package[", pkgIdx, "]")));
+                continue;
+            }
 
             if (package.Groups == null || package.Groups.Count == 0)
             {
@@ -198,6 +204,12 @@ public static class CollectionScanner
         Collector collector = ctx.Collector;
         string collectPath = collector.CollectPath;
 
+        if (collector.CollectorType == ECollectorType.Implicit)
+        {
+            result.Messages.Add(BuildMessage.InvalidCollectorType(collector.CollectorType, collectPath));
+            return false;
+        }
+
         // 校验采集路径
         if (string.IsNullOrEmpty(collectPath))
         {
@@ -229,7 +241,7 @@ public static class CollectionScanner
 
         for (int gi = 0; gi < assetPaths.Count; gi++)
         {
-            TryCollectAsset(
+            if (!TryCollectAsset(
                 assetPaths[gi],
                 ctx,
                 packageName,
@@ -239,7 +251,10 @@ public static class CollectionScanner
                 filterRule,
                 groupRule,
                 addressRule,
-                packRule);
+                packRule))
+            {
+                return false;
+            }
         }
 
         return true;
@@ -334,8 +349,7 @@ public static class CollectionScanner
     {
         if (string.IsNullOrEmpty(className))
         {
-            result.Messages.Add(BuildMessage.Error(BuildErrorCodes.RuleNotFound,
-                string.Concat("Empty ", ruleType, " class name for Collector: ", collectPath), collectPath));
+            result.Messages.Add(BuildMessage.EmptyRuleName(ruleType, collectPath));
             return null;
         }
 
@@ -350,7 +364,7 @@ public static class CollectionScanner
         }
     }
 
-    private static void TryCollectAsset(
+    private static bool TryCollectAsset(
         string assetPath,
         CollectorContext ctx,
         string packageName,
@@ -366,14 +380,14 @@ public static class CollectionScanner
         string collectPath = collector.CollectPath;
 
         if (string.IsNullOrEmpty(assetPath))
-            return;
+            return true;
 
         string guid = AssetDatabase.AssetPathToGUID(assetPath);
         if (string.IsNullOrEmpty(guid))
-            return;
+            return true;
 
         if (IsExcludedByOwnership(assetPath, ctx.ExcludedPaths))
-            return;
+            return true;
 
         string extension = System.IO.Path.GetExtension(assetPath);
         var filterCtx = new FilterRuleContext
@@ -383,14 +397,36 @@ public static class CollectionScanner
             CollectPath = collectPath
         };
 
-        if (!filterRule.IsCollectable(filterCtx))
-            return;
+        bool collectable;
+        if (!TryExecuteRule(
+                "FilterRule",
+                collector.FilterRuleName,
+                collectPath,
+                assetPath,
+                result,
+                () => filterRule.IsCollectable(filterCtx),
+                out collectable))
+        {
+            return false;
+        }
+
+        if (!collectable)
+            return true;
 
         if (CollectorPathUtility.MatchesIgnorePattern(assetPath, collectPath, collector.IgnorePatterns))
-            return;
+            return true;
 
-        AssetClassification classification = AssetClassifier.Classify(
-            assetPath, collector.CollectorType, collector.ForcePayloadKind);
+        if (!TryExecuteRule(
+                "AssetClassifier",
+                collector.CollectorType.ToString(),
+                collectPath,
+                assetPath,
+                result,
+                () => AssetClassifier.Classify(assetPath, collector.CollectorType, collector.ForcePayloadKind),
+                out AssetClassification classification))
+        {
+            return false;
+        }
 
         string primaryType = GetPrimaryTypeName(assetPath);
 
@@ -403,7 +439,18 @@ public static class CollectionScanner
             ParentGroupName = ctx.ParentGroupName
         };
 
-        string targetGroupName = groupRule.GetTargetGroup(groupRuleCtx);
+        if (!TryExecuteRule(
+                "GroupRule",
+                collector.GroupRuleName,
+                collectPath,
+                assetPath,
+                result,
+                () => groupRule.GetTargetGroup(groupRuleCtx),
+                out string targetGroupName))
+        {
+            return false;
+        }
+
         if (string.IsNullOrEmpty(targetGroupName))
             targetGroupName = ctx.ParentGroupName;
 
@@ -415,7 +462,18 @@ public static class CollectionScanner
             PrimaryType = primaryType
         };
 
-        string address = addressRule.GetAddress(addressCtx);
+        if (!TryExecuteRule(
+                "AddressRule",
+                collector.AddressRuleName,
+                collectPath,
+                assetPath,
+                result,
+                () => addressRule.GetAddress(addressCtx),
+                out string address))
+        {
+            return false;
+        }
+
         List<string> labels = MergeLabels(groupLookup, targetGroupName, collector.Labels);
 
         var packCtx = new PackRuleContext
@@ -428,19 +486,29 @@ public static class CollectionScanner
             Labels = labels
         };
 
-        string packKey = packRule.GetPackKey(packCtx);
+        if (!TryExecuteRule(
+                "PackRule",
+                collector.PackRuleName,
+                collectPath,
+                assetPath,
+                result,
+                () => packRule.GetPackKey(packCtx),
+                out string packKey))
+        {
+            return false;
+        }
+
         string segErr = BundleNameBuilder.ValidateSegment(packageName)
                      ?? BundleNameBuilder.ValidateSegment(targetGroupName)
                      ?? BundleNameBuilder.ValidatePackKey(packKey);
         if (segErr != null)
         {
-            result.Messages.Add(BuildMessage.Error(
-                BuildErrorCodes.RuleNotFound, segErr, assetPath));
-            return;
+            result.Messages.Add(BuildMessage.InvalidBundleNameSegment(segErr, assetPath));
+            return false;
         }
 
         if (HasInvalidLabels(labels, assetPath, result))
-            return;
+            return false;
 
         string bundleName = BundleNameBuilder.Build(packageName, targetGroupName, packKey);
 
@@ -459,6 +527,35 @@ public static class CollectionScanner
         };
 
         packageAssets.Add(collected);
+        return true;
+    }
+
+    private static bool TryExecuteRule<T>(
+        string ruleType,
+        string ruleClassName,
+        string collectPath,
+        string assetPath,
+        ScanResult result,
+        Func<T> action,
+        out T value)
+    {
+        try
+        {
+            value = action();
+            return true;
+        }
+        catch (Exception ex)
+        {
+            value = default;
+            string source = string.Concat(collectPath, " -> ", assetPath);
+            result.Messages.Add(BuildMessage.RuleExecutionFailed(
+                ruleType,
+                ruleClassName,
+                assetPath,
+                ex.Message,
+                source));
+            return false;
+        }
     }
 
     private static List<string> CollectAssetPaths(Collector collector, string collectPath)
@@ -515,9 +612,7 @@ public static class CollectionScanner
             string le = BundleNameBuilder.ValidateSegment(labels[i]);
             if (le != null)
             {
-                result.Messages.Add(BuildMessage.Error(
-                    BuildErrorCodes.RuleNotFound,
-                    string.Concat("标签 ", le), assetPath));
+                result.Messages.Add(BuildMessage.InvalidLabel(string.Concat("标签 ", le), assetPath));
                 return true;
             }
         }

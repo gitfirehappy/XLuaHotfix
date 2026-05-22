@@ -20,6 +20,16 @@ Promoted, superseded, or deprecated drafts go to `archive/`.
 | draft-debug-panel-20260512.md | Draft | Runtime debugger panel |
 | plan-playmode-draft.md | Draft | PlayMode 三模式设计 |
 
+## Discussion Order
+
+| Order | Draft | Why First / Later |
+|-------|-------|-------------------|
+| 1 | `draft-build-repository-20260518.md` | Highest architecture impact. It defines artifact versioning, snapshot ownership, diff semantics, and release state; later build/package decisions should align to it. |
+| 2 | `draft-offline-standalone-package-20260513.md` | Depends on clear build output ownership and runtime path rules. It should be discussed after Build Repository so offline output and hotfix output do not create conflicting truths. |
+| 3 | `plan-playmode-draft.md` | Depends on Collector, manifest generation, and runtime backend boundaries. It should follow build-output discussions because Simulate/Runtime modes reuse those contracts. |
+| 4 | `draft-lua-index-pipeline-independence-20260520.md` | Narrow open decision. Discuss after PlayMode because address-source and index-generation boundaries are easier to decide once backend/play-mode behavior is fixed. |
+| 5 | `draft-debug-panel-20260512.md` | Mostly observational tooling. It is valuable but should follow the core runtime/build contracts so the panel exposes stable concepts instead of chasing moving boundaries. |
+
 ## Archive Criteria
 
 A draft moves to `archive/` when:
