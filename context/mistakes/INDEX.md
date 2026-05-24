@@ -1,18 +1,12 @@
 # Mistakes Knowledge Index
 
-> Verified historical errors and prevention rules, extracted from `requirements/refactor-2026/review/` (22 reviews, 2026-04 through 2026-05).
+Verified historical errors and prevention rules.
 
 Rules:
-- Record only verified mistakes or confirmed troubleshooting outcomes.
-- Each entry: symptom, root cause, fix, prevention rule.
+- Record only verified mistakes or confirmed fixes.
 - Keep workflow status and plan sequencing out of these files.
-- All content in English (AI-facing).
+- All content in English.
 
-## Files
+## File
 
-| File | Scope | Count |
-|------|-------|-------|
-| `process-pitfalls.md` | Plan-implementation drift, doc sync, naming, cross-plan coordination | 18 |
-| `implementation-pitfalls.md` | Silent failure, dual truth, infrastructure bypass, data structure contracts | 36 |
-| `platform-performance.md` | Editor/Runtime boundary, platform I/O, allocations, wasted computation | 14 |
-| `troubleshooting.md` | Historical Chinese notes — superseded, retained for git history | — |
+- `implementation-pitfalls.md` - merged implementation, process, and platform pitfalls

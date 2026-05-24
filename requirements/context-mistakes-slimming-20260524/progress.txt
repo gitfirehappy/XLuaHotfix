@@ -1,0 +1,8 @@
+# context-mistakes-slimming-20260524 Progress Log
+# Format: [type] YYYY-MM-DD description
+# Types: start / done / decision / blocked / next
+# Sign-off format: [done] YYYY-MM-DD plan-XX SIGNED OFF - {summary}
+
+[start] 2026-05-24 Started context/mistakes slimming and index alignment
+[done] 2026-05-24 Merged process-pitfalls and platform-performance into implementation-pitfalls; removed obsolete troubleshooting entry from context index
+[done] 2026-05-24 Trimmed context/index wording to current verified rules and aligned mistakes index to a single active file

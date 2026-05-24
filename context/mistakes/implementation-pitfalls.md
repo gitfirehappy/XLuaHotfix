@@ -1,426 +1,299 @@
 # Implementation Pitfalls
 
-> Silent failure, dual truth sources, infrastructure bypass, and data structure contract violations.
+Verified historical errors and prevention rules.
 
-## IP-01: Missing File Degrades to Default Value
+## IP-01: Missing File Becomes Default Value
 
-**Symptom:** Missing build output → CRC written as `0` in manifest. Error detected only at runtime.
+**Symptom:** Missing output was written as a default value and only failed later.
+**Root cause:** Existence check had no failure branch.
+**Fix:** Treat missing generated files as fatal.
+**Prevention:** Missing files during generation must fail at detection.
 
-**Root cause:** `if (File.Exists) ...` with no `else` branch — value stays at default.
+## IP-02: Critical Bootstrap Fails Silently
 
-**Prevention:** Missing files during generation must be fatal errors. Integrity gaps must propagate at the point of detection.
+**Symptom:** Bootstrap failure left the system uninitialized without an explicit error state.
+**Root cause:** Critical path used soft failure only.
+**Fix:** Use explicit fatal state or supported fallback.
+**Prevention:** Critical bootstrap must not end in silent limbo.
 
----
+## IP-03: Invalid Config Skipped Without Diagnostic
 
-## IP-02: Critical Bootstrap With No Explicit Failure Contract
+**Symptom:** Invalid pipeline input was skipped with `continue;` and no log.
+**Root cause:** Skip path had no diagnostic output.
+**Fix:** Emit a diagnostic for every ignored input.
+**Prevention:** Never silently swallow invalid pipeline data.
 
-**Symptom:** Manifest loading fails → system enters uninitialized limbo. Logs but provides no error signal. AB mode is all-or-nothing but failure is silent.
+## IP-04: Empty Catch Blocks Hide Failures
 
-**Root cause:** "Soft" failure mode for critical path — neither fail-fast nor supported fallback.
+**Symptom:** Exceptions were swallowed with no log or rethrow.
+**Root cause:** Crash avoidance was prioritized over diagnosability.
+**Fix:** Log, rethrow, or handle explicitly.
+**Prevention:** Empty `catch {}` is forbidden except for clearly explained harmless cases.
 
-**Prevention:** Every critical bootstrap path must choose: fail-fast with explicit fatal state, or supported fallback with structured warning. Silent uninitialized is never acceptable.
+## IP-05: Public API Guard Silently Skips Cleanup
 
----
+**Symptom:** A guard blocked both refcount decrement and cleanup.
+**Root cause:** API precondition was not enforced.
+**Fix:** Enforce the precondition with assertion, exception, or validation.
+**Prevention:** Correctness-critical preconditions must not become silent no-ops.
 
-## IP-03: Invalid Config Silently Skipped
+## IP-06: Dead Code Pretends to Be Safety
 
-**Symptom:** Null/empty PackageName → `continue;` with zero diagnostic output.
+**Symptom:** A dead branch appeared to handle a failure that validation already prevented.
+**Root cause:** Execution-time code duplicated an impossible state.
+**Fix:** Remove it or mark it as provably unreachable.
+**Prevention:** Do not keep safety-looking dead code without explanation.
 
-**Root cause:** Skip without generating any message.
+## IP-07: Async Fire-and-Forget Without Contract
 
-**Prevention:** Every skipped/ignored pipeline input must produce diagnostic output. Never silently swallow invalid config.
+**Symptom:** Async recovery code was invoked without `await`.
+**Root cause:** No explicit fire-and-forget contract.
+**Fix:** Await it, handle exceptions, or mark it intentionally fire-and-forget.
+**Prevention:** Every async call must have an explicit completion strategy.
 
----
+## IP-08: Re-init Keeps Stale State
 
-## IP-04: Empty catch Block
+**Symptom:** `Initialize()` repopulated caches without clearing them first.
+**Root cause:** Idempotency was not handled.
+**Fix:** Clear all cached state before repopulating.
+**Prevention:** Public init methods must be safe to call again.
 
-**Symptom:** `catch { ... continue; }` with no log, no warning. Exception becomes undebuggable.
+## IP-09: Two Refcount Sources Drift Apart
 
-**Root cause:** Prioritized crash-avoidance over diagnosability.
+**Symptom:** Two layers tracked the same lifetime independently and desynchronized.
+**Root cause:** No single source of truth.
+**Fix:** Keep one lifetime owner or define one synchronization protocol.
+**Prevention:** Exactly one source of truth for lifetime tracking.
 
-**Prevention:** Every `catch` block must log, rethrow, or handle explicitly. Empty `catch {}` is forbidden. The only exception: fully expected + harmless scenarios WITH an explanatory comment.
+## IP-10: Dependency Declared Twice
 
----
+**Symptom:** Code and config both declared dependencies and could disagree.
+**Root cause:** Dual-authority design.
+**Fix:** Choose one authority or enforce consistency.
+**Prevention:** A dependency must not have two independent authorities.
 
-## IP-05: Guard That Silently Skips Cleanup
+## IP-11: Shared Context Key Not Fully Adopted
 
-**Symptom:** `if (!string.IsNullOrEmpty(eid))` controls BOTH count decrement AND resource cleanup. Precondition violation is silently no-op'd.
+**Symptom:** One task wrote a shared key while another still read old config directly.
+**Root cause:** Consumers were not migrated together.
+**Fix:** Migrate all consumers at once.
+**Prevention:** Half-unified truth is worse than no unification.
 
-**Root cause:** Precondition not enforced at API level; code silently skips essential logic.
+## IP-12: Dead Config Field Never Read
 
-**Prevention:** API preconditions essential to correctness must be enforced (assertion, exception, or validation). Silent no-ops hide future bugs.
+**Symptom:** Inspector config could be edited but had no effect.
+**Root cause:** Field was added without a consumer.
+**Fix:** Wire every exposed setting into runtime or remove it.
+**Prevention:** Do not expose config that nothing reads.
 
----
+## IP-13: Lazy Cache Not Invalidated
 
-## IP-06: Dead Code Appearing to Provide Safety
+**Symptom:** Cached derived data stayed stale after mutation.
+**Root cause:** Mutation paths did not clear the cache.
+**Fix:** Invalidate on every mutation path.
+**Prevention:** Every lazy cache needs invalidation coverage.
 
-**Symptom:** `SCHEDULER_DEADLOCK` branch that can never execute because validation already catches cycles. Appears to handle runtime deadlocks but doesn't.
+## IP-14: Cached State on Mutable Public Input
 
-**Root cause:** Validation guarantees the precondition making execution-time detection unreachable.
+**Symptom:** Derived cache relied on a public mutable list.
+**Root cause:** The type could not enforce invalidation.
+**Fix:** Encapsulate inputs or remove cached derived state.
+**Prevention:** Mutable public collections and cached state do not mix.
 
-**Prevention:** Dead code appearing to provide safety is worse than no code. Remove it or add explicit comment: "Provably unreachable because X guarantees Y. Retained as defense-in-depth."
+## IP-15: Static Readonly Freezes Dynamic Config
 
----
+**Symptom:** A config value was captured once and never updated.
+**Root cause:** `static readonly` was used for dynamic data.
+**Fix:** Read config on demand.
+**Prevention:** Dynamic settings must not be frozen at type init.
 
-## IP-07: Fire-and-Forget Async Without Await
+## IP-16: Raw File I/O Bypasses Shared Helper
 
-**Symptom:** Async method called without `await` in error-recovery path. Exception unobserved.
+**Symptom:** Raw file and directory APIs were used instead of the shared helper.
+**Root cause:** Helper coverage lagged behind new use cases.
+**Fix:** Route I/O through the shared helper and extend it first when needed.
+**Prevention:** File I/O should go through the shared helper; persistent writes should use atomic write.
 
-**Root cause:** Missing `await` on async call.
-
-**Prevention:** Every async call must be awaited, have exception handled, or be explicitly fire-and-forget with a comment. Especially dangerous in error-recovery code.
-
----
-
-## IP-08: Re-Init Not Clearing Previous State
-
-**Symptom:** `Initialize()` does not clear caches before repopulating. AB init can fall back to AA, mixing stale data.
-
-**Root cause:** Idempotency/cleanup not considered.
-
-**Prevention:** Every public init method must clear all caches first. Do not assume single-initialization.
-
----
-
-## IP-09: Two Independent Refcount Systems
-
-**Symptom:** `AssetCache` (global refcount) and `HandleRegistry` (per-slot refcount) independently track the same concept. They desynchronize → use-after-free.
-
-**Root cause:** Two sources of truth for the same concept with no synchronization protocol.
-
-**Prevention:** Exactly ONE source of truth for lifetime tracking. If two layers must both count, define an explicit synchronization protocol.
-
----
-
-## IP-10: Dependencies Declared in Two Independent Sources
-
-**Symptom:** `IBuildTask.DependsOn` (code) and `TaskEntry.DependsOn` (SO config) both declare dependencies. Scheduler merges without cross-validation. Updating one silently produces wrong graph.
-
-**Root cause:** Dual-source design without single-authority rule.
-
-**Prevention:** Config with two declaration sites must have ONE authority. Secondary source must be additive-only, or a validation gate must enforce consistency.
-
----
-
-## IP-11: Shared Key Written But Not Consumed — Half-Unified Truth
-
-**Symptom:** `TaskPrepareContext` writes `BuildVersion`; `TaskGenerateManifest` ignores it, reloads SO directly. DAG can't validate dependency; two version sources exist.
-
-**Root cause:** New shared key introduced but existing consumers not migrated.
-
-**Prevention:** When introducing a shared context key, migrate ALL consumers simultaneously. Half-unified is worse than no unification.
-
----
-
-## IP-12: Dead Config Field — Exposed But Never Read
-
-**Symptom:** `MinAssetSizeBytes` exposed in Inspector, tunable by developer. No code reads it. Tuning has zero effect.
-
-**Root cause:** Field added but consumer never wired.
-
-**Prevention:** Every exposed config field must be actively consumed. Dead config is the hardest bug to diagnose — the system silently ignores user input.
-
----
-
-## IP-13: Lazy Cache Not Invalidated on Mutation
-
-**Symptom:** `GetDependencyMap()` lazily builds `_dependencyMap`. `AddEdge()` mutates edges without clearing cache. Callers read stale data.
-
-**Root cause:** Lazy cache with no invalidation on mutation paths.
-
-**Prevention:** Every lazy cache must invalidate on ALL mutation paths.
-
----
-
-## IP-14: Cached State on Type With Public Mutable Input
-
-**Symptom:** `RuntimeAssetEntry` caches normalized labels, documents manual `InvalidateLabelCache()`, but `Labels` is public `List<string>` — type can't enforce invalidation.
-
-**Root cause:** Cache added to type whose inputs were already public and mutable.
-
-**Prevention:** Once a type adds cached derived state, encapsulate all inputs. Public mutable collections and cached state are incompatible. Choose: pure DTO or guarded model.
-
----
-
-## IP-15: Static Readonly Captures Config at Type-Init
-
-**Symptom:** `static readonly _hotfixUrl = FYAssetSettings.Instance.HotfixUrl` — value frozen at type init. Modifying SO has no effect.
-
-**Root cause:** Static readonly caches what was meant to be dynamic configuration.
-
-**Prevention:** When migrating from constants to SO config, use on-demand property access, not `static readonly`. Static caching defeats ScriptableObject — unless startup-only snapshot is an explicit, documented decision.
-
----
-
-## IP-16: Raw File/Directory I/O Bypassing Shared Helper
-
-**Symptom:** `File.Exists`, `Directory.CreateDirectory`, `File.Copy`, `File.WriteAllText` used raw instead of `FileHelper`. Atomic-write used in AB path but not AA. Error handling fragmented.
-
-**Root cause:** `FileHelper` not extended with needed operations; developers fell back to raw I/O.
-
-**Prevention:** All file I/O must go through `FileHelper`. When a new pattern is needed, extend `FileHelper` first. Non-append persistent writes MUST use atomic write (temp + rename).
-
-**2026-05-20 recurrence:** Review after BOU-1/HPU-1 found raw `Directory.CreateDirectory`/`File.Delete` in recently touched bootstrap, download retry, and AA manifest-temp paths. The fix routed those paths through `FileHelper.EnsureDirectory` / `FileHelper.TryDelete`. Prevention addendum: after touching a file that already has a `FileHelper` boundary, run a targeted raw I/O grep on that file before verification.
-
----
+**2026-05-20 recurrence:** touched bootstrap, download retry, manifest-temp, and release paths were found using raw I/O. They were routed through `FileHelper` helpers.
 
 ## IP-17: Build Artifact Logic Triplicated
 
-**Symptom:** Three classes independently implement path creation, file copy, manifest writing. Already caused layout drift requiring follow-up fix.
+**Symptom:** Similar build-output logic existed in multiple classes.
+**Root cause:** No shared artifact layer.
+**Fix:** Extract shared build-output logic.
+**Prevention:** Third copy means extraction is mandatory.
 
-**Root cause:** No shared artifact infrastructure.
+## IP-18: String Summary Used as Error Channel
 
-**Prevention:** Before the third copy of similar build-output logic, extract a shared abstraction.
+**Symptom:** Async orchestration used `Task<bool>` plus a freeform string summary for diagnostics.
+**Root cause:** No structured result type.
+**Fix:** Return structured diagnostics.
+**Prevention:** Public orchestration APIs need structured results.
 
----
+## IP-19: Raw Error Code Strings Scattered
 
-## IP-18: Ad-Hoc Error Transport Instead of Structured Result
+**Symptom:** Error codes were repeated as string literals.
+**Root cause:** No centralized constants.
+**Fix:** Put codes in the shared constants file.
+**Prevention:** Raw string error codes are forbidden.
 
-**Symptom:** `Task<bool>` + `string BuildSummary` as error channel. No structured diagnostics (code, severity, source).
+## IP-20: Raw Asset Paths Scattered
 
-**Root cause:** No structured orchestration result type existed.
+**Symptom:** Asset paths were repeated as string literals.
+**Root cause:** No single path constant.
+**Fix:** Centralize the path.
+**Prevention:** Do not inline asset paths in non-constant code.
 
-**Prevention:** Every public async orchestration API must return a structured result type carrying diagnostics. A `string Summary` is not an error channel.
+## IP-21: Same Error Code Reused for Different Cases
 
----
+**Symptom:** Different conditions shared one error code.
+**Root cause:** Copy-paste reuse.
+**Fix:** Assign distinct codes.
+**Prevention:** Semantically distinct failures need unique codes.
 
-## IP-19: Hardcoded Error Codes Instead of Centralized Constants
+## IP-22: Inconsistent Result Patterns
 
-**Symptom:** `"INVALID_ARG"`, `"BUILD_FAILED"` appear as raw strings in multiple files.
+**Symptom:** Result types mixed factories, mutable bags, and bool+string shapes.
+**Root cause:** No shared convention.
+**Fix:** Define one subsystem convention.
+**Prevention:** Result/message types must follow one pattern.
 
-**Root cause:** Developer habit of inline strings instead of extending centralized enums.
+## IP-23: Log Prefix Hardcoded
 
-**Prevention:** Every new error code must go into the centralized constants file. Raw string error codes forbidden.
+**Symptom:** Class name prefixes were written as magic strings.
+**Root cause:** Prefixes were not derived from type names.
+**Fix:** Generate prefixes from the class name.
+**Prevention:** Log prefixes should not be hardcoded.
 
----
+## IP-24: Utility Logic Duplicated Across Files
 
-## IP-20: Hardcoded Asset Paths
+**Symptom:** The same utility code appeared in multiple files.
+**Root cause:** Shared helper was not extracted early.
+**Fix:** Extract shared utility code.
+**Prevention:** Non-trivial repeated logic belongs in one place.
 
-**Symptom:** `"Assets/Build/BuildPipelineConfig.asset"` as raw string in multiple files. Path change → manual multi-file edits.
+## IP-25: Validation and Execution Diverged
 
-**Root cause:** Inline string literals instead of central constant.
+**Symptom:** Validation and runtime each implemented their own rule resolution.
+**Root cause:** Independent reimplementation.
+**Fix:** Share the same code path.
+**Prevention:** Same concept, same implementation.
 
-**Prevention:** Every asset path must be defined as a constant in a single place. No raw path strings in non-constant code.
+## IP-26: HashSet Used as Identity Order
 
----
+**Symptom:** Code relied on `HashSet` iteration order to choose a semantic identity.
+**Root cause:** Unordered collection was treated as ordered.
+**Fix:** Use explicit identity.
+**Prevention:** Never rely on `HashSet<T>` order for meaning.
 
-## IP-21: Error Code Reused for Different Condition
+## IP-27: ReadOnly Interface Backed by Mutable List
 
-**Symptom:** Containment reuses overlap error code. Aggregate reporting becomes ambiguous.
+**Symptom:** A read-only API could still be downcast and mutated.
+**Root cause:** Backing type stayed mutable.
+**Fix:** Return a genuinely immutable backing type.
+**Prevention:** Read-only interface is not enough if the backing store is mutable.
 
-**Root cause:** Copy-pasted error code instead of creating distinct one.
+## IP-28: Struct Without Explicit Equality
 
-**Prevention:** Each semantically distinct condition must have a unique error code.
+**Symptom:** Business-semantic structs depended on default comparison.
+**Root cause:** Equality contracts were never defined.
+**Fix:** Implement explicit equality contracts.
+**Prevention:** Cross-boundary structs need `IEquatable<T>`, `Equals`, `GetHashCode`, and `ToString`.
 
----
+## IP-29: Missing Key Returns Default(T)
 
-## IP-22: Inconsistent Result/Message Patterns
+**Symptom:** Missing key and stored default value were indistinguishable.
+**Root cause:** Only `Get<T>` existed.
+**Fix:** Add `TryGet<T>`.
+**Prevention:** Default-returning stores need a presence check API.
 
-**Symptom:** Some result types use factories; others are mutable field bags; some embed messages; others use bool+string.
+## IP-30: Boolean Flag Means Different Things
 
-**Root cause:** No shared convention defined.
+**Symptom:** One boolean flag had inconsistent semantics across branches.
+**Root cause:** Branches were written independently.
+**Fix:** Unify the meaning before merging branches.
+**Prevention:** Same flag name must mean the same thing everywhere.
 
-**Prevention:** Define and enforce a subsystem convention for result/message types.
+## IP-31: Interface Default Method Throws for Migration Gap
 
----
+**Symptom:** A shared interface mixed old and new capability sets and some implementations threw `NotSupportedException`.
+**Root cause:** Transitional surface tried to cover incompatible implementations.
+**Fix:** Split the interfaces.
+**Prevention:** Migration bridges should not rely on throwing default methods.
 
-## IP-23: Log Prefix Hardcoded Instead of nameof
+## IP-32: Manager Casts Interface to Concrete Type
 
-**Symptom:** `"[ABPackageBackend]"` repeated as magic string. Class rename → must hunt every log call.
+**Symptom:** Manager code downcasted the backend to access specific methods.
+**Root cause:** The interface was too small.
+**Fix:** Add the needed methods to the interface.
+**Prevention:** Avoid type-check branches in consumers.
 
-**Prevention:** Log prefixes should derive from the class name programmatically.
+## IP-33: Same Property Name, Different Meaning
 
----
+**Symptom:** A dictionary key was looked up using a value with a different semantic meaning.
+**Root cause:** Reused property name hid semantic mismatch.
+**Fix:** Separate the concepts.
+**Prevention:** Same name does not imply same meaning across types.
 
-## IP-24: Duplicated Utility Logic Across Files
+## IP-34: Mirrored Types Drift by Manual Copy
 
-**Symptom:** ~150 lines of path utilities duplicated verbatim across 3 files. Bug fix in one must be manually propagated.
+**Symptom:** Two mirrored types required manual field copying.
+**Root cause:** No shared contract.
+**Fix:** Use a shared interface or base type.
+**Prevention:** Compiler should enforce mirrored type alignment.
 
-**Root cause:** No shared utility extracted early.
+## IP-35: GraphView Edge Layout Mutated Too Early
 
-**Prevention:** Non-trivial logic appearing in >1 file must be extracted to shared class. Third occurrence = mandatory extraction.
+**Symptom:** Edge styling triggered layout errors during reload.
+**Root cause:** Layout-affecting properties were changed before GraphView was ready.
+**Fix:** Avoid layout-affecting edge mutations during rebuild.
+**Prevention:** Only touch stable styling during GraphView rebuilds unless layout is known ready.
 
----
+## IP-36: Visual Dedup Removed Meaning
 
-## IP-25: Validation and Execution Have Independent Implementations
-
-**Symptom:** `CollectionScanner` and `CollectorSettingValidator` each built their own rule-resolution helper. If semantics change, one lags.
-
-**Root cause:** Both built resolution logic independently.
-
-**Prevention:** Validation and execution operating on the same concept must use the same code.
-
----
-
-## IP-26: HashSet First-Element for Identity (Nondeterministic)
-
-**Symptom:** `address → HashSet<EntryId>`. `UnloadAsset(key)` picks "first" from HashSet — undefined iteration order, different result per run.
-
-**Root cause:** Using unordered collection iteration for semantic identity.
-
-**Prevention:** Never rely on `HashSet<T>` iteration order for identity. When duplicate keys exist, unload must be by explicit unique ID.
-
----
-
-## IP-27: IReadOnlyList Backed by Mutable List — Downcast
-
-**Symptom:** Public API returns `IReadOnlyList<string>` but backing store is `List<string>`. Callers downcast and mutate, corrupting internals.
-
-**Root cause:** Return type changed to read-only interface without changing backing type.
-
-**Prevention:** Never return mutable collection as read-only interface unless backing is genuinely immutable (`string[]`, `ReadOnlyCollection<T>`).
-
----
-
-## IP-28: Struct Without Explicit Equality Contracts
-
-**Symptom:** `CollectorRef`, `AssetClassification`, `AssetHandle<T>` are structs with business semantics but default comparison only. Fields added → equality silently changes.
-
-**Root cause:** Types started as simple carriers, grew into cross-boundary types, never revisited.
-
-**Prevention:** Any struct crossing API boundaries or used in HashSet/Dictionary must have explicit `IEquatable<T>`, `Equals`, `GetHashCode`, `ToString`.
-
----
-
-## IP-29: BuildContext Get<T> Returns default(T) for Missing Keys
-
-**Symptom:** Missing key returns `0`; stored `0` also returns `0`. Downstream can't distinguish.
-
-**Root cause:** No `TryGet<T>` overload.
-
-**Prevention:** Key-value store returning `default(T)` for missing must also provide `TryGet<T>`.
-
----
-
-## IP-30: Boolean Flag With Inconsistent Semantics Across Branches
-
-**Symptom:** `isDuplicated` hardcoded `true` in one branch, computed from count in another. Same name, two meanings.
-
-**Root cause:** Branches written independently, flag never unified.
-
-**Prevention:** Review all branches when adding a flag. Same name = same semantics.
-
----
-
-## IP-31: Interface Default Methods Throwing NotSupportedException
-
-**Symptom:** `IAssetIndex` has both AA and new methods; old impl throws for new methods. Callers must know which impl they have.
-
-**Root cause:** One interface used as migration bridge for incompatible capability sets.
-
-**Prevention:** Split transitional APIs into separate interfaces. Default-method `NotSupportedException` violates Liskov.
-
----
-
-## IP-32: Manager Type-Casting Interface to Concrete
-
-**Symptom:** `_backend` cast to `ABPackageBackend` for AB-specific methods. Third backend → another type-cast branch.
-
-**Root cause:** Interface missing methods the manager needs.
-
-**Prevention:** If consumer casts to concrete type, enrich the interface. No type-check branches.
-
----
-
-## IP-33: Dictionary Lookup Key Mismatch
-
-**Symptom:** Dict keyed by logical `BundleName`; looked up by hashed output filename. Same property name, different meaning — lookup silently fails.
-
-**Root cause:** `BundleName` means different things on different types.
-
-**Prevention:** When same property name has different semantics across types, do NOT assume interchangeability.
-
----
-
-## IP-34: Mirrored Types With Manual Field Copy, No Compile-Time Alignment
-
-**Symptom:** `ManifestAssetEntry` and `RuntimeAssetEntry` duplicate fields. `ToRuntimeEntry()` copies 8 fields manually. Adding field requires changes in 3 places.
-
-**Root cause:** No shared contract between mirrored types.
-
-**Prevention:** Mirrored types must share an interface or base class. Compiler must enforce alignment.
-
----
-
-## IP-35: GraphView EdgeControl Mutated Before Layout Is Ready
-
-**Symptom:** Unity Reload produced `NullReferenceException` from `EdgeControl.ComputeLayout()` after setting `edgeControl.edgeWidth`, followed by IMGUI layout-state errors.
-
-**Root cause:** Edge styling touched GraphView internal layout state during edge creation/reload. `edgeWidth` can force `EdgeControl` layout computation before Unity has fully initialized its edge geometry.
-
-**Prevention:** During GraphView rebuilds, avoid layout-affecting `EdgeControl` mutations. Prefer stable styling such as input/output color and element opacity; if width is required, apply it only after the edge is attached and layout is known ready.
-
----
-
-## IP-36: Visual Dedup Removed a Required Semantic Layer
-
-**Symptom:** Data-flow lines disappeared after reducing graph clutter; only execution-order lines remained, so the DAG no longer showed both dependency semantics.
-
-**Root cause:** The de-duplication rule suppressed data-flow edges whenever the same producer-consumer pair already had an execution edge. This optimized visual noise by deleting information instead of layering it.
-
-**Prevention:** Do not remove a semantic edge layer just because another layer shares endpoints. Render secondary layers with lower opacity, behind primary lines, and de-duplicate only within the same semantic layer.
-
----
+**Symptom:** One edge layer disappeared when another layer already connected the same nodes.
+**Root cause:** De-duplication removed semantic information.
+**Fix:** Keep layers separate and reduce opacity instead.
+**Prevention:** Do not delete a semantic edge layer because another layer shares endpoints.
 
 ## IP-37: Pointer File Reused Manifest Naming
 
-**Symptom:** The remote package pointer used ABManifest filename constants in build output while runtime downloaded a separate `manifest.json` literal.
+**Symptom:** A pointer file and a content manifest used the same naming convention.
+**Root cause:** Build-time and runtime files were both called "manifest".
+**Fix:** Give pointer files distinct constants and names.
+**Prevention:** Pointer files and content manifests must not share the same name family.
 
-**Root cause:** `PackageIndex` and resource manifests were both described as "manifest" files, so build-time and runtime code developed separate filenames.
+## IP-38: Bootstrap Export Recreated Placeholder Data
 
-**Prevention:** Pointer files and content manifests must have distinct constants and names. `PackageIndex` uses `PACKAGE_INDEX_FILE_NAME`; AB/AA content manifests use ABManifest/AAManifest constants only.
+**Symptom:** Bootstrap export wrote empty placeholder data even though real output already existed.
+**Root cause:** Downstream step regenerated substitute state.
+**Fix:** Consume upstream artifacts directly.
+**Prevention:** Bootstrap/export must copy canonical output, not regenerate it.
 
----
+## IP-39: Migration Left Real Logic in Legacy Helper
 
-## IP-38: Bootstrap Baseline Generated Placeholder Data
+**Symptom:** A task wrapper existed, but the legacy helper still owned the implementation.
+**Root cause:** Scheduling changed, ownership did not.
+**Fix:** Move the execution logic or keep the helper explicitly shared.
+**Prevention:** Migrated behavior must move implementation ownership too.
 
-**Symptom:** Full AB builds exported an empty ABManifest to `StreamingAssets` even though the task graph had already produced the real package output.
+## IP-40: Auto-Repair Created a Second Truth
 
-**Root cause:** The bootstrap exporter recreated placeholder data instead of consuming the final package output owned by `BuildPackageRequest`.
-
-**Prevention:** Bootstrap/export steps must consume upstream build artifacts, not regenerate substitute state. If a task graph produces the canonical package, downstream bootstrap must copy from that package.
-
----
-
-## IP-39: Task Migration Left Implementation In Legacy Helper
-
-**Symptom:** A workflow was described as task-managed, but the task only delegated to a legacy helper that still owned the real implementation.
-
-**Root cause:** The migration moved scheduling ownership but not implementation ownership, so the old boundary remained active and contradicted the architectural intent.
-
-**Prevention:** When converting behavior into a pipeline task, move the execution logic or explicitly document the helper as shared infrastructure. Verification must grep for the retired helper/type and confirm source and project-file references are gone when the helper is meant to be replaced.
-
----
-
-## IP-40: Auto-Repair Creates A Second Config Truth
-
-**Symptom:** Build pipeline assets were expected to define the task backbone, but runtime/editor load paths also auto-added missing backbone tasks.
-
-**Root cause:** Default configuration metadata was implemented as a repair pass that mutated existing assets, mixing template creation, validation, and source-of-truth ownership.
-
-**Prevention:** Default backbone definitions may create new config assets and support validation/UI behavior, but must not silently modify existing config assets during load or build execution. Missing required tasks should fail validation.
-
----
+**Symptom:** Load-time repair mutated config assets that were supposed to be the source of truth.
+**Root cause:** Template creation and validation were mixed with repair.
+**Fix:** Validate missing required tasks instead of mutating existing assets.
+**Prevention:** Default definitions may create new config, but must not silently repair existing config.
 
 ## IP-41: Traversal Cache Reused As Reference Accounting
 
-**Symptom:** Collector dependency analysis could under-count which bundles referenced the same implicit dependency.
+**Symptom:** A visited set caused under-counting of shared dependencies.
+**Root cause:** Traversal caching also controlled accounting.
+**Fix:** Separate traversal caching from per-root accounting.
+**Prevention:** Traversal caches must not become semantic ownership gates.
 
-**Root cause:** A package-wide visited set was used both to avoid expanding dependency subtrees repeatedly and to decide whether later bundle roots should traverse far enough to record references.
+## IP-42: System-Generated Enum Exposed as User Config
 
-**Fix:** Keep dependency query caching separate from per-root traversal/reference accounting. Each root bundle still records its own references even when dependency query results are reused.
-
-**Prevention:** Caches that optimize traversal cost must not become semantic ownership/reference gates. If a pass computes counts, every contributing source must still be visited for accounting.
-
----
-
-## IP-42: System-Generated Enum Value Exposed As User Configuration
-
-**Symptom:** `ECollectorType.Implicit` appeared in manual Collector UI even though `AssetClassifier` did not support it for user-authored collectors.
-
-**Root cause:** A shared enum contained both user-configurable values and pipeline-generated values, and generic enum UI exposed all values without a policy boundary.
-
-**Fix:** Keep the enum value for generated intermediate data, but block manual usage in validation/scanning and expose only allowed values in editor UI.
-
-**Prevention:** When an enum mixes public configuration values with internal/system-generated states, UI and validators must explicitly whitelist user-selectable values.
-
+**Symptom:** A generated enum value was shown in manual UI.
+**Root cause:** Public and internal states shared one enum without a UI boundary.
+**Fix:** Whitelist only user-selectable values in UI and validation.
+**Prevention:** Mixed enums need explicit public-value filtering.
