@@ -1,0 +1,10 @@
+# comment-debug-coverage-20260524 Progress Log
+# Format: [type] YYYY-MM-DD description
+# Types: start / done / decision / blocked / next
+# Sign-off format: [done] YYYY-MM-DD plan-XX SIGNED OFF - {summary}
+
+[start] 2026-05-24 Started comment and Debug coverage optimization planning.
+[decision] 2026-05-24 Scope is docs/log/comment only; do not change build behavior, DAG order, artifact format, or hotfix distribution flow.
+[done] 2026-05-24 Developer approved autonomous execution for the comment/log-only plan.
+[done] 2026-05-24 Updated recent AA/AB diff tasks, PackageIndex task, Repository preview runner, backend runners, BuildProjectManager, and repository facade comments/log messages with Chinese + English technical terms.
+[done] 2026-05-24 Verification passed: dotnet build XLuaHotfix.sln completed with 0 errors and existing System.Net.Http warnings only.
