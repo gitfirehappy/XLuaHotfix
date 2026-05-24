@@ -88,7 +88,7 @@ public class TaskExportLocalBuildData : IBuildTask
 
         SerializationUtility.WriteToFile(BuildIndexStreamingPath, buildIndexData);
 
-        string projectPath = FYAssetSettings.Instance.BuildIndexJsonPath;
+        string projectPath = FYAssetBuildSettingsProvider.Shared.BuildIndexJsonPath;
         string projectDir = Path.GetDirectoryName(projectPath);
         FileHelper.EnsureDirectory(projectDir);
         SerializationUtility.WriteToFile(projectPath, buildIndexData);

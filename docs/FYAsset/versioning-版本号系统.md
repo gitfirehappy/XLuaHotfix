@@ -132,7 +132,7 @@ public void IncrementVersion(bool isMajor, bool isMinor, string channel)
 
 菜单：`Create → Build → VersionDataBase`
 
-路径在 `FYAssetSettings.VersionDataBasePath` 中配置，默认为 `Assets/Build/VersionDataBase.asset`。
+路径在 `SharedBuildSettings.VersionDataBasePath` 中配置，默认为 `Assets/Build/VersionDataBase.asset`。`VersionDataBase` 是产品级共享版本源，不按 AA / AB 拆分。
 
 ---
 

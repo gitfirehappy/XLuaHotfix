@@ -12,7 +12,7 @@ using UnityEngine;
 /// </summary>
 public class LuaScriptsIndexExporter
 {
-    private const string _luaScriptsIndexAssetPath = "Assets/Build/LuaScriptsIndex.asset";
+    private static string LuaScriptsIndexAssetPath => FYAssetBuildSettingsProvider.Shared.LuaScriptsIndexPath;
     
     /// <summary>
     /// 总导出入口
@@ -31,7 +31,7 @@ public class LuaScriptsIndexExporter
         var group = GetOrCreateGroup(settings, "LuaScripts");
         
         ExportLuaScriptsIndex();
-        EnsureAssetInGroup(settings, group, _luaScriptsIndexAssetPath, FYAssetSettings.LUA_SCRIPTS_INDEX, FYAssetSettings.LUA_SCRIPTS_INDEX);
+        EnsureAssetInGroup(settings, group, LuaScriptsIndexAssetPath, FYAssetSettings.LUA_SCRIPTS_INDEX, FYAssetSettings.LUA_SCRIPTS_INDEX);
         EditorUtility.SetDirty(settings);
         AssetDatabase.SaveAssets();
         Debug.Log("[LuaScriptsIndexExporter] 导出完成。");
@@ -96,7 +96,7 @@ public class LuaScriptsIndexExporter
     /// </summary>
     private static void ExportLuaScriptsIndex()
     { 
-        var indexSO = GetOrCreateAsset<LuaScriptsIndex>(_luaScriptsIndexAssetPath);
+        var indexSO = GetOrCreateAsset<LuaScriptsIndex>(LuaScriptsIndexAssetPath);
         indexSO.data.Clear();
 
         var settings = AddressableAssetSettingsDefaultObject.Settings;

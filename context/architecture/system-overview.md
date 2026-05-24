@@ -1,6 +1,6 @@
 # System Overview
 
-Last reviewed: 2026-05-21
+Last reviewed: 2026-05-24
 
 ## Purpose
 
@@ -136,7 +136,9 @@ This repository contains both the current production-oriented path and an in-pro
 - `CollectorSettingInspector` is a UI Toolkit shortcut inspector that opens `BuildPipelineWindow` directly.
 - `CollectorSettingPanel` is a UI Toolkit panel that edits `CollectorSetting` with package/group navigation and collector editing.
 - `CollectorPanel` is a UI Toolkit panel focused on the current group's collector list plus validation and scan preview. Its scan preview remains in the bottom tab and uses scrollable content so compact windows can still inspect the full asset-to-bundle list.
-- `PipelinePanel` is parameterized by config path, default backbone factory, Build Options visibility, and Build controls visibility. The AB sidebar entry uses it with `FYAssetSettings.Instance.PipelineConfigPath` and `BuildPipelineBackbone.CreateABTasks()`, exposing Reload, Validate, Build Options, Build Mode, Build controls, and BuildGraph inspection. The AA Build sidebar entry delegates to the same panel with `FYAssetSettings.Instance.AAPipelineConfigPath` and `BuildPipelineBackbone.CreateAATasks()`, exposing Reload, Validate, Build Mode, Build controls, and BuildGraph inspection, but not Build Options because AA configuration remains owned by Addressables.
+- Build settings are split from runtime settings. `FYAssetSettings` keeps runtime/global fields; `SharedBuildSettings` stores shared build paths and push targets; `AABuildSettings` and `ABBuildSettings` store backend-specific pipeline config paths, manifest output format, and hotfix size limits.
+- `SettingsPanel` edits `FYAssetSettings` first and `SharedBuildSettings` second. `AAConfigPanel` edits `AABuildSettings` before the Addressables overview. `PipelinePanel` edits `ABBuildSettings` before the AB BuildGraph.
+- `PipelinePanel` is parameterized by config path, default backbone factory, Build Options visibility, and Build controls visibility. The AB sidebar entry uses it with `ABBuildSettings.BuildPipelineConfigPath` and `BuildPipelineBackbone.CreateABTasks()`, exposing Reload, Validate, Build Options, Build Mode, Build controls, and BuildGraph inspection. The AA Build sidebar entry delegates to the same panel with `AABuildSettings.BuildPipelineConfigPath` and `BuildPipelineBackbone.CreateAATasks()`, exposing Reload, Validate, Build Mode, Build controls, and BuildGraph inspection, but not Build Options because AA configuration remains owned by Addressables.
 - `PipelinePanel` uses a `BuildGraphView` GraphView DAG visualization powered by `BuildGraphLayoutEngine` and `BuildTaskNode`. The graph shows code-level execution edges, SO-level execution edges, and data-flow edges derived from `ReadKeys`/`WriteKeys`. It supports Reload, `DAGScheduler.Validate()`, a right-click optional-task creation menu, node-level source opening for registered Task types, and Pipeline-triggered Full/Hotfix builds through `BuildProjectManager`.
 - `PipelinePanel` keeps top validation status as a short summary and shows full validation details in a hidden-until-needed bottom bar with copy and close controls.
 - The old production `Tools/Build` menu entries in `BuildProjectManager` are marked `[Legacy]` but remain available.

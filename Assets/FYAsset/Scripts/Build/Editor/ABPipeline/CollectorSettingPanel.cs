@@ -120,7 +120,7 @@ public class CollectorSettingPanel : IBuildPipelinePanel
             Rebuild();
         }, 60f));
         toolbar.Add(BuildPipelineUI.Spacer());
-        toolbar.Add(BuildPipelineUI.ToolbarLabel(FYAssetSettings.Instance.CollectorSettingPath));
+        toolbar.Add(BuildPipelineUI.ToolbarLabel(FYAssetBuildSettingsProvider.Shared.CollectorSettingPath));
         _root.Add(toolbar);
     }
 
@@ -528,7 +528,7 @@ public class CollectorSettingPanel : IBuildPipelinePanel
     {
         VisualElement panel = BuildPipelineUIToolkitPanel.CreateCenteredPanel(_root, 420f);
         panel.Add(BuildPipelineUIToolkitPanel.CreateTitle("未找到 CollectorSetting"));
-        panel.Add(BuildPipelineUIToolkitPanel.CreateBody(FYAssetSettings.Instance.CollectorSettingPath));
+        panel.Add(BuildPipelineUIToolkitPanel.CreateBody(FYAssetBuildSettingsProvider.Shared.CollectorSettingPath));
         panel.Add(new Button(CreateSetting) { text = "创建" });
     }
 
@@ -539,7 +539,7 @@ public class CollectorSettingPanel : IBuildPipelinePanel
     {
         CollectorDataMigrator.EnsureDataFolder();
         CollectorDataMigrator.MigrateFromAAPath();
-        _setting = AssetDatabase.LoadAssetAtPath<CollectorSetting>(FYAssetSettings.Instance.CollectorSettingPath);
+        _setting = AssetDatabase.LoadAssetAtPath<CollectorSetting>(FYAssetBuildSettingsProvider.Shared.CollectorSettingPath);
         _so = _setting != null ? new SerializedObject(_setting) : null;
         EnsureSelection();
     }
@@ -551,7 +551,7 @@ public class CollectorSettingPanel : IBuildPipelinePanel
     {
         CollectorDataMigrator.EnsureDataFolder();
         CollectorSetting asset = ScriptableObject.CreateInstance<CollectorSetting>();
-        AssetDatabase.CreateAsset(asset, FYAssetSettings.Instance.CollectorSettingPath);
+        AssetDatabase.CreateAsset(asset, FYAssetBuildSettingsProvider.Shared.CollectorSettingPath);
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
         CollectorReverseIndex.Instance.MarkDirty();

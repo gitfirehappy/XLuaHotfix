@@ -14,12 +14,12 @@ public class TaskCollectAssets : IBuildTask
     public BuildTaskResult Execute(BuildContext ctx)
     {
         CollectorSetting setting = AssetDatabase.LoadAssetAtPath<CollectorSetting>(
-            FYAssetSettings.Instance.CollectorSettingPath);
+            FYAssetBuildSettingsProvider.Shared.CollectorSettingPath);
         if (setting == null)
         {
             return BuildTaskResult.Fail(
                 BuildErrorCodes.SettingNull,
-                $"未找到 CollectorSetting: {FYAssetSettings.Instance.CollectorSettingPath}");
+                $"未找到 CollectorSetting: {FYAssetBuildSettingsProvider.Shared.CollectorSettingPath}");
         }
 
         List<string> warnings = new List<string>();

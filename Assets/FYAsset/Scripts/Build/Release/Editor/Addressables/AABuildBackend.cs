@@ -14,7 +14,8 @@ public class AABuildBackend : IBuildBackend
 {
     public Task<BuildBackendResult> BuildAsync(BuildPackageRequest request, BuildExecutionOptions options)
     {
-        var config = AssetDatabase.LoadAssetAtPath<BuildPipelineConfig>(FYAssetSettings.Instance.AAPipelineConfigPath);
+        var config = AssetDatabase.LoadAssetAtPath<BuildPipelineConfig>(
+            FYAssetBuildSettingsProvider.GetPipelineConfigPath(BackendMode.AA));
         if (config == null)
             return Task.FromResult(BuildBackendResult.Fail(
                 BuildMessage.Error(BuildErrorCodes.SettingNull, "未找到 AA BuildPipelineConfig。", nameof(AABuildBackend))));

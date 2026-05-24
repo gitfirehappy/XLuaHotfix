@@ -87,7 +87,7 @@ public static class CollectorAssetInspectorGUI
     {
         CollectorDataMigrator.EnsureDataFolder();
         CollectorDataMigrator.MigrateFromAAPath();
-        return AssetDatabase.LoadAssetAtPath<CollectorSetting>(FYAssetSettings.Instance.CollectorSettingPath);
+        return AssetDatabase.LoadAssetAtPath<CollectorSetting>(FYAssetBuildSettingsProvider.Shared.CollectorSettingPath);
     }
 
     private static Collector GetCollector(CollectorReverseIndex.CollectorRef collectorRef)

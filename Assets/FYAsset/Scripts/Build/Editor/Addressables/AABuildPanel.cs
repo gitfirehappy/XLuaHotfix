@@ -8,7 +8,7 @@ public sealed class AABuildPanel : IBuildPipelinePanel, IBuildPipelinePanelVisib
 {
     private readonly PipelinePanel _pipelinePanel = new PipelinePanel(
         "AA 构建",
-        () => FYAssetSettings.Instance.AAPipelineConfigPath,
+        () => FYAssetBuildSettingsProvider.AA.BuildPipelineConfigPath,
         BuildPipelineBackbone.CreateAATasks,
         "AABuildPanel",
         false,

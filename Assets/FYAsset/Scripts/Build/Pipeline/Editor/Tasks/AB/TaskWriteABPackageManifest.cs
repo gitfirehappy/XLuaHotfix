@@ -31,11 +31,11 @@ public class TaskWriteABPackageManifest : IBuildTask
         for (int i = 0; i < manifest.BundleEntries.Count; i++)
             totalSize += manifest.BundleEntries[i].FileSize;
 
-        if (!HotfixPackageSizeGuard.ValidateOrAbort(totalSize, nameof(TaskWriteABPackageManifest)))
+        if (!HotfixPackageSizeGuard.ValidateOrAbort(totalSize, request.BackendMode, nameof(TaskWriteABPackageManifest)))
             return BuildTaskResult.Fail(BuildErrorCodes.VerificationFailed,
                 "AB 热更包大小超过阈值，Manifest 发布已中止。", true);
 
-        ManifestOutputFormat outputFormat = FYAssetSettings.Instance.ManifestOutputFormat;
+        ManifestOutputFormat outputFormat = FYAssetBuildSettingsProvider.GetManifestOutputFormat(request.BackendMode);
         string manifestPath = Path.Combine(request.OutputDir, FYAssetSettings.MANIFEST_FILE_NAME);
         string manifestBinPath = Path.Combine(request.OutputDir, FYAssetSettings.MANIFEST_FILE_NAME_BIN);
 

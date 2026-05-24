@@ -29,7 +29,10 @@
 | SO 类型 | 推荐入口 | 说明 |
 |---|---|---|
 | `FYAssetSettings` | `SettingsPanel` 中的创建按钮 | 默认路径为 `Assets/Resources/FYAssetSettings.asset`，也支持启动时自动补齐 |
-| `VersionDataBase` | `VersionPanel` 中的创建按钮 | 路径由 `FYAssetSettings.Instance.VersionDataBasePath` 决定 |
+| `SharedBuildSettings` | `SettingsPanel` 自动创建/编辑 | 默认路径为 `Assets/Build/FYAssetSharedBuildSettings.asset`，保存共享构建路径和 PushTargets |
+| `AABuildSettings` | `AAConfigPanel` 自动创建/编辑 | 默认路径为 `Assets/Build/FYAssetAABuildSettings.asset`，保存 AA 构建参数 |
+| `ABBuildSettings` | `PipelinePanel` 自动创建/编辑 | 默认路径为 `Assets/Build/FYAssetABBuildSettings.asset`，保存 AB 构建参数 |
+| `VersionDataBase` | `VersionPanel` 中的创建按钮 | 路径由 `SharedBuildSettings.VersionDataBasePath` 决定 |
 | `ScriptObjectDataBase` | `SOAddressableTagger` 中的“创建新数据库” | 用于 SO 标签管理，不建议从菜单重复创建 |
 | `ScriptObjectContainer` | `LuaFileCreatorWindow` / `LuaDirectoryScanner` / `LuaAddressableTagger` 的创建流程 | 由工具根据数据库和目录自动创建 |
 | `CollectorSetting` | `CollectorSettingPanel` 中的创建按钮 | 采集器配置资产，走 AB Pipeline 面板入口 |
@@ -74,4 +77,3 @@
 - 自动生成的资产由工具负责，不手动绕过工具创建。
 - 如果某个 SO 已经有 `LoadOrCreate()` 或专属创建按钮，优先使用该入口。
 - 当新增新的配置类时，先判断是否需要单独创建入口，再决定是否保留 `CreateAssetMenu`。
-

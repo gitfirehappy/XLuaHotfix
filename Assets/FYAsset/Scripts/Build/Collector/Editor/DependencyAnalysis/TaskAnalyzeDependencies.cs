@@ -31,7 +31,7 @@ public class TaskAnalyzeDependencies : IBuildTask
         {
             policies = new Dictionary<string, SharePolicyConfig>();
             var setting = AssetDatabase.LoadAssetAtPath<CollectorSetting>(
-                FYAssetSettings.Instance.CollectorSettingPath);
+                FYAssetBuildSettingsProvider.Shared.CollectorSettingPath);
             if (setting != null)
             {
                 foreach (var pkg in setting.Packages)

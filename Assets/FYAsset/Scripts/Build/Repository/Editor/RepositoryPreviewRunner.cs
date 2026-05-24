@@ -33,7 +33,8 @@ public static class RepositoryPreviewRunner
         FileHelper.TryDeleteDirectory(previewRoot, true);
         FileHelper.EnsureDirectory(previewBuildRoot);
 
-        var config = AssetDatabase.LoadAssetAtPath<BuildPipelineConfig>(FYAssetSettings.Instance.PipelineConfigPath);
+        var config = AssetDatabase.LoadAssetAtPath<BuildPipelineConfig>(
+            FYAssetBuildSettingsProvider.GetPipelineConfigPath(BackendMode.ABManifest));
         if (config == null)
             throw new InvalidOperationException("BuildPipelineConfig is null.");
 

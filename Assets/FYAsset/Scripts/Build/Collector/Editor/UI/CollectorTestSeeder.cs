@@ -11,11 +11,11 @@ public static class CollectorTestSeeder
     private static void Seed()
     {
         var setting = AssetDatabase.LoadAssetAtPath<CollectorSetting>(
-            FYAssetSettings.Instance.CollectorSettingPath);
+            FYAssetBuildSettingsProvider.Shared.CollectorSettingPath);
 
         if (setting == null)
         {
-            Debug.LogError("[CollectorTestSeeder] CollectorSetting not found at " + FYAssetSettings.Instance.CollectorSettingPath);
+            Debug.LogError("[CollectorTestSeeder] CollectorSetting not found at " + FYAssetBuildSettingsProvider.Shared.CollectorSettingPath);
             return;
         }
 

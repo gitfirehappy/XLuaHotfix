@@ -14,7 +14,7 @@ public static class BuildProjectManager
     public static bool LastBuildSuccess { get; private set; } = true;
 
     // 热更包体大小限制
-    private static string versionDataBasePath => FYAssetSettings.Instance.VersionDataBasePath;
+    private static string versionDataBasePath => FYAssetBuildSettingsProvider.Shared.VersionDataBasePath;
     
     /// <summary>
     /// 构建完整包，用于大版本更新

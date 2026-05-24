@@ -9,12 +9,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 1d371fa61c07467b8ae78af001014c1e, type: 3}
-  m_Name: FYAssetSettings
+  m_Script: {fileID: 11500000, guid: ec900dafb1ec44bea2ffddd7738ad339, type: 3}
+  m_Name: FYAssetAABuildSettings
   m_EditorClassIdentifier: 
-  ProjectName: ProjectName1
-  HotfixUrl: https://firehappy-cfy.com/
-  UseABBackend: 0
-  BuildPackagesFolderName: Packages
-  HotfixMaxRetryCount: 10
-  HotfixRetryBaseDelaySeconds: 1
+  BuildPipelineConfigPath: Assets/Build/AABuildPipelineConfig.asset
+  ManifestOutputFormat: 1
+  MaxHotfixSizeBytes: 1073741824

@@ -18,8 +18,6 @@ public class TaskPrepareContext : IBuildTask
     public BuildTaskResult Execute(BuildContext ctx)
     {
         // 读取 SO 配置
-        var config = AssetDatabase.LoadAssetAtPath<BuildPipelineConfig>(
-            FYAssetSettings.Instance.PipelineConfigPath);
         BackendMode mode = FYAssetSettings.Instance.UseABBackend ? BackendMode.ABManifest : BackendMode.AA;
 
         // CLI 覆盖: --backend AA | ABManifest
@@ -37,7 +35,7 @@ public class TaskPrepareContext : IBuildTask
 
         // CLI --version 若为有效 SemVer → 写 SO 再读回（保持 SO 唯一来源）
         var versionData = AssetDatabase.LoadAssetAtPath<VersionDataBase>(
-            FYAssetSettings.Instance.VersionDataBasePath);
+            FYAssetBuildSettingsProvider.Shared.VersionDataBasePath);
         string cliVersion = GetCommandLineArg("--version");
         if (!string.IsNullOrEmpty(cliVersion) && VersionNumber.TryParse(cliVersion, out var cliVer))
         {

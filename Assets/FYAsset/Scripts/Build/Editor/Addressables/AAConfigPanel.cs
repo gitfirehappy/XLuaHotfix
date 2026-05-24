@@ -3,6 +3,7 @@ using System.Reflection;
 using UnityEditor;
 using UnityEditor.AddressableAssets;
 using UnityEditor.AddressableAssets.Settings;
+using UnityEditor.UIElements;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -13,11 +14,14 @@ using UnityEngine.UIElements;
 public sealed class AAConfigPanel : IBuildPipelinePanel
 {
     private VisualElement _root;
+    private AABuildSettings _buildSettings;
+    private SerializedObject _buildSettingsSo;
 
     public string PanelName => "AA 配置";
 
     public void OnEnable(EditorWindow window)
     {
+        LoadBuildSettings();
     }
 
     public VisualElement CreateContent()
@@ -31,7 +35,10 @@ public sealed class AAConfigPanel : IBuildPipelinePanel
 
     public void OnDisable()
     {
+        _root?.Unbind();
         _root = null;
+        _buildSettings = null;
+        _buildSettingsSo = null;
     }
 
     /// <summary>
@@ -40,12 +47,20 @@ public sealed class AAConfigPanel : IBuildPipelinePanel
     private void Rebuild()
     {
         _root.Clear();
+        _root.Unbind();
 
         VisualElement toolbar = BuildPipelineUI.Toolbar();
         toolbar.Add(BuildPipelineUI.ToolbarLabel("AA"));
+        toolbar.Add(BuildPipelineUI.ToolbarButton("刷新", () =>
+        {
+            LoadBuildSettings();
+            Rebuild();
+        }, 60f));
         toolbar.Add(BuildPipelineUI.Spacer());
-        toolbar.Add(BuildPipelineUI.ToolbarLabel(FYAssetSettings.Instance.VersionDataBasePath));
+        toolbar.Add(BuildPipelineUI.ToolbarLabel(FYAssetBuildSettingsProvider.Shared.VersionDataBasePath));
         _root.Add(toolbar);
+
+        DrawBuildSettings();
 
         AddressableAssetSettings settings = AddressableAssetSettingsDefaultObject.Settings;
         if (settings == null)
@@ -56,6 +71,26 @@ public sealed class AAConfigPanel : IBuildPipelinePanel
 
         DrawSummary(settings);
         DrawOpenGroupsButton();
+    }
+
+    private void LoadBuildSettings()
+    {
+        _buildSettings = FYAssetBuildSettingsProvider.AA;
+        _buildSettingsSo = _buildSettings != null ? new SerializedObject(_buildSettings) : null;
+    }
+
+    private void DrawBuildSettings()
+    {
+        if (_buildSettingsSo == null)
+            return;
+
+        VisualElement card = BuildPipelineUI.Card();
+        card.Add(BuildPipelineUI.Header("AA Build Settings"));
+        card.Add(new PropertyField(_buildSettingsSo.FindProperty(nameof(AABuildSettings.BuildPipelineConfigPath))));
+        card.Add(new PropertyField(_buildSettingsSo.FindProperty(nameof(AABuildSettings.ManifestOutputFormat))));
+        card.Add(new PropertyField(_buildSettingsSo.FindProperty(nameof(AABuildSettings.MaxHotfixSizeBytes))));
+        card.Bind(_buildSettingsSo);
+        _root.Add(card);
     }
 
     /// <summary>

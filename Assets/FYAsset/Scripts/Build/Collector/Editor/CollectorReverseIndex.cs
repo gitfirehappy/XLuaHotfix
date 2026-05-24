@@ -97,7 +97,7 @@ public sealed class CollectorReverseIndex
         {
             CollectorDataMigrator.EnsureDataFolder();
             CollectorDataMigrator.MigrateFromAAPath();
-            actualSetting = AssetDatabase.LoadAssetAtPath<CollectorSetting>(FYAssetSettings.Instance.CollectorSettingPath);
+            actualSetting = AssetDatabase.LoadAssetAtPath<CollectorSetting>(FYAssetBuildSettingsProvider.Shared.CollectorSettingPath);
         }
 
         if (actualSetting != null)

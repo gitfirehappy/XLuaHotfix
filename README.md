@@ -26,6 +26,7 @@
 
 - **Build Repository**: 使用项目根 `BuildData/Snapshots/{BuildTarget}[-Channel]/{AA|AB}/` 下的 JSON commit 管理构建基线；`HEAD.json` 只保存当前 `HeadVersion`
 - **VersionDataBase**: 保持产品版本源，不按 AA/AB 拆分；AA/AB 作为构建后端维度写入 Repository channel、PackageIndex 和 BuildIndex
+- **构建配置资产**: `FYAssetSettings` 只保留运行期/全局配置；共享构建路径与 PushTargets 放在 `FYAssetSharedBuildSettings.asset`，AA/AB 后端构建参数分别放在 `FYAssetAABuildSettings.asset` / `FYAssetABBuildSettings.asset`
 - **ArtifactDigest / ArtifactDelta / ArtifactDiffer**: 统一的 artifact 差异模型与纯 diff 计算，AA 使用 asset GUID 粒度，AB 使用 bundle name 粒度
 - **AddressableSourceArtifactScanner**: AA pre-build scanner，基于主资源文件 + `.meta` 的组合 MD5/CRC 生成浅层内容指纹
 - **AbBundleOutputArtifactScanner**: AB post-build scanner，可直接复用 `ABManifest.BundleEntries` 中的 hash/CRC/size，也可独立扫描输出目录
@@ -47,14 +48,17 @@
   - AA 后端通过独立 `AABuildPipelineConfig.asset` 执行 DAG Task，最终 package layout 与 AAManifest 输出已由 Task 图负责
   - AB 后端的最终 package layout 已由 DAG Task 直接写入 `BuildPackageRequest.OutputDir`
   - AA / AB 后端都是 stateless DAG runner，只暴露 `BuildAsync(BuildPackageRequest, BuildExecutionOptions)` 入口
-  - 构建输出根目录与 Packages 子目录由 `FYAssetSettings.BuildOutputRoot` / `BuildPackagesFolderName` 配置，默认保持 `HotfixOutput/Packages`
-  - `BuildPipelineConfig.asset` / `AABuildPipelineConfig.asset` 是 Task 主干事实源；`BuildPipelineBackbone` 只提供默认创建、UI 主干识别和校验，不在加载或构建时自动修复配置
+  - 构建输出根目录由 `SharedBuildSettings.BuildOutputRoot` 配置，Packages 子目录名由运行期 `FYAssetSettings.BuildPackagesFolderName` 配置，默认保持 `HotfixOutput/Packages`
+  - `ABBuildSettings.BuildPipelineConfigPath` / `AABuildSettings.BuildPipelineConfigPath` 指向各自 Task 主干配置；`BuildPipelineBackbone` 只提供默认创建、UI 主干识别和校验，不在加载或构建时自动修复配置
+  - AA/AB manifest 输出格式和热更包大小阈值分别读取 `AABuildSettings` / `ABBuildSettings`
   - AA Hotfix 的 diff scan 与 Hotfix group move 已进入 `AABuildPipelineConfig.asset` 前置 Task，`BuildProjectManager` 不再直接准备 AA 热更分组
   - 整包构建的本地启动数据导出（BuildIndex + baseline 到 StreamingAssets）由 `TaskExportLocalBuildData` 挂在 AA/AB DAG 尾部执行并直接实现；Hotfix 构建在该 Task 内跳过
   - 每次 AA/AB 构建成功后会自动写入 Build Repository commit；AA 与 AB HEAD 通过 backend segment 隔离
   - `PackageIndex.json` 写入 `BackendMode`，值为 `AA` 或 `AB`
 - **BuildPipelineWindow / PipelinePanel**:
-  - AB Pipeline 的 Pipeline 页负责 BuildGraph DAG、Reload、Validate、构建选项、Build Mode 与 Build 入口
+  - Settings 页首块编辑运行期/全局 `FYAssetSettings`，第二块编辑共享构建配置 `SharedBuildSettings`
+  - AA Config 页首块编辑 `AABuildSettings`，后续保留 Addressables 概览与 Groups 入口
+  - AB Pipeline 的 Pipeline 页首块编辑 `ABBuildSettings`，后续负责 BuildGraph DAG、Reload、Validate、构建选项、Build Mode 与 Build 入口
   - AA Pipeline 的 AA Build 页复用同一套 BuildGraph DAG、Reload、Validate、Build Mode 与 Build 入口，加载 `AABuildPipelineConfig.asset`；AA 不显示 Build Options，配置仍归 Addressables 自身配置体系
   - Pipeline Validate 会在触发后显示可关闭、可复制的底部明细栏；BuildGraph Task 节点右键支持打开对应 C# 源码
   - 构建入口复用 `BuildProjectManager` 的 Full/Hotfix 语义；DAGScheduler 执行事件会回显到节点状态

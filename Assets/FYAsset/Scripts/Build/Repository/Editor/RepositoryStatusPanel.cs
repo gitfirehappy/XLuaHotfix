@@ -141,7 +141,7 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
 
     private static BuildPackageRequest CreatePreviewRequest()
     {
-        var versionDB = AssetDatabase.LoadAssetAtPath<VersionDataBase>(FYAssetSettings.Instance.VersionDataBasePath);
+        var versionDB = AssetDatabase.LoadAssetAtPath<VersionDataBase>(FYAssetBuildSettingsProvider.Shared.VersionDataBasePath);
         var version = versionDB != null && versionDB.CurrentVersion != null
             ? versionDB.CurrentVersion
             : new VersionNumber { Major = 0, Minor = 0, Patch = 0 };
@@ -171,7 +171,7 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
 
     private IPushTarget CreatePushTarget()
     {
-        var settings = FYAssetSettings.Instance;
+        var settings = FYAssetBuildSettingsProvider.Shared;
         string targetId = _targetDropdown != null && !string.IsNullOrEmpty(_targetDropdown.value)
             ? _targetDropdown.value
             : (settings.PushTargets != null && settings.PushTargets.Count > 0 ? settings.PushTargets[0].Id : "local");
@@ -187,7 +187,7 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
     private static System.Collections.Generic.List<string> GetPushTargetLabels()
     {
         var labels = new System.Collections.Generic.List<string>();
-        var settings = FYAssetSettings.Instance;
+        var settings = FYAssetBuildSettingsProvider.Shared;
         for (int i = 0; i < settings.PushTargets.Count; i++)
         {
             var config = settings.PushTargets[i];

@@ -14,7 +14,8 @@ public class ABBuildBackend : IBuildBackend
 {
     public Task<BuildBackendResult> BuildAsync(BuildPackageRequest request, BuildExecutionOptions options)
     {
-        var config = AssetDatabase.LoadAssetAtPath<BuildPipelineConfig>(FYAssetSettings.Instance.PipelineConfigPath);
+        var config = AssetDatabase.LoadAssetAtPath<BuildPipelineConfig>(
+            FYAssetBuildSettingsProvider.GetPipelineConfigPath(BackendMode.ABManifest));
         if (config == null)
             return Task.FromResult(BuildBackendResult.Fail(
                 BuildMessage.Error(BuildErrorCodes.SettingNull, "未找到 BuildPipelineConfig。", "ABBuildBackend")));

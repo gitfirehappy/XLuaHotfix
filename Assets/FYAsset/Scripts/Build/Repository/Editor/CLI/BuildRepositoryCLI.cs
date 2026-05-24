@@ -84,7 +84,7 @@ public static class BuildRepositoryCLI
 
     private static IPushTarget CreatePushTarget(string targetId)
     {
-        var settings = FYAssetSettings.Instance;
+        var settings = FYAssetBuildSettingsProvider.Shared;
         for (int i = 0; i < settings.PushTargets.Count; i++)
         {
             var config = settings.PushTargets[i];
@@ -115,9 +115,9 @@ public static class BuildRepositoryCLI
 
     private static VersionNumber LoadCurrentVersion()
     {
-        var versionData = AssetDatabase.LoadAssetAtPath<VersionDataBase>(FYAssetSettings.Instance.VersionDataBasePath);
+        var versionData = AssetDatabase.LoadAssetAtPath<VersionDataBase>(FYAssetBuildSettingsProvider.Shared.VersionDataBasePath);
         if (versionData == null)
-            throw new InvalidOperationException($"VersionDataBase not found: {FYAssetSettings.Instance.VersionDataBasePath}");
+            throw new InvalidOperationException($"VersionDataBase not found: {FYAssetBuildSettingsProvider.Shared.VersionDataBasePath}");
         return versionData.CurrentVersion;
     }
 

@@ -1,6 +1,6 @@
 # Resource Build And Release
 
-Last reviewed: 2026-05-23
+Last reviewed: 2026-05-24
 
 ## Scope
 
@@ -21,6 +21,7 @@ Current source locations:
 - Artifact diff model: `Assets/FYAsset/Scripts/Build/Snapshots/`
 - Build repository model and filesystem implementation: `Assets/FYAsset/Scripts/Build/Repository/`
 - Version data: `Assets/FYAsset/Scripts/Build/Versioning/`
+- Build settings data: `Assets/FYAsset/Scripts/Build/Settings/`
 
 | Data | Role |
 | --- | --- |
@@ -103,10 +104,11 @@ The build entry point is now split with the same orchestration pattern already u
 - backend selection is centralized in `BuildProjectManager.CreateBackend()` using `FYAssetSettings.Instance.UseABBackend`
 - `IBuildBackend` exposes only `BuildAsync(BuildPackageRequest, BuildExecutionOptions)`; output organization and manifest publication are not backend post-build API methods
 - Task graph assets are the backbone source of truth. `BuildPipelineBackbone` supplies default task entries for new config creation plus validation/UI metadata, but existing `BuildPipelineConfig` assets are not auto-repaired during load or build execution.
+- Build-time settings are loaded through the Editor-only `FYAssetBuildSettingsProvider`. Missing default assets are created at `Assets/Build/FYAssetSharedBuildSettings.asset`, `Assets/Build/FYAssetAABuildSettings.asset`, and `Assets/Build/FYAssetABBuildSettings.asset`.
 
 ### AA backend
 
-- `AABuildBackend` is a stateless DAG runner: it receives the shared `BuildPackageRequest`, writes it into `BuildContext`, loads `FYAssetSettings.Instance.AAPipelineConfigPath`, and runs the AA task graph through `DAGScheduler.Execute()`
+- `AABuildBackend` is a stateless DAG runner: it receives the shared `BuildPackageRequest`, writes it into `BuildContext`, loads the pipeline config path from `AABuildSettings`, and runs the AA task graph through `DAGScheduler.Execute()`
 - `TaskScanAddressableHotfixDiff` and `TaskMoveAddressableHotfixGroups` are AA graph front tasks. Full builds skip them; hotfix builds continue when the diff is empty and move changed assets before `TaskBuildAddressablesContent`.
 - `TaskBuildAddressablesContent` owns Addressables-specific setup (`BuildRemoteCatalog`, `PackTogetherByLabel`, LuaScripts remote path fix), ServerData cleanup, and `AddressableAssetSettings.BuildPlayerContent`
 - `TaskOrganizeAAOutput` copies ServerData output into the request-owned final package directory and sets `BuildContextKeys.OutputPath` to `BuildPackageRequest.OutputDir`
@@ -120,31 +122,38 @@ The build entry point is now split with the same orchestration pattern already u
 
 - `ABBuildBackend` is a stateless DAG runner: it receives the shared `BuildPackageRequest`, writes it into `BuildContext`, and runs the AB task graph through `DAGScheduler.Execute()`
 - `TaskOrganizeOutput` consumes the request and writes the final AB package layout directly under `BuildPackageRequest.OutputDir`, copying bundles into `BuildPackageRequest.BundlesDir`
-- `TaskWriteABPackageManifest` publishes `ABManifest.json` and/or `ABManifest.bin` at the final package root according to `FYAssetSettings.ManifestOutputFormat` and applies `HotfixPackageSizeGuard`
+- `TaskWriteABPackageManifest` publishes `ABManifest.json` and/or `ABManifest.bin` at the final package root according to `ABBuildSettings.ManifestOutputFormat` and applies the AB hotfix size limit from `ABBuildSettings`
 - `TaskExportLocalBuildData` is the AB graph tail task and implementation owner for local startup data export. It writes `BuildIndexData` only for full builds, copies the real final AB package baseline (`ABManifest` files plus `bundles/`) into `StreamingAssets`, cleans stale AA baseline files, and returns success without exporting for hotfix builds
 - `BuildContextKeys.OutputPath` is the request-owned final package directory after AB finalization
 - missing manifest-listed bundle files during AB finalization fail the task instead of being silently skipped
 
 ### Build path helpers
 
-- `BuildPathManager` is the Editor-only source for build output paths. It reads `FYAssetSettings.BuildOutputRoot` and `BuildPackagesFolderName`; the default layout remains `HotfixOutput/Packages/Build_{yyyyMMddHHmmss}_{version}`.
+- `BuildPathManager` is the Editor-only source for build output paths. It reads `SharedBuildSettings.BuildOutputRoot` and runtime `FYAssetSettings.BuildPackagesFolderName`; the default layout remains `HotfixOutput/Packages/Build_{yyyyMMddHHmmss}_{version}`.
 - `AddressablesBuildOutputOrganizer` owns AA `ServerData` cleanup and package output copying rules.
 
 ## FYAssetSettings
 
-`FYAssetSettings` is a `ScriptableObject` (Runtime assembly) that replaced the deleted `FYAssetConstants` static class.
+`FYAssetSettings` is a `ScriptableObject` (Runtime assembly) that stores runtime/global configuration and compile-time constants.
 
 - Asset path: `Assets/Resources/FYAssetSettings.asset` (versioned in repo; `LoadOrCreate()` creates it there on the Editor path if missing)
 - Singleton access: `FYAssetSettings.Instance`
 - Editor: `LoadOrCreate()` searches `Assets/Resources/FYAssetSettings.asset`, creates the asset if missing, and saves it through `AssetDatabase`
 - Player: `LoadOrCreate()` loads the asset through `Resources.Load<FYAssetSettings>("FYAssetSettings")`; only if that fails does it fall back to `CreateInstance<FYAssetSettings>()`
-- Instance fields (configurable in Inspector): `ProjectName`, `HotfixUrl`, `UseABBackend`, `MaxHotfixSizeBytes`, `HotfixMaxRetryCount`, `HotfixRetryBaseDelaySeconds`, `ManifestOutputFormat`, `VersionDataBasePath`, `LuaScriptsIndexPath`, `BuildIndexJsonPath`, `BuildOutputRoot`, `BuildPackagesFolderName`, `CollectorDataFolder`, `CollectorSettingPath`, `PipelineConfigPath`
-- `AAPipelineConfigPath` points to the AA task graph asset. The existing `PipelineConfigPath` remains the AB graph path.
-- `ManifestOutputFormat.JsonAndBinary` is the release-safe default. `BinaryOnly` exists as an option but is not the formal release default.
+- Instance fields (configurable in Inspector): `ProjectName`, `HotfixUrl`, `UseABBackend`, `BuildPackagesFolderName`, `HotfixMaxRetryCount`, `HotfixRetryBaseDelaySeconds`
+- Build-only fields are not stored on `FYAssetSettings`.
 - Runtime consumers read configuration via `FYAssetSettings.Instance` at use sites; no `static readonly` settings snapshots remain in `RuntimePathManager` / `HotfixManager`
 - Static `const` members: all rule name strings (`RULE_*`), group/label identifiers (`LUA_SCRIPTS_INDEX`, `HOTFIX_GROUP_NAME`, `DEFAULT_XLUA_TYPE_CONFIG_LOAD_LABEL`), file names (`PACKAGE_INDEX_FILE_NAME`, `MANIFEST_FILE_NAME`, `MANIFEST_FILE_NAME_BIN`, `AA_MANIFEST_FILE_NAME`, `AA_MANIFEST_FILE_NAME_BIN`, `BUILD_INDEX_FILENAME`), and editor paths (`BUILD_PIPELINE_WINDOW_MENU_PATH`, `BINARY_SERIALIZER_GENERATE_PATH`)
 - `UseABBackend` is the single source of truth for backend selection — `BuildPipelineConfig.DefaultBackendMode` was removed
 - `BackendMode.AA` is the canonical AA enum value; duplicate AA/Addressables mode names are not supported.
+
+## Build Settings Assets
+
+- `SharedBuildSettings` stores shared build output and project asset paths: `BuildOutputRoot`, `VersionDataBasePath`, `BuildIndexJsonPath`, `CollectorDataFolder`, `CollectorSettingPath`, `LuaScriptsIndexPath`, and `PushTargets`.
+- `AABuildSettings` stores AA-specific build settings: `BuildPipelineConfigPath`, `ManifestOutputFormat`, and `MaxHotfixSizeBytes`.
+- `ABBuildSettings` stores AB-specific build settings: `BuildPipelineConfigPath`, `ManifestOutputFormat`, and `MaxHotfixSizeBytes`.
+- `VersionDataBase` remains shared product-version data and is referenced from `SharedBuildSettings.VersionDataBasePath`; there are no AA/AB-specific version database paths.
+- The Settings panel edits `FYAssetSettings` first and `SharedBuildSettings` second. AA Config edits `AABuildSettings` first. AB Pipeline edits `ABBuildSettings` before the BuildGraph.
 
 ## Build-Time Architectural Decisions
 

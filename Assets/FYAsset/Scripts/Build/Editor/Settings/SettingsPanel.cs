@@ -11,7 +11,9 @@ public class SettingsPanel : IBuildPipelinePanel
 {
     private BuildPipelineWindow _window;
     private FYAssetSettings _settings;
+    private SharedBuildSettings _sharedSettings;
     private SerializedObject _so;
+    private SerializedObject _sharedSo;
     private VisualElement _root;
     private ScrollView _scrollView;
 
@@ -59,7 +61,7 @@ public class SettingsPanel : IBuildPipelinePanel
         toolbar.Add(BuildPipelineUI.ToolbarLabel(FYAssetSettings.DEFAULT_ASSET_PATH));
         _root.Add(toolbar);
 
-        if (_settings == null || _so == null)
+        if (_settings == null || _so == null || _sharedSettings == null || _sharedSo == null)
         {
             DrawNoSettings();
             return;
@@ -67,15 +69,9 @@ public class SettingsPanel : IBuildPipelinePanel
 
         _scrollView = new ScrollView();
         _scrollView.style.flexGrow = 1f;
-        _scrollView.Bind(_so);
 
-        DrawSection("Project", "ProjectName", "HotfixUrl");
-        DrawSection("Backend", "UseABBackend");
-        DrawSection("Hotfix", "MaxHotfixSizeBytes", "HotfixMaxRetryCount", "HotfixRetryBaseDelaySeconds");
-        DrawSection("Manifest", "ManifestOutputFormat");
-        DrawSection("Version", "VersionDataBasePath");
-        DrawSection("AA Path", "LuaScriptsIndexPath", "BuildIndexJsonPath");
-        DrawSection("New Path", "BuildOutputRoot", "BuildPackagesFolderName", "CollectorDataFolder", "CollectorSettingPath", "PipelineConfigPath", "AAPipelineConfigPath");
+        DrawSection(_so, "Global", "ProjectName", "HotfixUrl", "UseABBackend", "BuildPackagesFolderName", "HotfixMaxRetryCount", "HotfixRetryBaseDelaySeconds");
+        DrawSection(_sharedSo, "Shared Build", "BuildOutputRoot", "VersionDataBasePath", "BuildIndexJsonPath", "CollectorDataFolder", "CollectorSettingPath", "LuaScriptsIndexPath");
         DrawPushTargetsSection();
 
         SerializedProperty useAb = _so.FindProperty("UseABBackend");
@@ -95,20 +91,21 @@ public class SettingsPanel : IBuildPipelinePanel
     /// <summary>
     /// 以 Card 形式绘制一个配置分组。
     /// </summary>
-    private void DrawSection(string header, params string[] propertyNames)
+    private void DrawSection(SerializedObject serializedObject, string header, params string[] propertyNames)
     {
         VisualElement card = BuildPipelineUI.Card();
         card.Add(BuildPipelineUI.Header(header));
 
         for (int i = 0; i < propertyNames.Length; i++)
         {
-            SerializedProperty prop = _so.FindProperty(propertyNames[i]);
+            SerializedProperty prop = serializedObject.FindProperty(propertyNames[i]);
             if (prop == null)
                 continue;
 
             card.Add(new PropertyField(prop));
         }
 
+        card.Bind(serializedObject);
         _scrollView.Add(card);
     }
 
@@ -138,21 +135,24 @@ public class SettingsPanel : IBuildPipelinePanel
     {
         _settings = AssetDatabase.LoadAssetAtPath<FYAssetSettings>(FYAssetSettings.DEFAULT_ASSET_PATH)
                     ?? Resources.Load<FYAssetSettings>("FYAssetSettings");
+        _sharedSettings = FYAssetBuildSettingsProvider.Shared;
         _so = _settings != null ? new SerializedObject(_settings) : null;
+        _sharedSo = _sharedSettings != null ? new SerializedObject(_sharedSettings) : null;
     }
 
     private void DrawPushTargetsSection()
     {
-        if (_settings == null)
+        if (_sharedSettings == null || _sharedSo == null)
             return;
 
-        SerializedProperty list = _so.FindProperty("PushTargets");
+        SerializedProperty list = _sharedSo.FindProperty("PushTargets");
         if (list == null)
             return;
 
         VisualElement card = BuildPipelineUI.Card();
         card.Add(BuildPipelineUI.Header("Push"));
         card.Add(new PropertyField(list, "Targets"));
+        card.Bind(_sharedSo);
         _scrollView.Add(card);
     }
 }

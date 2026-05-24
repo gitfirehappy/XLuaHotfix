@@ -105,7 +105,7 @@ public sealed class CollectorPanel : IBuildPipelinePanel
     {
         CollectorDataMigrator.EnsureDataFolder();
         CollectorDataMigrator.MigrateFromAAPath();
-        _setting = AssetDatabase.LoadAssetAtPath<CollectorSetting>(FYAssetSettings.Instance.CollectorSettingPath);
+        _setting = AssetDatabase.LoadAssetAtPath<CollectorSetting>(FYAssetBuildSettingsProvider.Shared.CollectorSettingPath);
         _so = _setting != null ? new SerializedObject(_setting) : null;
         EnsureSelection();
         if (_setting != null)
@@ -832,7 +832,7 @@ public sealed class CollectorPanel : IBuildPipelinePanel
     {
         VisualElement panel = BuildPipelineUIToolkitPanel.CreateCenteredPanel(_root, 420f);
         panel.Add(BuildPipelineUIToolkitPanel.CreateTitle("未找到 CollectorSetting"));
-        panel.Add(BuildPipelineUIToolkitPanel.CreateBody(FYAssetSettings.Instance.CollectorSettingPath));
+        panel.Add(BuildPipelineUIToolkitPanel.CreateBody(FYAssetBuildSettingsProvider.Shared.CollectorSettingPath));
         panel.Add(new Button(CreateCollectorSetting) { text = "创建" });
     }
 
@@ -843,7 +843,7 @@ public sealed class CollectorPanel : IBuildPipelinePanel
     {
         CollectorDataMigrator.EnsureDataFolder();
         CollectorSetting newSetting = ScriptableObject.CreateInstance<CollectorSetting>();
-        AssetDatabase.CreateAsset(newSetting, FYAssetSettings.Instance.CollectorSettingPath);
+        AssetDatabase.CreateAsset(newSetting, FYAssetBuildSettingsProvider.Shared.CollectorSettingPath);
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
         CollectorReverseIndex.Instance.MarkDirty();

@@ -128,7 +128,7 @@ public static class CollectorContextMenu
     {
         CollectorDataMigrator.EnsureDataFolder();
         CollectorDataMigrator.MigrateFromAAPath();
-        return AssetDatabase.LoadAssetAtPath<CollectorSetting>(FYAssetSettings.Instance.CollectorSettingPath);
+        return AssetDatabase.LoadAssetAtPath<CollectorSetting>(FYAssetBuildSettingsProvider.Shared.CollectorSettingPath);
     }
 
     private static Collector GetCollector(CollectorSetting setting, CollectorReverseIndex.CollectorRef collectorRef)
