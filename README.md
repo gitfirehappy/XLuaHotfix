@@ -22,21 +22,25 @@
 | **LuaScriptsIndex** | Build/LuaScriptsIndex.asset | AddressableKey → 内部脚本名映射，运行期加载Lua；按普通 Addressable 资产参与索引；类型定义归属 XLuaFramework |
 | **PackageIndex** | PackageIndex.json | 远程构建定位，指向最新导出包路径 |
 
-### 1.2 差异快照系统
+### 1.2 Build Repository 与差异系统
 
-- **BuildSnapshots**: 管理 Head（已发布）/Staged（待发布）快照
-- **DifferentialProcessor**: 
-  - 扫描项目资源与Head快照比对，找出修改的资源
-  - 自动将修改资源移入 Hotfix 组
-  - 支持快照轮转：Staged → Head（确认发布）
+- **Build Repository**: 使用项目根 `BuildData/Snapshots/{BuildTarget}[-Channel]/{AA|AB}/` 下的 JSON commit 管理构建基线；`HEAD.json` 只保存当前 `HeadVersion`
+- **ArtifactDigest / ArtifactDelta / ArtifactDiffer**: 统一的 artifact 差异模型与纯 diff 计算，AA 使用 asset GUID 粒度，AB 使用 bundle name 粒度
+- **AddressableSourceArtifactScanner**: AA pre-build scanner，基于主资源文件 + `.meta` 的组合 MD5/CRC 生成浅层内容指纹
+- **AbBundleOutputArtifactScanner**: AB post-build scanner，可直接复用 `ABManifest.BundleEntries` 中的 hash/CRC/size，也可独立扫描输出目录
+- **DifferentialProcessor**:
+  - 通过 artifact scanner 与 Repository HEAD commit 比对，找出 Added / Modified / Removed
+  - AA 热更准备时委托 `LegacyAddressableHotfixGroups` 移动 Added + Modified 资源到 Hotfix 组
   - 支持还原分组：热更组 → 原始组（整包发布前）
+- **LegacyAddressableHotfixGroups**: 记录 JSON undo log；若存在未还原迁移，会阻断下一次 AA hotfix prepare，要求先 Reset/Restore
+- **BuildRepositoryCLI / PushTarget**: Repository CLI 提供 `Status`、`Diff`、`Push`、`ListCommits`；Plan 3 仅落地 `LocalDirectoryPushTarget`，push 只输出 delta bundles、`ABManifest.json` 和 `PackageIndex.json`，`PushHistory.json` 由 repository 侧写入
 
 ### 1.3 构建流程
 
 - **BuildProjectManager**:
   - `BuildFullPackage`: 大版本更新，Major版本号自增
   - `BuildHotfix`: 小版本更新，Patch版本号自增
-  - `ConfirmRelease`: 快照转正
+  - `ConfirmRelease`: 现为 release/push 占位提示；Build 成功即 commit Repository HEAD
   - `ResetGroupsToOriginal`: 还原资源分组
   - 每次构建先创建 `BuildPackageRequest`，统一持有版本、后端模式、包名、最终输出目录和 `PackageIndex` 写入路径
   - AA 后端通过独立 `AABuildPipelineConfig.asset` 执行 DAG Task，最终 package layout 与 AAManifest 输出已由 Task 图负责
@@ -45,6 +49,7 @@
   - 构建输出根目录与 Packages 子目录由 `FYAssetSettings.BuildOutputRoot` / `BuildPackagesFolderName` 配置，默认保持 `HotfixOutput/Packages`
   - `BuildPipelineConfig.asset` / `AABuildPipelineConfig.asset` 是 Task 主干事实源；`BuildPipelineBackbone` 只提供默认创建、UI 主干识别和校验，不在加载或构建时自动修复配置
   - 整包构建的本地启动数据导出（BuildIndex + baseline 到 StreamingAssets）由 `TaskExportLocalBuildData` 挂在 AA/AB DAG 尾部执行并直接实现；Hotfix 构建在该 Task 内跳过
+  - 每次 AA/AB 构建成功后会自动写入 Build Repository commit；AA 与 AB HEAD 通过 backend segment 隔离
 - **BuildPipelineWindow / PipelinePanel**:
   - AB Pipeline 的 Pipeline 页负责 BuildGraph DAG、Reload、Validate、构建选项、Build Mode 与 Build 入口
   - AA Pipeline 的 AA Build 页复用同一套 BuildGraph DAG、Reload、Validate、Build Mode 与 Build 入口，加载 `AABuildPipelineConfig.asset`；AA 不显示 Build Options，配置仍归 Addressables 自身配置体系
@@ -52,6 +57,7 @@
   - 构建入口复用 `BuildProjectManager` 的 Full/Hotfix 语义；DAGScheduler 执行事件会回显到节点状态
   - 旧 `Tools/Build` 生产菜单项已标记为 `[Legacy]` 并暂时保留
   - Builder 页不承载 DAG；当前为 UI Toolkit 占位壳，构建报告查询待 E7 差异快照与 digest 输出稳定后单独规划
+  - Repository 页显示当前派生 channel 的 HEAD 状态，并提供只读 Diff Preview；AB preview 使用 `Temp/BuildRepositoryPreview/{guid}/` 临时目录并在完成后清理
   - Build Pipeline 编辑器窗口已迁移为 UI Toolkit `CreateGUI()` 壳层，侧栏保持 SETTINGS / AA PIPELINE / AB PIPELINE / MANAGE；AA 与 AB 组互斥灰显，AA Config 面板仅做 catalog 摘要与 Groups 窗口入口
   - Settings、AA Config、AA Build、AA Report、Collect Config、Collector、Pipeline、Builder、Version 等 active 面板通过 UI Toolkit `CreateContent()` 承载；Pipeline 页继续复用现有 GraphView DAG
   - Collector 资产 Inspector 头部勾选入口仍使用 Unity 的 `Editor.finishedDefaultHeaderGUI` 回调，这是 Unity 默认 Inspector header 的 IMGUI 边界

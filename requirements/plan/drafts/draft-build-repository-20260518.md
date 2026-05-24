@@ -1,9 +1,72 @@
 # Draft: Build Repository — Git-like 构建产物版本管理系统
 
-> **Status**: Draft — 2026-05-18
+> **Status**: Draft — 2026-05-18（Plan 1/2/3 已陆续提取，draft 仅留作历史决策痕迹）
 > **Supersedes**: draft-E7-diff-snapshot-20260517.md, plan-smart-versioning-draft.md
 > **Design philosophy**: 构建产物作为 repository 管理。完整 git 工作流隐喻——不是借用命名，而是同构的操作语义。Build Repository 只负责版本化管理，不关心构建过程和构建策略。
 > **Dependencies**: E5-1 (IBuildTask + BuildContext + DAGScheduler), E5-2 (TaskBuildBundles), E6 (ABManifest)
+
+---
+
+## 拆分提取记录（2026-05-23）
+
+本 draft 已被拆为两个 plan 推进，按依赖顺序执行：
+
+### Plan 1 — `requirements/plan/plan-build-repo-diff-module-20260523.md`（Pending Approval）
+
+提取以下章节实现差异对比子模块：
+
+| 本 draft 章节 | Plan 1 落地 |
+|--------------|------------|
+| 操作集 → `diff` 行 | `ArtifactDiffer.Diff(from, to)` 纯函数 |
+| diff 支持的对比组合 | 任意 `IReadOnlyList<ArtifactDigest>` 双侧入参 |
+| 统一数据结构 → `ArtifactDigest` | 1:1 落地（Name/Hash/Size/CRC） |
+| 统一数据结构 → `ArtifactDelta` | 1:1 落地（Added/Modified/Removed） |
+| AA 旧管线的 Group 移动 | `LegacyAddressableHotfixGroups`（独立类，JSON undo log） |
+| Interface 设计 → `IArtifactScanner` | 单接口 + 2 实现：AA 源侧、AB 输出侧 |
+| 与 Build Backend 的交互 → AA Hotfix 流程 | `DifferentialProcessor` 内部重构 |
+| 破坏范围 → DifferentialProcessor 拆分 | 同上 |
+
+**Plan 1 调整**：
+- 单一 `IArtifactScanner` 接口（取消源/输出双接口拆分）
+- 2 个 scanner 而非 4 个：AA 输出侧不做（group 路由已自然过滤产物），AB 源侧不做（留给后续"AB 主动差异构建" plan）
+- Hash 统一为浅层 MD5（主文件 + .meta），diff 模块不再调用 DeepHash
+- `BuildSnapshots` SO 暂保留，通过适配器复用
+
+### 留在本 draft（Plan 3 拆出后已基本清空）
+
+仅保留作为决策痕迹，下列设计已被三轮 plan 调整：
+
+- ~~操作集 → `status` / `add` / `commit` / `reset` / `tag` / `push` 六项~~ → Plan 2/3 已收敛：`add` 取消（构建即 commit），`reset` 取消（无 staged），`tag` 取消（push history 替代）。
+- ~~统一数据结构 → `Snapshot`（含 `SourceDiffSummary`、`GitCommitHash`、`Channel`、`Timestamp` 等元数据）~~ → Plan 2 落地为 `RepositoryCommit`；Plan 3 仅追加 `GitCommitHash`/`IsDirty`/`PackageRootDir`，`SourceDiffSummary` 推后。
+- ~~多渠道：独立存储空间（`BuildData/Snapshots/{channel}/`）~~ → Plan 2 落地，含 `BackendMode` 隔离。
+- ~~Commit 元数据与 Build Report 分工~~ → Plan 3 暂搁置，待 Build Report 系统出现再分。
+- ~~HEAD 文件格式（Head + Staged 双指针）~~ → Plan 2 决定取消 Staged。
+- ~~Tag 机制（published.json）~~ → Plan 3 决定去 Tag，published 状态由 PushHistory 推导。
+- ~~Interface 设计 → `IBuildRepository`（7 操作 + 查询 API）+ `IPushTarget`~~ → Plan 2 锁定 5 操作；Plan 3 加 `Push` + `ListPushHistory` + `IPushTarget`/`LocalDirectoryPushTarget`。
+- ~~访问方式：GUI + CLI 双入口~~ → Plan 2 提供 Status/Diff Preview GUI；Plan 3 提供 CLI（Status/Diff/Push/ListCommits）+ GUI Push HEAD/Push 任意 commit/PushHistory 面板。
+- ~~破坏范围 → BuildSnapshots SO 完全替换、`BuildProjectManager` 路由到 `IBuildRepository`~~ → Plan 2 落地，SO 立即删除。
+- Open Questions Q1-Q4：Q1/Q4 已决，Q2 由 Plan 3 给出 LocalDirectory 方案 + CDN 列入后续，Q3 由 Plan 1 锁 shallow MD5。
+
+### Plan 3 — `requirements/plan/plan-build-repository-release-20260523.md`（Pending Approval）
+
+提取以下章节：
+
+| 本 draft 章节 | Plan 3 落地 |
+|--------------|------------|
+| 操作集 → `tag`/`push` 行 | `tag` 去除；`push` 由 `IBuildRepository.Push` + `IPushTarget` 落地 |
+| Tag 机制 → `published.json` | 去除，`PushHistory.json` 替代 |
+| Interface 设计 → `IPushTarget` | `LocalDirectoryPushTarget`（Plan 3 唯一实现），CDN 推后 |
+| 访问方式 → CLI 7 操作 | CLI 缩为 4 操作（Status/Diff/Push/ListCommits） |
+| 与 Build Backend 的交互 → 发布 | ConfirmReleaseHotfix / -confirmRelease 删除（Plan 2 placeholder 不晋升） |
+| Open Question Q2 (push 方式) | LocalDirectory 抽象首发，CDN SDK 后续 plan |
+
+### 后续延伸（不属于 Plan 1 / 2 / 3）
+
+- AA Push：需要 RepositoryCommit AA 端扩展（GUID -> bundle 映射或 catalog 反查）。独立 plan。
+- AB 主动差异构建：`CollectedBundleSourceArtifactScanner` + `TaskBuildBundles` 改造，由 AB 源侧 diff 过滤 build 输入。独立 plan。
+- CDN SDK PushTarget（OSS/COS/S3 等）。独立 plan，复用 Plan 3 的 IPushTarget 抽象。
+- `SourceDiffSummary` / 构建环境指纹 / commit description 等元数据扩展。
+- 仓库侧 orphan object GC（继承自 Plan 2 follow-ups）。
 
 ---
 
@@ -417,3 +480,5 @@ Repository CLI:
 | 2026-05-18 | 初始草稿：合并 E7 + Smart Versioning 为统一 Build Repository |
 | 2026-05-18 | 讨论迭代：移除 apply 操作（AA group 移动由 backend 自己处理）；统一数据结构 ArtifactDigest（Name+Hash+Size）替代 AssetSnapshot/BundleDigest 双类型；补充破坏范围分析；明确 AA/AB hotfix 策略差异；IBuildRepository 单一实现 + IArtifactScanner 注入差异 |
 | 2026-05-18 | 补充 GUI + CLI 双入口设计：Editor 内用 GUI 按钮，Editor 外用 -executeMethod 命令行；第一版即支持 BatchMode；CLI 7 操作完整暴露 |
+| 2026-05-23 | 拆分提取：差异对比子模块进入 Plan 1（`plan/plan-build-repo-diff-module-20260523.md`，Pending Approval）；存储/HEAD/CLI/IBuildRepository 留 Plan 2 |
+| 2026-05-23 | 进一步拆分：Plan 2 落地为 `plan-build-repository-core-20260523.md`（HEAD/objects/JsonUtility/AA-AB 隔离）；Release/Push/CLI 单开 Plan 3（`plan-build-repository-release-20260523.md`，Pending Approval）。Tag 机制取消，published 由 PushHistory 推导。AA Push、CDN SDK、AB 主动差异构建标记为后续独立 plan。 |
