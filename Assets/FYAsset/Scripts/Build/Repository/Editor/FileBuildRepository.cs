@@ -66,24 +66,6 @@ public sealed class FileBuildRepository : IBuildRepository
         return result;
     }
 
-    public ArtifactDelta DiffHead(string channelKey, IReadOnlyList<ArtifactDigest> artifacts)
-    {
-        var head = TryLoadHead(channelKey);
-        var baseline = head != null ? head.Artifacts : new List<ArtifactDigest>();
-        return ArtifactDiffer.Diff(baseline, artifacts);
-    }
-
-    public ArtifactDelta DiffCommits(string channelKey, VersionNumber fromVersion, VersionNumber toVersion)
-    {
-        var fromCommit = TryLoadCommit(channelKey, fromVersion);
-        var toCommit = TryLoadCommit(channelKey, toVersion);
-        if (fromCommit == null)
-            throw new InvalidOperationException($"Baseline commit missing: {fromVersion?.GetFullVersionString()}");
-        if (toCommit == null)
-            throw new InvalidOperationException($"Target commit missing: {toVersion?.GetFullVersionString()}");
-        return ArtifactDiffer.Diff(fromCommit.Artifacts, toCommit.Artifacts);
-    }
-
     public void Commit(RepositoryCommit commit)
     {
         if (commit == null)

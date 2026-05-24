@@ -8,7 +8,7 @@ using UnityEngine;
 
 /// <summary>
 /// Build Repository 命令行入口。
-/// 只暴露 status / diff / diff-head / push / list-commits。
+/// 只暴露 status / diff / push / list-commits。
 /// </summary>
 public static class BuildRepositoryCLI
 {
@@ -28,24 +28,15 @@ public static class BuildRepositoryCLI
 
     public static void Diff()
     {
-        var args = ParseArgs();
-        var delta = BuildRepositoryFacade.DiffCommits(GetChannelKey(args), GetVersion(args, "-from"), GetVersion(args, "-to"));
-        WriteDelta(delta);
-        if (args.TryGetValue("-json", out string jsonPath) && !string.IsNullOrEmpty(jsonPath))
-            FileHelper.WriteAllTextAtomic(jsonPath, SerializationUtility.SerializeToJson(delta, true));
-        EditorApplication.Exit(0);
-    }
-
-    public static void DiffHead()
-    {
         try
         {
             var args = ParseArgs();
-            if (GetBackend(args) != BackendMode.AA)
-                throw new InvalidOperationException("DiffHead scans current Addressables source and only supports AA backend.");
-
             var version = LoadCurrentVersion();
-            var delta = DifferentialProcessor.ScanAddressableHotfixDiff(version);
+            var backend = GetBackend(args);
+            var request = BuildPackageRequest.Create(version, BuildType.Hotfix, backend);
+            var delta = backend == BackendMode.ABManifest
+                ? RepositoryPreviewRunner.RunABPreview(request)
+                : RepositoryPreviewRunner.RunAAPreview(request);
             WriteDelta(delta);
             if (args.TryGetValue("-json", out string jsonPath) && !string.IsNullOrEmpty(jsonPath))
                 FileHelper.WriteAllTextAtomic(jsonPath, SerializationUtility.SerializeToJson(delta, true));
@@ -53,7 +44,7 @@ public static class BuildRepositoryCLI
         }
         catch (Exception ex)
         {
-            WriteLine($"DiffHead failed: {ex.Message}");
+            WriteLine($"Diff failed: {ex.Message}");
             EditorApplication.Exit(1);
         }
     }

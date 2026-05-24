@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   ProjectName: ProjectName1
   HotfixUrl: https://firehappy-cfy.com/
-  UseABBackend: 0
+  UseABBackend: 1
   BuildPackagesFolderName: Packages
   HotfixMaxRetryCount: 10
   HotfixRetryBaseDelaySeconds: 1

@@ -17,8 +17,10 @@ public static class BuildPipelineBackbone
         "TaskBuildBundles",
         "TaskGenerateManifest",
         "TaskVerifyBuildResult",
+        "TaskScanABHotfixDiff",
         "TaskOrganizeOutput",
         "TaskWriteABPackageManifest",
+        "TaskWritePackageIndex",
         "TaskExportLocalBuildData",
     };
 
@@ -30,6 +32,7 @@ public static class BuildPipelineBackbone
         "TaskBuildAddressablesContent",
         "TaskOrganizeAAOutput",
         "TaskWriteAAPackageManifest",
+        "TaskWritePackageIndex",
         "TaskExportLocalBuildData",
     };
 
@@ -38,7 +41,7 @@ public static class BuildPipelineBackbone
     /// </summary>
     public static List<TaskEntry> CreateABTasks()
     {
-        return CreateTasks(ABTaskNames, "TaskWriteABPackageManifest");
+        return CreateTasks(ABTaskNames, "TaskWriteABPackageManifest", "TaskWritePackageIndex");
     }
 
     /// <summary>
@@ -46,7 +49,7 @@ public static class BuildPipelineBackbone
     /// </summary>
     public static List<TaskEntry> CreateAATasks()
     {
-        return CreateTasks(AATaskNames, "TaskWriteAAPackageManifest");
+        return CreateTasks(AATaskNames, "TaskWriteAAPackageManifest", "TaskWritePackageIndex");
     }
 
     /// <summary>
@@ -75,7 +78,10 @@ public static class BuildPipelineBackbone
         return missing;
     }
 
-    private static List<TaskEntry> CreateTasks(string[] taskNames, string localBuildDataDependency)
+    private static List<TaskEntry> CreateTasks(
+        string[] taskNames,
+        string packageIndexDependency,
+        string localBuildDataDependency)
     {
         var tasks = new List<TaskEntry>(taskNames.Length);
         foreach (string taskName in taskNames)
@@ -84,7 +90,7 @@ public static class BuildPipelineBackbone
             {
                 TaskName = taskName,
                 Enabled = true,
-                DependsOn = GetDefaultDependencies(taskName, localBuildDataDependency)
+                DependsOn = GetDefaultDependencies(taskName, packageIndexDependency, localBuildDataDependency)
             });
         }
 
@@ -148,12 +154,18 @@ public static class BuildPipelineBackbone
         return null;
     }
 
-    private static List<string> GetDefaultDependencies(string taskName, string localBuildDataDependency)
+    private static List<string> GetDefaultDependencies(
+        string taskName,
+        string packageIndexDependency,
+        string localBuildDataDependency)
     {
         return taskName switch
         {
             "TaskMoveAddressableHotfixGroups" => new List<string> { "TaskScanAddressableHotfixDiff" },
             "TaskBuildAddressablesContent" => new List<string> { "TaskMoveAddressableHotfixGroups" },
+            "TaskScanABHotfixDiff" => new List<string> { "TaskVerifyBuildResult" },
+            "TaskOrganizeOutput" => new List<string> { "TaskScanABHotfixDiff" },
+            "TaskWritePackageIndex" => new List<string> { packageIndexDependency },
             "TaskExportLocalBuildData" => new List<string> { localBuildDataDependency },
             _ => new List<string>()
         };

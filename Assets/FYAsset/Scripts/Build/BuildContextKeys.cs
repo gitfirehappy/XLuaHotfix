@@ -17,4 +17,5 @@ public static class BuildContextKeys
     public const string OutputPath = "OutputPath";
     public const string BuildVerificationResult = "BuildVerificationResult";
     public const string ArtifactDelta = "ArtifactDelta";
+    public const string RepositoryArtifacts = "RepositoryArtifacts";
 }

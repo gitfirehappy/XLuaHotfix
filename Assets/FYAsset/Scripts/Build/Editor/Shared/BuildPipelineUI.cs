@@ -186,6 +186,8 @@ public static class BuildPipelineUI
         var row = new VisualElement();
         row.style.flexDirection = FlexDirection.Row;
         row.style.alignItems = Align.Center;
+        row.style.width = Length.Percent(100f);
+        row.style.minWidth = 0f;
         row.style.marginBottom = 2f;
 
         if (!string.IsNullOrEmpty(label))
@@ -201,8 +203,12 @@ public static class BuildPipelineUI
             value = property?.stringValue ?? string.Empty,
             isDelayed = true
         };
+        field.style.width = 0f;
         field.style.flexGrow = 1f;
+        field.style.flexShrink = 1f;
+        field.style.flexBasis = 0f;
         field.style.minWidth = 0f;
+        field.style.maxWidth = Length.Percent(100f);
         field.style.marginRight = 4f;
         field.RegisterValueChangedCallback(evt => SetStringProperty(property, evt.newValue ?? string.Empty));
         row.Add(field);
@@ -219,7 +225,8 @@ public static class BuildPipelineUI
         {
             text = "..."
         };
-        button.style.width = 30f;
+        button.style.width = 34f;
+        button.style.minWidth = 34f;
         button.style.flexShrink = 0f;
         row.Add(button);
 
@@ -234,6 +241,8 @@ public static class BuildPipelineUI
         var row = new VisualElement();
         row.style.flexDirection = FlexDirection.Row;
         row.style.alignItems = Align.Center;
+        row.style.width = Length.Percent(100f);
+        row.style.minWidth = 0f;
         row.style.marginBottom = 2f;
 
         if (!string.IsNullOrEmpty(label))
@@ -252,11 +261,13 @@ public static class BuildPipelineUI
             value = ConvertBytesToUnitValue(bytes, unitIndex),
             isDelayed = true
         };
+        valueField.style.flexShrink = 0f;
         valueField.style.width = 96f;
         valueField.style.marginRight = 4f;
         row.Add(valueField);
 
         var unitField = new PopupField<string>(new System.Collections.Generic.List<string>(ByteUnits), unitIndex);
+        unitField.style.flexShrink = 0f;
         unitField.style.width = 72f;
         unitField.style.marginRight = 6f;
         row.Add(unitField);

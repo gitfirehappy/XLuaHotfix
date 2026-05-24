@@ -5,15 +5,13 @@ using UnityEngine;
 
 /// <summary>
 /// 构建编排入口。
-/// 统一管理版本号更新、后端路由（AB / AA）、包体产物组织和 PackageIndex 更新。
+/// 统一管理版本号更新、后端路由（AB / AA）和构建仓库提交。
 /// 通过 legacy MenuItem 保留 Full Package / Hotfix Package / Reset Groups 四个旧工具入口。
-/// TODO： 后续删除独立按钮，全部由构建面板管理
 /// </summary>
 public static class BuildProjectManager
 {
     public static bool LastBuildSuccess { get; private set; } = true;
 
-    // 热更包体大小限制
     private static string versionDataBasePath => FYAssetBuildSettingsProvider.Shared.VersionDataBasePath;
     
     /// <summary>
@@ -95,38 +93,39 @@ public static class BuildProjectManager
 
         if (confirm)
         {
-            DifferentialProcessor.RestoreOriginalGroups();
+            TaskMoveAddressableHotfixGroups.Restore();
         }
     }
 
     private static bool RunBuild(VersionNumber version, BuildType buildType, BuildExecutionOptions options)
     {
-        Debug.Log($"[BuildProjectManager] 开始构建 {buildType} 包 Version: {version.GetFullVersionString()}");
+        Debug.Log($"[{nameof(BuildProjectManager)}] 开始 {buildType} build。Version={version.GetFullVersionString()}");
 
         try
         {
+            // LuaScriptsIndex 仍由编排层统一导出；AA/AB package 产物由各自 DAG 负责。
             LuaScriptsIndexExporter.ExportData();
             AssetDatabase.Refresh();
 
             BackendMode backendMode = FYAssetSettings.Instance.UseABBackend ? BackendMode.ABManifest : BackendMode.AA;
             BuildPackageRequest request = BuildPackageRequest.Create(version, buildType, backendMode);
+            Debug.Log($"[{nameof(BuildProjectManager)}] 已创建 BuildPackageRequest: Package={request.PackageName}, Backend={backendMode}, Output={request.OutputDir}");
 
             IBuildBackend backend = CreateBackend();
             var buildResult = backend.BuildAsync(request, options).GetAwaiter().GetResult();
             if (!buildResult.Success)
             {
                 var err = buildResult.Error;
-                Debug.LogError($"[BuildProjectManager] 后端构建失败: {(err != null ? $"[{err.Code}] {err.Message}" : "未知错误")}");
+                Debug.LogError($"[{nameof(BuildProjectManager)}] 后端 build 失败: {(err != null ? $"[{err.Code}] {err.Message}" : "未知错误")}");
                 return false;
             }
 
             FileHelper.EnsureDirectory(BuildPathManager.PackagesDir);
 
-            UpdatePackageIndexFile(request);
+            // Repository commit 目前仍在 DAG 外执行；DAG 只负责生成本次 package 和 RepositoryArtifacts。
+            CommitBuildRepository(request, backendMode, buildResult.Artifacts);
 
-            CommitBuildRepository(request, backendMode);
-
-            Debug.Log($"[BuildProjectManager] 包体构建完毕: {request.OutputDir}");
+            Debug.Log($"[{nameof(BuildProjectManager)}] Package build 完成，已提交 Repository HEAD: {request.OutputDir}");
             if (!Application.isBatchMode)
                 EditorUtility.RevealInFinder(request.OutputDir);
 
@@ -134,7 +133,7 @@ public static class BuildProjectManager
         }
         catch (Exception ex)
         {
-            Debug.LogError($"[BuildProjectManager] 构建过程中出现异常: {ex}");
+            Debug.LogError($"[{nameof(BuildProjectManager)}] Build 流程异常，Version={version.GetFullVersionString()}, Type={buildType}: {ex}");
             return false;
         }
     }
@@ -151,53 +150,22 @@ public static class BuildProjectManager
         VersionDataBase versionData = AssetDatabase.LoadAssetAtPath<VersionDataBase>(versionDataBasePath);
         if (versionData == null)
         {
-            Debug.LogError($"[BuildProjectManager] 未找到版本数据库: {versionDataBasePath}");
+            Debug.LogError($"[{nameof(BuildProjectManager)}] 未找到 VersionDataBase: {versionDataBasePath}");
             return null;
         }
         return versionData;
     }
     
-    /// <summary>
-    /// 更新 PackageIndex 文件，包含最新包体名和版本
-    /// </summary>
-    private static void UpdatePackageIndexFile(BuildPackageRequest request)
-    {
-        var data = new PackageIndex
-        {
-            LatestPackage = request.PackageName,
-            LatestVersion = request.Version,
-            BackendMode = BackendModeNames.FromBackendMode(request.BackendMode)
-        };
-        
-        // 生成 PackageIndex 内容（包含最新包体名）
-        SerializationUtility.WriteToFile(request.PackageIndexPath, data);
-        Debug.Log($"[BuildProjectManager] 更新 PackageIndex 包体名: {request.PackageName}，版本: {request.Version.GetFullVersionString()}，后端: {data.BackendMode}");
-    }
-
-    private static void CommitBuildRepository(BuildPackageRequest request, BackendMode backendMode)
+    private static void CommitBuildRepository(BuildPackageRequest request, BackendMode backendMode, System.Collections.Generic.IReadOnlyList<ArtifactDigest> artifacts)
     {
         try
         {
-            if (backendMode == BackendMode.AA)
-            {
-                var settings = UnityEditor.AddressableAssets.AddressableAssetSettingsDefaultObject.Settings;
-                var scanner = new AddressableSourceArtifactScanner(settings);
-                BuildRepositoryFacade.Commit(request, scanner);
-            }
-            else
-            {
-                var manifestPath = System.IO.Path.Combine(request.OutputDir, FYAssetSettings.MANIFEST_FILE_NAME);
-                if (!FileHelper.Exists(manifestPath))
-                    throw new InvalidOperationException($"AB manifest not found: {manifestPath}");
-
-                var manifest = SerializationUtility.ReadFromFile<ABManifest>(manifestPath);
-                var scanner = new AbBundleOutputArtifactScanner(manifest != null ? manifest.BundleEntries : null);
-                BuildRepositoryFacade.Commit(request, scanner, "AB");
-            }
+            Debug.Log($"[{nameof(BuildProjectManager)}] 提交 Build Repository: Channel={BuildRepositoryFacade.GetChannelKey(request)}, Artifacts={(artifacts != null ? artifacts.Count : 0)}");
+            BuildRepositoryFacade.Commit(request, artifacts, backendMode == BackendMode.ABManifest ? "AB" : null);
         }
         catch (Exception ex)
         {
-            throw new InvalidOperationException($"Build repository commit failed: {ex.Message}", ex);
+            throw new InvalidOperationException($"Build Repository commit failed. Package={request?.PackageName}, Backend={backendMode}, Reason={ex.Message}", ex);
         }
     }
 }

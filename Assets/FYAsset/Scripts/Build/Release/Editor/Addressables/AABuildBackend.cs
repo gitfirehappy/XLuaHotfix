@@ -1,4 +1,5 @@
 #if UNITY_EDITOR
+using System.Collections.Generic;
 using System;
 using System.Threading.Tasks;
 using UnityEditor;
@@ -6,9 +7,7 @@ using UnityEngine;
 
 /// <summary>
 /// AA 构建后端。
-/// 通过 AA BuildPipelineConfig 驱动 Task 图执行构建与最终输出。
-///
-/// 构建流程：DAGScheduler.Execute -> Task 图直接写入最终 AA 包目录。
+/// 只负责把 BuildPackageRequest 交给 AA DAG；Addressables build、Manifest、PackageIndex 都由 Task 图处理。
 /// </summary>
 public class AABuildBackend : IBuildBackend
 {
@@ -26,6 +25,7 @@ public class AABuildBackend : IBuildBackend
             var context = new BuildContext();
             context.Set(BuildContextKeys.BuildPackageRequest, request);
             context.Set(BuildContextKeys.BuildType, request.BuildType);
+            Debug.Log($"[{nameof(AABuildBackend)}] 启动 AA DAG。BuildType={request.BuildType}, Package={request.PackageName}");
             BuildResult result = DAGScheduler.Execute(config, context, options);
             if (!result.Success)
             {
@@ -35,10 +35,13 @@ public class AABuildBackend : IBuildBackend
                         $"AA 管线构建失败。已完成: {result.CompletedTasks}/{result.TotalTasks}", nameof(AABuildBackend))));
             }
 
-            return Task.FromResult(BuildBackendResult.Ok());
+            var artifacts = context.Get<List<ArtifactDigest>>(BuildContextKeys.RepositoryArtifacts);
+            Debug.Log($"[{nameof(AABuildBackend)}] AA DAG 完成。Completed={result.CompletedTasks}/{result.TotalTasks}, RepositoryArtifacts={(artifacts != null ? artifacts.Count : 0)}");
+            return Task.FromResult(BuildBackendResult.Ok(artifacts));
         }
         catch (Exception ex)
         {
+            Debug.LogError($"[{nameof(AABuildBackend)}] AA DAG 异常: {ex}");
             return Task.FromResult(BuildBackendResult.Fail(
                 BuildMessage.Error(BuildErrorCodes.BuildFailed, ex.Message, nameof(AABuildBackend))));
         }
@@ -57,7 +60,7 @@ public class AABuildBackend : IBuildBackend
             if (taskResult == null || taskResult.Success)
                 continue;
 
-            Debug.LogWarning($"[{nameof(AABuildBackend)}] {taskResult.ErrorCode}: {taskResult.ErrorMessage}");
+            Debug.LogWarning($"[{nameof(AABuildBackend)}] DAG Task 失败: Code={taskResult.ErrorCode}, Message={taskResult.ErrorMessage}");
         }
     }
 }

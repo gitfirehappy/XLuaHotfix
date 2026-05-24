@@ -12,7 +12,8 @@ using UnityEngine;
 ///   Unity.exe -batchmode -quit -projectPath "E:/unity/project/XLuaHotfix"
 ///             -executeMethod BuildCommandLine.Build -buildType full
 /// 附加参数：
-///   -target / -from / -to / -backend 由 BuildRepositoryCLI 使用
+///   -backend / -channel 由 BuildRepositoryCLI 的 status / diff 使用
+///   -target / -from / -to 由 BuildRepositoryCLI 的 push 使用
 /// </summary>
 public static class BuildCommandLine
 {

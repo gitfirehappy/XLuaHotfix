@@ -1,4 +1,5 @@
 #if UNITY_EDITOR
+using System.Collections.Generic;
 using System;
 using System.Threading.Tasks;
 using UnityEditor;
@@ -6,9 +7,7 @@ using UnityEngine;
 
 /// <summary>
 /// ABManifest 新管线构建后端。
-/// 通过 DAGScheduler 驱动 Task 在 BuildProjectManager 统一入口导出
-///
-/// 构建流程：DAGScheduler.Execute -> Task 图直接写入最终 AB 包目录。
+/// 只负责把 BuildPackageRequest 交给 AB DAG；最终包目录、Manifest、PackageIndex 都由 Task 图写入。
 /// </summary>
 public class ABBuildBackend : IBuildBackend
 {
@@ -26,6 +25,7 @@ public class ABBuildBackend : IBuildBackend
             var context = new BuildContext();
             context.Set(BuildContextKeys.BuildPackageRequest, request);
             context.Set(BuildContextKeys.BuildType, request.BuildType);
+            Debug.Log($"[{nameof(ABBuildBackend)}] 启动 AB DAG。BuildType={request.BuildType}, Package={request.PackageName}");
             BuildResult result = DAGScheduler.Execute(config, context, options);
             if (!result.Success)
             {
@@ -35,10 +35,13 @@ public class ABBuildBackend : IBuildBackend
                         $"AB 管线构建失败。已完成: {result.CompletedTasks}/{result.TotalTasks}", "ABBuildBackend")));
             }
 
-            return Task.FromResult(BuildBackendResult.Ok());
+            var artifacts = context.Get<List<ArtifactDigest>>(BuildContextKeys.RepositoryArtifacts);
+            Debug.Log($"[{nameof(ABBuildBackend)}] AB DAG 完成。Completed={result.CompletedTasks}/{result.TotalTasks}, RepositoryArtifacts={(artifacts != null ? artifacts.Count : 0)}");
+            return Task.FromResult(BuildBackendResult.Ok(artifacts));
         }
         catch (Exception ex)
         {
+            Debug.LogError($"[{nameof(ABBuildBackend)}] AB DAG 异常: {ex}");
             return Task.FromResult(BuildBackendResult.Fail(
                 BuildMessage.Error(BuildErrorCodes.BuildFailed, $"AB 管线异常: {ex.Message}", "ABBuildBackend")));
         }
@@ -57,7 +60,7 @@ public class ABBuildBackend : IBuildBackend
             if (taskResult == null || taskResult.Success)
                 continue;
 
-            Debug.LogWarning($"[ABBuildBackend] {taskResult.ErrorCode}: {taskResult.ErrorMessage}");
+            Debug.LogWarning($"[{nameof(ABBuildBackend)}] DAG Task 失败: Code={taskResult.ErrorCode}, Message={taskResult.ErrorMessage}");
         }
     }
 }

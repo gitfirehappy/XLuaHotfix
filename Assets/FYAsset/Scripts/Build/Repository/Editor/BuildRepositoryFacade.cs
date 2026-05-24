@@ -7,7 +7,7 @@ using UnityEngine;
 
 /// <summary>
 /// Build Repository 的入口门面。
-/// 统一管理 channelKey、git 元数据和 repository 调用，避免上层直接碰文件布局。
+/// 统一管理 channelKey、git metadata 和 repository 调用，避免上层直接碰 BuildData/Snapshots 文件布局。
 /// </summary>
 public static class BuildRepositoryFacade
 {
@@ -15,6 +15,7 @@ public static class BuildRepositoryFacade
 
     public static string GetChannelKey(VersionNumber version, BackendMode backendMode)
     {
+        // ChannelKey 同时隔离 BuildTarget、业务 channel 和 backend，避免 AA/AB HEAD 串线。
         string buildTarget = EditorUserBuildSettings.activeBuildTarget.ToString();
         string channelRoot = string.IsNullOrEmpty(version?.Channel)
             ? buildTarget
@@ -56,32 +57,17 @@ public static class BuildRepositoryFacade
         return Repository.GetHeadCommit(GetChannelKey(version, backendMode));
     }
 
-    public static ArtifactDelta DiffHead(string channelKey, IArtifactScanner scanner)
-    {
-        return Repository.DiffHead(channelKey, scanner?.Scan() ?? new List<ArtifactDigest>());
-    }
-
-    public static ArtifactDelta DiffHead(BuildPackageRequest request, IArtifactScanner scanner)
-    {
-        return DiffHead(GetChannelKey(request), scanner);
-    }
-
-    public static ArtifactDelta DiffCommits(string channelKey, VersionNumber fromVersion, VersionNumber toVersion)
-    {
-        return Repository.DiffCommits(channelKey, fromVersion, toVersion);
-    }
-
     public static List<RepositoryCommit> ListCommits(string channelKey)
     {
         return Repository.ListCommits(channelKey);
     }
 
-    public static void Commit(BuildPackageRequest request, IArtifactScanner scanner)
+    public static void Commit(BuildPackageRequest request, System.Collections.Generic.IReadOnlyList<ArtifactDigest> artifacts)
     {
-        Commit(request, scanner, null);
+        Commit(request, artifacts, null);
     }
 
-    public static void Commit(BuildPackageRequest request, IArtifactScanner scanner, string backendMode)
+    public static void Commit(BuildPackageRequest request, System.Collections.Generic.IReadOnlyList<ArtifactDigest> artifacts, string backendMode)
     {
         if (request == null)
             throw new ArgumentNullException(nameof(request));
@@ -98,9 +84,10 @@ public static class BuildRepositoryFacade
             GitCommitHash = gitInfo.commitHash,
             IsDirty = gitInfo.isDirty,
             PackageRootDir = request.OutputDir,
-            Artifacts = scanner?.Scan() ?? new List<ArtifactDigest>()
+            Artifacts = artifacts != null ? new List<ArtifactDigest>(artifacts) : new List<ArtifactDigest>()
         };
 
+        UnityEngine.Debug.Log($"[{nameof(BuildRepositoryFacade)}] 写入 Repository commit: Channel={commit.ChannelKey}, Version={commit.Version.GetFullVersionString()}, Backend={commit.BackendMode}, Artifacts={commit.Artifacts.Count}, Dirty={commit.IsDirty}");
         Repository.Commit(commit);
     }
 
@@ -134,7 +121,7 @@ public static class BuildRepositoryFacade
         }
         catch (Exception ex)
         {
-            UnityEngine.Debug.LogWarning($"[BuildRepositoryFacade] git metadata unavailable: {ex.Message}");
+            UnityEngine.Debug.LogWarning($"[{nameof(BuildRepositoryFacade)}] 读取 git metadata 失败，Repository commit 会继续写入但 GitCommitHash 为空。原因: {ex.Message}");
             return (string.Empty, false);
         }
     }

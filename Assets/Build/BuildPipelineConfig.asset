@@ -37,13 +37,22 @@ MonoBehaviour:
   - TaskName: TaskVerifyBuildResult
     Enabled: 1
     DependsOn: []
+  - TaskName: TaskScanABHotfixDiff
+    Enabled: 1
+    DependsOn:
+    - TaskVerifyBuildResult
   - TaskName: TaskOrganizeOutput
     Enabled: 1
-    DependsOn: []
+    DependsOn:
+    - TaskScanABHotfixDiff
   - TaskName: TaskWriteABPackageManifest
     Enabled: 1
     DependsOn: []
-  - TaskName: TaskExportLocalBuildData
+  - TaskName: TaskWritePackageIndex
     Enabled: 1
     DependsOn:
     - TaskWriteABPackageManifest
+  - TaskName: TaskExportLocalBuildData
+    Enabled: 1
+    DependsOn:
+    - TaskWritePackageIndex

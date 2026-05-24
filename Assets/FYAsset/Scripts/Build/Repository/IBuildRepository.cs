@@ -10,8 +10,6 @@ public interface IBuildRepository
     RepositoryStatus GetStatus(string channelKey);
     RepositoryCommit GetHeadCommit(string channelKey);
     List<RepositoryCommit> ListCommits(string channelKey);
-    ArtifactDelta DiffHead(string channelKey, IReadOnlyList<ArtifactDigest> artifacts);
-    ArtifactDelta DiffCommits(string channelKey, VersionNumber fromVersion, VersionNumber toVersion);
     void Commit(RepositoryCommit commit);
     PushReceipt Push(string channelKey, VersionNumber fromVersion, VersionNumber toVersion, IPushTarget target);
     List<PushHistoryEntry> ListPushHistory(string channelKey);

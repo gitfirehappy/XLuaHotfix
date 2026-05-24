@@ -5,12 +5,12 @@ using System.Text;
 /// <summary>
 /// 构建输出组织 Task — 按 BuildPackageRequest 输出最终 AB 包目录、拷贝 bundle、生成构建摘要、清理临时产物。
 /// 以 ABManifest.BundleEntries 为拷贝数据源（不依赖文件扩展名）。
-/// 在 TaskVerifyBuildResult 之后、TaskWriteABPackageManifest 之前执行。
+/// 在 TaskScanABHotfixDiff 之后、TaskWriteABPackageManifest 之前执行。
 /// </summary>
 public class TaskOrganizeOutput : IBuildTask
 {
     public string TaskName => "TaskOrganizeOutput";
-    public string[] DependsOn => new[] { "TaskVerifyBuildResult" };
+    public string[] DependsOn => new[] { "TaskScanABHotfixDiff" };
     public string[] ReadKeys => new[]
     {
         BuildContextKeys.BuildConfig,
