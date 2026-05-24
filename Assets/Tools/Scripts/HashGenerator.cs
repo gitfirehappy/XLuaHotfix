@@ -58,6 +58,39 @@ public static class HashGenerator
         return crc ^ 0xFFFFFFFFu;
     }
 
+    /// <summary>按给定顺序组合多个文件内容并计算 MD5。缺失文件以路径标记参与计算，保持结果确定。</summary>
+    public static string GenerateCompositeFileHash(params string[] filePaths)
+    {
+        using (var md5 = MD5.Create())
+        {
+            if (filePaths != null)
+            {
+                for (int i = 0; i < filePaths.Length; i++)
+                {
+                    AppendCompositeFile(md5, filePaths[i]);
+                }
+            }
+
+            md5.TransformFinalBlock(Array.Empty<byte>(), 0, 0);
+            return BitConverter.ToString(md5.Hash).Replace("-", "").ToLowerInvariant();
+        }
+    }
+
+    /// <summary>按给定顺序组合多个文件内容并计算 CRC32。缺失文件以路径标记参与计算，保持结果确定。</summary>
+    public static uint GenerateCompositeFileCRC(params string[] filePaths)
+    {
+        EnsureCrcTable();
+        uint crc = 0xFFFFFFFFu;
+        if (filePaths != null)
+        {
+            for (int i = 0; i < filePaths.Length; i++)
+            {
+                UpdateCompositeFileCRC(filePaths[i], ref crc);
+            }
+        }
+        return crc ^ 0xFFFFFFFFu;
+    }
+
     /// <summary>字符串 MD5 Hash（hex 字符串）</summary>
     public static string GenerateStringHash(string content)
     {
@@ -102,6 +135,64 @@ public static class HashGenerator
         return GenerateStringHash(sb.ToString());
     }
 #endif
+
+    #endregion
+
+    #region Composite Helpers
+
+    private static void AppendCompositeFile(HashAlgorithm algorithm, string filePath)
+    {
+        // 文件路径作为分隔标记参与 Hash，避免 A+B 与 AB 这类内容拼接歧义。
+        byte[] marker = Encoding.UTF8.GetBytes(filePath ?? string.Empty);
+        algorithm.TransformBlock(marker, 0, marker.Length, null, 0);
+
+        if (string.IsNullOrEmpty(filePath) || !File.Exists(filePath))
+        {
+            byte[] missing = Encoding.UTF8.GetBytes("<missing>");
+            algorithm.TransformBlock(missing, 0, missing.Length, null, 0);
+            return;
+        }
+
+        using (var stream = File.OpenRead(filePath))
+        {
+            byte[] buffer = new byte[81920];
+            int read;
+            while ((read = stream.Read(buffer, 0, buffer.Length)) > 0)
+            {
+                algorithm.TransformBlock(buffer, 0, read, null, 0);
+            }
+        }
+    }
+
+    private static void UpdateCompositeFileCRC(string filePath, ref uint crc)
+    {
+        // CRC 与 MD5 使用同一份组合语义：路径标记 + 文件内容，缺失文件也稳定参与计算。
+        byte[] marker = Encoding.UTF8.GetBytes(filePath ?? string.Empty);
+        UpdateCRC(marker, marker.Length, ref crc);
+
+        if (string.IsNullOrEmpty(filePath) || !File.Exists(filePath))
+        {
+            byte[] missing = Encoding.UTF8.GetBytes("<missing>");
+            UpdateCRC(missing, missing.Length, ref crc);
+            return;
+        }
+
+        using (var stream = File.OpenRead(filePath))
+        {
+            byte[] buffer = new byte[81920];
+            int read;
+            while ((read = stream.Read(buffer, 0, buffer.Length)) > 0)
+            {
+                UpdateCRC(buffer, read, ref crc);
+            }
+        }
+    }
+
+    private static void UpdateCRC(byte[] data, int length, ref uint crc)
+    {
+        for (int i = 0; i < length; i++)
+            crc = (crc >> 8) ^ CrcTable[(crc ^ data[i]) & 0xFF];
+    }
 
     #endregion
 

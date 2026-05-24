@@ -6,7 +6,8 @@ using UnityEngine;
 /// <summary>
 /// 构建编排入口。
 /// 统一管理版本号更新、后端路由（AB / AA）、包体产物组织和 PackageIndex 更新。
-/// 通过 legacy MenuItem 保留 Full Package / Hotfix Package / Confirm Release / Reset Groups 四个旧工具入口。
+/// 通过 legacy MenuItem 保留 Full Package / Hotfix Package / Reset Groups 四个旧工具入口。
+/// TODO： 后续删除独立按钮，全部由构建面板管理
 /// </summary>
 public static class BuildProjectManager
 {
@@ -76,22 +77,6 @@ public static class BuildProjectManager
     }
     
     /// <summary>
-    /// 确认发布上线 (Manual Trigger)
-    /// 将 Staged 快照转正为 Head，通常在热更包上传 CDN 后点击
-    /// </summary>
-    [MenuItem("Tools/Build/[Legacy] Confirm Release Hotfix",false, 3)]
-    public static void ConfirmReleaseHotfix()
-    {
-        if (FYAssetSettings.Instance.UseABBackend)
-        {
-            Debug.LogWarning("[BuildProjectManager] ConfirmReleaseHotfix 仅适用于 AA 构建链路，AB backend 下已跳过。");
-            return;
-        }
-
-        DifferentialProcessor.ConfirmRelease();
-    }
-
-    /// <summary>
     /// 重置分组 (Manual Trigger)
     /// 将位于 Hotfix 组的资源还原回它们原始的分组 (通常在打整包前，或者放弃本次热更时使用)
     /// </summary>
@@ -146,8 +131,7 @@ public static class BuildProjectManager
 
             UpdatePackageIndexFile(request);
 
-            if (buildType == BuildType.Full)
-                DifferentialProcessor.ReBuildSnapShots(version);
+            CommitBuildRepository(request, backendMode);
 
             Debug.Log($"[BuildProjectManager] 包体构建完毕: {request.OutputDir}");
             if (!Application.isBatchMode)
@@ -194,6 +178,33 @@ public static class BuildProjectManager
         // 生成 PackageIndex 内容（包含最新包体名）
         SerializationUtility.WriteToFile(request.PackageIndexPath, data);
         Debug.Log($"[BuildProjectManager] 更新 PackageIndex 包体名: {request.PackageName}，版本: {request.Version.GetFullVersionString()}");
+    }
+
+    private static void CommitBuildRepository(BuildPackageRequest request, BackendMode backendMode)
+    {
+        try
+        {
+            if (backendMode == BackendMode.AA)
+            {
+                var settings = UnityEditor.AddressableAssets.AddressableAssetSettingsDefaultObject.Settings;
+                var scanner = new AddressableSourceArtifactScanner(settings);
+                BuildRepositoryFacade.Commit(request, scanner);
+            }
+            else
+            {
+                var manifestPath = System.IO.Path.Combine(request.OutputDir, FYAssetSettings.MANIFEST_FILE_NAME);
+                if (!FileHelper.Exists(manifestPath))
+                    throw new InvalidOperationException($"AB manifest not found: {manifestPath}");
+
+                var manifest = SerializationUtility.ReadFromFile<ABManifest>(manifestPath);
+                var scanner = new AbBundleOutputArtifactScanner(manifest != null ? manifest.BundleEntries : null);
+                BuildRepositoryFacade.Commit(request, scanner, "AB");
+            }
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException($"Build repository commit failed: {ex.Message}", ex);
+        }
     }
 }
 #endif

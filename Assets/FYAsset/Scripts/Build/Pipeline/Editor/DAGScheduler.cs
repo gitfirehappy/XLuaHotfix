@@ -25,6 +25,18 @@ public static class DAGScheduler
     /// <summary>执行构建管线，并通过 options 上报每个 Task 的可视状态</summary>
     public static BuildResult Execute(BuildPipelineConfig config, BuildContext context, BuildExecutionOptions options)
     {
+        return Execute(config, context, options, null, null);
+    }
+
+    /// <summary>执行构建管线，并可在指定 Task 完成后停止。用于 Diff Preview 等只读预览流程。</summary>
+    public static BuildResult Execute(BuildPipelineConfig config, BuildContext context, BuildExecutionOptions options, string stopAfterTaskName)
+    {
+        return Execute(config, context, options, stopAfterTaskName, null);
+    }
+
+    /// <summary>执行构建管线，并可通过 whitelist 限制允许执行的 Task 集合。</summary>
+    public static BuildResult Execute(BuildPipelineConfig config, BuildContext context, BuildExecutionOptions options, string stopAfterTaskName, HashSet<string> taskWhitelist)
+    {
         if (config == null) throw new ArgumentNullException(nameof(config));
         if (context == null) throw new ArgumentNullException(nameof(context));
 
@@ -32,7 +44,7 @@ public static class DAGScheduler
         if (!validation.Success)
             return validation;
 
-        return ExecuteInternal(config, context, options);
+        return ExecuteInternal(config, context, options, stopAfterTaskName, taskWhitelist);
     }
 
     /// <summary>仅运行校验检查，不执行 Task</summary>
@@ -222,9 +234,11 @@ public static class DAGScheduler
 
     #region Execution
 
-    private static BuildResult ExecuteInternal(BuildPipelineConfig config, BuildContext context, BuildExecutionOptions options)
+    private static BuildResult ExecuteInternal(BuildPipelineConfig config, BuildContext context, BuildExecutionOptions options, string stopAfterTaskName, HashSet<string> taskWhitelist)
     {
-        var enabled = config.Tasks.Where(e => e.Enabled).ToList();
+        var enabled = config.Tasks
+            .Where(e => e.Enabled && (taskWhitelist == null || taskWhitelist.Contains(e.TaskName)))
+            .ToList();
         var instances = new Dictionary<string, IBuildTask>(StringComparer.Ordinal);
         foreach (var entry in enabled)
             instances[entry.TaskName] = BuildTaskResolver.CreateTask(entry.TaskName);
@@ -284,6 +298,13 @@ public static class DAGScheduler
                 if (taskResult.IsFatal && !taskResult.Success)
                 {
                     fatalAbort = true;
+                    break;
+                }
+
+                if (!string.IsNullOrEmpty(stopAfterTaskName)
+                    && string.Equals(taskName, stopAfterTaskName, StringComparison.Ordinal))
+                {
+                    remaining.Clear();
                     break;
                 }
 

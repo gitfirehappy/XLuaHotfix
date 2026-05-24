@@ -1,11 +1,14 @@
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
+using System.Collections.Generic;
+using System.IO;
 using UnityEngine;
 
 /// <summary>
 /// FYAsset 全局设置 ScriptableObject —— 统一承载可配置字段与编译期常量，替代 FYAssetConstants。
 /// Runtime 程序集，打包时包含在 build 中。
+/// TODO： 当前字段冗杂，需将构建字段单独提取到一个配置中
 /// </summary>
 public class FYAssetSettings : ScriptableObject
 {
@@ -31,7 +34,6 @@ public class FYAssetSettings : ScriptableObject
 
     [Header("AA Pipeline Paths")]
     public string LuaScriptsIndexPath = "Assets/Build/LuaScriptsIndex.asset";
-    public string SnapshotAssetPath = "Assets/Build/Snapshots.asset";
     public string BuildIndexJsonPath = "Assets/Build/Bootstrap/BuildIndex.json";
 
     [Header("New Pipeline Paths")]
@@ -41,6 +43,7 @@ public class FYAssetSettings : ScriptableObject
     public string CollectorSettingPath = "Assets/FYAsset/CollectorData/CollectorSetting.asset";
     public string PipelineConfigPath = "Assets/Build/BuildPipelineConfig.asset";
     public string AAPipelineConfigPath = "Assets/Build/AABuildPipelineConfig.asset";
+    public List<PushTargetConfig> PushTargets = new();
 
     // ═══ 纯编译期常量（static const） ═══
 
@@ -93,12 +96,33 @@ public class FYAssetSettings : ScriptableObject
 
         settings = CreateInstance<FYAssetSettings>();
         AssetDatabase.CreateAsset(settings, DEFAULT_ASSET_PATH);
+        EnsureDefaultPushTargets(settings);
         AssetDatabase.SaveAssets();
         return settings;
 #else
         return Resources.Load<FYAssetSettings>(RESOURCE_LOAD_PATH) ?? CreateInstance<FYAssetSettings>();
 #endif
     }
+
+#if UNITY_EDITOR
+    private static void EnsureDefaultPushTargets(FYAssetSettings settings)
+    {
+        if (settings == null)
+            return;
+        if (settings.PushTargets == null)
+            settings.PushTargets = new List<PushTargetConfig>();
+        if (settings.PushTargets.Count > 0)
+            return;
+
+        settings.PushTargets.Add(new PushTargetConfig
+        {
+            Id = "local",
+            Type = PushTargetType.LocalDirectory,
+            Path = Path.Combine(settings.BuildOutputRoot, "PushTargets", "local")
+        });
+        EditorUtility.SetDirty(settings);
+    }
+#endif
 }
 
 public enum ManifestOutputFormat

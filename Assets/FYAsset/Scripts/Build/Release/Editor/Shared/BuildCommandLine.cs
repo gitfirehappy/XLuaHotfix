@@ -12,7 +12,7 @@ using UnityEngine;
 ///   Unity.exe -batchmode -quit -projectPath "E:/unity/project/XLuaHotfix"
 ///             -executeMethod BuildCommandLine.Build -buildType full
 /// 附加参数：
-///   -confirmRelease  构建后自动执行 ConfirmRelease
+///   -target / -from / -to / -backend 由 BuildRepositoryCLI 使用
 /// </summary>
 public static class BuildCommandLine
 {
@@ -24,9 +24,7 @@ public static class BuildCommandLine
         var args = ParseCommandLineArgs();
 
         string buildType = GetArg(args, "-buildType", "hotfix");
-        bool confirmRelease = HasFlag(args, "-confirmRelease");
-
-        Debug.Log($"[BuildCommandLine] 启动 | buildType={buildType} confirmRelease={confirmRelease}");
+        Debug.Log($"[BuildCommandLine] 启动 | buildType={buildType}");
 
         try
         {
@@ -54,12 +52,6 @@ public static class BuildCommandLine
                     Debug.LogError($"[BuildCommandLine] 未知构建类型: {buildType}，支持: full / hotfix");
                     EditorApplication.Exit(1);
                     return;
-            }
-
-            if (confirmRelease)
-            {
-                BuildProjectManager.ConfirmReleaseHotfix();
-                Debug.Log("[BuildCommandLine] ConfirmRelease 已执行");
             }
 
             Debug.Log("[BuildCommandLine] 构建完成，exit 0");
@@ -103,9 +95,5 @@ public static class BuildCommandLine
             : defaultValue;
     }
 
-    private static bool HasFlag(Dictionary<string, string> args, string key)
-    {
-        return args.ContainsKey(key);
-    }
 }
 #endif

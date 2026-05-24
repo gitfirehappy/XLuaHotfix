@@ -15,7 +15,7 @@ public class SettingsPanel : IBuildPipelinePanel
     private VisualElement _root;
     private ScrollView _scrollView;
 
-    public string PanelName => "Settings";
+    public string PanelName => "设置";
 
     public void OnEnable(EditorWindow window)
     {
@@ -50,7 +50,7 @@ public class SettingsPanel : IBuildPipelinePanel
         _root.Unbind();
 
         VisualElement toolbar = BuildPipelineUI.Toolbar();
-        toolbar.Add(BuildPipelineUI.ToolbarButton("Reload", () =>
+        toolbar.Add(BuildPipelineUI.ToolbarButton("刷新", () =>
         {
             LoadSettings();
             Rebuild();
@@ -72,10 +72,11 @@ public class SettingsPanel : IBuildPipelinePanel
         DrawSection("Project", "ProjectName", "HotfixUrl");
         DrawSection("Backend", "UseABBackend");
         DrawSection("Hotfix", "MaxHotfixSizeBytes", "HotfixMaxRetryCount", "HotfixRetryBaseDelaySeconds");
-        DrawSection("Manifest Output", "ManifestOutputFormat");
+        DrawSection("Manifest", "ManifestOutputFormat");
         DrawSection("Version", "VersionDataBasePath");
-        DrawSection("AA Pipeline Paths", "LuaScriptsIndexPath", "SnapshotAssetPath", "BuildIndexJsonPath");
-        DrawSection("New Pipeline Paths", "BuildOutputRoot", "BuildPackagesFolderName", "CollectorDataFolder", "CollectorSettingPath", "PipelineConfigPath", "AAPipelineConfigPath");
+        DrawSection("AA Path", "LuaScriptsIndexPath", "BuildIndexJsonPath");
+        DrawSection("New Path", "BuildOutputRoot", "BuildPackagesFolderName", "CollectorDataFolder", "CollectorSettingPath", "PipelineConfigPath", "AAPipelineConfigPath");
+        DrawPushTargetsSection();
 
         SerializedProperty useAb = _so.FindProperty("UseABBackend");
         if (useAb != null)
@@ -117,7 +118,7 @@ public class SettingsPanel : IBuildPipelinePanel
     private void DrawNoSettings()
     {
         VisualElement panel = BuildPipelineUIToolkitPanel.CreateCenteredPanel(_root, 360f);
-        panel.Add(BuildPipelineUIToolkitPanel.CreateTitle("FYAssetSettings not found"));
+        panel.Add(BuildPipelineUIToolkitPanel.CreateTitle("未找到 FYAssetSettings"));
         panel.Add(BuildPipelineUIToolkitPanel.CreateBody(FYAssetSettings.DEFAULT_ASSET_PATH));
         panel.Add(new Button(() =>
         {
@@ -126,7 +127,7 @@ public class SettingsPanel : IBuildPipelinePanel
             Rebuild();
         })
         {
-            text = "Create FYAssetSettings"
+            text = "创建"
         });
     }
 
@@ -138,5 +139,20 @@ public class SettingsPanel : IBuildPipelinePanel
         _settings = AssetDatabase.LoadAssetAtPath<FYAssetSettings>(FYAssetSettings.DEFAULT_ASSET_PATH)
                     ?? Resources.Load<FYAssetSettings>("FYAssetSettings");
         _so = _settings != null ? new SerializedObject(_settings) : null;
+    }
+
+    private void DrawPushTargetsSection()
+    {
+        if (_settings == null)
+            return;
+
+        SerializedProperty list = _so.FindProperty("PushTargets");
+        if (list == null)
+            return;
+
+        VisualElement card = BuildPipelineUI.Card();
+        card.Add(BuildPipelineUI.Header("Push"));
+        card.Add(new PropertyField(list, "Targets"));
+        _scrollView.Add(card);
     }
 }

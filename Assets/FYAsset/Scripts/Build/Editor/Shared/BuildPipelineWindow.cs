@@ -48,10 +48,10 @@ public sealed class BuildPipelineWindow : EditorWindow
 
     private static readonly SidebarGroup[] Groups =
     {
-        new SidebarGroup { Label = "SETTINGS", StartIndex = 0, Count = 1, Collapsible = false },
-        new SidebarGroup { Label = "AA PIPELINE", StartIndex = 1, Count = 3, Collapsible = true },
-        new SidebarGroup { Label = "AB PIPELINE", StartIndex = 4, Count = 4, Collapsible = true },
-        new SidebarGroup { Label = "MANAGE", StartIndex = 8, Count = 1, Collapsible = false },
+        new SidebarGroup { Label = "设置", StartIndex = 0, Count = 1, Collapsible = false },
+        new SidebarGroup { Label = "AA", StartIndex = 1, Count = 3, Collapsible = true },
+        new SidebarGroup { Label = "AB", StartIndex = 4, Count = 4, Collapsible = true },
+        new SidebarGroup { Label = "管理", StartIndex = 7, Count = 3, Collapsible = false },
     };
 
     #endregion
@@ -62,7 +62,7 @@ public sealed class BuildPipelineWindow : EditorWindow
     private static void Open()
     {
         BuildPipelineWindow window = GetWindow<BuildPipelineWindow>();
-        window.titleContent = new GUIContent("Build Pipeline");
+        window.titleContent = new GUIContent("构建面板");
         window.minSize = new Vector2(800, 500);
         window.Show();
     }
@@ -360,9 +360,9 @@ public sealed class BuildPipelineWindow : EditorWindow
             _groupHeaders[groupIndex].text = prefix + group.Label;
 
             bool groupEnabled = true;
-            if (group.Label == "AB PIPELINE" && !useAB)
+            if (group.Label == "AB" && !useAB)
                 groupEnabled = false;
-            else if (group.Label == "AA PIPELINE" && useAB)
+            else if (group.Label == "AA" && useAB)
                 groupEnabled = false;
 
             for (int i = group.StartIndex; i < group.StartIndex + group.Count; i++)
@@ -388,14 +388,14 @@ public sealed class BuildPipelineWindow : EditorWindow
     {
         string activeGroup = GetGroupLabelByPanelIndex(_activePanelIndex);
         bool abEnabled = FYAssetSettings.Instance.UseABBackend;
-        bool isAbPanel = activeGroup == "AB PIPELINE";
-        bool isAAPanel = activeGroup == "AA PIPELINE";
+        bool isAbPanel = activeGroup == "AB";
+        bool isAAPanel = activeGroup == "AA";
         bool disabled = (isAbPanel && !abEnabled) || (isAAPanel && abEnabled);
 
         _disabledHint.style.display = disabled ? DisplayStyle.Flex : DisplayStyle.None;
         _disabledHintLabel.text = isAbPanel
-            ? "AB Backend is disabled. Enable UseABBackend in Settings to edit."
-            : "AA Pipeline is disabled while UseABBackend is enabled.";
+            ? "AB 已禁用。请在 Settings 打开 UseABBackend。"
+            : "UseABBackend 开启时，AA 只读。";
 
         if (_activePanelIndex >= 0 && _activePanelIndex < _panelContents.Length)
         {
@@ -423,6 +423,7 @@ public sealed class BuildPipelineWindow : EditorWindow
             new CollectorSettingPanel(),
             new CollectorPanel(),
             new PipelinePanel(),
+            new RepositoryStatusPanel(),
             new BuilderPanel(),
             new VersionPanel(),
         };

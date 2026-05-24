@@ -1,0 +1,74 @@
+using System;
+using System.Collections.Generic;
+
+/// <summary>
+/// Push 目标类型。
+/// 当前只允许 LocalDirectory；CDN 目标留给后续计划。
+/// </summary>
+public enum PushTargetType
+{
+    LocalDirectory = 0
+}
+
+/// <summary>
+/// Push 目标配置。
+/// 持久化在 FYAssetSettings 中，由 SettingsPanel 编辑。
+/// </summary>
+[Serializable]
+public sealed class PushTargetConfig
+{
+    public string Id;
+    public PushTargetType Type;
+    public string Path;
+}
+
+/// <summary>
+/// Push 操作负载。
+/// 由 repository 组装，PushTarget 只消费已算好的文件集合。
+/// </summary>
+[Serializable]
+public sealed class PushPayload
+{
+    public RepositoryCommit FromCommit;
+    public RepositoryCommit ToCommit;
+    public List<string> DeltaBundleFiles = new();
+    public string AbManifestPath;
+    public string PackageIndexPath;
+}
+
+/// <summary>
+/// Push 执行结果。
+/// </summary>
+[Serializable]
+public sealed class PushReceipt
+{
+    public bool Success;
+    public string TargetId;
+    public string TargetLocation;
+    public string PushedAtUtc;
+    public string FailureReason;
+}
+
+/// <summary>
+/// PushHistory.json 的条目。
+/// </summary>
+[Serializable]
+public sealed class PushHistoryEntry
+{
+    public string FromVersion;
+    public string ToVersion;
+    public string TargetId;
+    public string TargetLocation;
+    public string PushedAtUtc;
+    public int DeltaFileCount;
+}
+
+/// <summary>
+/// Push 目标抽象。
+/// 当前版本只提供本地目录实现。
+/// </summary>
+public interface IPushTarget
+{
+    string Id { get; }
+    PushReceipt Push(PushPayload payload);
+}
