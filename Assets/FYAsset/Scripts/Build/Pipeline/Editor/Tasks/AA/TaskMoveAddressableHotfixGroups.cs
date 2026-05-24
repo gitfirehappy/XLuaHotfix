@@ -1,4 +1,3 @@
-#if UNITY_EDITOR
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -9,34 +8,57 @@ using UnityEditor.AddressableAssets.Settings.GroupSchemas;
 using UnityEngine;
 
 /// <summary>
-/// AA legacy hotfix group 迁移容器。负责把变更资源移入 Hotfix group，并用 undo log 精确还原。
-/// TODO: 后续迁移为Task，构建热更包调用
+/// AA hotfix group move Task。把 diff 中 Added/Modified 资源移入 Hotfix group，并保留手动 Restore 能力。
 /// </summary>
-public static class LegacyAddressableHotfixGroups
+public class TaskMoveAddressableHotfixGroups : IBuildTask
 {
     private const string UndoLogPath = "Assets/FYAsset/Editor/Generated/HotfixGroupUndoLog.json";
+
+    public string TaskName => "TaskMoveAddressableHotfixGroups";
+    public string[] DependsOn => new[] { "TaskScanAddressableHotfixDiff" };
+    public string[] ReadKeys => new[]
+    {
+        BuildContextKeys.BuildType,
+        BuildContextKeys.ArtifactDelta
+    };
+    public string[] WriteKeys => new string[0];
 
     /// <summary>是否存在尚未 Restore 的 group 迁移记录。</summary>
     public static bool HasPendingMoves => FileHelper.Exists(UndoLogPath) && LoadUndoLog().Entries.Count > 0;
 
+    public BuildTaskResult Execute(BuildContext ctx)
+    {
+        var buildType = ctx.Require<BuildType>(BuildContextKeys.BuildType);
+        if (buildType != BuildType.Hotfix)
+            return BuildTaskResult.Ok(new List<string> { "[AA HOTFIX GROUP] Full build skipped" });
+
+        var delta = ctx.Require<ArtifactDelta>(BuildContextKeys.ArtifactDelta);
+        if (delta == null || delta.IsEmpty || (delta.Added.Count == 0 && delta.Modified.Count == 0))
+            return BuildTaskResult.Ok(new List<string> { "[AA HOTFIX GROUP] No changed assets to move" });
+
+        return Apply(delta)
+            ? BuildTaskResult.Ok(new List<string> { $"[AA HOTFIX GROUP] Moved={delta.Added.Count + delta.Modified.Count}" })
+            : BuildTaskResult.Fail(BuildErrorCodes.BuildFailed, "AA hotfix group move failed.", true);
+    }
+
     /// <summary>
     /// 将 Added + Modified 资源移入 Hotfix group。若 undo log 未清理，直接阻断，避免多轮迁移覆盖原始 group。
     /// </summary>
-    public static bool Apply(ArtifactDelta delta)
+    private static bool Apply(ArtifactDelta delta)
     {
         if (delta == null || (delta.Added.Count == 0 && delta.Modified.Count == 0))
             return true;
 
         if (HasPendingMoves)
         {
-            Debug.LogError("[LegacyAddressableHotfixGroups] Pending hotfix group moves exist. Run ResetGroupsToOriginal before preparing another hotfix.");
+            Debug.LogError("[TaskMoveAddressableHotfixGroups] Pending hotfix group moves exist. Run ResetGroupsToOriginal before preparing another hotfix.");
             return false;
         }
 
         var settings = AddressableAssetSettingsDefaultObject.Settings;
         if (settings == null)
         {
-            Debug.LogError("[LegacyAddressableHotfixGroups] AddressableAssetSettings is null.");
+            Debug.LogError("[TaskMoveAddressableHotfixGroups] AddressableAssetSettings is null.");
             return false;
         }
 
@@ -52,7 +74,7 @@ public static class LegacyAddressableHotfixGroups
         SaveUndoLog(undoLog);
         EditorUtility.SetDirty(settings);
         AssetDatabase.SaveAssets();
-        Debug.Log($"[LegacyAddressableHotfixGroups] Moved {undoLog.Entries.Count} asset(s) into {FYAssetSettings.HOTFIX_GROUP_NAME}.");
+        Debug.Log($"[TaskMoveAddressableHotfixGroups] Moved {undoLog.Entries.Count} asset(s) into {FYAssetSettings.HOTFIX_GROUP_NAME}.");
         return true;
     }
 
@@ -61,14 +83,14 @@ public static class LegacyAddressableHotfixGroups
     {
         if (!HasPendingMoves)
         {
-            Debug.Log("[LegacyAddressableHotfixGroups] No pending hotfix group moves to restore.");
+            Debug.Log("[TaskMoveAddressableHotfixGroups] No pending hotfix group moves to restore.");
             return;
         }
 
         var settings = AddressableAssetSettingsDefaultObject.Settings;
         if (settings == null)
         {
-            Debug.LogError("[LegacyAddressableHotfixGroups] AddressableAssetSettings is null.");
+            Debug.LogError("[TaskMoveAddressableHotfixGroups] AddressableAssetSettings is null.");
             return;
         }
 
@@ -83,7 +105,7 @@ public static class LegacyAddressableHotfixGroups
             var entry = settings.FindAssetEntry(item.Guid);
             if (entry == null)
             {
-                Debug.LogWarning($"[LegacyAddressableHotfixGroups] Asset entry not found while restoring: {item.Guid}");
+                Debug.LogWarning($"[TaskMoveAddressableHotfixGroups] Asset entry not found while restoring: {item.Guid}");
                 continue;
             }
 
@@ -94,12 +116,12 @@ public static class LegacyAddressableHotfixGroups
             if (targetGroup == null)
             {
                 targetGroup = settings.DefaultGroup;
-                Debug.LogWarning($"[LegacyAddressableHotfixGroups] Original group missing for {entry.address}. Restoring to default group.");
+                Debug.LogWarning($"[TaskMoveAddressableHotfixGroups] Original group missing for {entry.address}. Restoring to default group.");
             }
 
             if (targetGroup == null)
             {
-                Debug.LogWarning($"[LegacyAddressableHotfixGroups] No default group available for {entry.address}.");
+                Debug.LogWarning($"[TaskMoveAddressableHotfixGroups] No default group available for {entry.address}.");
                 continue;
             }
 
@@ -110,7 +132,7 @@ public static class LegacyAddressableHotfixGroups
         FileHelper.TryDelete(UndoLogPath);
         EditorUtility.SetDirty(settings);
         AssetDatabase.SaveAssets();
-        Debug.Log($"[LegacyAddressableHotfixGroups] Restored {restored} asset(s) from hotfix group.");
+        Debug.Log($"[TaskMoveAddressableHotfixGroups] Restored {restored} asset(s) from hotfix group.");
     }
 
     private static void MoveArtifacts(List<ArtifactDigest> artifacts, AddressableAssetSettings settings, AddressableAssetGroup hotfixGroup, HotfixGroupUndoLog undoLog)
@@ -124,7 +146,7 @@ public static class LegacyAddressableHotfixGroups
             var entry = settings.FindAssetEntry(artifact.Name);
             if (entry == null)
             {
-                Debug.LogWarning($"[LegacyAddressableHotfixGroups] Addressable entry not found for guid: {artifact.Name}");
+                Debug.LogWarning($"[TaskMoveAddressableHotfixGroups] Addressable entry not found for guid: {artifact.Name}");
                 continue;
             }
 
@@ -132,7 +154,6 @@ public static class LegacyAddressableHotfixGroups
             if (entry.parentGroup == hotfixGroup)
                 continue;
 
-            // 原始 group 必须在 MoveEntry 前记录，作为 Restore 的唯一权威来源。
             settings.MoveEntry(entry, hotfixGroup);
             undoLog.Entries.Add(new HotfixGroupUndoEntry
             {
@@ -169,7 +190,7 @@ public static class LegacyAddressableHotfixGroups
         }
         catch (Exception ex)
         {
-            Debug.LogWarning($"[LegacyAddressableHotfixGroups] Failed to read undo log: {ex.Message}");
+            Debug.LogWarning($"[TaskMoveAddressableHotfixGroups] Failed to read undo log: {ex.Message}");
             return new HotfixGroupUndoLog();
         }
     }
@@ -193,4 +214,3 @@ public static class LegacyAddressableHotfixGroups
         public string OriginalGroupName;
     }
 }
-#endif

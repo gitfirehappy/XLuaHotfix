@@ -8,7 +8,7 @@ using UnityEngine;
 
 /// <summary>
 /// Build Repository 命令行入口。
-/// 只暴露 status / diff / push / list-commits。
+/// 只暴露 status / diff / diff-head / push / list-commits。
 /// </summary>
 public static class BuildRepositoryCLI
 {
@@ -34,6 +34,28 @@ public static class BuildRepositoryCLI
         if (args.TryGetValue("-json", out string jsonPath) && !string.IsNullOrEmpty(jsonPath))
             FileHelper.WriteAllTextAtomic(jsonPath, SerializationUtility.SerializeToJson(delta, true));
         EditorApplication.Exit(0);
+    }
+
+    public static void DiffHead()
+    {
+        try
+        {
+            var args = ParseArgs();
+            if (GetBackend(args) != BackendMode.AA)
+                throw new InvalidOperationException("DiffHead scans current Addressables source and only supports AA backend.");
+
+            var version = LoadCurrentVersion();
+            var delta = DifferentialProcessor.ScanAddressableHotfixDiff(version);
+            WriteDelta(delta);
+            if (args.TryGetValue("-json", out string jsonPath) && !string.IsNullOrEmpty(jsonPath))
+                FileHelper.WriteAllTextAtomic(jsonPath, SerializationUtility.SerializeToJson(delta, true));
+            EditorApplication.Exit(0);
+        }
+        catch (Exception ex)
+        {
+            WriteLine($"DiffHead failed: {ex.Message}");
+            EditorApplication.Exit(1);
+        }
     }
 
     public static void Push()
@@ -89,6 +111,14 @@ public static class BuildRepositoryCLI
         if (string.IsNullOrEmpty(value))
             return null;
         return VersionNumber.Parse(value);
+    }
+
+    private static VersionNumber LoadCurrentVersion()
+    {
+        var versionData = AssetDatabase.LoadAssetAtPath<VersionDataBase>(FYAssetSettings.Instance.VersionDataBasePath);
+        if (versionData == null)
+            throw new InvalidOperationException($"VersionDataBase not found: {FYAssetSettings.Instance.VersionDataBasePath}");
+        return versionData.CurrentVersion;
     }
 
     private static Dictionary<string, string> ParseArgs()

@@ -4,27 +4,20 @@ using UnityEditor.AddressableAssets;
 using UnityEngine;
 
 /// <summary>
-/// 旧 AA hotfix 路径的 Snapshot 状态机。
-/// Diff 计算委托给 ArtifactDiffer，group 迁移委托给 LegacyAddressableHotfixGroups。
-/// TODO: 后续迁移进DAG管线，构建Task封装+diff方法调用
+/// AA hotfix source diff helper。
+/// 只负责扫描当前 Addressables source 并和 Repository HEAD 比较，不执行 group 迁移。
 /// </summary>
 public static class DifferentialProcessor
 {
-    public static bool PrepareHotfix(VersionNumber currentVersion)
+    public static ArtifactDelta ScanAddressableHotfixDiff(VersionNumber currentVersion)
     {
         var settings = AddressableAssetSettingsDefaultObject.Settings;
         if (settings == null)
-        {
-            Debug.LogError("[DiffProcessor] AddressableAssetSettings is null.");
-            return false;
-        }
+            throw new System.InvalidOperationException("AddressableAssetSettings is null.");
 
         var head = BuildRepositoryFacade.GetHeadCommit(currentVersion, BackendMode.AA);
         if (head == null)
-        {
-            Debug.LogError("[DiffProcessor] No repository HEAD found. Build a full AA package before building a hotfix.");
-            return false;
-        }
+            throw new System.InvalidOperationException("No repository HEAD found. Build a full AA package before building a hotfix.");
 
         var scanner = new AddressableSourceArtifactScanner(settings);
         var current = scanner.Scan();
@@ -32,24 +25,15 @@ public static class DifferentialProcessor
         var delta = ArtifactDiffer.Diff(baseline, current);
 
         LogDelta(delta);
-        if (delta.IsEmpty)
-        {
-            Debug.Log("[DiffProcessor] No artifact changes detected.");
-            return false;
-        }
-
-        // 只有 AA legacy 路径需要移动 Addressables group；Diff 模块本身保持无副作用。
-        if (!LegacyAddressableHotfixGroups.Apply(delta))
-            return false;
 
         Debug.Log(
-            $"[DiffProcessor] Hotfix diff prepared. Added={delta.Added.Count}, Modified={delta.Modified.Count}, Removed={delta.Removed.Count}.");
-        return true;
+            $"[DiffProcessor] Hotfix diff scanned. Added={delta.Added.Count}, Modified={delta.Modified.Count}, Removed={delta.Removed.Count}.");
+        return delta;
     }
 
     public static void RestoreOriginalGroups()
     {
-        LegacyAddressableHotfixGroups.Restore();
+        TaskMoveAddressableHotfixGroups.Restore();
     }
 
     public static void ConfirmRelease()

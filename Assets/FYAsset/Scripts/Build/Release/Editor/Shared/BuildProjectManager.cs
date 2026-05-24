@@ -108,13 +108,6 @@ public static class BuildProjectManager
             LuaScriptsIndexExporter.ExportData();
             AssetDatabase.Refresh();
 
-            if (buildType == BuildType.Hotfix && !FYAssetSettings.Instance.UseABBackend)
-            {
-                bool hasChanges = DifferentialProcessor.PrepareHotfix(version);
-                if (!hasChanges)
-                    Debug.LogWarning("[BuildProjectManager] 无资源变更，继续执行热更构建。");
-            }
-
             BackendMode backendMode = FYAssetSettings.Instance.UseABBackend ? BackendMode.ABManifest : BackendMode.AA;
             BuildPackageRequest request = BuildPackageRequest.Create(version, buildType, backendMode);
 

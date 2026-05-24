@@ -25,6 +25,8 @@ public static class BuildPipelineBackbone
     /// <summary>AA 主干 Task 顺序列表，同时定义 DAG 展示的 DisplayOrder。</summary>
     private static readonly string[] AATaskNames =
     {
+        "TaskScanAddressableHotfixDiff",
+        "TaskMoveAddressableHotfixGroups",
         "TaskBuildAddressablesContent",
         "TaskOrganizeAAOutput",
         "TaskWriteAAPackageManifest",
@@ -150,6 +152,8 @@ public static class BuildPipelineBackbone
     {
         return taskName switch
         {
+            "TaskMoveAddressableHotfixGroups" => new List<string> { "TaskScanAddressableHotfixDiff" },
+            "TaskBuildAddressablesContent" => new List<string> { "TaskMoveAddressableHotfixGroups" },
             "TaskExportLocalBuildData" => new List<string> { localBuildDataDependency },
             _ => new List<string>()
         };

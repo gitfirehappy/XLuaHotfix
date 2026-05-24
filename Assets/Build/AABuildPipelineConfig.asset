@@ -16,9 +16,17 @@ MonoBehaviour:
   BundleCompression: 0
   SequentialMode: 0
   Tasks:
-  - TaskName: TaskBuildAddressablesContent
+  - TaskName: TaskScanAddressableHotfixDiff
     Enabled: 1
     DependsOn: []
+  - TaskName: TaskMoveAddressableHotfixGroups
+    Enabled: 1
+    DependsOn:
+    - TaskScanAddressableHotfixDiff
+  - TaskName: TaskBuildAddressablesContent
+    Enabled: 1
+    DependsOn:
+    - TaskMoveAddressableHotfixGroups
   - TaskName: TaskOrganizeAAOutput
     Enabled: 1
     DependsOn: []

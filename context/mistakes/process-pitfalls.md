@@ -167,3 +167,15 @@
 **Root cause:** "Align with AB" was applied to the whole toolbar instead of the explicitly requested controls. AA uses Addressables-owned configuration, so AB `BuildPipelineConfig` options are not automatically valid for AA.
 
 **Prevention:** When a request names specific UI controls, implement only those controls. For partial parity requests, list excluded adjacent controls before editing and keep configuration surfaces tied to their real owner; AA Build Options require an explicit Addressables integration plan before being exposed.
+
+---
+
+## PP-18: Sidebar Group Range Overlap
+
+**Symptom:** A shared management panel appeared under both a backend-specific group and the Manage group; selecting it made the shell treat the panel as backend-owned and apply the wrong disabled state.
+
+**Root cause:** Panel group membership was encoded as `StartIndex` + `Count` ranges, and adding a new panel shifted the intended ownership boundary without an overlap audit.
+
+**Fix:** Keep backend-specific group ranges non-overlapping and place shared panels only in the Manage range.
+
+**Prevention:** After adding or reordering Editor shell panels, audit every group range for overlap and verify `GetGroupLabelByPanelIndex` returns the intended ownership for each panel.

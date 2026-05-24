@@ -24,11 +24,11 @@ Current source locations:
 
 | Data | Role |
 | --- | --- |
-| `BuildIndexData` | packaged build identity, version, and GUID used for major-version validation |
+| `BuildIndexData` | packaged build identity, version, backend mode, and GUID used for major-version validation |
 | `AAManifest` | version plus bundle hash/CRC/size mapping for AA hotfix comparison and fast bundle verification; also embeds the AA asset index lists; emitted as JSON and binary by default |
 | `ABManifest` | AB asset/bundle manifest; emitted as JSON and binary by default for package output and StreamingAssets bootstrap |
 | `LuaScriptsIndex` | Lua module name to Addressables key mapping; normal Addressable asset in the `LuaScripts` group; type lives with `XLuaLoader` |
-| `PackageIndex` | remote package pointer written to `PackageIndex.json` and used to locate the latest package root |
+| `PackageIndex` | remote package pointer written to `PackageIndex.json`; includes backend mode and latest package root |
 
 ## Build Repository And Differential System
 
@@ -37,6 +37,7 @@ The hotfix build flow relies on repository HEAD comparison instead of manual gro
 ### Core pieces
 
 - `FileBuildRepository` stores JSON commits under project-root `BuildData/Snapshots/{BuildTarget}[-Channel]/{AA|AB}/`
+- `VersionDataBase` is shared as the product-version source; AA and AB are build backend dimensions, not separate product version streams
 - `RepositoryHeadState` stores only `HeadVersion`; the object path is derived as `objects/{HeadVersion}.json`
 - `RepositoryCommit` stores version, channel key, backend mode, build target, package name, UTC creation time, artifact digests, `GitCommitHash`, `IsDirty`, and `PackageRootDir`
 - `ArtifactDigest` stores artifact name, hash, size, and CRC for diffing; it is JSON-serializable and is not binary-serialized
@@ -45,14 +46,17 @@ The hotfix build flow relies on repository HEAD comparison instead of manual gro
 - `AddressableSourceArtifactScanner` scans AA source assets before build at asset GUID granularity and computes shallow composite content identity from the main asset file plus its `.meta` file
 - `AbBundleOutputArtifactScanner` scans AB bundle outputs after build at bundle-name granularity; when created from `ABManifest.BundleEntries`, it reuses manifest hash/CRC/size without recomputing file hashes
 - `BuildProjectManager` commits AA source digests or AB output bundle digests after a successful build
+- `BuildProjectManager` writes `PackageIndex.BackendMode` as `AA` or `AB`
+- `TaskExportLocalBuildData` writes `BuildIndexData.BackendMode` as `AA` or `AB`
 - AA and AB repository spaces are isolated by the backend segment in the channel key
-- `DifferentialProcessor` compares current AA artifact digests against the repository HEAD commit
-- changed AA assets are reassigned into hotfix groups by `LegacyAddressableHotfixGroups`
-- `LegacyAddressableHotfixGroups` writes `Assets/FYAsset/Editor/Generated/HotfixGroupUndoLog.json` and blocks another hotfix prepare while pending moves exist
+- `DifferentialProcessor` exposes a read-only AA current-vs-HEAD diff scan helper; it does not move Addressables groups
+- `TaskScanAddressableHotfixDiff` runs before AA hotfix content build and writes `ArtifactDelta` into `BuildContext`
+- `TaskMoveAddressableHotfixGroups` moves Added and Modified AA assets into the Hotfix group, writes `Assets/FYAsset/Editor/Generated/HotfixGroupUndoLog.json`, blocks another move while pending moves exist, and keeps the manual restore path available
 - `ConfirmReleaseHotfix` is a placeholder for future release/push work and does not mutate repository HEAD
-- `BuildRepositoryCLI` exposes `Status`, `Diff`, `Push`, and `ListCommits`; `LocalDirectoryPushTarget` is the only Plan 3 push target implementation
+- `BuildRepositoryCLI` exposes `Status`, `Diff`, `DiffHead`, `Push`, and `ListCommits`; `DiffHead` scans current AA source against repository HEAD without moving groups
 - `PushHistory.json` is written by the repository at `BuildData/Snapshots/{BuildTarget}[-Channel]/{BackendMode}/PushHistory.json` after a successful push, while the target directory itself only receives delta bundles, `ABManifest.json`, and `PackageIndex.json`
 - `RepositoryStatusPanel` exposes repository status and read-only Diff Preview in the build pipeline window
+- `RepositoryStatusPanel` is a shared Manage panel entry and is not owned by the AA or AB sidebar groups
 - AB Diff Preview uses `DAGScheduler.Execute` with a stop-after task and whitelist, writes temporary outputs under `Temp/BuildRepositoryPreview/{guid}/`, and deletes that directory in a `finally` path
 
 ## Release Operations
@@ -70,9 +74,8 @@ The hotfix build flow relies on repository HEAD comparison instead of manual gro
 ### `BuildHotfix`
 
 - increments the patch version
-- relies on `DifferentialProcessor` to detect changed assets automatically
+- relies on the AA DAG diff/move tasks to detect changed assets automatically in AA mode
 - produces incremental content for hotfix distribution
-- uses `DifferentialProcessor.PrepareHotfix()` only on the AA backend path
 - routes actual package generation through the backend selected by `FYAssetSettings.Instance.UseABBackend`
 
 ### `ConfirmRelease`
@@ -94,6 +97,7 @@ The build entry point is now split with the same orchestration pattern already u
 
 - `BuildProjectManager` owns version increment, Lua index export, `BuildPackageRequest` creation, package naming, `PackageIndex.json` update, and repository commit
 - `BuildPackageRequest` is created before backend execution and carries version, build type, backend mode, package name, final package output directory, bundles directory, and `PackageIndex` path
+- Runtime hotfix rejects a remote `PackageIndex` if its backend mode is missing, invalid, or different from the current `FYAssetSettings.UseABBackend` mode
 - `BuildContextKeys.BuildType` is written by each backend before DAG execution so shared tail tasks can preserve full-build-only behavior without reading global state
 - `BuildCommandLine` still calls `BuildProjectManager.BuildFullPackage()` / `BuildHotfix()` and does not bypass backend selection
 - backend selection is centralized in `BuildProjectManager.CreateBackend()` using `FYAssetSettings.Instance.UseABBackend`
@@ -103,6 +107,7 @@ The build entry point is now split with the same orchestration pattern already u
 ### AA backend
 
 - `AABuildBackend` is a stateless DAG runner: it receives the shared `BuildPackageRequest`, writes it into `BuildContext`, loads `FYAssetSettings.Instance.AAPipelineConfigPath`, and runs the AA task graph through `DAGScheduler.Execute()`
+- `TaskScanAddressableHotfixDiff` and `TaskMoveAddressableHotfixGroups` are AA graph front tasks. Full builds skip them; hotfix builds continue when the diff is empty and move changed assets before `TaskBuildAddressablesContent`.
 - `TaskBuildAddressablesContent` owns Addressables-specific setup (`BuildRemoteCatalog`, `PackTogetherByLabel`, LuaScripts remote path fix), ServerData cleanup, and `AddressableAssetSettings.BuildPlayerContent`
 - `TaskOrganizeAAOutput` copies ServerData output into the request-owned final package directory and sets `BuildContextKeys.OutputPath` to `BuildPackageRequest.OutputDir`
 - `TaskWriteAAPackageManifest` exports `AAManifest.json` and `AAManifest.bin` by default by scanning `{PackageRoot}/bundles/*.bundle`
