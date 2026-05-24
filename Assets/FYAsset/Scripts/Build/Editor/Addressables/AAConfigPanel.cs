@@ -86,9 +86,9 @@ public sealed class AAConfigPanel : IBuildPipelinePanel
 
         VisualElement card = BuildPipelineUI.Card();
         card.Add(BuildPipelineUI.Header("AA Build Settings"));
-        card.Add(new PropertyField(_buildSettingsSo.FindProperty(nameof(AABuildSettings.BuildPipelineConfigPath))));
+        card.Add(BuildPipelineUI.PathField(_buildSettingsSo.FindProperty(nameof(AABuildSettings.BuildPipelineConfigPath)), "Pipeline Config Path", BuildPipelineUI.PathPickerMode.AssetFile));
         card.Add(new PropertyField(_buildSettingsSo.FindProperty(nameof(AABuildSettings.ManifestOutputFormat))));
-        card.Add(new PropertyField(_buildSettingsSo.FindProperty(nameof(AABuildSettings.MaxHotfixSizeBytes))));
+        card.Add(BuildPipelineUI.ByteSizeField(_buildSettingsSo.FindProperty(nameof(AABuildSettings.MaxHotfixSizeBytes)), "Max Hotfix Size"));
         card.Bind(_buildSettingsSo);
         _root.Add(card);
     }

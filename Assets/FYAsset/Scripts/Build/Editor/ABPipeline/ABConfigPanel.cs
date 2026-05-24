@@ -70,9 +70,9 @@ public sealed class ABConfigPanel : IBuildPipelinePanel
 
         VisualElement card = BuildPipelineUI.Card();
         card.Add(BuildPipelineUI.Header("AB Build Settings"));
-        card.Add(new PropertyField(_buildSettingsSo.FindProperty(nameof(ABBuildSettings.BuildPipelineConfigPath))));
+        card.Add(BuildPipelineUI.PathField(_buildSettingsSo.FindProperty(nameof(ABBuildSettings.BuildPipelineConfigPath)), "Pipeline Config Path", BuildPipelineUI.PathPickerMode.AssetFile));
         card.Add(new PropertyField(_buildSettingsSo.FindProperty(nameof(ABBuildSettings.ManifestOutputFormat))));
-        card.Add(new PropertyField(_buildSettingsSo.FindProperty(nameof(ABBuildSettings.MaxHotfixSizeBytes))));
+        card.Add(BuildPipelineUI.ByteSizeField(_buildSettingsSo.FindProperty(nameof(ABBuildSettings.MaxHotfixSizeBytes)), "Max Hotfix Size"));
         card.Bind(_buildSettingsSo);
         _root.Add(card);
     }

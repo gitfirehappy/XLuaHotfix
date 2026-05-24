@@ -71,7 +71,7 @@ public class SettingsPanel : IBuildPipelinePanel
         _scrollView.style.flexGrow = 1f;
 
         DrawSection(_so, "Global", "ProjectName", "HotfixUrl", "UseABBackend", "BuildPackagesFolderName", "HotfixMaxRetryCount", "HotfixRetryBaseDelaySeconds");
-        DrawSection(_sharedSo, "Shared Build", "BuildOutputRoot", "VersionDataBasePath", "BuildIndexJsonPath", "CollectorDataFolder", "CollectorSettingPath", "LuaScriptsIndexPath");
+        DrawSharedBuildSection();
         DrawPushTargetsSection();
 
         SerializedProperty useAb = _so.FindProperty("UseABBackend");
@@ -106,6 +106,20 @@ public class SettingsPanel : IBuildPipelinePanel
         }
 
         card.Bind(serializedObject);
+        _scrollView.Add(card);
+    }
+
+    private void DrawSharedBuildSection()
+    {
+        VisualElement card = BuildPipelineUI.Card();
+        card.Add(BuildPipelineUI.Header("Shared Build"));
+        card.Add(BuildPipelineUI.PathField(_sharedSo.FindProperty(nameof(SharedBuildSettings.BuildOutputRoot)), "Build Output Root", BuildPipelineUI.PathPickerMode.ProjectFolder));
+        card.Add(BuildPipelineUI.PathField(_sharedSo.FindProperty(nameof(SharedBuildSettings.VersionDataBasePath)), "VersionDataBase Path", BuildPipelineUI.PathPickerMode.AssetFile));
+        card.Add(BuildPipelineUI.PathField(_sharedSo.FindProperty(nameof(SharedBuildSettings.BuildIndexJsonPath)), "BuildIndex Json Path", BuildPipelineUI.PathPickerMode.AssetFile));
+        card.Add(BuildPipelineUI.PathField(_sharedSo.FindProperty(nameof(SharedBuildSettings.CollectorDataFolder)), "Collector Data Folder", BuildPipelineUI.PathPickerMode.AssetFolder));
+        card.Add(BuildPipelineUI.PathField(_sharedSo.FindProperty(nameof(SharedBuildSettings.CollectorSettingPath)), "CollectorSetting Path", BuildPipelineUI.PathPickerMode.AssetFile));
+        card.Add(BuildPipelineUI.PathField(_sharedSo.FindProperty(nameof(SharedBuildSettings.LuaScriptsIndexPath)), "LuaScriptsIndex Path", BuildPipelineUI.PathPickerMode.AssetFile));
+        card.Bind(_sharedSo);
         _scrollView.Add(card);
     }
 
@@ -151,8 +165,57 @@ public class SettingsPanel : IBuildPipelinePanel
 
         VisualElement card = BuildPipelineUI.Card();
         card.Add(BuildPipelineUI.Header("Push"));
-        card.Add(new PropertyField(list, "Targets"));
+        card.Add(BuildPipelineUI.SmallText("Targets"));
+
+        for (int i = 0; i < list.arraySize; i++)
+        {
+            SerializedProperty item = list.GetArrayElementAtIndex(i);
+            card.Add(DrawPushTargetItem(item, i));
+        }
+
+        card.Add(new Button(() =>
+        {
+            AddPushTarget(list);
+            _sharedSo.ApplyModifiedProperties();
+            EditorUtility.SetDirty(_sharedSettings);
+            AssetDatabase.SaveAssets();
+            Rebuild();
+        })
+        {
+            text = "+ Target"
+        });
         card.Bind(_sharedSo);
         _scrollView.Add(card);
+    }
+
+    private VisualElement DrawPushTargetItem(SerializedProperty item, int index)
+    {
+        var row = new VisualElement();
+        row.style.marginBottom = 4f;
+        row.style.paddingLeft = 4f;
+        row.style.paddingRight = 4f;
+        row.style.paddingTop = 4f;
+        row.style.paddingBottom = 4f;
+        row.style.borderTopWidth = 1f;
+        row.style.borderRightWidth = 1f;
+        row.style.borderBottomWidth = 1f;
+        row.style.borderLeftWidth = 1f;
+        row.style.borderTopColor = BuildPipelineUI.BorderColor;
+        row.style.borderRightColor = BuildPipelineUI.BorderColor;
+        row.style.borderBottomColor = BuildPipelineUI.BorderColor;
+        row.style.borderLeftColor = BuildPipelineUI.BorderColor;
+
+        row.Add(BuildPipelineUI.PathField(item.FindPropertyRelative("Path"), $"Target {index + 1} Path", BuildPipelineUI.PathPickerMode.ProjectFolder));
+        return row;
+    }
+
+    private static void AddPushTarget(SerializedProperty list)
+    {
+        int index = list.arraySize;
+        list.arraySize++;
+        SerializedProperty item = list.GetArrayElementAtIndex(index);
+        item.FindPropertyRelative("Id").stringValue = "target" + (index + 1);
+        item.FindPropertyRelative("Type").enumValueIndex = (int)PushTargetType.LocalDirectory;
+        item.FindPropertyRelative("Path").stringValue = string.Empty;
     }
 }

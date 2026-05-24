@@ -1,3 +1,4 @@
+using System;
 using UnityEditor;
 using UnityEditor.UIElements;
 using UnityEngine;
@@ -9,6 +10,16 @@ using System.IO;
 /// </summary>
 public static class BuildPipelineUI
 {
+    public enum PathPickerMode
+    {
+        AssetFile,
+        AssetFolder,
+        ProjectFile,
+        ProjectFolder
+    }
+
+    private static readonly string[] ByteUnits = { "B", "KB", "MB", "GB", "TB" };
+
     public static readonly Color WindowBackgroundColor = EditorGUIUtility.isProSkin
         ? new Color(0.235f, 0.235f, 0.235f)
         : new Color(0.78f, 0.78f, 0.78f);
@@ -168,6 +179,118 @@ public static class BuildPipelineUI
     }
 
     /// <summary>
+    /// 创建带路径选择按钮的字符串编辑行。
+    /// </summary>
+    public static VisualElement PathField(SerializedProperty property, string label, PathPickerMode mode, float labelWidth = 140f)
+    {
+        var row = new VisualElement();
+        row.style.flexDirection = FlexDirection.Row;
+        row.style.alignItems = Align.Center;
+        row.style.marginBottom = 2f;
+
+        if (!string.IsNullOrEmpty(label))
+        {
+            Label title = SmallText(label);
+            title.style.width = labelWidth;
+            title.style.flexShrink = 0f;
+            row.Add(title);
+        }
+
+        var field = new TextField
+        {
+            value = property?.stringValue ?? string.Empty,
+            isDelayed = true
+        };
+        field.style.flexGrow = 1f;
+        field.style.minWidth = 0f;
+        field.style.marginRight = 4f;
+        field.RegisterValueChangedCallback(evt => SetStringProperty(property, evt.newValue ?? string.Empty));
+        row.Add(field);
+
+        var button = new Button(() =>
+        {
+            string picked = BrowsePath(property, mode, label);
+            if (picked == null)
+                return;
+
+            SetStringProperty(property, picked);
+            field.SetValueWithoutNotify(picked);
+        })
+        {
+            text = "..."
+        };
+        button.style.width = 30f;
+        button.style.flexShrink = 0f;
+        row.Add(button);
+
+        return row;
+    }
+
+    /// <summary>
+    /// 创建带单位切换的字节大小编辑行。
+    /// </summary>
+    public static VisualElement ByteSizeField(SerializedProperty property, string label, float labelWidth = 140f)
+    {
+        var row = new VisualElement();
+        row.style.flexDirection = FlexDirection.Row;
+        row.style.alignItems = Align.Center;
+        row.style.marginBottom = 2f;
+
+        if (!string.IsNullOrEmpty(label))
+        {
+            Label title = SmallText(label);
+            title.style.width = labelWidth;
+            title.style.flexShrink = 0f;
+            row.Add(title);
+        }
+
+        long bytes = property != null ? property.longValue : 0L;
+        int unitIndex = GetBestByteUnitIndex(bytes);
+
+        var valueField = new FloatField
+        {
+            value = ConvertBytesToUnitValue(bytes, unitIndex),
+            isDelayed = true
+        };
+        valueField.style.width = 96f;
+        valueField.style.marginRight = 4f;
+        row.Add(valueField);
+
+        var unitField = new PopupField<string>(new System.Collections.Generic.List<string>(ByteUnits), unitIndex);
+        unitField.style.width = 72f;
+        unitField.style.marginRight = 6f;
+        row.Add(unitField);
+
+        Label exactLabel = SmallText(FormatBytes(bytes));
+        exactLabel.style.flexGrow = 1f;
+        row.Add(exactLabel);
+
+        unitField.RegisterValueChangedCallback(evt =>
+        {
+            int newUnitIndex = Array.IndexOf(ByteUnits, evt.newValue);
+            if (newUnitIndex < 0)
+                return;
+
+            float displayed = ConvertBytesToUnitValue(property?.longValue ?? 0L, newUnitIndex);
+            valueField.SetValueWithoutNotify(displayed);
+            exactLabel.text = FormatBytes(property?.longValue ?? 0L);
+        });
+
+        valueField.RegisterValueChangedCallback(evt =>
+        {
+            int newUnitIndex = Array.IndexOf(ByteUnits, unitField.value);
+            if (newUnitIndex < 0)
+                newUnitIndex = unitIndex;
+
+            long newBytes = ConvertUnitValueToBytes(evt.newValue, newUnitIndex);
+            SetLongProperty(property, newBytes);
+            exactLabel.text = FormatBytes(newBytes);
+        });
+
+        return row;
+    }
+
+    /// <summary>
     /// 按 asset 路径确保父目录存在，避免面板创建资产时硬编码目录。
     /// </summary>
     public static void EnsureAssetParentFolder(string assetPath)
@@ -188,5 +311,163 @@ public static class BuildPipelineUI
                 AssetDatabase.CreateFolder(current, parts[i]);
             current = next;
         }
+    }
+
+    private static void SetStringProperty(SerializedProperty property, string value)
+    {
+        if (property == null)
+            return;
+
+        var so = property.serializedObject;
+        Undo.RecordObject(so.targetObject, "Edit Path");
+        property.stringValue = value ?? string.Empty;
+        so.ApplyModifiedProperties();
+        EditorUtility.SetDirty(so.targetObject);
+        AssetDatabase.SaveAssets();
+    }
+
+    private static void SetLongProperty(SerializedProperty property, long value)
+    {
+        if (property == null)
+            return;
+
+        var so = property.serializedObject;
+        Undo.RecordObject(so.targetObject, "Edit Size");
+        property.longValue = Math.Max(0L, value);
+        so.ApplyModifiedProperties();
+        EditorUtility.SetDirty(so.targetObject);
+        AssetDatabase.SaveAssets();
+    }
+
+    private static string BrowsePath(SerializedProperty property, PathPickerMode mode, string label)
+    {
+        string current = property?.stringValue ?? string.Empty;
+        string title = string.IsNullOrEmpty(label) ? "Select Path" : "Select " + label;
+        string initial = GetInitialDirectory(current, mode);
+        string absolutePath = mode switch
+        {
+            PathPickerMode.AssetFile => EditorUtility.OpenFilePanel(title, initial, string.Empty),
+            PathPickerMode.AssetFolder => EditorUtility.OpenFolderPanel(title, initial, string.Empty),
+            PathPickerMode.ProjectFile => EditorUtility.OpenFilePanel(title, initial, string.Empty),
+            PathPickerMode.ProjectFolder => EditorUtility.OpenFolderPanel(title, initial, string.Empty),
+            _ => string.Empty
+        };
+
+        if (string.IsNullOrEmpty(absolutePath))
+            return null;
+
+        string normalizedAbsolute = absolutePath.Replace('\\', '/');
+        return mode switch
+        {
+            PathPickerMode.AssetFile or PathPickerMode.AssetFolder => TryToAssetPath(normalizedAbsolute),
+            PathPickerMode.ProjectFile or PathPickerMode.ProjectFolder => TryToProjectRelativePath(normalizedAbsolute),
+            _ => null
+        };
+    }
+
+    private static string GetInitialDirectory(string currentPath, PathPickerMode mode)
+    {
+        string root = GetProjectRoot();
+        if (string.IsNullOrWhiteSpace(currentPath))
+            return mode == PathPickerMode.AssetFile || mode == PathPickerMode.AssetFolder ? Application.dataPath : root;
+
+        string normalized = currentPath.Replace('\\', '/');
+        string absolute = mode == PathPickerMode.AssetFile || mode == PathPickerMode.AssetFolder
+            ? ToAbsoluteAssetPath(normalized)
+            : ToAbsoluteProjectPath(normalized);
+
+        if (string.IsNullOrEmpty(absolute))
+            return mode == PathPickerMode.AssetFile || mode == PathPickerMode.AssetFolder ? Application.dataPath : root;
+
+        return Directory.Exists(absolute) ? absolute : Path.GetDirectoryName(absolute) ?? root;
+    }
+
+    private static string GetProjectRoot()
+    {
+        return Directory.GetParent(Application.dataPath)?.FullName ?? Application.dataPath;
+    }
+
+    private static string ToAbsoluteAssetPath(string assetPath)
+    {
+        string normalized = assetPath?.Replace('\\', '/');
+        if (string.IsNullOrEmpty(normalized))
+            return string.Empty;
+
+        if (Path.IsPathRooted(normalized))
+            return normalized;
+
+        if (!normalized.StartsWith("Assets", StringComparison.Ordinal))
+            return string.Empty;
+
+        return Path.Combine(GetProjectRoot(), normalized);
+    }
+
+    private static string ToAbsoluteProjectPath(string path)
+    {
+        string normalized = path?.Replace('\\', '/');
+        if (string.IsNullOrEmpty(normalized))
+            return string.Empty;
+
+        if (Path.IsPathRooted(normalized))
+            return normalized;
+
+        return Path.Combine(GetProjectRoot(), normalized);
+    }
+
+    private static string TryToAssetPath(string absolutePath)
+    {
+        string dataPath = Application.dataPath.Replace('\\', '/');
+        if (absolutePath.Equals(dataPath, StringComparison.OrdinalIgnoreCase))
+            return "Assets";
+
+        if (!absolutePath.StartsWith(dataPath, StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        string relative = absolutePath.Substring(dataPath.Length).TrimStart('/');
+        return string.IsNullOrEmpty(relative) ? "Assets" : "Assets/" + relative;
+    }
+
+    private static string TryToProjectRelativePath(string absolutePath)
+    {
+        string projectRoot = GetProjectRoot().Replace('\\', '/');
+        if (absolutePath.Equals(projectRoot, StringComparison.OrdinalIgnoreCase))
+            return string.Empty;
+
+        if (!absolutePath.StartsWith(projectRoot, StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        return absolutePath.Substring(projectRoot.Length).TrimStart('/');
+    }
+
+    private static int GetBestByteUnitIndex(long bytes)
+    {
+        if (bytes <= 0)
+            return 0;
+
+        int unitIndex = 0;
+        double value = bytes;
+        while (unitIndex < ByteUnits.Length - 1 && value >= 1024d)
+        {
+            value /= 1024d;
+            unitIndex++;
+        }
+
+        return unitIndex;
+    }
+
+    private static float ConvertBytesToUnitValue(long bytes, int unitIndex)
+    {
+        return (float)(bytes / Math.Pow(1024d, Math.Max(0, unitIndex)));
+    }
+
+    private static long ConvertUnitValueToBytes(float value, int unitIndex)
+    {
+        double bytes = value * Math.Pow(1024d, Math.Max(0, unitIndex));
+        return (long)Math.Round(Math.Max(0d, bytes), MidpointRounding.AwayFromZero);
+    }
+
+    private static string FormatBytes(long bytes)
+    {
+        return bytes.ToString("N0") + " B";
     }
 }

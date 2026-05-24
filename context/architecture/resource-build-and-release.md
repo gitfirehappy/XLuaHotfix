@@ -154,6 +154,9 @@ The build entry point is now split with the same orchestration pattern already u
 - `ABBuildSettings` stores AB-specific build settings: `BuildPipelineConfigPath`, `ManifestOutputFormat`, and `MaxHotfixSizeBytes`.
 - `VersionDataBase` remains shared product-version data and is referenced from `SharedBuildSettings.VersionDataBasePath`; there are no AA/AB-specific version database paths.
 - The Settings panel edits `FYAssetSettings` first and `SharedBuildSettings` second. AA Config edits `AABuildSettings` first. AB Config edits `ABBuildSettings`; the AB Pipeline page owns the BuildGraph and build controls.
+- Build settings path fields now use chooser buttons in the Editor UI instead of raw string-only editing.
+- `MaxHotfixSizeBytes` in AA/AB build settings is edited through a byte-unit control that displays the exact byte count alongside a selectable unit.
+- `PushTargetConfig.Path` is edited through a chooser-based path field in the Settings panel.
 
 ## Build-Time Architectural Decisions
 

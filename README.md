@@ -57,8 +57,9 @@
   - `PackageIndex.json` 写入 `BackendMode`，值为 `AA` 或 `AB`
 - **BuildPipelineWindow / PipelinePanel**:
   - Settings 页首块编辑运行期/全局 `FYAssetSettings`，第二块编辑共享构建配置 `SharedBuildSettings`
-  - AA Config 页首块编辑 `AABuildSettings`，后续保留 Addressables 概览与 Groups 入口
-  - AB 配置页首块编辑 `ABBuildSettings`；AB Pipeline 的 Pipeline 页负责 BuildGraph DAG、Reload、Validate、构建选项、Build Mode 与 Build 入口
+  - Settings 里的构建路径字段带 `...` 选择按钮，`PushTargets.Path` 也可直接选择目录
+  - AA Config 页首块编辑 `AABuildSettings`，`BuildPipelineConfigPath` 可选文件，`MaxHotfixSizeBytes` 使用带单位的 byte 编辑器，后续保留 Addressables 概览与 Groups 入口
+  - AB 配置页首块编辑 `ABBuildSettings`，`BuildPipelineConfigPath` 可选文件，`MaxHotfixSizeBytes` 使用带单位的 byte 编辑器；AB Pipeline 的 Pipeline 页负责 BuildGraph DAG、Reload、Validate、构建选项、Build Mode 与 Build 入口
   - AA Pipeline 的 AA Build 页复用同一套 BuildGraph DAG、Reload、Validate、Build Mode 与 Build 入口，加载 `AABuildPipelineConfig.asset`；AA 不显示 Build Options，配置仍归 Addressables 自身配置体系
   - Pipeline Validate 会在触发后显示可关闭、可复制的底部明细栏；BuildGraph Task 节点右键支持打开对应 C# 源码
   - 构建入口复用 `BuildProjectManager` 的 Full/Hotfix 语义；DAGScheduler 执行事件会回显到节点状态

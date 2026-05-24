@@ -11,3 +11,4 @@
 [done] 2026-05-24 Created default build settings assets and removed migrated fields from Assets/Resources/FYAssetSettings.asset.
 [done] 2026-05-24 Verification — static grep confirmed removed FYAssetSettings migrated-field call sites; dotnet build XLuaHotfix.sln passed with 0 errors and existing System.Net.Http warnings.
 [done] 2026-05-24 Follow-up correction — added an independent AB Config sidebar panel for ABBuildSettings and kept AB Pipeline focused on BuildGraph/build controls.
+[done] 2026-05-24 UI polish — added chooser buttons for build-related path fields, byte-unit editing for AA/AB MaxHotfixSizeBytes, and a chooser-backed PushTargets path editor.
