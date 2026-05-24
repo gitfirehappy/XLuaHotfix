@@ -4,6 +4,7 @@
 > - `docs/` 面向人类开发者，使用中文，允许包含设计说明和重构方向。
 > - `context/` 面向 AI 协作，使用英文，只记录已验证的当前事实。
 > - 当前 AI 架构入口见 `context/architecture/INDEX.md`。
+> - 错误经验入口见 `context/mistakes/INDEX.md`。
 
 > 目前正在重构，详情见代码
 
@@ -28,14 +29,10 @@
 - **VersionDataBase**: 保持产品版本源，不按 AA/AB 拆分；AA/AB 作为构建后端维度写入 Repository channel、PackageIndex 和 BuildIndex
 - **构建配置资产**: `FYAssetSettings` 只保留运行期/全局配置；共享构建路径与 PushTargets 放在 `FYAssetSharedBuildSettings.asset`，AA/AB 后端构建参数分别放在 `FYAssetAABuildSettings.asset` / `FYAssetABBuildSettings.asset`
 - **ArtifactDigest / ArtifactDelta / ArtifactDiffer**: 统一的 artifact 差异模型与纯 diff 计算，AA 使用 asset GUID 粒度，AB 使用 bundle name 粒度
-- **AddressableSourceArtifactScanner**: AA pre-build scanner，基于主资源文件 + `.meta` 的组合 MD5/CRC 生成浅层内容指纹
-- **AbBundleOutputArtifactScanner**: AB post-build scanner，可直接复用 `ABManifest.BundleEntries` 中的 hash/CRC/size，也可独立扫描输出目录
-- **DifferentialProcessor**:
-  - 通过 artifact scanner 与 Repository HEAD commit 比对，找出 Added / Modified / Removed
-  - 提供只读 AA current-vs-HEAD diff scan，供 DAG Task 与 CLI/batch 调用
-  - 支持还原分组：热更组 → 原始组（整包发布前）
-- **TaskScanAddressableHotfixDiff / TaskMoveAddressableHotfixGroups**: AA Hotfix DAG 前置 Task；先扫描 diff，再把 Added + Modified 资源移入 Hotfix 组。无变更时继续构建；group move 记录 JSON undo log，若存在未还原迁移会阻断下一次移动并要求先 Reset/Restore
-- **BuildRepositoryCLI / PushTarget**: Repository CLI 提供 `Status`、`Diff`、`DiffHead`、`Push`、`ListCommits`；Plan 3 仅落地 `LocalDirectoryPushTarget`，push 只输出 delta bundles、`ABManifest.json` 和 `PackageIndex.json`，`PushHistory.json` 由 repository 侧写入
+- **TaskScanAddressableHotfixDiff / TaskScanABHotfixDiff**: AA / AB DAG 的 artifact 扫描与 diff 统一入口；Task 直接产出 `ArtifactDelta` 和 `RepositoryArtifacts`，仓库 commit 不再依赖独立 scanner 类
+- **TaskScanAddressableHotfixDiff / TaskMoveAddressableHotfixGroups**: AA Hotfix DAG 前置 Task；先扫描 current source vs Repository HEAD，再把 Added + Modified 资源移入 Hotfix 组。无变更时继续构建；group move 记录 JSON undo log，若存在未还原迁移会阻断下一次移动并要求先 Reset/Restore
+- **TaskScanABHotfixDiff**: AB DAG diff Task；在 bundle build 与校验完成后扫描 AB bundle 输出 vs Repository HEAD，写入 `ArtifactDelta`，standalone diff 在该 Task 后停止
+- **BuildRepositoryCLI / PushTarget**: Repository CLI 提供 `Status`、`Diff`、`Push`、`ListCommits`；`Diff` 通过 AA/AB DAG stop-after 执行 current-vs-HEAD 对比。Plan 3 仅落地 `LocalDirectoryPushTarget`，push 只输出 delta bundles、`ABManifest.json` 和 `PackageIndex.json`，`PushHistory.json` 由 repository 侧写入
 
 ### 1.3 构建流程
 
@@ -53,6 +50,7 @@
   - AA/AB manifest 输出格式和热更包大小阈值分别读取 `AABuildSettings` / `ABBuildSettings`
   - AA Hotfix 的 diff scan 与 Hotfix group move 已进入 `AABuildPipelineConfig.asset` 前置 Task，`BuildProjectManager` 不再直接准备 AA 热更分组
   - 整包构建的本地启动数据导出（BuildIndex + baseline 到 StreamingAssets）由 `TaskExportLocalBuildData` 挂在 AA/AB DAG 尾部执行并直接实现；Hotfix 构建在该 Task 内跳过
+  - `PackageIndex.json` 由 `TaskWritePackageIndex` 在 AA/AB 官方构建 DAG 中写入；Diff Preview 通过 stop-after 提前停止，不写 PackageIndex、HEAD 或 objects
   - 每次 AA/AB 构建成功后会自动写入 Build Repository commit；AA 与 AB HEAD 通过 backend segment 隔离
   - `PackageIndex.json` 写入 `BackendMode`，值为 `AA` 或 `AB`
 - **BuildPipelineWindow / PipelinePanel**:

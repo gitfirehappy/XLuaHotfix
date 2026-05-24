@@ -67,6 +67,8 @@ TaskA (WriteKeys: ["CollectedAssets"])     TaskB (ReadKeys: ["CollectedAssets"],
 - 批内按 TaskName 字母序确定执行顺序（确定性）
 - `SequentialMode = true` 时忽略批并发，逐 Task 串行执行
 - Fatal 错误立即中止所有后续批次
+- `stopAfterTaskName` 命中后提前停止，已执行 Task 产出的 `BuildContext` 数据可被调用方读取
+- `taskWhitelist` 可限制本次只执行指定 Task 集合，常用于 Diff Preview
 - `BuildContextKeys` 常量类存储标准 Key 名称
 
 ### BackendMode — 后端模式
@@ -146,9 +148,30 @@ BuildResult
 ├─ Success        (所有 Task 成功且无 Fatal 中止)
 ├─ TotalTasks     (Enabled=true 的 Task 总数)
 ├─ CompletedTasks (成功数)
-├─ SkippedTasks   (因前序 Fatal 跳过数)
+├─ SkippedTasks   (因 Fatal 或 stop-after 未执行的 Task 数)
 └─ TaskResults[]  (逐个 Task 结果，按执行顺序)
 ```
+
+---
+
+## 跳过与提前终止规则
+
+构建管线区分三类情况：Task 内部 no-op 跳过、DAG 级提前终止、错误中止。跳过必须保持数据不污染：只读预览不能写 `PackageIndex`、repository HEAD / objects 或正式输出目录；Task 内 no-op 只能返回成功，不能留下半成品状态。
+
+| 场景 | 机制 | 结果 |
+|------|------|------|
+| AA Diff Preview | DAG whitelist 只允许 `TaskScanAddressableHotfixDiff`，并在该 Task 后 stop-after | 只计算 `ArtifactDelta`，不移动 group、不构建、不写 PackageIndex、不提交 repository |
+| AB Diff Preview | DAG whitelist 允许 AB 构建到 `TaskScanABHotfixDiff`，并在该 Task 后 stop-after | 使用 `Temp/BuildRepositoryPreview/{guid}` 临时输出，finally 清理，不写正式 PackageIndex/HEAD/objects |
+| AA Full Build | `TaskScanAddressableHotfixDiff` 和 `TaskMoveAddressableHotfixGroups` 内按 `BuildType` 返回成功跳过 | Full 不做 hotfix diff/group move，但继续后续构建 |
+| Full Build 本地启动数据 | `TaskExportLocalBuildData` 只在 `BuildType.Full` 执行 | 写 `BuildIndex` 和 baseline 到 `StreamingAssets` |
+| Hotfix Build 本地启动数据 | `TaskExportLocalBuildData` 在 `BuildType.Hotfix` 返回成功跳过 | Hotfix 不覆盖整包启动数据 |
+| AA Hotfix 无差异 | diff Task 写空 `ArtifactDelta`，group move Task no-op 成功 | 继续构建，确认无变更流程仍正确 |
+| AB Hotfix 无差异 | `TaskScanABHotfixDiff` 返回成功并继续 | 后续 organize/manifest/PackageIndex 仍按官方构建执行 |
+| `PackageIndex` 写入 | `TaskWritePackageIndex` 在官方 Full/Hotfix DAG 中执行 | `PackageIndex` 是远端最新包指针，不是 Full-only 数据；Diff Preview 早停不会执行它 |
+| Fatal Task 失败 | `BuildTaskResult.Fail(..., fatal: true)` | 调度器停止后续 Task，剩余 Task 标记 Skipped |
+| DAG 校验失败 | Validate 阶段阻断 | 不执行任何 Task |
+| AA pending group move | `TaskMoveAddressableHotfixGroups` 检测 undo log 并 fatal fail | 要求先手动 reset，避免覆盖原始 group 归属 |
+| AB 手动 reset | `ResetGroupsToOriginal()` 检测 AB backend | 直接跳过并提示，因为 AB 没有 Addressables group move |
 
 ---
 

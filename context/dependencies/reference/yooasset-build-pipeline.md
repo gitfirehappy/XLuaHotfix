@@ -241,7 +241,7 @@ Abstract BuildParameters base class:
 - **Shared bundle logic**: EnableSharePackRule + SingleReferencedPackAlone handles the common 'shared texture' problem
 
 ### What to adapt:
-- **Our DifferentialProcessor**: YooAsset does full rebuilds; Our diff-based approach (Head/Staged snapshots) is more efficient for hotfix scenarios and should adapt the pipeline pattern without copying YooAsset output semantics directly
+- **Repository + DAG diff tasks**: YooAsset does full rebuilds; our current-vs-HEAD diff approach is more efficient for hotfix scenarios and should stay task-owned instead of copying YooAsset output semantics directly
 - **ABManifest format**: Our manifest format differs from YooAsset's PackageManifest. Export should generate our own runtime-facing format, not YooAsset's
 - **Encryption**: YooAsset provides encryption as a pipeline task; we can adopt the pattern but defer implementation
 - **Build pipeline type**: We likely only need one pipeline type (Builtin) initially; SBP/RawFile/EditorSimulate can be added later
