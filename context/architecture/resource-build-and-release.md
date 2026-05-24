@@ -153,7 +153,7 @@ The build entry point is now split with the same orchestration pattern already u
 - `AABuildSettings` stores AA-specific build settings: `BuildPipelineConfigPath`, `ManifestOutputFormat`, and `MaxHotfixSizeBytes`.
 - `ABBuildSettings` stores AB-specific build settings: `BuildPipelineConfigPath`, `ManifestOutputFormat`, and `MaxHotfixSizeBytes`.
 - `VersionDataBase` remains shared product-version data and is referenced from `SharedBuildSettings.VersionDataBasePath`; there are no AA/AB-specific version database paths.
-- The Settings panel edits `FYAssetSettings` first and `SharedBuildSettings` second. AA Config edits `AABuildSettings` first. AB Pipeline edits `ABBuildSettings` before the BuildGraph.
+- The Settings panel edits `FYAssetSettings` first and `SharedBuildSettings` second. AA Config edits `AABuildSettings` first. AB Config edits `ABBuildSettings`; the AB Pipeline page owns the BuildGraph and build controls.
 
 ## Build-Time Architectural Decisions
 

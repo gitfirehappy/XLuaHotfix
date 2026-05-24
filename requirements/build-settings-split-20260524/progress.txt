@@ -7,6 +7,7 @@
 [decision] 2026-05-24 Keep FYAssetSettings focused on runtime/global fields and keep VersionDataBase as shared product-version data.
 [done] 2026-05-24 Added SharedBuildSettings, AABuildSettings, ABBuildSettings, and FYAssetBuildSettingsProvider with default asset paths under Assets/Build.
 [done] 2026-05-24 Migrated build-time path, version, collector, repository push, pipeline config, manifest format, and hotfix size-limit reads from FYAssetSettings to the new build settings assets.
-[done] 2026-05-24 Updated Build Pipeline UI so Settings edits global FYAssetSettings plus SharedBuildSettings, AA Config edits AABuildSettings first, and AB Pipeline edits ABBuildSettings before BuildGraph.
+[done] 2026-05-24 Updated Build Pipeline UI so Settings edits global FYAssetSettings plus SharedBuildSettings, AA Config edits AABuildSettings first, and AB Config edits ABBuildSettings.
 [done] 2026-05-24 Created default build settings assets and removed migrated fields from Assets/Resources/FYAssetSettings.asset.
 [done] 2026-05-24 Verification — static grep confirmed removed FYAssetSettings migrated-field call sites; dotnet build XLuaHotfix.sln passed with 0 errors and existing System.Net.Http warnings.
+[done] 2026-05-24 Follow-up correction — added an independent AB Config sidebar panel for ABBuildSettings and kept AB Pipeline focused on BuildGraph/build controls.

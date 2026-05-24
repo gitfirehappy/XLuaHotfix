@@ -17,11 +17,9 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
     private readonly string _logPrefix;
     private readonly bool _showBuildOptions;
     private readonly bool _showBuildControls;
-    private readonly Func<ScriptableObject> _buildSettingsGetter;
 
     private BuildPipelineConfig _config;
     private SerializedObject _serializedConfig;
-    private SerializedObject _serializedBuildSettings;
     private EditorWindow _window;
     private VisualElement _root;
     private VisualElement _optionsRow;
@@ -48,8 +46,7 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
             BuildPipelineBackbone.CreateABTasks,
             "PipelinePanel",
             true,
-            true,
-            () => FYAssetBuildSettingsProvider.AB)
+            true)
     {
     }
 
@@ -59,8 +56,7 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
         Func<System.Collections.Generic.List<TaskEntry>> defaultTasksFactory,
         string logPrefix,
         bool showBuildOptions,
-        bool showBuildControls,
-        Func<ScriptableObject> buildSettingsGetter = null)
+        bool showBuildControls)
     {
         _panelName = panelName;
         _configPathGetter = configPathGetter;
@@ -68,7 +64,6 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
         _logPrefix = logPrefix;
         _showBuildOptions = showBuildOptions;
         _showBuildControls = showBuildControls;
-        _buildSettingsGetter = buildSettingsGetter;
     }
 
     public string PanelName => _panelName;
@@ -118,7 +113,6 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
         _validationDetailText = null;
 
         DrawTopBar();
-        DrawBuildSettings();
 
         if (_config == null)
         {
@@ -132,31 +126,6 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
         DrawGraph();
         DrawValidationDetailBar();
         RefreshStatus();
-    }
-
-    private void DrawBuildSettings()
-    {
-        ScriptableObject settings = _buildSettingsGetter?.Invoke();
-        _serializedBuildSettings = settings != null ? new SerializedObject(settings) : null;
-        if (_serializedBuildSettings == null)
-            return;
-
-        VisualElement card = BuildPipelineUI.Card();
-        card.Add(BuildPipelineUI.Header(settings.GetType().Name));
-
-        SerializedProperty iterator = _serializedBuildSettings.GetIterator();
-        bool enterChildren = true;
-        while (iterator.NextVisible(enterChildren))
-        {
-            enterChildren = false;
-            if (iterator.propertyPath == "m_Script")
-                continue;
-
-            card.Add(new PropertyField(iterator.Copy()));
-        }
-
-        card.Bind(_serializedBuildSettings);
-        _root.Add(card);
     }
 
     /// <summary>
