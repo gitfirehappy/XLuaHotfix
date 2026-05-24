@@ -1,0 +1,13 @@
+# backend-metadata-fix-20260524 Progress Log
+# Format: [type] YYYY-MM-DD description
+# Types: start / done / decision / blocked / next
+# Sign-off format: [done] YYYY-MM-DD plan-XX SIGNED OFF - {summary}
+
+[start] 2026-05-24 Started implementation from approved plan for Build Repository backend ownership and PackageIndex metadata correction.
+[decision] 2026-05-24 Keep VersionDataBase shared as product version; use AA/AB backend metadata in PackageIndex, BuildIndexData, and repository channel boundaries.
+[done] 2026-05-24 Implemented backend metadata fields on PackageIndex and BuildIndexData, with BuildProjectManager and TaskExportLocalBuildData writing AA/AB values.
+[done] 2026-05-24 Added HotfixManager backend guard so missing, invalid, or mismatched remote PackageIndex.BackendMode blocks hotfix before LatestPackage is used.
+[done] 2026-05-24 Fixed BuildPipelineWindow sidebar grouping so RepositoryStatusPanel belongs only to Manage and is not disabled by AA/AB group rules.
+[done] 2026-05-24 Synced README, human docs, architecture context, and mistake record for shared VersionDataBase, backend metadata, and sidebar group ownership.
+[done] 2026-05-24 Verification — static checks confirmed sidebar ranges, backend metadata writes, and HotfixManager backend validation before LatestPackage use; dotnet build XLuaHotfix.sln passed with 0 errors and existing System.Net.Http warnings.
+[next] 2026-05-24 Await developer sign-off after Unity Editor host-workflow verification of Repository sidebar placement and AA/AB backend metadata output.

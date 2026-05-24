@@ -11,3 +11,30 @@ public enum BackendMode
     /// <summary>基于 ABManifest 的新版后端，后续 Task 默认使用此模式</summary>
     ABManifest = 1
 }
+
+public static class BackendModeNames
+{
+    public const string AA = "AA";
+    public const string AB = "AB";
+
+    public static string FromBackendMode(BackendMode mode)
+    {
+        return mode == BackendMode.ABManifest ? AB : AA;
+    }
+
+    public static string FromSettings()
+    {
+        return FYAssetSettings.Instance.UseABBackend ? AB : AA;
+    }
+
+    public static bool IsValid(string value)
+    {
+        return string.Equals(value, AA, System.StringComparison.OrdinalIgnoreCase)
+               || string.Equals(value, AB, System.StringComparison.OrdinalIgnoreCase);
+    }
+
+    public static bool MatchesCurrentSettings(string value)
+    {
+        return string.Equals(value, FromSettings(), System.StringComparison.OrdinalIgnoreCase);
+    }
+}

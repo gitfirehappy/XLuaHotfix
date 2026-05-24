@@ -19,6 +19,9 @@ public class BuildIndexData
     /// <summary>目标平台</summary>
     public string Platform;
 
+    /// <summary>构建后端，值为 "AA" 或 "AB"</summary>
+    public string BackendMode;
+
     /// <summary>大版本号</summary>
     public VersionNumber Version;
 }

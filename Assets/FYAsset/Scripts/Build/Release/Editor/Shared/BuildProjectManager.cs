@@ -172,12 +172,13 @@ public static class BuildProjectManager
         var data = new PackageIndex
         {
             LatestPackage = request.PackageName,
-            LatestVersion = request.Version
+            LatestVersion = request.Version,
+            BackendMode = BackendModeNames.FromBackendMode(request.BackendMode)
         };
         
         // 生成 PackageIndex 内容（包含最新包体名）
         SerializationUtility.WriteToFile(request.PackageIndexPath, data);
-        Debug.Log($"[BuildProjectManager] 更新 PackageIndex 包体名: {request.PackageName}，版本: {request.Version.GetFullVersionString()}");
+        Debug.Log($"[BuildProjectManager] 更新 PackageIndex 包体名: {request.PackageName}，版本: {request.Version.GetFullVersionString()}，后端: {data.BackendMode}");
     }
 
     private static void CommitBuildRepository(BuildPackageRequest request, BackendMode backendMode)

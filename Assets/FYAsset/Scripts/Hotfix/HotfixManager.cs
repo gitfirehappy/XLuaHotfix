@@ -157,7 +157,13 @@ public static class HotfixManager
             try
             {
                 var localPackageIndex = SerializationUtility.ReadFromFile<PackageIndex>(localPackageIndexPath);
-                if (!string.IsNullOrEmpty(localPackageIndex.LatestPackage))
+                if (!IsPackageIndexBackendTrusted(localPackageIndex, out string localBackendError))
+                {
+                    Debug.LogWarning($"[HotfixManager] 本地 PackageIndex 后端不可信，忽略本地热更记录: {localBackendError}");
+                    localPackageIndex = null;
+                }
+
+                if (localPackageIndex != null && !string.IsNullOrEmpty(localPackageIndex.LatestPackage))
                 {
                     Debug.Log($"[HotfixManager] 发现本地热更记录，重定向至: {localPackageIndex.LatestPackage}");
                     buildIndex.BuildGUID = localPackageIndex.LatestPackage;
@@ -209,9 +215,16 @@ public static class HotfixManager
         }
 
         PackageIndex packageIndex = SerializationUtility.DeserializeJson<PackageIndex>(packageIndexJson);
-        if (string.IsNullOrEmpty(packageIndex.LatestPackage))
+        if (packageIndex == null || string.IsNullOrEmpty(packageIndex.LatestPackage))
         {
             ReportError("[HotfixManager] PackageIndex.json 无效，使用本地资源运行。");
+            CompleteStep();
+            return false;
+        }
+
+        if (!IsPackageIndexBackendTrusted(packageIndex, out string backendError))
+        {
+            ReportError($"[HotfixManager] PackageIndex.json 后端不匹配，停止热更。{backendError}");
             CompleteStep();
             return false;
         }
@@ -431,7 +444,8 @@ public static class HotfixManager
         var packageIndex = new PackageIndex
         {
             LatestPackage = ctx.TargetPackageName,
-            LatestVersion = remoteVersionInfo.Version
+            LatestVersion = remoteVersionInfo.Version,
+            BackendMode = BackendModeNames.FromSettings()
         };
 
         SerializationUtility.WriteToFile(packageIndexPath, packageIndex);
@@ -446,6 +460,37 @@ public static class HotfixManager
     #endregion
 
     #region 辅助方法
+
+    private static bool IsPackageIndexBackendTrusted(PackageIndex packageIndex, out string error)
+    {
+        string expectedBackend = BackendModeNames.FromSettings();
+        if (packageIndex == null)
+        {
+            error = "PackageIndex 为空。";
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(packageIndex.BackendMode))
+        {
+            error = $"缺少 BackendMode，当前客户端后端为 {expectedBackend}。";
+            return false;
+        }
+
+        if (!BackendModeNames.IsValid(packageIndex.BackendMode))
+        {
+            error = $"BackendMode 无效: {packageIndex.BackendMode}，当前客户端后端为 {expectedBackend}。";
+            return false;
+        }
+
+        if (!BackendModeNames.MatchesCurrentSettings(packageIndex.BackendMode))
+        {
+            error = $"远端后端为 {packageIndex.BackendMode}，当前客户端后端为 {expectedBackend}。";
+            return false;
+        }
+
+        error = string.Empty;
+        return true;
+    }
 
     /// <summary>
     /// 下载单个 Bundle 的辅助方法，包含并发控制和 CRC 校验

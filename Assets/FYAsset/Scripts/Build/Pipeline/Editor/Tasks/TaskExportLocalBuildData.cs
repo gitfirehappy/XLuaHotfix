@@ -82,6 +82,7 @@ public class TaskExportLocalBuildData : IBuildTask
             BuildTime = buildTime,
             IsDebug = EditorUserBuildSettings.development,
             Platform = EditorUserBuildSettings.activeBuildTarget.ToString(),
+            BackendMode = BackendModeNames.FromBackendMode(request.BackendMode),
             Version = request.Version
         };
 
@@ -94,7 +95,7 @@ public class TaskExportLocalBuildData : IBuildTask
 
         Debug.Log($"[TaskExportLocalBuildData] BuildIndex 已写入: {BuildIndexStreamingPath}");
         Debug.Log($"[TaskExportLocalBuildData] BuildIndex 副本已写入: {projectPath}");
-        Debug.Log($"[TaskExportLocalBuildData] Info - GUID: {buildIndexData.BuildGUID}, Ver: {request.Version.GetVersionString()}");
+        Debug.Log($"[TaskExportLocalBuildData] Info - GUID: {buildIndexData.BuildGUID}, Ver: {request.Version.GetVersionString()}, Backend: {buildIndexData.BackendMode}");
     }
 
     /// <summary>
