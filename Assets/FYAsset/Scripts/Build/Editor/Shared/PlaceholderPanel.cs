@@ -23,6 +23,6 @@ public sealed class PlaceholderPanel : BuildPipelineUIToolkitPanel
     protected override void BuildContent(VisualElement root)
     {
         VisualElement panel = CreateCenteredPanel(root);
-        panel.Add(CreateTitle(_panelName + " - coming soon"));
+        panel.Add(CreateTitle(_panelName + " - 预留"));
     }
 }

@@ -5,11 +5,11 @@ using UnityEngine.UIElements;
 /// </summary>
 public class BuilderPanel : BuildPipelineUIToolkitPanel
 {
-    public override string PanelName => "Builder";
+    public override string PanelName => "构建";
 
     protected override void BuildContent(VisualElement root)
     {
         VisualElement panel = CreateCenteredPanel(root);
-        panel.Add(CreateBody("Builder is reserved for build execution."));
+        panel.Add(CreateBody("构建入口预留。"));
     }
 }

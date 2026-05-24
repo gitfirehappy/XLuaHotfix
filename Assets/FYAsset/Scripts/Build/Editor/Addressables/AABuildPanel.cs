@@ -7,14 +7,14 @@ using UnityEngine.UIElements;
 public sealed class AABuildPanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
 {
     private readonly PipelinePanel _pipelinePanel = new PipelinePanel(
-        "AA Build",
+        "AA 构建",
         () => FYAssetSettings.Instance.AAPipelineConfigPath,
         BuildPipelineBackbone.CreateAATasks,
         "AABuildPanel",
         false,
         true);
 
-    public string PanelName => "AA Build";
+    public string PanelName => "AA 构建";
 
     public void OnEnable(EditorWindow window)
     {

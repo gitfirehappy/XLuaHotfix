@@ -38,7 +38,7 @@ public class CollectorSettingPanel : IBuildPipelinePanel
     private int _selectedGroupIndex = -1;
     private int _selectedCollectorIndex = -1;
 
-    public string PanelName => "Collect Config";
+    public string PanelName => "Collector";
 
     public void OnEnable(EditorWindow window)
     {
@@ -114,7 +114,7 @@ public class CollectorSettingPanel : IBuildPipelinePanel
     private void DrawToolbar()
     {
         VisualElement toolbar = BuildPipelineUI.Toolbar();
-        toolbar.Add(BuildPipelineUI.ToolbarButton("Reload", () =>
+        toolbar.Add(BuildPipelineUI.ToolbarButton("刷新", () =>
         {
             LoadSetting();
             Rebuild();
@@ -285,13 +285,13 @@ public class CollectorSettingPanel : IBuildPipelinePanel
         }
 
         VisualElement card = BuildPipelineUI.Card();
-        card.Add(BuildPipelineUI.Header("Package Overview"));
+        card.Add(BuildPipelineUI.Header("Package"));
         card.Add(new PropertyField(packageProp.FindPropertyRelative("PackageName"), "Package Name"));
 
         SerializedProperty sharePolicy = packageProp.FindPropertyRelative("SharePolicy");
         if (sharePolicy != null)
         {
-            card.Add(BuildPipelineUI.Header("Share Policy"));
+            card.Add(BuildPipelineUI.Header("Share"));
             card.Add(new PropertyField(sharePolicy.FindPropertyRelative("MinReferenceCount"), "Min Reference Count"));
             card.Add(new PropertyField(sharePolicy.FindPropertyRelative("MinAssetSizeBytes"), "Min Asset Size Bytes"));
             card.Add(new PropertyField(sharePolicy.FindPropertyRelative("NoSharePatterns"), "No Share Patterns"));
@@ -314,7 +314,7 @@ public class CollectorSettingPanel : IBuildPipelinePanel
         }
 
         VisualElement card = BuildPipelineUI.Card();
-        card.Add(BuildPipelineUI.Header("Group Overview"));
+        card.Add(BuildPipelineUI.Header("Group"));
         card.Add(new PropertyField(groupProp.FindPropertyRelative("GroupName"), "Group Name"));
         card.Add(new PropertyField(groupProp.FindPropertyRelative("Enabled"), "Enabled"));
         card.Add(new PropertyField(groupProp.FindPropertyRelative("Labels"), "Group Labels"));
@@ -338,17 +338,17 @@ public class CollectorSettingPanel : IBuildPipelinePanel
         {
             AddCollector(collectorsProp, false);
             SaveAndRebuild();
-        }) { text = "+ Folder" });
+        }) { text = "+ 目录" });
         header.Add(new Button(() =>
         {
             AddCollector(collectorsProp, true);
             SaveAndRebuild();
-        }) { text = "+ File" });
+        }) { text = "+ 文件" });
         card.Add(header);
 
         if (collectorsProp == null || collectorsProp.arraySize == 0)
         {
-            card.Add(BuildPipelineUI.SmallText("No collectors in this group."));
+            card.Add(BuildPipelineUI.SmallText("当前 Group 没有 Collector。"));
             parent.Add(card);
             return;
         }
@@ -517,8 +517,8 @@ public class CollectorSettingPanel : IBuildPipelinePanel
     private void DrawEmptyDetail(VisualElement parent)
     {
         VisualElement panel = BuildPipelineUIToolkitPanel.CreateCenteredPanel(parent, 320f);
-        panel.Add(BuildPipelineUIToolkitPanel.CreateTitle("Select a Package or Group"));
-        panel.Add(BuildPipelineUIToolkitPanel.CreateBody("Left side manages hierarchy. Right side edits package policy, group fields, and collectors."));
+        panel.Add(BuildPipelineUIToolkitPanel.CreateTitle("选中 Package 或 Group"));
+        panel.Add(BuildPipelineUIToolkitPanel.CreateBody("左侧看层级，右侧改 Package、Group 和 Collector。"));
     }
 
     /// <summary>
@@ -527,9 +527,9 @@ public class CollectorSettingPanel : IBuildPipelinePanel
     private void DrawNoSetting()
     {
         VisualElement panel = BuildPipelineUIToolkitPanel.CreateCenteredPanel(_root, 420f);
-        panel.Add(BuildPipelineUIToolkitPanel.CreateTitle("CollectorSetting not found"));
+        panel.Add(BuildPipelineUIToolkitPanel.CreateTitle("未找到 CollectorSetting"));
         panel.Add(BuildPipelineUIToolkitPanel.CreateBody(FYAssetSettings.Instance.CollectorSettingPath));
-        panel.Add(new Button(CreateSetting) { text = "Create CollectorSetting" });
+        panel.Add(new Button(CreateSetting) { text = "创建" });
     }
 
     /// <summary>
@@ -684,13 +684,13 @@ public class CollectorSettingPanel : IBuildPipelinePanel
     private void ShowPackageMenu(VisualElement target, int packageIndex)
     {
         var menu = new GenericMenu();
-        menu.AddItem(new GUIContent("Add Group"), false, () =>
+        menu.AddItem(new GUIContent("加 Group"), false, () =>
         {
             AddGroup(packageIndex);
             SaveAndRebuild();
         });
         menu.AddSeparator("");
-        menu.AddItem(new GUIContent("Delete Package"), false, () =>
+        menu.AddItem(new GUIContent("删 Package"), false, () =>
         {
             SelectPackage(packageIndex);
             DeleteCurrentSelection();
@@ -705,7 +705,7 @@ public class CollectorSettingPanel : IBuildPipelinePanel
     private void ShowGroupMenu(VisualElement target, int packageIndex, int groupIndex)
     {
         var menu = new GenericMenu();
-        menu.AddItem(new GUIContent("Delete Group"), false, () =>
+        menu.AddItem(new GUIContent("删 Group"), false, () =>
         {
             SelectGroup(packageIndex, groupIndex);
             DeleteCurrentSelection();

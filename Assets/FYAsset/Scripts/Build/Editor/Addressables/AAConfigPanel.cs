@@ -14,7 +14,7 @@ public sealed class AAConfigPanel : IBuildPipelinePanel
 {
     private VisualElement _root;
 
-    public string PanelName => "AA Config";
+    public string PanelName => "AA 配置";
 
     public void OnEnable(EditorWindow window)
     {
@@ -42,7 +42,7 @@ public sealed class AAConfigPanel : IBuildPipelinePanel
         _root.Clear();
 
         VisualElement toolbar = BuildPipelineUI.Toolbar();
-        toolbar.Add(BuildPipelineUI.ToolbarLabel("AA Pipeline"));
+        toolbar.Add(BuildPipelineUI.ToolbarLabel("AA"));
         toolbar.Add(BuildPipelineUI.Spacer());
         toolbar.Add(BuildPipelineUI.ToolbarLabel(FYAssetSettings.Instance.VersionDataBasePath));
         _root.Add(toolbar);
@@ -65,9 +65,9 @@ public sealed class AAConfigPanel : IBuildPipelinePanel
     {
         VisualElement card = BuildPipelineUI.Card();
         card.style.marginTop = 24f;
-        card.Add(BuildPipelineUI.Header("Addressables Settings not found"));
-        card.Add(BuildPipelineUI.SmallText("Create or select the default Addressables settings asset before opening Groups."));
-        card.Add(new Button(OpenGroupsWindow) { text = "Open Addressables Groups Window" });
+        card.Add(BuildPipelineUI.Header("未找到 Addressables Settings"));
+        card.Add(BuildPipelineUI.SmallText("先创建或选择默认 Addressables Settings。"));
+        card.Add(new Button(OpenGroupsWindow) { text = "Groups" });
         _root.Add(card);
     }
 
@@ -77,7 +77,7 @@ public sealed class AAConfigPanel : IBuildPipelinePanel
     private void DrawSummary(AddressableAssetSettings settings)
     {
         VisualElement card = BuildPipelineUI.Card();
-        card.Add(BuildPipelineUI.Header("Addressables Summary"));
+        card.Add(BuildPipelineUI.Header("Addressables 概览"));
 
         string profileName = settings.profileSettings != null
             ? settings.profileSettings.GetProfileName(settings.activeProfileId)
@@ -98,8 +98,8 @@ public sealed class AAConfigPanel : IBuildPipelinePanel
     private void DrawOpenGroupsButton()
     {
         VisualElement card = BuildPipelineUI.Card();
-        card.Add(BuildPipelineUI.Header("Groups Window"));
-        card.Add(new Button(OpenGroupsWindow) { text = "Open Addressables Groups Window" });
+        card.Add(BuildPipelineUI.Header("Groups"));
+        card.Add(new Button(OpenGroupsWindow) { text = "Groups" });
         _root.Add(card);
     }
 
@@ -126,14 +126,14 @@ public sealed class AAConfigPanel : IBuildPipelinePanel
         Type windowType = typeof(AddressableAssetSettings).Assembly.GetType("UnityEditor.AddressableAssets.GUI.AddressableAssetsWindow");
         if (windowType == null)
         {
-            Debug.LogWarning("[AAConfigPanel] Addressables Groups window type not found.");
+            Debug.LogWarning("[AAConfigPanel] 未找到 Addressables Groups 窗口类型。");
             return;
         }
 
         MethodInfo initMethod = windowType.GetMethod("Init", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
         if (initMethod == null)
         {
-            Debug.LogWarning("[AAConfigPanel] Addressables Groups window Init method not found.");
+            Debug.LogWarning("[AAConfigPanel] 未找到 Addressables Groups 窗口 Init 方法。");
             return;
         }
 

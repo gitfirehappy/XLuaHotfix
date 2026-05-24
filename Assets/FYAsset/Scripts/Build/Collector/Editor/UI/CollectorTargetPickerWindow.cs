@@ -26,7 +26,7 @@ public sealed class CollectorTargetPickerWindow : EditorWindow
     public static void Show(string[] assetPaths, Action onApplied)
     {
         CollectorTargetPickerWindow window = CreateInstance<CollectorTargetPickerWindow>();
-        window.titleContent = new GUIContent("Add To Collector Group");
+        window.titleContent = new GUIContent("加入 Group");
         window.minSize = new Vector2(320f, 220f);
         window._assetPaths = assetPaths ?? Array.Empty<string>();
         window._onApplied = onApplied;
@@ -50,11 +50,11 @@ public sealed class CollectorTargetPickerWindow : EditorWindow
         rootVisualElement.style.paddingTop = 8f;
         rootVisualElement.style.paddingBottom = 8f;
 
-        rootVisualElement.Add(BuildPipelineUI.Header("Add To Collector Group"));
+        rootVisualElement.Add(BuildPipelineUI.Header("加入 Group"));
 
         if (_setting == null || _setting.Packages == null || _setting.Packages.Count == 0)
         {
-            rootVisualElement.Add(BuildPipelineUI.SmallText("CollectorSetting is missing or has no Package configured."));
+            rootVisualElement.Add(BuildPipelineUI.SmallText("CollectorSetting 缺失或未配置 Package。"));
             return;
         }
 
@@ -72,7 +72,7 @@ public sealed class CollectorTargetPickerWindow : EditorWindow
         string[] groupNames = GetGroupNames(_selectedPackageIndex);
         if (groupNames.Length == 0)
         {
-            rootVisualElement.Add(BuildPipelineUI.SmallText("Selected Package has no Group. Create one in CollectorSettingPanel first."));
+            rootVisualElement.Add(BuildPipelineUI.SmallText("选中的 Package 没有 Group。先到 CollectorSettingPanel 新建。"));
             return;
         }
 
@@ -81,7 +81,7 @@ public sealed class CollectorTargetPickerWindow : EditorWindow
         groupPopup.RegisterValueChangedCallback(evt => _selectedGroupIndex = Array.IndexOf(groupNames, evt.newValue));
         rootVisualElement.Add(groupPopup);
 
-        var collectorType = new PopupField<string>("Collector Type", ManualCollectorTypeNames, _collectorType.ToString());
+        var collectorType = new PopupField<string>("Type", ManualCollectorTypeNames, _collectorType.ToString());
         collectorType.RegisterValueChangedCallback(evt =>
         {
             if (Enum.TryParse(evt.newValue, out ECollectorType parsed) && parsed != ECollectorType.Implicit)
@@ -101,8 +101,8 @@ public sealed class CollectorTargetPickerWindow : EditorWindow
         footer.style.flexDirection = FlexDirection.Row;
         footer.style.justifyContent = Justify.FlexEnd;
         footer.style.marginTop = 8f;
-        footer.Add(new Button(Close) { text = "Cancel" });
-        footer.Add(new Button(ApplySelection) { text = "Add" });
+        footer.Add(new Button(Close) { text = "取消" });
+        footer.Add(new Button(ApplySelection) { text = "加" });
         rootVisualElement.Add(footer);
     }
 

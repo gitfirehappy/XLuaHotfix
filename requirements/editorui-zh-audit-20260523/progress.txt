@@ -1,0 +1,10 @@
+# editorui-zh-audit-20260523 Progress Log
+# Format: [type] YYYY-MM-DD description
+# Types: start / done / decision / blocked / next
+# Sign-off format: [done] YYYY-MM-DD plan-XX SIGNED OFF - {summary}
+
+[start] 2026-05-23 Created requirement brief and started full audit of Editor GUI + debug text coverage.
+[decision] 2026-05-23 Scope fixed to FYAsset only; technical nouns stay English; buttons use short Chinese to avoid overflow.
+[done] 2026-05-23 Replaced main FYAsset Editor GUI text on BuildPipelineWindow, SettingsPanel, AAConfigPanel, AAReportPanel, AABuildPanel, PipelinePanel, CollectorSettingPanel, CollectorPanel, CollectorTargetPickerWindow, VersionPanel, BuilderPanel, PlaceholderPanel, and RepositoryStatusPanel.
+[decision] 2026-05-23 Self-check still shows remaining FYAsset Editor/debug English strings outside the edited surfaces, mainly in repository/build backend logs and some context labels.
+[next] 2026-05-23 Continue with a second pass if required, or stop here and confirm the current partial audit scope.

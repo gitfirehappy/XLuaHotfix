@@ -138,17 +138,17 @@ public sealed class CollectorPanel : IBuildPipelinePanel
         }, 140f);
         toolbar.Add(_groupPopup);
 
-        toolbar.Add(BuildPipelineUI.ToolbarButton("+ Folder", () =>
+        toolbar.Add(BuildPipelineUI.ToolbarButton("+ 目录", () =>
         {
             AddCollector(false);
             SaveAndRebuild();
         }, 72f));
-        toolbar.Add(BuildPipelineUI.ToolbarButton("+ File", () =>
+        toolbar.Add(BuildPipelineUI.ToolbarButton("+ 文件", () =>
         {
             AddCollector(true);
             SaveAndRebuild();
         }, 60f));
-        toolbar.Add(BuildPipelineUI.ToolbarButton("- Remove", () =>
+        toolbar.Add(BuildPipelineUI.ToolbarButton("- 删", () =>
         {
             RemoveSelectedCollector();
             SaveAndRebuild();
@@ -165,17 +165,17 @@ public sealed class CollectorPanel : IBuildPipelinePanel
         toolbar.Add(_searchField);
 
         toolbar.Add(BuildPipelineUI.Spacer());
-        toolbar.Add(BuildPipelineUI.ToolbarButton("Reload", () =>
+        toolbar.Add(BuildPipelineUI.ToolbarButton("刷新", () =>
         {
             LoadSetting();
             Rebuild();
         }, 54f));
-        toolbar.Add(BuildPipelineUI.ToolbarButton("Re-Validate", () =>
+        toolbar.Add(BuildPipelineUI.ToolbarButton("重验", () =>
         {
             _validationMessages = CollectorSettingValidator.Validate(_setting);
             BuildBottomContent();
         }, 84f));
-        toolbar.Add(BuildPipelineUI.ToolbarButton("Run Scan", RunScan, 64f));
+        toolbar.Add(BuildPipelineUI.ToolbarButton("扫描", RunScan, 52f));
         _root.Add(toolbar);
     }
 
@@ -243,7 +243,7 @@ public sealed class CollectorPanel : IBuildPipelinePanel
         SerializedProperty collectorsProp = GetCurrentCollectorsProperty();
         if (collectorsProp == null || collectorsProp.arraySize == 0)
         {
-            _tableScroll.Add(BuildPipelineUI.SmallText("No collectors in current group."));
+            _tableScroll.Add(BuildPipelineUI.SmallText("当前 Group 没有 Collector。"));
             _tablePane.Add(_tableScroll);
             return;
         }
@@ -270,8 +270,8 @@ public sealed class CollectorPanel : IBuildPipelinePanel
         header.style.paddingRight = 6f;
         header.style.paddingTop = 4f;
         header.style.paddingBottom = 4f;
-        header.Add(BuildPipelineUI.SmallText("Path Type        Collect Path"));
-        header.Add(BuildPipelineUI.SmallText("Type             Payload          Addr         Pack         Filter       Group"));
+        header.Add(BuildPipelineUI.SmallText("Path Type  Collect Path"));
+        header.Add(BuildPipelineUI.SmallText("Type  Payload  Addr  Pack  Filter  Group"));
         return header;
     }
 
@@ -335,18 +335,18 @@ public sealed class CollectorPanel : IBuildPipelinePanel
         SerializedProperty collectorProp = GetSelectedCollectorProperty();
         if (collectorProp == null)
         {
-            _detailScroll.Add(BuildPipelineUI.Header("Select a collector row"));
-            _detailScroll.Add(BuildPipelineUI.SmallText("Use the table on the left to change the current collector. Details for labels and ignore patterns appear here."));
+            _detailScroll.Add(BuildPipelineUI.Header("选中一行 Collector"));
+            _detailScroll.Add(BuildPipelineUI.SmallText("左侧改当前 Collector，Labels 和 IgnorePatterns 细节在这里。"));
             return;
         }
 
-        _detailScroll.Add(BuildPipelineUI.Header("Collector Detail"));
+        _detailScroll.Add(BuildPipelineUI.Header("Collector"));
         _detailScroll.Add(new PropertyField(collectorProp.FindPropertyRelative("CollectPathType"), "Path Type"));
         _detailScroll.Add(new PropertyField(collectorProp.FindPropertyRelative("CollectPath"), "Collect Path"));
-        AddLabeledCollectorTypePopup(_detailScroll, "Collector Type", collectorProp.FindPropertyRelative("CollectorType"));
+        AddLabeledCollectorTypePopup(_detailScroll, "Type", collectorProp.FindPropertyRelative("CollectorType"));
         _detailScroll.Add(new PropertyField(collectorProp.FindPropertyRelative("ForcePayloadKind"), "Payload"));
         _detailScroll.Add(BuildPipelineUI.Header("Rules"));
-        AddLabeledRulePopup(_detailScroll, "Address", collectorProp.FindPropertyRelative("AddressRuleName"), RuleDropdownHelper.GetAddressRuleNames());
+        AddLabeledRulePopup(_detailScroll, "Addr", collectorProp.FindPropertyRelative("AddressRuleName"), RuleDropdownHelper.GetAddressRuleNames());
         AddLabeledRulePopup(_detailScroll, "Pack", collectorProp.FindPropertyRelative("PackRuleName"), RuleDropdownHelper.GetPackRuleNames());
         AddLabeledRulePopup(_detailScroll, "Filter", collectorProp.FindPropertyRelative("FilterRuleName"), RuleDropdownHelper.GetFilterRuleNames());
         AddLabeledRulePopup(_detailScroll, "Group", collectorProp.FindPropertyRelative("GroupRuleName"), RuleDropdownHelper.GetGroupRuleNames());
@@ -384,12 +384,12 @@ public sealed class CollectorPanel : IBuildPipelinePanel
 
         _bottomPane.Clear();
         VisualElement tabs = BuildPipelineUI.Toolbar();
-        tabs.Add(BuildPipelineUI.ToolbarButton("Validation", () =>
+        tabs.Add(BuildPipelineUI.ToolbarButton("校验", () =>
         {
             _bottomMode = BottomMode.Validation;
             BuildBottomContent();
         }));
-        tabs.Add(BuildPipelineUI.ToolbarButton("Scan Preview", () =>
+        tabs.Add(BuildPipelineUI.ToolbarButton("预览", () =>
         {
             _bottomMode = BottomMode.ScanPreview;
             BuildBottomContent();
@@ -415,7 +415,7 @@ public sealed class CollectorPanel : IBuildPipelinePanel
     {
         if (_validationMessages == null || _validationMessages.Count == 0)
         {
-            parent.Add(BuildPipelineUI.SmallText("No validation messages."));
+            parent.Add(BuildPipelineUI.SmallText("没有校验信息。"));
             return;
         }
 
@@ -436,13 +436,13 @@ public sealed class CollectorPanel : IBuildPipelinePanel
     {
         if (_isScanning)
         {
-            parent.Add(BuildPipelineUI.SmallText("Scanning..."));
+            parent.Add(BuildPipelineUI.SmallText("扫描中..."));
             return;
         }
 
         if (_lastScanResult == null)
         {
-            parent.Add(BuildPipelineUI.SmallText("No scan executed."));
+            parent.Add(BuildPipelineUI.SmallText("尚未扫描。"));
             return;
         }
 
@@ -451,7 +451,7 @@ public sealed class CollectorPanel : IBuildPipelinePanel
 
         if (assetCount == 0)
         {
-            parent.Add(BuildPipelineUI.SmallText("No assets collected."));
+            parent.Add(BuildPipelineUI.SmallText("没有收集到资源。"));
             return;
         }
 
@@ -831,9 +831,9 @@ public sealed class CollectorPanel : IBuildPipelinePanel
     private void DrawNoSetting()
     {
         VisualElement panel = BuildPipelineUIToolkitPanel.CreateCenteredPanel(_root, 420f);
-        panel.Add(BuildPipelineUIToolkitPanel.CreateTitle("CollectorSetting not found"));
+        panel.Add(BuildPipelineUIToolkitPanel.CreateTitle("未找到 CollectorSetting"));
         panel.Add(BuildPipelineUIToolkitPanel.CreateBody(FYAssetSettings.Instance.CollectorSettingPath));
-        panel.Add(new Button(CreateCollectorSetting) { text = "Create CollectorSetting" });
+        panel.Add(new Button(CreateCollectorSetting) { text = "创建" });
     }
 
     /// <summary>

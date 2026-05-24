@@ -134,23 +134,23 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
     private void DrawTopBar()
     {
         VisualElement toolbar = BuildPipelineUI.Toolbar();
-        toolbar.Add(BuildPipelineUI.ToolbarButton("Reload", () =>
+        toolbar.Add(BuildPipelineUI.ToolbarButton("刷新", () =>
         {
             LoadConfig();
             Rebuild();
         }, 60f));
-        toolbar.Add(BuildPipelineUI.ToolbarButton("Validate", HandleValidate, 70f));
+        toolbar.Add(BuildPipelineUI.ToolbarButton("校验", HandleValidate, 54f));
 
         if (_showBuildControls)
         {
-            toolbar.Add(BuildPipelineUI.ToolbarLabel("Build Mode"));
+            toolbar.Add(BuildPipelineUI.ToolbarLabel("Mode"));
 
             _buildModeField = new EnumField(_buildMode);
             _buildModeField.style.width = 84f;
             _buildModeField.RegisterValueChangedCallback(evt => _buildMode = (BuildType)evt.newValue);
             toolbar.Add(_buildModeField);
 
-            toolbar.Add(BuildPipelineUI.ToolbarButton("Build", HandleBuild, 56f));
+            toolbar.Add(BuildPipelineUI.ToolbarButton("构建", HandleBuild, 56f));
         }
         else
         {
@@ -159,7 +159,7 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
 
         toolbar.Add(BuildPipelineUI.Spacer());
 
-        _taskStatusLabel = BuildPipelineUI.ToolbarLabel("0/0 tasks enabled");
+        _taskStatusLabel = BuildPipelineUI.ToolbarLabel("0/0 任务");
         _taskStatusLabel.style.width = 120f;
         toolbar.Add(_taskStatusLabel);
 
@@ -185,7 +185,7 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
         _optionsRow.style.paddingTop = 4f;
         _optionsRow.style.paddingBottom = 4f;
 
-        Label label = BuildPipelineUI.Header("Build Options");
+        Label label = BuildPipelineUI.Header("Build");
         label.style.width = 96f;
         label.style.marginBottom = 0f;
         _optionsRow.Add(label);
@@ -246,13 +246,13 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
         _validationDetailPane.style.backgroundColor = BuildPipelineUI.CardBackgroundColor;
 
         VisualElement toolbar = BuildPipelineUI.Toolbar();
-        toolbar.Add(BuildPipelineUI.ToolbarLabel("Validation Details"));
+        toolbar.Add(BuildPipelineUI.ToolbarLabel("校验详情"));
         toolbar.Add(BuildPipelineUI.Spacer());
-        toolbar.Add(BuildPipelineUI.ToolbarButton("Copy", () =>
+        toolbar.Add(BuildPipelineUI.ToolbarButton("复制", () =>
         {
             EditorGUIUtility.systemCopyBuffer = _validationDetail ?? string.Empty;
         }, 48f));
-        toolbar.Add(BuildPipelineUI.ToolbarButton("Close", () =>
+        toolbar.Add(BuildPipelineUI.ToolbarButton("关闭", () =>
         {
             _validationDetailVisible = false;
             Rebuild();
@@ -306,8 +306,8 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
         catch (Exception ex)
         {
             Debug.LogError($"[{_logPrefix}] 构建前校验失败: {ex}");
-            SetValidationText("Validation error", Color.red);
-            ShowValidationDetail($"Validation exception before build:{Environment.NewLine}{ex}");
+            SetValidationText("校验失败", Color.red);
+            ShowValidationDetail($"构建前校验异常:{Environment.NewLine}{ex}");
             return;
         }
 
@@ -318,7 +318,7 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
         }
 
         _isBuildRunning = true;
-        SetValidationText("Build running...", new Color(1f, 0.85f, 0.3f));
+            SetValidationText("构建中", new Color(1f, 0.85f, 0.3f));
         _graphView?.ResetExecutionStatuses();
         _graphView?.SetBuildRunning(true);
         SetRunningEnabled(false);
@@ -335,14 +335,14 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
             else
                 BuildProjectManager.BuildHotfix(options);
 
-            SetValidationText(BuildProjectManager.LastBuildSuccess ? "Build complete" : "Build failed",
+            SetValidationText(BuildProjectManager.LastBuildSuccess ? "构建完成" : "构建失败",
                 BuildProjectManager.LastBuildSuccess ? new Color(0.3f, 1f, 0.3f) : Color.red);
         }
         catch (Exception ex)
         {
             Debug.LogError($"[{_logPrefix}] 构建失败: {ex}");
-            SetValidationText("Build exception", Color.red);
-            ShowValidationDetail($"Build exception:{Environment.NewLine}{ex}");
+            SetValidationText("构建异常", Color.red);
+            ShowValidationDetail($"构建异常:{Environment.NewLine}{ex}");
         }
         finally
         {
@@ -359,8 +359,8 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
     {
         if (_config == null)
         {
-            SetValidationText("Validation error", Color.red);
-            ShowValidationDetail("Validation error: BuildPipelineConfig is null.");
+            SetValidationText("校验失败", Color.red);
+            ShowValidationDetail("校验失败：BuildPipelineConfig 为空。");
             return;
         }
 
@@ -371,7 +371,7 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
         catch (Exception ex)
         {
             Debug.LogError($"[{_logPrefix}] 校验失败: {ex.Message}");
-            SetValidationText("Validation error", Color.red);
+            SetValidationText("校验失败", Color.red);
             ShowValidationDetail($"Validation exception:{Environment.NewLine}{ex}");
         }
     }
@@ -403,15 +403,15 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
     {
         if (result == null)
         {
-            SetValidationText("Validation error", Color.red);
-            ShowValidationDetail("Validation error: DAGScheduler returned null result.");
+            SetValidationText("校验失败", Color.red);
+            ShowValidationDetail("校验失败：DAGScheduler 返回空结果。");
             return;
         }
 
         if (result.Success)
         {
             int warnings = result.TaskResults?.FindAll(r => !r.Success).Count ?? 0;
-            SetValidationText(warnings > 0 ? $"{warnings} warning(s)" : $"{result.TotalTasks} tasks OK",
+            SetValidationText(warnings > 0 ? $"{warnings} 警告" : $"{result.TotalTasks} 任务通过",
                 warnings > 0 ? new Color(1f, 0.85f, 0.3f) : new Color(0.3f, 1f, 0.3f));
             ShowValidationDetail(BuildValidationDetail(result));
             return;
@@ -425,7 +425,7 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
         }
         else
         {
-            SetValidationText("Validation failed", Color.red);
+            SetValidationText("校验失败", Color.red);
         }
 
         ShowValidationDetail(BuildValidationDetail(result));
@@ -467,7 +467,7 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
             return "Validation result: null";
 
         var builder = new StringBuilder();
-        builder.AppendLine(result.Success ? "Validation passed." : "Validation failed.");
+        builder.AppendLine(result.Success ? "校验通过。" : "校验失败。");
         builder.AppendLine($"TotalTasks: {result.TotalTasks}");
         builder.AppendLine($"CompletedTasks: {result.CompletedTasks}");
         builder.AppendLine($"SkippedTasks: {result.SkippedTasks}");
@@ -488,8 +488,8 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
 
             builder.Append(i + 1)
                 .Append(". ")
-                .Append(taskResult.Success ? "OK" : "ISSUE")
-                .Append(taskResult.IsFatal ? " Fatal" : " NonFatal");
+                .Append(taskResult.Success ? "通过" : "问题")
+                .Append(taskResult.IsFatal ? " 严重" : " 非严重");
 
             if (!string.IsNullOrEmpty(taskResult.ErrorCode))
                 builder.Append(" [").Append(taskResult.ErrorCode).Append(']');
@@ -502,7 +502,7 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
                 continue;
 
             for (int warningIndex = 0; warningIndex < taskResult.Warnings.Count; warningIndex++)
-                builder.AppendLine("   Warning: " + taskResult.Warnings[warningIndex]);
+                builder.AppendLine("   警告: " + taskResult.Warnings[warningIndex]);
         }
 
         return builder.ToString();
@@ -524,10 +524,10 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
     private void DrawNoConfig()
     {
         VisualElement panel = BuildPipelineUIToolkitPanel.CreateCenteredPanel(_root, 460f);
-        panel.Add(BuildPipelineUIToolkitPanel.CreateBody("No BuildPipelineConfig found at " + GetConfigPath()));
+        panel.Add(BuildPipelineUIToolkitPanel.CreateBody("未找到 BuildPipelineConfig: " + GetConfigPath()));
         panel.Add(new Button(CreateConfig)
         {
-            text = "Create BuildPipelineConfig"
+            text = "创建"
         });
     }
 
