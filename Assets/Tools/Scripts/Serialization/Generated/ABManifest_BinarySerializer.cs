@@ -29,14 +29,14 @@ public static class ABManifest_BinarySerializer
 
     public static void WriteWithHeader(BinaryWriter writer, object obj)
     {
-        BinaryHeader.WriteHeader(writer, BinarySerializerInitializer.ABManifestMagic, 1, 0);
+        BinaryHeader.WriteHeader(writer, 1094864198u, 1, 0);
         Write(writer, obj);
     }
 
     public static object ReadWithHeader(BinaryReader reader)
     {
         var header = BinaryHeader.ReadHeader(reader);
-        if (header.Magic != BinarySerializerInitializer.ABManifestMagic) throw new InvalidDataException("Magic mismatch");
+        if (header.Magic != 1094864198u) throw new InvalidDataException("Magic mismatch");
         if (header.SchemaVersion > 1) throw new InvalidDataException("SchemaVersion too new");
         return Read(reader);
     }

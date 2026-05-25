@@ -15,6 +15,7 @@ public static class BinarySerializerGenerator
 {
     public const string GeneratedDir = FYAssetSettings.BINARY_SERIALIZER_GENERATE_PATH;
     public const string HashPrefix = "// Hash:";
+    private const string SerializationTestPathSegment = "/Serialization/Test/";
 
     [MenuItem("Tools/Serialization/Generate Binary Serializers", false, 30)]
     public static void GenerateMenu()
@@ -26,6 +27,12 @@ public static class BinarySerializerGenerator
 
     public static void GenerateAll()
     {
+        var fieldIssues = GetFieldIssues();
+        if (fieldIssues.Count > 0)
+        {
+            throw new InvalidOperationException(BuildFieldIssueMessage(fieldIssues));
+        }
+
         if (!Directory.Exists(GeneratedDir))
         {
             Directory.CreateDirectory(GeneratedDir);
@@ -75,6 +82,46 @@ public static class BinarySerializerGenerator
         return stale;
     }
 
+    public static List<BinarySerializableFieldIssue> GetFieldIssues()
+    {
+        var types = GetSerializableTypes();
+        var issues = new List<BinarySerializableFieldIssue>();
+        for (int i = 0; i < types.Count; i++)
+        {
+            var fields = types[i].GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+            for (int j = 0; j < fields.Length; j++)
+            {
+                var field = fields[j];
+                if (!IsUnityJsonSerializedField(field))
+                {
+                    continue;
+                }
+
+                if (field.GetCustomAttribute<BinaryFieldAttribute>() == null)
+                {
+                    issues.Add(new BinarySerializableFieldIssue(types[i], field));
+                }
+            }
+        }
+
+        return issues;
+    }
+
+    public static string BuildFieldIssueMessage(List<BinarySerializableFieldIssue> fieldIssues)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("以下 [BinarySerializable] 类型存在 JSON 字段但缺少 [BinaryField]：");
+        for (int i = 0; i < fieldIssues.Count; i++)
+        {
+            sb.Append("- ")
+                .Append(fieldIssues[i].Type.FullName)
+                .Append('.')
+                .AppendLine(fieldIssues[i].Field.Name);
+        }
+        sb.AppendLine("请为这些字段添加 [BinaryField]，或添加 [NonSerialized]，或移除类型上的 [BinarySerializable]。");
+        return sb.ToString();
+    }
+
     private static List<Type> GetSerializableTypes()
     {
         var result = new List<Type>();
@@ -101,7 +148,7 @@ public static class BinarySerializerGenerator
             for (int j = 0; j < types.Length; j++)
             {
                 var t = types[j];
-                if (t.GetCustomAttribute<BinarySerializableAttribute>() != null)
+                if (t.GetCustomAttribute<BinarySerializableAttribute>() != null && !IsSerializationTestType(t))
                 {
                     result.Add(t);
                 }
@@ -109,6 +156,32 @@ public static class BinarySerializerGenerator
         }
 
         return result.OrderBy(t => t.FullName).ToList();
+    }
+
+    private static bool IsSerializationTestType(Type type)
+    {
+        if (type == null)
+        {
+            return false;
+        }
+
+        var guids = AssetDatabase.FindAssets($"{type.Name} t:MonoScript");
+        for (int i = 0; i < guids.Length; i++)
+        {
+            string path = AssetDatabase.GUIDToAssetPath(guids[i]).Replace('\\', '/');
+            if (path.IndexOf(SerializationTestPathSegment, StringComparison.OrdinalIgnoreCase) < 0)
+            {
+                continue;
+            }
+
+            var monoScript = AssetDatabase.LoadAssetAtPath<MonoScript>(path);
+            if (monoScript != null && monoScript.GetClass() == type)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static void GenerateForType(Type type)
@@ -223,5 +296,37 @@ public static class BinarySerializerGenerator
         }
 
         return (type.FullName ?? type.Name).Replace('+', '.');
+    }
+
+    private static bool IsUnityJsonSerializedField(FieldInfo field)
+    {
+        if (field == null)
+        {
+            return false;
+        }
+
+        if (field.IsStatic || field.IsLiteral || field.IsInitOnly)
+        {
+            return false;
+        }
+
+        if (field.GetCustomAttribute<NonSerializedAttribute>() != null)
+        {
+            return false;
+        }
+
+        return field.IsPublic || field.GetCustomAttribute<SerializeField>() != null;
+    }
+}
+
+public sealed class BinarySerializableFieldIssue
+{
+    public readonly Type Type;
+    public readonly FieldInfo Field;
+
+    public BinarySerializableFieldIssue(Type type, FieldInfo field)
+    {
+        Type = type;
+        Field = field;
     }
 }

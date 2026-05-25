@@ -13,19 +13,29 @@ public sealed class BinarySerializerPrebuildCheck : IPreprocessBuildWithReport
 
     public void OnPreprocessBuild(BuildReport report)
     {
+        var fieldIssues = BinarySerializerGenerator.GetFieldIssues();
         var stale = BinarySerializerGenerator.GetStaleTypes();
-        if (stale.Count == 0)
+        if (fieldIssues.Count == 0 && stale.Count == 0)
         {
             return;
         }
 
         var sb = new StringBuilder();
-        sb.AppendLine("以下 Binary serializer 已过期，请先重新生成：");
-        for (int i = 0; i < stale.Count; i++)
+        if (fieldIssues.Count > 0)
         {
-            sb.Append("- ").AppendLine(stale[i].FullName);
+            sb.Append(BinarySerializerGenerator.BuildFieldIssueMessage(fieldIssues));
+            sb.AppendLine();
         }
-        sb.AppendLine("可执行菜单：XLua/Serialization/Generate Binary Serializers");
+
+        if (stale.Count > 0)
+        {
+            sb.AppendLine("以下 Binary serializer 已过期，请先重新生成：");
+            for (int i = 0; i < stale.Count; i++)
+            {
+                sb.Append("- ").AppendLine(stale[i].FullName);
+            }
+            sb.AppendLine("可执行菜单：Tools/Serialization/Generate Binary Serializers");
+        }
 
         throw new BuildFailedException(sb.ToString());
     }
