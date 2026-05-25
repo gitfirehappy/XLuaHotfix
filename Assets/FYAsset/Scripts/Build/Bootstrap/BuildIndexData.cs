@@ -2,7 +2,7 @@ using System;
 using UnityEngine;
 
 /// <summary>
-/// BuildIndex 的纯数据类，用于 JSON 序列化/反序列化
+/// BuildIndex 的纯数据类，Json格式存储
 /// </summary>
 [Serializable]
 public class BuildIndexData
