@@ -92,6 +92,8 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
         var status = BuildRepositoryFacade.GetStatus(request);
         _statusLabel.text = status.HasHead
             ? $"HEAD {status.HeadVersion} | {status.PackageName} | {status.ArtifactCount} 项 | LastPush {status.LastPushTargetId} {status.LastPushAtUtc}"
+            : status.HasHeadError
+                ? $"HEAD 错误 | {status.HeadErrorReason}"
             : $"无 HEAD | {status.ChannelKey}";
     }
 

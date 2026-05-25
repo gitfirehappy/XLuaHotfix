@@ -57,30 +57,22 @@ public static class RepositoryPreviewRunner
 
         try
         {
-            string oldOutput = Environment.GetEnvironmentVariable("BUILD_REPOSITORY_PREVIEW_OUTPUT");
-            Environment.SetEnvironmentVariable("BUILD_REPOSITORY_PREVIEW_OUTPUT", previewBuildRoot);
-            try
+            previewContext.Set(BuildContextKeys.RepositoryPreviewOutput, previewBuildRoot);
+            var whitelist = new HashSet<string>(StringComparer.Ordinal)
             {
-                var whitelist = new HashSet<string>(StringComparer.Ordinal)
-                {
-                    "TaskPrepareContext",
-                    "TaskCollectAssets",
-                    "TaskCollectBuiltins",
-                    "TaskAnalyzeDependencies",
-                    "TaskBuildBundles",
-                    "TaskGenerateManifest",
-                    "TaskVerifyBuildResult",
-                    "TaskScanABHotfixDiff"
-                };
-                Debug.Log($"[{nameof(RepositoryPreviewRunner)}] AB Diff Preview start，临时输出目录: {previewBuildRoot}");
-                BuildResult result = DAGScheduler.Execute(config, previewContext, null, "TaskScanABHotfixDiff", whitelist);
-                if (!result.Success)
-                    throw new InvalidOperationException("AB diff preview pipeline failed.");
-            }
-            finally
-            {
-                Environment.SetEnvironmentVariable("BUILD_REPOSITORY_PREVIEW_OUTPUT", oldOutput);
-            }
+                "TaskPrepareContext",
+                "TaskCollectAssets",
+                "TaskCollectBuiltins",
+                "TaskAnalyzeDependencies",
+                "TaskBuildBundles",
+                "TaskGenerateManifest",
+                "TaskVerifyBuildResult",
+                "TaskScanABHotfixDiff"
+            };
+            Debug.Log($"[{nameof(RepositoryPreviewRunner)}] AB Diff Preview start，临时输出目录: {previewBuildRoot}");
+            BuildResult result = DAGScheduler.Execute(config, previewContext, null, "TaskScanABHotfixDiff", whitelist);
+            if (!result.Success)
+                throw new InvalidOperationException("AB diff preview pipeline failed.");
 
             ArtifactDelta delta = RequireDelta(previewContext, "AB");
             Debug.Log($"[{nameof(RepositoryPreviewRunner)}] AB Diff Preview done: Added={delta.Added.Count}, Modified={delta.Modified.Count}, Removed={delta.Removed.Count}");

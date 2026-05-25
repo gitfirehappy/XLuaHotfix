@@ -61,6 +61,8 @@ public sealed class LocalDirectoryPushTarget : IPushTarget
 
             if (!string.IsNullOrEmpty(payload.PackageIndexPath) && FileHelper.Exists(payload.PackageIndexPath))
                 FileHelper.CopyFile(payload.PackageIndexPath, Path.Combine(_path, FYAssetSettings.PACKAGE_INDEX_FILE_NAME), true);
+            else if (!string.IsNullOrEmpty(payload.PackageIndexPath))
+                return Fail($"PackageIndexPath missing: {payload.PackageIndexPath}");
 
             return new PushReceipt
             {

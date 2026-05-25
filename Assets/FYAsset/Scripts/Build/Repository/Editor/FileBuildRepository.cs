@@ -19,12 +19,18 @@ public sealed class FileBuildRepository : IBuildRepository
         {
             ChannelKey = channelKey,
             HasHead = false,
+            HasHeadError = false,
             HeadVersion = string.Empty,
             PackageName = string.Empty,
             ArtifactCount = 0
         };
 
         var head = TryLoadHead(channelKey);
+        if (TryGetLastHeadError(channelKey, out string headError))
+        {
+            status.HasHeadError = true;
+            status.HeadErrorReason = headError;
+        }
         if (head == null)
             return status;
 
@@ -118,6 +124,10 @@ public sealed class FileBuildRepository : IBuildRepository
             return FailPush(target, $"Target commit missing: {toVersion.GetFullVersionString()}");
         if (string.IsNullOrEmpty(toCommit.PackageRootDir))
             return FailPush(target, "Target commit PackageRootDir is empty.");
+        if (string.IsNullOrEmpty(BuildPathManager.PackageIndexPath))
+            return FailPush(target, "PackageIndexPath is empty.");
+        if (!FileHelper.Exists(BuildPathManager.PackageIndexPath))
+            return FailPush(target, $"PackageIndexPath missing: {BuildPathManager.PackageIndexPath}");
 
         var fromCommit = TryLoadCommit(channelKey, fromVersion);
         if (fromCommit == null)
@@ -172,6 +182,7 @@ public sealed class FileBuildRepository : IBuildRepository
 
     private static RepositoryCommit TryLoadHead(string channelKey)
     {
+        ClearLastHeadError(channelKey);
         string headPath = Path.Combine(GetChannelRoot(channelKey), "HEAD.json");
         if (!FileHelper.Exists(headPath))
             return null;
@@ -184,12 +195,14 @@ public sealed class FileBuildRepository : IBuildRepository
         catch (Exception ex)
         {
             Debug.LogError($"[FileBuildRepository] 读取 HEAD 失败: {headPath}, 原因: {ex.Message}");
+            SetLastHeadError(channelKey, $"HEAD read failed: {headPath}");
             return null;
         }
 
         if (headState == null || string.IsNullOrEmpty(headState.HeadVersion))
         {
             Debug.LogError($"[FileBuildRepository] HEAD 内容无效: {headPath}");
+            SetLastHeadError(channelKey, $"HEAD content invalid: {headPath}");
             return null;
         }
 
@@ -197,10 +210,34 @@ public sealed class FileBuildRepository : IBuildRepository
         if (!FileHelper.Exists(objectPath))
         {
             Debug.LogError($"[FileBuildRepository] HEAD 指向的 commit 不存在: {objectPath}");
+            SetLastHeadError(channelKey, $"HEAD target missing: {objectPath}");
             return null;
         }
 
-        return TryReadSnapshot(objectPath);
+        var headCommit = TryReadSnapshot(objectPath);
+        if (headCommit == null)
+        {
+            SetLastHeadError(channelKey, $"HEAD snapshot invalid: {objectPath}");
+            return null;
+        }
+        return headCommit;
+    }
+
+    private static readonly Dictionary<string, string> LastHeadErrors = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+    private static void SetLastHeadError(string channelKey, string reason)
+    {
+        LastHeadErrors[channelKey ?? string.Empty] = reason;
+    }
+
+    private static void ClearLastHeadError(string channelKey)
+    {
+        LastHeadErrors.Remove(channelKey ?? string.Empty);
+    }
+
+    private static bool TryGetLastHeadError(string channelKey, out string reason)
+    {
+        return LastHeadErrors.TryGetValue(channelKey ?? string.Empty, out reason);
     }
 
     private static RepositoryCommit TryLoadCommit(string channelKey, VersionNumber version)

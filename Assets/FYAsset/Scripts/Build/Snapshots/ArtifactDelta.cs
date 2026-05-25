@@ -1,8 +1,10 @@
+using System;
 using System.Collections.Generic;
 
 /// <summary>
 /// ArtifactDiffer 的三段式输出：新增、修改、删除。
 /// </summary>
+[Serializable]
 public class ArtifactDelta
 {
     /// <summary>目标侧存在、基准侧不存在的产物。</summary>

@@ -63,7 +63,7 @@ public class TaskPrepareContext : IBuildTask
 
         // OutputRoot: CLI --output > 默认路径
         string outputRoot = GetCommandLineArg("--output")
-            ?? Environment.GetEnvironmentVariable("BUILD_REPOSITORY_PREVIEW_OUTPUT")
+            ?? ctx.Get<string>(BuildContextKeys.RepositoryPreviewOutput)
             ?? Path.Combine(Application.dataPath, "..", "Build", platform.ToString());
 
         var version = versionData != null

@@ -40,10 +40,12 @@ public sealed class RepositoryStatus
 {
     public string ChannelKey;
     public bool HasHead;
+    public bool HasHeadError;
     public string HeadVersion;
     public string PackageName;
     public int ArtifactCount;
     public string LastPushTargetId;
     public string LastPushAtUtc;
+    public string HeadErrorReason;
 }
 #endif
