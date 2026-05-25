@@ -1,7 +1,7 @@
 # Plan: Build Repository Diff Module
 
 > Date: 2026-05-23
-> Status: Approved / In Execution
+> Status: Archived — 2026-05-24; executed and superseded by the shipped repository batch
 > Source Draft: `requirements/plan/drafts/draft-build-repository-20260518.md`
 > Scope: Plan 1 of 2. Plan 2 will cover filesystem storage, HEAD/INDEX, commits, tags, channel isolation, CLI/GUI, and `IPushTarget`.
 

@@ -1,4 +1,14 @@
 # refactor-2026 Progress Log
+
+[done] 2026-05-25 docs-audit - Cross-referenced code vs docs, fixed 8+ discrepancies, created 2 new docs, added JSON/Binary serialization field tables
+  - Fixed: 资源管理架构文档.md (BundleType int->string, AssetLoadError->RuntimeMessage, ResolveResult.Ambiguous->Conflict, directory paths)
+  - Fixed: build-pipeline-构建管线.md (BackendMode enum, removed DefaultBackendMode, Task list 7->17, Key table expanded)
+  - Fixed: 字段语义参考表.md (added missing fields, serialization format column for all tables)
+  - Fixed: ab-runtime-运行时加载.md / 错误处理.md (Ambiguous->Conflict)
+  - Fixed: build-pipeline-editor-layout.html (added Repository panel, AA PIPELINE group, sidebar sync)
+  - Created: repository-构建仓库.md (IBuildRepository, FileBuildRepository, Push models, CLI, JSON field tables)
+  - Created: snapshots-差异快照.md (ArtifactDigest, ArtifactDelta, ArtifactDiffer, JSON field tables)
+
 # Format: [type] YYYY-MM-DD description
 # Types: start / done / decision / blocked / next
 # Sign-off format: [done] YYYY-MM-DD plan-XX SIGNED OFF - {summary}
@@ -1138,3 +1148,51 @@
 [done] 2026-05-23 BRC-3 verification — `dotnet build XLuaHotfix.sln` passed with 0 errors and existing `System.Net.Http` warnings; static audit confirmed `ConfirmReleaseHotfix` / `-confirmRelease` removal, repository push/history entry points, and push target cleanup rules.
 [done] 2026-05-23 BRC-3 docs/context sync — updated `README.md`, `requirements/plan/INDEX.md`, and `context/architecture/resource-build-and-release.md` with verified push facts.
 [next] 2026-05-23 Await developer sign-off for BRC-3 before archiving the active plan or starting any follow-up plan.
+[start] 2026-05-24 editorui-zh-audit-20260523: Created requirement brief and started full audit of Editor GUI + debug text coverage.
+[decision] 2026-05-23 editorui-zh-audit-20260523: Scope fixed to FYAsset only; technical nouns stay English; buttons use short Chinese to avoid overflow.
+[done] 2026-05-23 editorui-zh-audit-20260523: Replaced main FYAsset Editor GUI text on BuildPipelineWindow, SettingsPanel, AAConfigPanel, AAReportPanel, AABuildPanel, PipelinePanel, CollectorSettingPanel, CollectorPanel, CollectorTargetPickerWindow, VersionPanel, BuilderPanel, PlaceholderPanel, and RepositoryStatusPanel.
+[decision] 2026-05-23 editorui-zh-audit-20260523: Self-check still shows remaining FYAsset Editor/debug English strings outside the edited surfaces, mainly in repository/build backend logs and some context labels.
+[next] 2026-05-23 editorui-zh-audit-20260523: Continue with a second pass if required, or stop here and confirm the current partial audit scope.
+[start] 2026-05-24 backend-metadata-fix-20260524: Started implementation from approved plan for Build Repository backend ownership and PackageIndex metadata correction.
+[decision] 2026-05-24 backend-metadata-fix-20260524: Keep VersionDataBase shared as product version; use AA/AB backend metadata in PackageIndex, BuildIndexData, and repository channel boundaries.
+[done] 2026-05-24 backend-metadata-fix-20260524: Implemented backend metadata fields on PackageIndex and BuildIndexData, with BuildProjectManager and TaskExportLocalBuildData writing AA/AB values.
+[done] 2026-05-24 backend-metadata-fix-20260524: Added HotfixManager backend guard so missing, invalid, or mismatched remote PackageIndex.BackendMode blocks hotfix before LatestPackage is used.
+[done] 2026-05-24 backend-metadata-fix-20260524: Fixed BuildPipelineWindow sidebar grouping so RepositoryStatusPanel belongs only to Manage and is not disabled by AA/AB group rules.
+[done] 2026-05-24 backend-metadata-fix-20260524: Synced README, human docs, architecture context, and mistake record for shared VersionDataBase, backend metadata, and sidebar group ownership.
+[done] 2026-05-24 backend-metadata-fix-20260524: Verification — static checks confirmed sidebar ranges, backend metadata writes, and HotfixManager backend validation before LatestPackage use; dotnet build XLuaHotfix.sln passed with 0 errors and existing System.Net.Http warnings.
+[next] 2026-05-24 backend-metadata-fix-20260524: Await developer sign-off after Unity Editor host-workflow verification of Repository sidebar placement and AA/AB backend metadata output.
+[start] 2026-05-24 build-repository-review-fix-20260524: Started review-driven repository fix batch for HEAD status handling, Push validation, and AB Diff Preview routing.
+[decision] 2026-05-24 build-repository-review-fix-20260524: Keep malformed HEAD distinct from empty HEAD; keep current PackageIndexPath dependency but validate it explicitly; replace AB preview env-var routing with BuildContext routing.
+[done] 2026-05-24 build-repository-review-fix-20260524: Implemented malformed-HEAD status surfacing, explicit Push PackageIndexPath validation, and AB Diff Preview BuildContext routing.
+[done] 2026-05-24 build-repository-review-fix-20260524: Verification passed: `dotnet build XLuaHotfix.sln` completed successfully with existing System.Net.Http warnings only.
+[done] 2026-05-24 build-repository-review-fix-20260524: Synced README, context architecture, and mistake prevention rules for the verified repository behavior changes.
+[start] 2026-05-24 build-settings-split-20260524: Started implementation from approved FYAssetSettings build configuration split plan.
+[decision] 2026-05-24 build-settings-split-20260524: Keep FYAssetSettings focused on runtime/global fields and keep VersionDataBase as shared product-version data.
+[done] 2026-05-24 build-settings-split-20260524: Added SharedBuildSettings, AABuildSettings, ABBuildSettings, and FYAssetBuildSettingsProvider with default asset paths under Assets/Build.
+[done] 2026-05-24 build-settings-split-20260524: Migrated build-time path, version, collector, repository push, pipeline config, manifest format, and hotfix size-limit reads from FYAssetSettings to the new build settings assets.
+[done] 2026-05-24 build-settings-split-20260524: Updated Build Pipeline UI so Settings edits global FYAssetSettings plus SharedBuildSettings, AA Config edits AABuildSettings first, and AB Config edits ABBuildSettings.
+[done] 2026-05-24 build-settings-split-20260524: Created default build settings assets and removed migrated fields from Assets/Resources/FYAssetSettings.asset.
+[done] 2026-05-24 build-settings-split-20260524: Verification — static grep confirmed removed FYAssetSettings migrated-field call sites; dotnet build XLuaHotfix.sln passed with 0 errors and existing System.Net.Http warnings.
+[done] 2026-05-24 build-settings-split-20260524: Follow-up correction — added an independent AB Config sidebar panel for ABBuildSettings and kept AB Pipeline focused on BuildGraph/build controls.
+[done] 2026-05-24 build-settings-split-20260524: UI polish — added chooser buttons for build-related path fields, byte-unit editing for AA/AB MaxHotfixSizeBytes, and a chooser-backed PushTargets path editor.
+[start] 2026-05-24 comment-debug-coverage-20260524: Started comment and Debug coverage optimization planning.
+[decision] 2026-05-24 comment-debug-coverage-20260524: Scope is docs/log/comment only; do not change build behavior, DAG order, artifact format, or hotfix distribution flow.
+[done] 2026-05-24 comment-debug-coverage-20260524: Developer approved autonomous execution for the comment/log-only plan.
+[done] 2026-05-24 comment-debug-coverage-20260524: Updated recent AA/AB diff tasks, PackageIndex task, Repository preview runner, backend runners, BuildProjectManager, and repository facade comments/log messages with Chinese + English technical terms.
+[done] 2026-05-24 comment-debug-coverage-20260524: Verification passed: dotnet build XLuaHotfix.sln completed with 0 errors and existing System.Net.Http warnings only.
+[start] 2026-05-24 context-mistakes-slimming-20260524: Started context/mistakes slimming and index alignment.
+[done] 2026-05-24 context-mistakes-slimming-20260524: Merged process-pitfalls and platform-performance into implementation-pitfalls; removed obsolete troubleshooting entry from context index.
+[done] 2026-05-24 context-mistakes-slimming-20260524: Trimmed context/index wording to current verified rules and aligned mistakes index to a single active file.
+[start] 2026-05-24 hotfix-diff-task-20260524: Started AA hotfix diff and group move Task migration.
+[decision] 2026-05-24 hotfix-diff-task-20260524: Empty diff continues build; LegacyAddressableHotfixGroups is removed; manual reset remains available.
+[done] 2026-05-24 hotfix-diff-task-20260524: Implemented AA DAG front tasks for hotfix diff scan and group move; removed LegacyAddressableHotfixGroups type; added CLI DiffHead current-vs-HEAD scan entry.
+[done] 2026-05-24 hotfix-diff-task-20260524: Verification passed: dotnet build XLuaHotfix.sln completed with 0 errors and existing System.Net.Http warnings only.
+[done] 2026-05-24 hotfix-diff-task-20260524: Unified AA/AB current-vs-HEAD diff under DAG stop-after flow; removed direct diff helper orchestration and DifferentialProcessor; AB diff now runs through TaskScanABHotfixDiff.
+[done] 2026-05-24 hotfix-diff-task-20260524: Verified final DAG diff state: CLI/UI preview now route through RepositoryPreviewRunner, ArtifactDiffer remains only for push delta calculation, and dotnet build XLuaHotfix.sln still passes with existing System.Net.Http warnings only.
+[decision] 2026-05-24 hotfix-diff-task-20260524: PackageIndex is the remote latest-package pointer, not Full-only baseline data; official Full and Hotfix builds must keep writing it, while Diff Preview stops before it.
+[done] 2026-05-24 hotfix-diff-task-20260524: Added TaskWritePackageIndex to AA/AB DAG, removed BuildProjectManager direct PackageIndex writing, updated pipeline config assets, and documented skip/early-stop/fatal-stop behavior.
+[done] 2026-05-24 hotfix-diff-task-20260524: Verification passed after PackageIndex Task migration: dotnet build XLuaHotfix.sln completed with 0 errors and existing System.Net.Http warnings only.
+[done] 2026-05-24 Requirements workspace cleanup: merged standalone requirement progress logs into this main progress log, archived standalone plan files into shared plan archive, and removed standalone requirement folders.
+[start] 2026-05-25 legacy-build-menu-cleanup: Started cleanup of BuildProjectManager legacy Tools/Build MenuItem entries and no-arg build wrappers.
+[done] 2026-05-25 legacy-build-menu-cleanup: Removed BuildProjectManager legacy Tools/Build MenuItem entries and no-arg BuildFullPackage/BuildHotfix wrappers; kept Pipeline and CLI public build entry behavior through optional BuildExecutionOptions.
+[done] 2026-05-25 legacy-build-menu-cleanup: Verification passed — static checks found no legacy Tools/Build MenuItem entries or null-wrapper calls in Assets/FYAsset/Scripts, and dotnet build XLuaHotfix.sln completed with 0 errors and existing System.Net.Http warnings only.

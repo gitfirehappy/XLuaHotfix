@@ -21,7 +21,9 @@ Reports missing Date or Reviewer will be rejected before content review.
 
 ## Active Reviews
 
-No active review reports. Archived or historical reports stay under `archive/`.
+| File | Status | Scope |
+|------|--------|-------|
+| `review-build-repository-batch-20260524.md` | Archived | Build Repository batch archive review: plan lifecycle, documentation alignment, repository storage, push path, and unresolved follow-up extraction |
 
 ## Archive Criteria
 

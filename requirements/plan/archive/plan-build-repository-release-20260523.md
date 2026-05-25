@@ -1,7 +1,7 @@
 # Plan: Build Repository Release & Push
 
 > Date: 2026-05-23
-> Status: Awaiting Sign-off
+> Status: Archived — 2026-05-24; executed and superseded by the shipped repository batch
 > Source Draft: `requirements/plan/drafts/draft-build-repository-20260518.md`
 > Depends on: `plan-build-repository-core-20260523.md` (Plan 2 must be in place; HEAD/objects/JsonUtility/atomic write/channelKey already exist)
 > Scope: Plan 3 of repository series. Activates the AB Push path, removes the Plan 2 release placeholder, and adds Repository CLI plus push-history surfacing in `BuildPipelineWindow`.

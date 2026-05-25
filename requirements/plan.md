@@ -3,7 +3,7 @@
 > **Status**: In progress (Phase 1-4 completed, Phase 5 E1-1/E1-2/E1-3/E1-4/E2 realized, Phase 6 E4/E5-1/E5-2a/E5-2b/E6/E9/E10/E11 realized, review-fix-20260509 and naming-unification executed, E7 pending)
 > **Ultimate Goal**: Fully replace Addressables with custom runtime + build-time resource management system (referencing YooAsset architecture)
 > **Created**: 2026-03-16
-> **Updated**: 2026-05-14 — E12-2 Pipeline build trigger/status executed
+> **Updated**: 2026-05-24 — consolidated recent standalone requirement plans into the shared plan/archive flow
 
 ---
 
@@ -169,6 +169,16 @@ Phase 4 and Phase 6 must be coordinated (ABManifest runtime consumption + build-
 | plan-review-fix-20260509.md | 2026-05-09 Three-dimension GPT review fix: 11 tasks — RuntimeAssetEntry Labels guard + IAssetIndex legacy cut + Manager self-cache + CollectorPathUtility extraction + CollectorRef/AssetClassification value semantics + ABAssetIndex zero-alloc + typo fixes + PascalCase convention | **Executed** |
 | plan-naming-unification.md | 2026-05-09 Old-pipeline field naming PascalCase unification: VersionState/BundleInfo/Manifest camelCase→PascalCase (9 fields). Complements review-fix T9/T10/T11 | **Executed** |
 
+### Recent Archived Shared Plans
+
+| File | Content | Status |
+|------|---------|--------|
+| plan-build-repo-diff-module-20260523.md | Build Repository Plan 1/2: artifact diff module extraction and AA transition boundary | Archived |
+| plan-build-repository-core-20260523.md | Build Repository Plan 2/2: filesystem JSON repository, automatic build commits, status, and read-only diff preview | Archived |
+| plan-build-repository-release-20260523.md | Build Repository Plan 3: AB Push, IPushTarget, PushHistory, Repository CLI, and ConfirmRelease cleanup | Archived |
+| plan-hotfix-diff-task-20260524.md | AA/AB current-vs-HEAD diff unified under DAG stop-after flow; PackageIndex writing moved into AA/AB DAG | Archived |
+| plan-comment-debug-coverage-20260524.md | Build/repository/hotfix task comments and direct Debug log coverage improved without behavior changes | Archived |
+
 ### Phase 5: Build-Time - Asset Collection & Indexing
 
 | ID | Content | Reference | Status |
@@ -287,3 +297,4 @@ Phase 4 and Phase 6 must be coordinated (ABManifest runtime consumption + build-
 | 2026-05-14 | **E12-1 executed**: `BuildGraphView` + `BuildTaskNode` + `BuildGraphLayoutEngine` + `BuildGraphToolbar` + `EdgeStyle` created; initial implementation placed DAG in BuilderPanel; `Assembly-CSharp-Editor.csproj` synced; `dotnet build` passed 0 errors; `context/`, `docs` HTML, `progress.txt` aligned |
 | 2026-05-14 | **E12-1 reworked**: DAG moved from BuilderPanel to PipelinePanel; Pipeline top bar now owns `FileNameStyle`, `BundleCompression`, and `SequentialMode`; Task list is no longer exposed as a normal inspector list and optional tasks are created from the graph right-click menu with backbone tasks excluded; BuilderPanel no longer hosts the DAG; `dotnet build` passed 0 errors |
 | 2026-05-14 | **E12-2 executed**: Pipeline top bar gained `Build Mode` + `Build`; build trigger validates first and routes through `BuildProjectManager`; `BuildExecutionOptions` / `BuildTaskExecutionEvent` / `BuildTaskExecutionStatus` carry DAGScheduler status events into BuildGraph nodes; unused `BuildGraphToolbar` removed; Builder report/query remains deferred until after E7 |
+| 2026-05-24 | **Requirements cleanup**: recent standalone requirement plans were archived into `requirements/plan/archive/`, standalone progress was summarized into `requirements/progress.txt` while preserving original requirement-local logs, and new independent per-requirement plan files/folders are disallowed unless explicitly requested by the developer |

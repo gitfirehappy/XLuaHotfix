@@ -1,6 +1,6 @@
 # Draft: Build Repository — Git-like 构建产物版本管理系统
 
-> **Status**: Draft — 2026-05-18（Plan 1/2/3 已陆续提取，draft 仅留作历史决策痕迹）
+> **Status**: Archived — 2026-05-24（Plan 1/2/3 已陆续提取，原 draft 仅留作历史决策痕迹）
 > **Supersedes**: draft-E7-diff-snapshot-20260517.md, plan-smart-versioning-draft.md
 > **Design philosophy**: 构建产物作为 repository 管理。完整 git 工作流隐喻——不是借用命名，而是同构的操作语义。Build Repository 只负责版本化管理，不关心构建过程和构建策略。
 > **Dependencies**: E5-1 (IBuildTask + BuildContext + DAGScheduler), E5-2 (TaskBuildBundles), E6 (ABManifest)

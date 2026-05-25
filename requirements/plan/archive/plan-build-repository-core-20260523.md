@@ -1,7 +1,7 @@
 # Plan: Build Repository Core
 
 > Date: 2026-05-23
-> Status: Awaiting Sign-off
+> Status: Archived — 2026-05-24; executed and superseded by the shipped repository batch
 > Source Draft: `requirements/plan/drafts/draft-build-repository-20260518.md`
 > Scope: Plan 2 of 2. Plan 1 extracted the artifact diff module; this plan adds repository storage, HEAD commits, status, and read-only diff preview.
 
