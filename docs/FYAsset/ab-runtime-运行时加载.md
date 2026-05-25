@@ -183,7 +183,7 @@ ABBundleLoader.UnloadBundle(bundleName)
 |------|------|
 | `Hit` | 恰好一条匹配，`Entry` 非 null |
 | `NotFound` | 未找到匹配 |
-| `Ambiguous` | Address 重复且无法消歧，`Candidates` 列出所有候选项 |
+| `Conflict` | 多条匹配且无法消歧，`Candidates` 列出所有候选项 |
 | `TypeMismatch` | 找到条目但 PrimaryType 与请求类型不兼容 |
 
 ---

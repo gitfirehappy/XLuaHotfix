@@ -11,8 +11,12 @@
 ## Requirement Workflow
 - Create `requirements/{id}/brief.md` for substantial work.
 - Track execution in `requirements/{id}/progress.txt`.
-- Keep sub-plans in `requirements/{id}/plan*.md`.
-- Use `requirements/drafts/` for discussion-only drafts before a formal plan exists.
+- Keep planning aligned to `requirements/plan.md`.
+- Do not create `requirements/{id}/plan.md` or `requirements/{id}/plan/` unless the developer explicitly asks for an isolated planning structure.
+- Use the shared `requirements/plan/`, `requirements/plan/drafts/`, and `requirements/review/` queues for active plans, drafts, and reviews.
+- Use `requirements/README.md` as the requirements workspace guide.
+- Do not keep scattered requirement-local progress logs long term; merge detailed entries into `requirements/progress.txt` before deleting standalone requirement folders.
+- Never replace detailed progress history with summary-only consolidation.
 
 ## Resource-Management Rules
 - Prefer `AssetPackageManager` over direct Addressables usage in new runtime code.

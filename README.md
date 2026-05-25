@@ -25,14 +25,15 @@
 
 ### 1.2 Build Repository 与差异系统
 
-- **Build Repository**: 使用项目根 `BuildData/Snapshots/{BuildTarget}[-Channel]/{AA|AB}/` 下的 JSON commit 管理构建基线；`HEAD.json` 只保存当前 `HeadVersion`
+- **Build Repository**: 使用项目根 `BuildData/Snapshots/{BuildTarget}[-Channel]/{AA|AB}/` 下的 JSON commit 管理构建基线；`HEAD.json` 只保存当前 `HeadVersion`，`PushHistory.json` 记录推送历史
+- **Build Repository HEAD 状态**: `HEAD` 读取会区分空仓库与损坏状态；`RepositoryStatus` 现在可暴露 `HasHeadError` / `HeadErrorReason`，UI 会显示明确错误而不是混成空仓库
 - **VersionDataBase**: 保持产品版本源，不按 AA/AB 拆分；AA/AB 作为构建后端维度写入 Repository channel、PackageIndex 和 BuildIndex
 - **构建配置资产**: `FYAssetSettings` 只保留运行期/全局配置；共享构建路径与 PushTargets 放在 `FYAssetSharedBuildSettings.asset`，AA/AB 后端构建参数分别放在 `FYAssetAABuildSettings.asset` / `FYAssetABBuildSettings.asset`
 - **ArtifactDigest / ArtifactDelta / ArtifactDiffer**: 统一的 artifact 差异模型与纯 diff 计算，AA 使用 asset GUID 粒度，AB 使用 bundle name 粒度
 - **TaskScanAddressableHotfixDiff / TaskScanABHotfixDiff**: AA / AB DAG 的 artifact 扫描与 diff 统一入口；Task 直接产出 `ArtifactDelta` 和 `RepositoryArtifacts`，仓库 commit 不再依赖独立 scanner 类
 - **TaskScanAddressableHotfixDiff / TaskMoveAddressableHotfixGroups**: AA Hotfix DAG 前置 Task；先扫描 current source vs Repository HEAD，再把 Added + Modified 资源移入 Hotfix 组。无变更时继续构建；group move 记录 JSON undo log，若存在未还原迁移会阻断下一次移动并要求先 Reset/Restore
 - **TaskScanABHotfixDiff**: AB DAG diff Task；在 bundle build 与校验完成后扫描 AB bundle 输出 vs Repository HEAD，写入 `ArtifactDelta`，standalone diff 在该 Task 后停止
-- **BuildRepositoryCLI / PushTarget**: Repository CLI 提供 `Status`、`Diff`、`Push`、`ListCommits`；`Diff` 通过 AA/AB DAG stop-after 执行 current-vs-HEAD 对比。Plan 3 仅落地 `LocalDirectoryPushTarget`，push 只输出 delta bundles、`ABManifest.json` 和 `PackageIndex.json`，`PushHistory.json` 由 repository 侧写入
+- **BuildRepositoryCLI / PushTarget**: Repository CLI 提供 `Status`、`Diff`、`Push`、`ListCommits`；`Diff` 通过 AA/AB DAG stop-after 执行 current-vs-HEAD 对比。`LocalDirectoryPushTarget` 仅负责写 delta bundles、`ABManifest.json` 和 `PackageIndex.json`，`PushHistory.json` 由 repository 侧写入；`Push` 会显式校验编辑器侧 `PackageIndexPath`，缺失时直接失败
 
 ### 1.3 构建流程
 
@@ -63,7 +64,7 @@
   - 构建入口复用 `BuildProjectManager` 的 Full/Hotfix 语义；DAGScheduler 执行事件会回显到节点状态
   - 旧 `Tools/Build` 生产菜单项已标记为 `[Legacy]` 并暂时保留
   - Builder 页不承载 DAG；当前为 UI Toolkit 占位壳，构建报告查询待 E7 差异快照与 digest 输出稳定后单独规划
-  - Repository 页是管理组通用入口，显示当前派生 channel 的 HEAD 状态，并提供只读 Diff Preview；AB preview 使用 `Temp/BuildRepositoryPreview/{guid}/` 临时目录并在完成后清理
+- Repository 页是管理组通用入口，显示当前派生 channel 的 HEAD 状态，并提供只读 Diff Preview；AB preview 使用 `Temp/BuildRepositoryPreview/{guid}/` 临时目录并在完成后清理，输出路由通过 `BuildContext` 显式传递而不是环境变量
   - Build Pipeline 编辑器窗口已迁移为 UI Toolkit `CreateGUI()` 壳层，侧栏保持 SETTINGS / AA PIPELINE / AB PIPELINE / MANAGE；AA 与 AB 组互斥灰显，AA Config 面板仅做 catalog 摘要与 Groups 窗口入口
   - Settings、AA Config、AA Build、AA Report、Collect Config、Collector、Pipeline、Builder、Version 等 active 面板通过 UI Toolkit `CreateContent()` 承载；Pipeline 页继续复用现有 GraphView DAG
   - Collector 资产 Inspector 头部勾选入口仍使用 Unity 的 `Editor.finishedDefaultHeaderGUI` 回调，这是 Unity 默认 Inspector header 的 IMGUI 边界

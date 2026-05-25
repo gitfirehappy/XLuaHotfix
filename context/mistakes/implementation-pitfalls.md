@@ -297,3 +297,24 @@ Verified historical errors and prevention rules.
 **Root cause:** Public and internal states shared one enum without a UI boundary.
 **Fix:** Whitelist only user-selectable values in UI and validation.
 **Prevention:** Mixed enums need explicit public-value filtering.
+
+## IP-43: Malformed HEAD Collapsed Into Empty State
+
+**Symptom:** A broken repository with invalid `HEAD.json` looked the same as an empty repository in status UI.
+**Root cause:** HEAD load failures were reduced to `null` without a separate error state.
+**Fix:** Track HEAD error state explicitly on repository status and show it in the UI.
+**Prevention:** Empty repository state and corrupted repository state must not share the same status path.
+
+## IP-44: Preview Output Routed Through Environment Variable
+
+**Symptom:** AB Diff Preview depended on `BUILD_REPOSITORY_PREVIEW_OUTPUT` to steer the build output root.
+**Root cause:** Preview orchestration and pipeline initialization shared an implicit side channel.
+**Fix:** Pass the preview output root through `BuildContext` and read it in `TaskPrepareContext`.
+**Prevention:** Preview-only routing should use explicit context keys, not process environment variables.
+
+## IP-45: Progress Consolidation Lost Detailed History
+
+**Symptom:** The main `requirements/progress.txt` was replaced by a short summary while standalone progress logs still held detailed history.
+**Root cause:** Consolidation was treated as summary replacement instead of detailed entry migration.
+**Fix:** Restore the full main progress log, copy standalone progress entries into it with requirement ids, then remove standalone folders.
+**Prevention:** Before deleting standalone requirement folders, merge every meaningful `progress.txt` entry into `requirements/progress.txt`; never replace detailed history with summary-only lines.

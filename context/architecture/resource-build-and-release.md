@@ -38,6 +38,7 @@ The hotfix build flow relies on repository HEAD comparison instead of manual gro
 ### Core pieces
 
 - `FileBuildRepository` stores JSON commits under project-root `BuildData/Snapshots/{BuildTarget}[-Channel]/{AA|AB}/`
+- `FileBuildRepository.GetStatus()` distinguishes empty HEAD from malformed HEAD through `RepositoryStatus.HasHeadError` / `HeadErrorReason`
 - `VersionDataBase` is shared as the product-version source; AA and AB are build backend dimensions, not separate product version streams
 - `RepositoryHeadState` stores only `HeadVersion`; the object path is derived as `objects/{HeadVersion}.json`
 - `RepositoryCommit` stores version, channel key, backend mode, build target, package name, UTC creation time, artifact digests, `GitCommitHash`, `IsDirty`, and `PackageRootDir`
@@ -55,10 +56,11 @@ The hotfix build flow relies on repository HEAD comparison instead of manual gro
 - `TaskScanABHotfixDiff` runs after AB bundle build verification, compares AB bundle output against repository HEAD, and writes `ArtifactDelta` into `BuildContext`
 - `ConfirmReleaseHotfix` is a placeholder for future release/push work and does not mutate repository HEAD
 - `BuildRepositoryCLI` exposes `Status`, `Diff`, `Push`, and `ListCommits`; `Diff` runs the AA or AB DAG to the backend-specific diff task and stops there
+- `FileBuildRepository.Push()` now validates that the editor-side `BuildPathManager.PackageIndexPath` exists before building the push payload, so a missing local `PackageIndex.json` fails fast instead of becoming a late push failure
 - `PushHistory.json` is written by the repository at `BuildData/Snapshots/{BuildTarget}[-Channel]/{BackendMode}/PushHistory.json` after a successful push, while the target directory itself only receives delta bundles, `ABManifest.json`, and `PackageIndex.json`
 - `RepositoryStatusPanel` exposes repository status and read-only Diff Preview in the build pipeline window
 - `RepositoryStatusPanel` is a shared Manage panel entry and is not owned by the AA or AB sidebar groups
-- AB Diff Preview uses `DAGScheduler.Execute` with a stop-after task and whitelist, writes temporary outputs under `Temp/BuildRepositoryPreview/{guid}/`, and deletes that directory in a `finally` path
+- AB Diff Preview uses `DAGScheduler.Execute` with a stop-after task and whitelist, writes temporary outputs under `Temp/BuildRepositoryPreview/{guid}/`, and deletes that directory in a `finally` path; `TaskPrepareContext` reads the preview output root from `BuildContextKeys.RepositoryPreviewOutput` instead of an environment variable
 
 ## Release Operations
 

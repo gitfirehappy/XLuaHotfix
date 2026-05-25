@@ -552,6 +552,12 @@
           <div class="group-title">SETTINGS</div>
           <button class="nav-btn active" data-panel="settings">Settings</button>
         </div>
+        <div class="group" id="aaGroup">
+          <div class="group-title">AA PIPELINE</div>
+          <button class="nav-btn" data-panel="aa-config">AA Config</button>
+          <button class="nav-btn" data-panel="aa-build">AA Build</button>
+          <button class="nav-btn" data-panel="aa-report">AA Report</button>
+        </div>
         <div class="group" id="abGroup">
           <div class="group-title">AB PIPELINE</div>
           <button class="nav-btn" data-panel="collect">Collect Config</button>
@@ -562,6 +568,7 @@
         <div class="group">
           <div class="group-title">MANAGE</div>
           <button class="nav-btn" data-panel="version">Version</button>
+          <button class="nav-btn" data-panel="repository">Repository</button>
         </div>
       </div>
     </aside>
@@ -575,6 +582,42 @@
         <div class="ab-hint hidden" id="abHint">
           AB Backend is disabled. Enable UseABBackend in Settings to edit.
         </div>
+
+        <!-- ═══════════════ AA Config Panel ═══════════════ -->
+        <section class="panel" id="panel-aa-config">
+          <div class="unity-toolbar">
+            <div class="tb-spacer"></div>
+            <span class="tb-label">AA Build Settings (AABuildSettings.asset)</span>
+          </div>
+          <div class="scroll-body">
+            <div class="section-header">AA Pipeline Config</div>
+            <div class="box" style="color:#aaa">Pipeline Config Path, Manifest Output Format, Max Hotfix Size</div>
+          </div>
+        </section>
+
+        <!-- ═══════════════ AA Build Panel ═══════════════ -->
+        <section class="panel" id="panel-aa-build">
+          <div class="unity-toolbar">
+            <button class="tb-btn" data-action="Reload">Reload</button>
+            <button class="tb-btn" data-action="Validate">Validate</button>
+            <div class="tb-spacer"></div>
+            <span class="tb-label">AA Build Pipeline DAG</span>
+          </div>
+          <div class="scroll-body">
+            <div class="box" style="color:#aaa">Uses PipelinePanel with AABuildSettings.BuildPipelineConfigPath and CreateAATasks()</div>
+          </div>
+        </section>
+
+        <!-- ═══════════════ AA Report Panel ═══════════════ -->
+        <section class="panel" id="panel-aa-report">
+          <div class="unity-toolbar">
+            <div class="tb-spacer"></div>
+            <span class="tb-label">AA Build Report</span>
+          </div>
+          <div class="scroll-body">
+            <div class="box" style="color:#aaa">Build result summary and Addressables report data</div>
+          </div>
+        </section>
 
         <!-- ═══════════════ Settings Panel ═══════════════ -->
         <section class="panel active" id="panel-settings">
@@ -958,8 +1001,54 @@
             </div>
           </div>
         </section>
-      </div>
-    </main>
+
+        <!-- ═══════════════ Repository Panel ═══════════════ -->
+        <section class="panel" id="panel-repository">
+          <div class="unity-toolbar">
+            <button class="tb-btn" data-action="Refresh">刷新</button>
+            <button class="tb-btn" data-action="Diff">Diff</button>
+            <button class="tb-btn" data-action="Push">Push</button>
+            <div class="tb-spacer"></div>
+            <span class="tb-label" style="font-size:11px">HEAD 1.0.0+5 | MainPackage | 42 项 | LastPush local</span>
+          </div>
+          <div class="scroll-body">
+            <!-- Push Card -->
+            <div class="section-header">Push</div>
+            <div class="box">
+              <div style="display:flex;flex-direction:column;gap:6px">
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span style="width:36px;color:#999;font-size:11px">Target</span>
+                  <select style="flex:1;background:#3a3a3a;color:#d0d0d0;border:1px solid #4a4a4a;padding:2px 6px;font-size:11px">
+                    <option>local</option>
+                  </select>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span style="width:36px;color:#999;font-size:11px">From</span>
+                  <input type="text" placeholder="1.0.0+1" style="flex:1;background:#2a2a2a;color:#d0d0d0;border:1px solid #4a4a4a;padding:2px 6px;font-size:11px">
+                </div>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span style="width:36px;color:#999;font-size:11px">To</span>
+                  <input type="text" placeholder="1.0.0+5" style="flex:1;background:#2a2a2a;color:#d0d0d0;border:1px solid #4a4a4a;padding:2px 6px;font-size:11px">
+                </div>
+              </div>
+            </div>
+
+            <!-- Diff Result -->
+            <div class="section-header">Diff Preview</div>
+            <textarea readonly style="width:100%;height:120px;background:#2a2a2a;color:#d0d0d0;border:1px solid #4a4a4a;resize:vertical;font-family:Consolas,monospace;font-size:11px;padding:6px">Added: 3
++ characters_assets_all_abc123.bundle
++ ui_assets_all_def456.bundle
++ shaders_shared_ghi789.bundle
+Modified: 1
+* audio_assets_all_jkl012.bundle
+Removed: 1
+- old_scene_assets.bundle</textarea>
+
+            <!-- Push History -->
+            <div class="section-header">Push History</div>
+            <textarea readonly style="width:100%;height:80px;background:#2a2a2a;color:#d0d0d0;border:1px solid #4a4a4a;resize:vertical;font-family:Consolas,monospace;font-size:11px;padding:6px">2025-01-15T10:30:00Z | 1.0.0+1 -> 1.0.0+5 | local | D:/Builds/MyGame/Hotfix | 4 文件</textarea>
+          </div>
+        </section>
   </div>
 </div>
 
@@ -968,6 +1057,7 @@
   const sidebarSplitter = document.getElementById('sidebarSplitter');
   const abHint = document.getElementById('abHint');
   const useAB = document.getElementById('useAB');
+  const aaGroup = document.getElementById('aaGroup');
   const abGroup = document.getElementById('abGroup');
   const navButtons = [...document.querySelectorAll('.nav-btn')];
 
@@ -977,11 +1067,13 @@
     collector: document.getElementById('panel-collector'),
     pipeline: document.getElementById('panel-pipeline'),
     builder: document.getElementById('panel-builder'),
-    version: document.getElementById('panel-version')
+    version: document.getElementById('panel-version'),
+    repository: document.getElementById('panel-repository')
   };
 
   // AB PIPELINE panel indices: collect=1, collector=2, pipeline=3, builder=4
   const abPanelIds = new Set(['collect', 'collector', 'pipeline', 'builder']);
+  const aaPanelIds = new Set(['aa-config', 'aa-build', 'aa-report']);
   let abEnabled = true;
 
   function setActivePanel(panelId) {
@@ -1005,7 +1097,9 @@
 
   function updateABState() {
     abEnabled = useAB.checked;
-    // Disable AB PIPELINE sidebar buttons when UseABBackend=false
+    // AA PIPELINE and AB PIPELINE are mutually enabled
+    const aaBtns = aaGroup.querySelectorAll('.nav-btn');
+    aaBtns.forEach(btn => { btn.disabled = abEnabled; });
     const abBtns = abGroup.querySelectorAll('.nav-btn');
     abBtns.forEach(btn => { btn.disabled = !abEnabled; });
 

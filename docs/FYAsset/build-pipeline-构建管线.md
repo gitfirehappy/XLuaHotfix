@@ -77,10 +77,10 @@ TaskA (WriteKeys: ["CollectedAssets"])     TaskB (ReadKeys: ["CollectedAssets"],
 
 | 值 | 含义 |
 |----|------|
-| `AAAddressable` | 基于 AAManifest 的 AA 构建 |
-| `ABManifest` | 基于 ABManifest 的新版构建（默认） |
+| `AA` | 基于 Addressables 的 AA 构建 |
+| `AB` | 基于 ABManifest 的自研构建（默认） |
 
-由 `BuildPipelineConfig.DefaultBackendMode` 配置，CLI 可通过 `--backend` 覆盖。DAG 调度器通过 W-W 冲突检测确保一个 Task 独占写入 BackendMode 相关 Key。
+由 `FYAssetSettings.Instance.UseABBackend` 控制，CLI 可通过 `--backend` 覆盖。`BackendMode.AA` 与 `BackendMode.AB` 分别对应两条构建管线，各有独立的 `BuildPipelineConfig` 资产。
 
 ---
 
@@ -90,8 +90,8 @@ ScriptableObject，存储路径 `Assets/Build/BuildPipelineConfig.asset`。
 
 ```
 BuildPipelineConfig
-├─ DefaultBackendMode    (ABManifest / AAAddressable)
 ├─ FileNameStyle         (BundleName / HashName / BundleName_HashName)
+├─ BundleCompression     (LZ4 / LZMA / Uncompressed，默认 LZ4)
 ├─ SequentialMode        (Debug 串行模式)
 └─ Tasks[]               (TaskEntry 列表)
      ├─ TaskName         ("TaskPrepareContext")
@@ -201,22 +201,52 @@ Execute
 
 | Key | 类型 | 写入者 | 消费者 |
 |-----|------|--------|--------|
-| `CollectedAssets` | `List<CollectedAssetInfo>` | TaskPrepareContext | TaskAnalyzeDependencies, TaskBuildBundles |
-| `BundleDependencyGraph` | `BundleDependencyGraph` | TaskAnalyzeDependencies | TaskBuildBundles |
-| `ABManifest` | `ABManifest` | TaskGenerateManifest | TaskOrganizeOutput |
-| `BackendMode` | `BackendMode` | TaskPrepareContext | 所有模式感知 Task |
-| `BuildVersion` | `VersionNumber` | TaskPrepareContext | TaskGenerateManifest |
+| `BuildPackageRequest` | `BuildPackageRequest` | AB/AA Backend | 所有 Task |
+| `BuildType` | `BuildType` | AB/AA Backend | TaskScan*, TaskExport*, TaskMove* |
+| `CollectedAssets` | `List<CollectedAssetInfo>` | TaskCollectAssets, TaskCollectBuiltins | TaskAnalyzeDependencies, TaskBuildBundles, TaskGenerateManifest |
+| `SharePolicies` | `Dictionary<string, SharePolicyConfig>` | TaskCollectAssets | TaskAnalyzeDependencies |
+| `BundleDependencyGraph` | `BundleDependencyGraph` | TaskAnalyzeDependencies | TaskBuildBundles, TaskGenerateManifest |
+| `BundleBuildResults` | `List<BundleBuildInfo>` | TaskBuildBundles | TaskGenerateManifest, TaskVerifyBuildResult |
+| `ABManifest` | `ABManifest` | TaskGenerateManifest | TaskVerifyBuildResult, TaskScanABHotfixDiff, TaskOrganizeOutput, TaskWriteABPackageManifest |
+| `BuildVerificationResult` | `BuildVerificationResult` | TaskVerifyBuildResult | TaskOrganizeOutput |
+| `OutputPath` | `string` | TaskOrganizeOutput / TaskOrganizeAAOutput | TaskWrite*Manifest, TaskExportLocalBuildData |
+| `ArtifactDelta` | `ArtifactDelta` | TaskScan*HotfixDiff | TaskMoveAddressableHotfixGroups, BuildProjectManager |
+| `RepositoryArtifacts` | `List<ArtifactDigest>` | TaskScan*HotfixDiff | AB/AA Backend (for commit) |
+| `AAServerDataPath` | `string` | TaskBuildAddressablesContent | TaskOrganizeAAOutput |
+| `AAManifest` | `AAManifest` | TaskWriteAAPackageManifest | (context) |
+| `RepositoryPreviewOutput` | `string` | RepositoryPreviewRunner | TaskPrepareContext (预览模式) |
 
 ---
 
 ## 现有 Task 列表
 
-| TaskName | 职责 | 状态 |
+### AB 管线（12 个 Task）
+
+| TaskName | 职责 | 依赖 |
 |----------|------|------|
-| `TaskPrepareContext` | 初始化 BuildContext（版本号、后端模式、收集资产） | 计划中 |
-| `TaskAnalyzeDependencies` | 依赖分析与共享抽取 | 已落地 |
-| `TaskBuildBundles` | 调用 Unity AssetBundle 构建 API | 计划中 |
-| `TaskCollectBuiltins` | 自动收集 Shader 等内置资源 | 计划中 |
-| `TaskVerifyBuildResult` | 构建结果 6 点校验 | 计划中 |
-| `TaskGenerateManifest` | 生成 ABManifest + 序列化输出 | 计划中 |
-| `TaskOrganizeOutput` | 组织输出目录结构 | 计划中 |
+| `TaskPrepareContext` | 初始化 BuildContext（解析 BackendMode、Version、OutputRoot、TargetPlatform、CLI 参数覆盖） | — |
+| `TaskCollectAssets` | 加载 CollectorSetting、运行 CollectionScanner、写入 CollectedAssets 和 SharePolicies | TaskPrepareContext |
+| `TaskAnalyzeDependencies` | BFS 依赖扫描、共享资产提取、构建 BundleDependencyGraph | TaskCollectAssets |
+| `TaskCollectBuiltins` | 自动收集 Shader 和 Resources 内置资源，追加到 CollectedAssets | TaskCollectAssets |
+| `TaskBuildBundles` | 按 PayloadKind 分流构建（Serialized → AB, Scene → 独立, RawFile → 拷贝），输出 BundleBuildResults | TaskAnalyzeDependencies |
+| `TaskGenerateManifest` | 生成 ABManifest（AssetEntries + BundleEntries + 依赖索引 + BundleType 推断），调用 Initialize() | TaskBuildBundles |
+| `TaskVerifyBuildResult` | 6 项校验：文件存在性、UnityFS 魔数完整性、孤立文件、Hash 重算、大小异常、计数交叉检查 | TaskGenerateManifest |
+| `TaskScanABHotfixDiff` | 对比 AB Bundle 产物与 Repository HEAD，计算 ArtifactDelta | TaskVerifyBuildResult |
+| `TaskOrganizeOutput` | 拷贝 Bundle 到最终输出目录、生成 build_summary.txt、清理临时目录 | TaskScanABHotfixDiff |
+| `TaskWriteABPackageManifest` | 发布 ABManifest（JSON + Binary），校验热更包体大小 | TaskOrganizeOutput |
+| `TaskWritePackageIndex` | 写入远端包体指针 PackageIndex.json | TaskWriteABPackageManifest |
+| `TaskExportLocalBuildData` | Full Build 时导出 BuildIndexData 和 AB baseline 到 StreamingAssets；Hotfix 跳过 | TaskWritePackageIndex |
+
+### AA 管线（7 个 Task）
+
+| TaskName | 职责 | 依赖 |
+|----------|------|------|
+| `TaskScanAddressableHotfixDiff` | 对比 AA 源资产（GUID 粒度，含 .meta）与 Repository HEAD，计算 ArtifactDelta | — |
+| `TaskMoveAddressableHotfixGroups` | 将 Added/Modified 资产移入 Hotfix Group，写 undo log；检测 pending move 阻断 | TaskScanAddressableHotfixDiff |
+| `TaskBuildAddressablesContent` | 配置 Addressables（RemoteCatalog + PackTogetherByLabel）、清理 ServerData、调用 BuildPlayerContent | TaskMoveAddressableHotfixGroups |
+| `TaskOrganizeAAOutput` | 整理 ServerData 输出到最终包目录 | TaskBuildAddressablesContent |
+| `TaskWriteAAPackageManifest` | 扫描 .bundle 文件、构建 AAManifest（含 AAAssetIndex）、发布 JSON + Binary | TaskOrganizeAAOutput |
+| `TaskWritePackageIndex` | 写入远端包体指针 PackageIndex.json | TaskWriteAAPackageManifest |
+| `TaskExportLocalBuildData` | Full Build 时写 BuildIndexData、清理 stale AA baseline；Hotfix 跳过 | TaskWritePackageIndex |
+
+> 两条管线共享 `TaskWritePackageIndex` 和 `TaskExportLocalBuildData`。PipelinePanel 按当前 BackendMode 加载对应的 BuildPipelineConfig 资产（AB: `BuildPipelineConfig.asset`，AA: `AABuildPipelineConfig.asset`）。
