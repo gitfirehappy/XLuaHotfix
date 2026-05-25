@@ -17,5 +17,9 @@ MonoBehaviour:
   BuildIndexJsonPath: Assets/Build/Bootstrap/BuildIndex.json
   CollectorDataFolder: Assets/FYAsset/CollectorData
   CollectorSettingPath: Assets/FYAsset/CollectorData/CollectorSetting.asset
+  DependencyFilterExtensions: []
   LuaScriptsIndexPath: Assets/Build/LuaScriptsIndex.asset
-  PushTargets: []
+  PushTargets:
+  - Id: target1
+    Type: 0
+    Path: 
