@@ -11,10 +11,10 @@ using UnityEngine;
 /// </summary>
 public static class DependencyAnalyzer
 {
-    /// <summary>BFS 展开时过滤的非资源文件扩展名</summary>
-    private static readonly HashSet<string> FilterExtensions = new(StringComparer.OrdinalIgnoreCase)
+    /// <summary>BFS 展开时默认过滤的框架级非资源文件扩展名</summary>
+    private static readonly string[] DefaultFilterExtensions =
     {
-        ".meta", ".cs", ".dll", ".asmdef", ".asmref", ".py", ".js", ".shader"
+        ".meta", ".cs", ".dll", ".asmdef", ".asmref", ".gitignore"
     };
 
     /// <summary>BFS 展开时过滤的目录段</summary>
@@ -25,18 +25,21 @@ public static class DependencyAnalyzer
     /// </summary>
     /// <param name="assets">CollectionScanner 产出的资产列表（可包含多个 Package）</param>
     /// <param name="sharePolicies">Per-Package 共享策略（PackageName → SharePolicyConfig）</param>
+    /// <param name="extraFilterExtensions">BFS 展开时追加过滤的项目级扩展名</param>
     /// <param name="graph">输出：Bundle 依赖图</param>
     /// <param name="messages">输出：错误/警告/信息消息列表</param>
     /// <returns>增强后的资产列表（含隐式依赖条目）</returns>
     public static List<CollectedAssetInfo> Analyze(
         List<CollectedAssetInfo> assets,
         Dictionary<string, SharePolicyConfig> sharePolicies,
+        IEnumerable<string> extraFilterExtensions,
         out BundleDependencyGraph graph,
         out List<BuildMessage> messages)
     {
         graph = new BundleDependencyGraph();
         messages = new List<BuildMessage>();
         var result = new List<CollectedAssetInfo>(assets);
+        HashSet<string> filterExtensions = BuildFilterExtensions(extraFilterExtensions);
 
         // 按 Package 分组
         var byPackage = new Dictionary<string, List<CollectedAssetInfo>>();
@@ -55,7 +58,7 @@ public static class DependencyAnalyzer
             var policy = sharePolicies != null && sharePolicies.TryGetValue(packageName, out var p)
                 ? p : new SharePolicyConfig();
 
-            AnalyzePackage(packageAssets, policy, packageName, graph, messages, result);
+            AnalyzePackage(packageAssets, policy, packageName, filterExtensions, graph, messages, result);
         }
 
         return result;
@@ -65,6 +68,7 @@ public static class DependencyAnalyzer
         List<CollectedAssetInfo> packageAssets,
         SharePolicyConfig policy,
         string packageName,
+        HashSet<string> filterExtensions,
         BundleDependencyGraph graph,
         List<BuildMessage> messages,
         List<CollectedAssetInfo> result)
@@ -80,7 +84,7 @@ public static class DependencyAnalyzer
         // 第一阶段：BFS 遍历 — Bundle 依赖边 + 隐式依赖候选发现 + 循环检测
         var implicitCandidates = new Dictionary<string, ImplicitCandidate>();
         var cycleEntries = new List<(string fromPath, string toPath)>();
-        BfsTraverseAll(packageAssets, ownedGUIDs, graph, implicitCandidates, cycleEntries);
+        BfsTraverseAll(packageAssets, ownedGUIDs, filterExtensions, graph, implicitCandidates, cycleEntries);
 
         // 第二阶段：报告循环依赖诊断消息
         ReportDependencyCycles(cycleEntries, messages, packageName);
@@ -95,6 +99,7 @@ public static class DependencyAnalyzer
     private static void BfsTraverseAll(
         List<CollectedAssetInfo> packageAssets,
         Dictionary<string, CollectedAssetInfo> ownedGUIDs,
+        HashSet<string> filterExtensions,
         BundleDependencyGraph graph,
         Dictionary<string, ImplicitCandidate> implicitCandidates,
         List<(string fromPath, string toPath)> cycleEntries)
@@ -132,7 +137,7 @@ public static class DependencyAnalyzer
 
                 foreach (var dep in deps)
                 {
-                    if (ShouldSkip(dep))
+                    if (ShouldSkip(dep, filterExtensions))
                         continue;
 
                     string depGuid = AssetDatabase.AssetPathToGUID(dep);
@@ -360,13 +365,38 @@ public static class DependencyAnalyzer
         };
     }
 
-    private static bool ShouldSkip(string assetPath)
+    private static HashSet<string> BuildFilterExtensions(IEnumerable<string> extraFilterExtensions)
+    {
+        var result = new HashSet<string>(DefaultFilterExtensions, StringComparer.OrdinalIgnoreCase);
+        if (extraFilterExtensions == null)
+            return result;
+
+        foreach (string extension in extraFilterExtensions)
+        {
+            string normalized = NormalizeExtension(extension);
+            if (!string.IsNullOrEmpty(normalized))
+                result.Add(normalized);
+        }
+
+        return result;
+    }
+
+    private static string NormalizeExtension(string extension)
+    {
+        string normalized = extension?.Trim();
+        if (string.IsNullOrEmpty(normalized))
+            return string.Empty;
+
+        return normalized[0] == '.' ? normalized : "." + normalized;
+    }
+
+    private static bool ShouldSkip(string assetPath, HashSet<string> filterExtensions)
     {
         if (string.IsNullOrEmpty(assetPath))
             return true;
 
         // 排除已知不可打包的扩展名
-        foreach (var ext in FilterExtensions)
+        foreach (var ext in filterExtensions)
         {
             if (assetPath.EndsWith(ext, StringComparison.OrdinalIgnoreCase))
                 return true;

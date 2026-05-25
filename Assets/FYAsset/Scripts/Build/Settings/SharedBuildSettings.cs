@@ -18,6 +18,7 @@ public sealed class SharedBuildSettings : ScriptableObject
     [Header("Collector")]
     public string CollectorDataFolder = "Assets/FYAsset/CollectorData";
     public string CollectorSettingPath = "Assets/FYAsset/CollectorData/CollectorSetting.asset";
+    public List<string> DependencyFilterExtensions = new();
 
     [Header("AA")]
     public string LuaScriptsIndexPath = "Assets/Build/LuaScriptsIndex.asset";

@@ -537,8 +537,6 @@ public class CollectorSettingPanel : IBuildPipelinePanel
     /// </summary>
     private void LoadSetting()
     {
-        CollectorDataMigrator.EnsureDataFolder();
-        CollectorDataMigrator.MigrateFromAAPath();
         _setting = AssetDatabase.LoadAssetAtPath<CollectorSetting>(FYAssetBuildSettingsProvider.Shared.CollectorSettingPath);
         _so = _setting != null ? new SerializedObject(_setting) : null;
         EnsureSelection();
@@ -549,7 +547,7 @@ public class CollectorSettingPanel : IBuildPipelinePanel
     /// </summary>
     private void CreateSetting()
     {
-        CollectorDataMigrator.EnsureDataFolder();
+        BuildPipelineUI.EnsureAssetParentFolder(FYAssetBuildSettingsProvider.Shared.CollectorSettingPath);
         CollectorSetting asset = ScriptableObject.CreateInstance<CollectorSetting>();
         AssetDatabase.CreateAsset(asset, FYAssetBuildSettingsProvider.Shared.CollectorSettingPath);
         AssetDatabase.SaveAssets();

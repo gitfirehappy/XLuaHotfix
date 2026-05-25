@@ -6,7 +6,7 @@ using System.Collections.Generic;
 /// 决策逻辑在 Editor 程序集的 DependencyAnalyzer 中执行。
 ///
 /// 规则冲突处理：若同一资产同时匹配 ForceSharePatterns 和 NoSharePatterns
-/// → 视为配置错误，抛出 SHAREPOLICY_CONFLICT。
+/// 视为配置错误，抛出 SHAREPOLICY_CONFLICT。
 /// </summary>
 [Serializable]
 public class SharePolicyConfig

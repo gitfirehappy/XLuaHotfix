@@ -44,6 +44,7 @@ public class TaskAnalyzeDependencies : IBuildTask
 
         // 执行依赖分析
         var augmented = DependencyAnalyzer.Analyze(assets, policies,
+            FYAssetBuildSettingsProvider.Shared.DependencyFilterExtensions,
             out var graph, out var messages);
 
         // 汇总消息：统一收集，再根据是否有 Error 决定返回 Ok 或 Fail

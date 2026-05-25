@@ -5,8 +5,7 @@ using UnityEngine;
 
 /// <summary>
 /// 构建编排入口。
-/// 统一管理版本号更新、后端路由（AB / AA）和构建仓库提交。
-/// 通过 legacy MenuItem 保留 Full Package / Hotfix Package / Reset Groups 四个旧工具入口。
+/// 统一管理版本号更新、后端路由和构建仓库提交。
 /// </summary>
 public static class BuildProjectManager
 {
@@ -17,13 +16,7 @@ public static class BuildProjectManager
     /// <summary>
     /// 构建完整包，用于大版本更新
     /// </summary>
-    [MenuItem("Tools/Build/[Legacy] Build Full Package",false, 1)]
-    public static void BuildFullPackage()
-    {
-        BuildFullPackage(null);
-    }
-
-    public static void BuildFullPackage(BuildExecutionOptions options)
+    public static void BuildFullPackage(BuildExecutionOptions options = null)
     {
         LastBuildSuccess = true;
         VersionDataBase versionData = LoadVersionDataBase();
@@ -50,13 +43,7 @@ public static class BuildProjectManager
     /// <summary>
     /// 构建热更包，用于小版本更新
     /// </summary>
-    [MenuItem("Tools/Build/[Legacy] Build Hotfix Package",false, 2)]
-    public static void BuildHotfix()
-    {
-        BuildHotfix(null);
-    }
-
-    public static void BuildHotfix(BuildExecutionOptions options)
+    public static void BuildHotfix(BuildExecutionOptions options = null)
     {
         LastBuildSuccess = true;
         VersionDataBase versionData = LoadVersionDataBase();
@@ -78,7 +65,6 @@ public static class BuildProjectManager
     /// 重置分组 (Manual Trigger)
     /// 将位于 Hotfix 组的资源还原回它们原始的分组 (通常在打整包前，或者放弃本次热更时使用)
     /// </summary>
-    [MenuItem("Tools/Build/[Legacy] Reset Remote Groups to Original",false, 0)]
     public static void ResetGroupsToOriginal()
     {
         if (FYAssetSettings.Instance.UseABBackend)

@@ -19,7 +19,7 @@ public sealed class PackByDirectory : IPackRule
         string assetDirNorm = assetDir.Replace('\\', '/');
         string collectDirNorm = (ctx.CollectPath ?? string.Empty).Replace('\\', '/').TrimEnd('/');
 
-        // 资源直接在 CollectPath 根下 → 回退到 CollectPath 末段
+        // 资源直接在 CollectPath 根下 -> 回退到 CollectPath 末段
         if (string.Equals(assetDirNorm, collectDirNorm, StringComparison.OrdinalIgnoreCase))
             return Fallback(ctx);
 
