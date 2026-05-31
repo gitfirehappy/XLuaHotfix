@@ -244,7 +244,7 @@ public sealed class CollectorReverseIndex
         if (!filterRule.IsCollectable(context))
             return true;
 
-        return CollectorPathUtility.MatchesIgnorePattern(assetPath, collector.CollectPath, collector.IgnorePatterns);
+        return false;
     }
 
     private void AddIfMissing(string assetPath, CollectorRef collectorRef)

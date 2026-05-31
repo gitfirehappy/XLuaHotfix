@@ -72,6 +72,10 @@ public static class CollectorPathUtility
             if (string.IsNullOrEmpty(pattern))
                 continue;
 
+            string normalizedPattern = NormalizePath(pattern);
+            if (IsFullPathPattern(normalizedPattern) && MatchesFullPathPattern(normalizedAsset, normalizedPattern))
+                return true;
+
             if (pattern.EndsWith("/"))
             {
                 string dirName = pattern.Substring(0, pattern.Length - 1);
@@ -85,6 +89,27 @@ public static class CollectorPathUtility
         }
 
         return false;
+    }
+
+    private static bool IsFullPathPattern(string pattern)
+    {
+        return pattern.StartsWith("Assets/", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(pattern, "Assets", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool MatchesFullPathPattern(string assetPath, string pattern)
+    {
+        if (string.Equals(assetPath, pattern, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        const string subtreeSuffix = "/**";
+        if (pattern.EndsWith(subtreeSuffix, StringComparison.Ordinal))
+        {
+            string root = pattern.Substring(0, pattern.Length - subtreeSuffix.Length);
+            return IsPathContained(root, assetPath);
+        }
+
+        return GlobMatcher.IsMatch(assetPath, pattern);
     }
 
     private static bool ContainsPathSegment(string path, string segment)

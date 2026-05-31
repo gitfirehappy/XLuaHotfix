@@ -187,8 +187,7 @@ public sealed class CollectorTargetPickerWindow : EditorWindow
                 CollectorType = _collectorType,
                 ForcePayloadKind = _forcePayloadKind,
                 FilterRuleName = FYAssetSettings.RULE_COLLECT_ALL,
-                GroupRuleName = FYAssetSettings.RULE_GROUP_ALL,
-                IgnorePatterns = new List<string>()
+                GroupRuleName = FYAssetSettings.RULE_GROUP_ALL
             });
         }
 

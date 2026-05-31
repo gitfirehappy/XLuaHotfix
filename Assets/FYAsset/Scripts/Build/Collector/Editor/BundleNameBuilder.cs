@@ -85,7 +85,7 @@ public static class BundleNameBuilder
             case BundlePackingMode.PackTogether:
                 return "all";
             case BundlePackingMode.PackSeparately:
-                return string.Concat(SanitizeSegment(address), SystemIdentifiers.LabelSeparator, ShortGuid(assetGuid));
+                return string.Concat(NormalizeAddressKey(address), SystemIdentifiers.LabelSeparator, ShortGuid(assetGuid));
             case BundlePackingMode.PackTogetherByLabel:
                 return BuildLabelKey(finalLabels);
             default:
@@ -130,6 +130,48 @@ public static class BundleNameBuilder
             return raw;
 
         return SanitizeSegment(raw);
+    }
+
+    private static string NormalizeAddressKey(string raw)
+    {
+        if (string.IsNullOrEmpty(raw))
+            return SystemIdentifiers.DefaultBundleKey;
+
+        string lowered = raw.ToLowerInvariant();
+        System.Text.StringBuilder builder = new System.Text.StringBuilder(lowered.Length);
+        bool lastWasSeparator = false;
+        for (int i = 0; i < lowered.Length; i++)
+        {
+            char c = lowered[i];
+            if (IsBundleKeyCharAllowed(c))
+            {
+                builder.Append(c);
+                lastWasSeparator = false;
+                continue;
+            }
+
+            if (!lastWasSeparator && builder.Length > 0)
+            {
+                builder.Append('-');
+                lastWasSeparator = true;
+            }
+        }
+
+        while (builder.Length > 0 && builder[builder.Length - 1] == '-')
+            builder.Length--;
+
+        return builder.Length > 0 ? builder.ToString() : SystemIdentifiers.DefaultBundleKey;
+    }
+
+    private static bool IsBundleKeyCharAllowed(char c)
+    {
+        for (int i = 0; i < SystemIdentifiers.BundleKeyReservedChars.Length; i++)
+        {
+            if (c == SystemIdentifiers.BundleKeyReservedChars[i])
+                return false;
+        }
+
+        return c != SystemIdentifiers.LabelSeparator;
     }
 
     private static string GetModeSegment(BundlePackingMode mode)

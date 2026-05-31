@@ -184,12 +184,15 @@ public static class CollectionScanner
             var ctx = contexts[ci];
             ctx.Setting = setting;
             if (!ScanCollector(ctx, packageName, groupLookup, result, packageAssets))
-                return false;
+                break;
         }
 
         // GUID 唯一性校验
         if (!CheckGuidUniqueness(packageAssets, result))
+        {
+            result.Assets.AddRange(packageAssets);
             return false;
+        }
 
         result.Assets.AddRange(packageAssets);
         return true;
@@ -409,9 +412,6 @@ public static class CollectionScanner
         if (!collectable)
             return true;
 
-        if (CollectorPathUtility.MatchesIgnorePattern(assetPath, collectPath, collector.IgnorePatterns))
-            return true;
-
         if (!TryExecuteRule(
                 "AssetClassifier",
                 collector.CollectorType.ToString(),
@@ -463,6 +463,8 @@ public static class CollectionScanner
             Role = entry.AutoRole ? classification.Role : entry.Role,
             PayloadKind = entry.AutoPayload ? classification.PayloadKind : entry.PayloadKind
         };
+        if (IsSceneAssetPath(assetPath))
+            resolvedClassification.PayloadKind = EPayloadKind.Scene;
 
         List<string> groupLabels = CopyLabels(targetGroup?.Labels);
         List<string> assetLabels = CopyLabels(entry.Labels);
@@ -554,7 +556,7 @@ public static class CollectionScanner
         for (int i = 0; i < guids.Length; i++)
         {
             string assetPath = AssetDatabase.GUIDToAssetPath(guids[i]);
-            if (!string.IsNullOrEmpty(assetPath))
+            if (!string.IsNullOrEmpty(assetPath) && !AssetDatabase.IsValidFolder(assetPath))
                 assetPaths.Add(assetPath);
         }
 
@@ -657,6 +659,11 @@ public static class CollectionScanner
             return BundlePackingMode.PackSeparately;
 
         return targetGroup != null ? targetGroup.BundlePackingMode : BundlePackingMode.PackTogetherByLabel;
+    }
+
+    private static bool IsSceneAssetPath(string assetPath)
+    {
+        return string.Equals(System.IO.Path.GetExtension(assetPath), ".unity", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string GetPrimaryTypeName(string assetPath)

@@ -146,9 +146,6 @@ public class Collector
     /// <summary>分组规则类名，由 RuleResolver 反射解析为 IGroupRule 实例</summary>
     public string GroupRuleName;
 
-    /// <summary>忽略规则模式列表（类 gitignore 子集：*.ext / dirname/ / *keyword*）</summary>
-    public List<string> IgnorePatterns = new();
-
     #endregion
 }
 
