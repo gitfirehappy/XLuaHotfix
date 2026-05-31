@@ -72,7 +72,7 @@ public sealed class CollectorTargetPickerWindow : EditorWindow
         string[] groupNames = GetGroupNames(_selectedPackageIndex);
         if (groupNames.Length == 0)
         {
-            rootVisualElement.Add(BuildPipelineUI.SmallText("选中的 Package 没有 Group。先到 AssetCollectionSettingPanel 新建。"));
+            rootVisualElement.Add(BuildPipelineUI.SmallText("选中的 Package 没有 Group。先到 Collector 面板新建。"));
             return;
         }
 

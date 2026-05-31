@@ -21,7 +21,7 @@ The collection model is a four-level hierarchy plus a GUID-keyed asset metadata 
 - ScriptableObject root.
 - Stores all configured packages.
 - Stores `AssetEntries`, keyed by `AssetGUID`.
-- Default build settings path is `Assets/FYAsset/AssetCollectionData/AssetCollectionSetting.asset`.
+- Default build settings path is `Assets/FYAsset/CollectorData/CollectorSetting.asset`.
 
 ### `AssetCollectionPackage`
 

@@ -139,6 +139,12 @@ public sealed class CollectorPanel : IBuildPipelinePanel
         }, 140f);
         toolbar.Add(_groupPopup);
 
+        toolbar.Add(BuildPipelineUI.ToolbarButton("+ Package", () =>
+        {
+            AddPackage();
+            SaveAndRebuild();
+        }, 84f));
+
         toolbar.Add(BuildPipelineUI.ToolbarButton("+ 目录", () =>
         {
             AddCollector(false);
@@ -332,6 +338,8 @@ public sealed class CollectorPanel : IBuildPipelinePanel
         _detailScroll.Bind(_so);
         _detailPane.Add(_detailScroll);
 
+        BuildPackageAndGroupDetail(_detailScroll);
+
         if (!string.IsNullOrEmpty(_selectedAssetGuid))
         {
             BuildAssetDetail(_detailScroll, _selectedAssetGuid);
@@ -355,6 +363,69 @@ public sealed class CollectorPanel : IBuildPipelinePanel
         AddLabeledRulePopup(_detailScroll, "Filter", collectorProp.FindPropertyRelative("FilterRuleName"), RuleDropdownHelper.GetFilterRuleNames());
         AddLabeledRulePopup(_detailScroll, "Group", collectorProp.FindPropertyRelative("GroupRuleName"), RuleDropdownHelper.GetGroupRuleNames());
         _detailScroll.Add(new PropertyField(collectorProp.FindPropertyRelative("IgnorePatterns"), "Ignore Patterns"));
+    }
+
+    /// <summary>
+    /// 在唯一 Collector 面板中保留 Package / Group 级配置入口。
+    /// </summary>
+    private void BuildPackageAndGroupDetail(VisualElement parent)
+    {
+        SerializedProperty packageProp = GetCurrentPackageProperty();
+        if (packageProp == null)
+            return;
+
+        parent.Add(BuildPipelineUI.Header("Package"));
+        parent.Add(new PropertyField(packageProp.FindPropertyRelative("PackageName"), "Package Name"));
+
+        SerializedProperty sharePolicy = packageProp.FindPropertyRelative("SharePolicy");
+        if (sharePolicy != null)
+        {
+            parent.Add(new PropertyField(sharePolicy.FindPropertyRelative("MinReferenceCount"), "Min Reference Count"));
+            parent.Add(new PropertyField(sharePolicy.FindPropertyRelative("MinAssetSizeBytes"), "Min Asset Size Bytes"));
+            parent.Add(new PropertyField(sharePolicy.FindPropertyRelative("NoSharePatterns"), "No Share Patterns"));
+            parent.Add(new PropertyField(sharePolicy.FindPropertyRelative("ForceSharePatterns"), "Force Share Patterns"));
+        }
+
+        parent.Add(new Button(() =>
+        {
+            RemoveSelectedPackage();
+            SaveAndRebuild();
+        }) { text = "- Package" });
+
+        SerializedProperty groupProp = GetCurrentGroupProperty();
+        if (groupProp == null)
+        {
+            VisualElement emptyGroupHeader = CreateGroupHeaderWithActions(false);
+            parent.Add(emptyGroupHeader);
+            parent.Add(BuildPipelineUI.SmallText("当前 Package 没有 Group。"));
+            return;
+        }
+
+        parent.Add(CreateGroupHeaderWithActions(true));
+        parent.Add(new PropertyField(groupProp.FindPropertyRelative("GroupName"), "Group Name"));
+        parent.Add(new PropertyField(groupProp.FindPropertyRelative("Enabled"), "Enabled"));
+        parent.Add(new PropertyField(groupProp.FindPropertyRelative("BundlePackingMode"), "Bundle Packing"));
+        parent.Add(new PropertyField(groupProp.FindPropertyRelative("Labels"), "Group Labels"));
+    }
+
+    private VisualElement CreateGroupHeaderWithActions(bool canRemove)
+    {
+        VisualElement groupHeader = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center } };
+        groupHeader.Add(BuildPipelineUI.Header("Group"));
+        groupHeader.Add(BuildPipelineUI.Spacer());
+        groupHeader.Add(new Button(() =>
+        {
+            AddGroup();
+            SaveAndRebuild();
+        }) { text = "+ Group" });
+        Button remove = new Button(() =>
+        {
+            RemoveSelectedGroup();
+            SaveAndRebuild();
+        }) { text = "- Group" };
+        remove.SetEnabled(canRemove);
+        groupHeader.Add(remove);
+        return groupHeader;
     }
 
     /// <summary>
@@ -793,6 +864,97 @@ public sealed class CollectorPanel : IBuildPipelinePanel
         AddDraggedCollectors(assetPaths);
         SaveAndRebuild();
         evt.StopPropagation();
+    }
+
+    /// <summary>
+    /// 新增 Package，并初始化共享提取策略。
+    /// </summary>
+    private void AddPackage()
+    {
+        SerializedProperty packagesProp = GetPackagesProperty();
+        if (packagesProp == null)
+            return;
+
+        Undo.RecordObject(_setting, "Add Package");
+        int index = packagesProp.arraySize;
+        packagesProp.arraySize++;
+        SerializedProperty packageProp = packagesProp.GetArrayElementAtIndex(index);
+        packageProp.FindPropertyRelative("PackageName").stringValue = "NewPackage" + (index + 1);
+        packageProp.FindPropertyRelative("Groups").arraySize = 0;
+
+        SerializedProperty sharePolicy = packageProp.FindPropertyRelative("SharePolicy");
+        if (sharePolicy != null)
+        {
+            sharePolicy.FindPropertyRelative("MinReferenceCount").intValue = 2;
+            sharePolicy.FindPropertyRelative("MinAssetSizeBytes").longValue = 0;
+            sharePolicy.FindPropertyRelative("NoSharePatterns").arraySize = 0;
+            sharePolicy.FindPropertyRelative("ForceSharePatterns").arraySize = 0;
+        }
+
+        _selectedPackageIndex = index;
+        _selectedGroupIndex = -1;
+        _selectedCollectorIndex = -1;
+        _selectedAssetGuid = null;
+    }
+
+    /// <summary>
+    /// 在当前 Package 下新增 Group。
+    /// </summary>
+    private void AddGroup()
+    {
+        SerializedProperty packageProp = GetCurrentPackageProperty();
+        SerializedProperty groupsProp = packageProp?.FindPropertyRelative("Groups");
+        if (groupsProp == null)
+            return;
+
+        Undo.RecordObject(_setting, "Add Group");
+        int index = groupsProp.arraySize;
+        groupsProp.arraySize++;
+        SerializedProperty groupProp = groupsProp.GetArrayElementAtIndex(index);
+        groupProp.FindPropertyRelative("GroupName").stringValue = "NewGroup" + (index + 1);
+        groupProp.FindPropertyRelative("Enabled").boolValue = true;
+        groupProp.FindPropertyRelative("Labels").arraySize = 0;
+        groupProp.FindPropertyRelative("BundlePackingMode").enumValueIndex = (int)BundlePackingMode.PackTogetherByLabel;
+        groupProp.FindPropertyRelative("Collectors").arraySize = 0;
+
+        _selectedGroupIndex = index;
+        _selectedCollectorIndex = -1;
+        _selectedAssetGuid = null;
+    }
+
+    /// <summary>
+    /// 删除当前选中的 Group，并保留 Package。
+    /// </summary>
+    private void RemoveSelectedGroup()
+    {
+        SerializedProperty packageProp = GetCurrentPackageProperty();
+        SerializedProperty groupsProp = packageProp?.FindPropertyRelative("Groups");
+        if (groupsProp == null || _selectedGroupIndex < 0 || _selectedGroupIndex >= groupsProp.arraySize)
+            return;
+
+        Undo.RecordObject(_setting, "Remove Group");
+        groupsProp.DeleteArrayElementAtIndex(_selectedGroupIndex);
+        _selectedGroupIndex = groupsProp.arraySize == 0 ? -1 : Mathf.Clamp(_selectedGroupIndex, 0, groupsProp.arraySize - 1);
+        _selectedCollectorIndex = -1;
+        _selectedAssetGuid = null;
+    }
+
+    /// <summary>
+    /// 删除当前选中的 Package。
+    /// </summary>
+    private void RemoveSelectedPackage()
+    {
+        SerializedProperty packagesProp = GetPackagesProperty();
+        if (packagesProp == null || _selectedPackageIndex < 0 || _selectedPackageIndex >= packagesProp.arraySize)
+            return;
+
+        Undo.RecordObject(_setting, "Remove Package");
+        packagesProp.DeleteArrayElementAtIndex(_selectedPackageIndex);
+        _selectedPackageIndex = packagesProp.arraySize == 0 ? -1 : Mathf.Clamp(_selectedPackageIndex, 0, packagesProp.arraySize - 1);
+        _selectedGroupIndex = -1;
+        _selectedCollectorIndex = -1;
+        _selectedAssetGuid = null;
+        EnsureSelection();
     }
 
     /// <summary>

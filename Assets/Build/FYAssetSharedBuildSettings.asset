@@ -15,8 +15,8 @@ MonoBehaviour:
   BuildOutputRoot: HotfixOutput
   VersionDataBasePath: Assets/Build/VersionDataBase.asset
   BuildIndexJsonPath: Assets/Build/Bootstrap/BuildIndex.json
-  CollectorDataFolder: Assets/FYAsset/CollectorData
-  CollectorSettingPath: Assets/FYAsset/CollectorData/CollectorSetting.asset
+  AssetCollectionDataFolder: Assets/FYAsset/CollectorData
+  AssetCollectionSettingPath: Assets/FYAsset/CollectorData/CollectorSetting.asset
   DependencyFilterExtensions: []
   LuaScriptsIndexPath: Assets/Build/LuaScriptsIndex.asset
   PushTargets:

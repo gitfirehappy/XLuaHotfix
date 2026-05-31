@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 /// <summary>
 /// Shared build-time paths and release targets used by AA and AB backends.
@@ -16,8 +17,12 @@ public sealed class SharedBuildSettings : ScriptableObject
     public string BuildIndexJsonPath = "Assets/Build/Bootstrap/BuildIndex.json";
 
     [Header("Collector")]
-    public string AssetCollectionDataFolder = "Assets/FYAsset/AssetCollectionData";
-    public string AssetCollectionSettingPath = "Assets/FYAsset/AssetCollectionData/AssetCollectionSetting.asset";
+    [FormerlySerializedAs("CollectorDataFolder")]
+    public string AssetCollectionDataFolder = "Assets/FYAsset/CollectorData";
+
+    [FormerlySerializedAs("CollectorSettingPath")]
+    public string AssetCollectionSettingPath = "Assets/FYAsset/CollectorData/CollectorSetting.asset";
+
     public List<string> DependencyFilterExtensions = new();
 
     [Header("AA")]

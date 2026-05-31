@@ -50,8 +50,8 @@ public sealed class BuildPipelineWindow : EditorWindow
     {
         new SidebarGroup { Label = "设置", StartIndex = 0, Count = 1, Collapsible = false },
         new SidebarGroup { Label = "AA", StartIndex = 1, Count = 3, Collapsible = true },
-        new SidebarGroup { Label = "AB", StartIndex = 4, Count = 4, Collapsible = true },
-        new SidebarGroup { Label = "管理", StartIndex = 8, Count = 3, Collapsible = false },
+        new SidebarGroup { Label = "AB", StartIndex = 4, Count = 3, Collapsible = true },
+        new SidebarGroup { Label = "管理", StartIndex = 7, Count = 3, Collapsible = false },
     };
 
     #endregion
@@ -421,7 +421,6 @@ public sealed class BuildPipelineWindow : EditorWindow
             new AABuildPanel(),
             new AAReportPanel(),
             new ABConfigPanel(),
-            new AssetCollectionSettingPanel(),
             new CollectorPanel(),
             new PipelinePanel(),
             new RepositoryStatusPanel(),

@@ -297,7 +297,7 @@
       border-radius: 2px;
     }
 
-    /* ── Collect Config: sidebar + detail ── */
+    /* ── Collector package/group detail ── */
     .cc-layout {
       flex: 1;
       min-height: 0;
@@ -560,15 +560,15 @@
         </div>
         <div class="group" id="abGroup">
           <div class="group-title">AB PIPELINE</div>
-          <button class="nav-btn" data-panel="collect">Collect Config</button>
+          <button class="nav-btn" data-panel="ab-config">AB Config</button>
           <button class="nav-btn" data-panel="collector">Collector</button>
           <button class="nav-btn" data-panel="pipeline">Pipeline</button>
-          <button class="nav-btn" data-panel="builder">Builder</button>
         </div>
         <div class="group">
           <div class="group-title">MANAGE</div>
-          <button class="nav-btn" data-panel="version">Version</button>
           <button class="nav-btn" data-panel="repository">Repository</button>
+          <button class="nav-btn" data-panel="builder">Builder</button>
+          <button class="nav-btn" data-panel="version">Version</button>
         </div>
       </div>
     </aside>
@@ -644,77 +644,24 @@
             <div class="prop-row"><span class="prop-label">Build Index Json Path</span><input class="prop-field" value="" /></div>
 
             <div class="section-header">New Pipeline Paths</div>
-            <div class="prop-row"><span class="prop-label">Asset Collection Data Folder</span><input class="prop-field" value="Assets/FYAsset/AssetCollectionData" /></div>
-            <div class="prop-row"><span class="prop-label">Asset Collection Setting Path</span><input class="prop-field" value="Assets/FYAsset/AssetCollectionData/AssetCollectionSetting.asset" /></div>
+            <div class="prop-row"><span class="prop-label">Asset Collection Data Folder</span><input class="prop-field" value="Assets/FYAsset/CollectorData" /></div>
+            <div class="prop-row"><span class="prop-label">Asset Collection Setting Path</span><input class="prop-field" value="Assets/FYAsset/CollectorData/CollectorSetting.asset" /></div>
             <div class="prop-row"><span class="prop-label">Pipeline Config Path</span><input class="prop-field" value="Assets/Build/BuildPipelineConfig.asset" /></div>
           </div>
         </section>
 
-        <!-- ═══════════════ Collect Config Panel ═══════════════ -->
-        <section class="panel" id="panel-collect">
+        <!-- ═══════════════ AB Config Panel ═══════════════ -->
+        <section class="panel" id="panel-ab-config">
           <div class="unity-toolbar">
-            <button class="tb-btn" data-action="Reload Collect Config">Reload</button>
+            <button class="tb-btn" data-action="Reload AB Config">Reload</button>
             <div class="tb-spacer"></div>
-            <span class="tb-label">Assets/FYAsset/AssetCollectionData/AssetCollectionSetting.asset</span>
+            <span class="tb-label">ABBuildSettings.asset</span>
           </div>
-          <div class="cc-layout">
-            <div class="cc-sidebar" id="ccSidebar">
-              <div class="tree-pkg active">📦 DefaultPackage</div>
-              <div class="tree-grp">📁 DefaultGroup</div>
-              <div class="tree-grp active">📁 GroupA</div>
-              <div class="tree-grp">📁 GroupB  <span style="color:#995555">[Disabled]</span></div>
-              <div class="tree-pkg" style="margin-top:8px">📦 Package2</div>
-              <div class="tree-grp">📁 SubGroup</div>
-            </div>
-            <div class="cc-splitter" id="ccSplitter" title="Drag"></div>
-            <div class="cc-detail">
-              <div style="font-weight:700;font-size:14px;color:#eee;margin-bottom:8px">Group Overview</div>
-              <div class="prop-row"><span class="prop-label">Group Name</span><input class="prop-field" value="GroupA" /></div>
-              <div class="prop-row"><span class="prop-label">Enabled</span><input type="checkbox" checked /></div>
-              <div class="prop-row"><span class="prop-label">Group Labels</span><div class="mini-field" style="flex:1;min-height:20px">Size: 0</div></div>
-              <div class="prop-row"><span class="prop-label">Bundle Packing Mode</span><select class="mini-field" style="flex:1"><option>PackTogetherByLabel</option><option>PackTogether</option><option>PackSeparately</option></select></div>
-
-              <div style="display:flex;align-items:center;justify-content:space-between;margin:8px 0 4px">
-                <span style="font-weight:700;font-size:13px;color:#eee">Collectors</span>
-                <div style="display:flex;gap:4px">
-                  <button class="mini-btn" style="width:72px">+ Folder</button>
-                  <button class="mini-btn" style="width:60px">+ File</button>
-                </div>
-              </div>
-
-              <div class="box" style="border-color:var(--accent)">
-                <div class="tbl-row-top">
-                  <select class="mini-field" style="width:92px"><option>Folder</option><option>File</option></select>
-                  <input class="mini-field" style="flex:1" value="Assets/FYAsset/Scripts" />
-                  <button class="mini-btn" style="width:28px">…</button>
-                  <button class="mini-btn" style="width:24px">×</button>
-                </div>
-                <div class="tbl-row-bot" style="margin-top:4px">
-                  <select class="mini-field" style="width:92px"><option>Main</option></select>
-                  <select class="mini-field" style="width:108px"><option>Auto</option></select>
-                  <select class="mini-field" style="width:92px"><option>CollectAll</option></select>
-                  <select class="mini-field" style="width:92px"><option>GroupAll</option></select>
-                </div>
-                <div style="margin-top:6px">
-                  <div class="prop-row"><span class="prop-label">Ignore Patterns</span><div class="mini-field" style="flex:1;min-height:20px">Size: 0</div></div>
-                </div>
-              </div>
-
-              <div class="box">
-                <div class="tbl-row-top">
-                  <select class="mini-field" style="width:92px"><option>File</option></select>
-                  <input class="mini-field" style="flex:1" value="Assets/Example.txt" />
-                  <button class="mini-btn" style="width:28px">…</button>
-                  <button class="mini-btn" style="width:24px">×</button>
-                </div>
-                <div class="tbl-row-bot" style="margin-top:4px">
-                  <select class="mini-field" style="width:92px"><option>Main</option></select>
-                  <select class="mini-field" style="width:108px"><option>Auto</option></select>
-                  <select class="mini-field" style="width:92px"><option>CollectAll</option></select>
-                  <select class="mini-field" style="width:92px"><option>GroupAll</option></select>
-                </div>
-              </div>
-            </div>
+          <div class="scroll-body">
+            <div class="section-header">AB Build Settings</div>
+            <div class="prop-row"><span class="prop-label">Pipeline Config Path</span><input class="prop-field" value="Assets/Build/BuildPipelineConfig.asset" /></div>
+            <div class="prop-row"><span class="prop-label">Manifest Output Format</span><select class="mini-field" style="flex:1"><option>Json</option><option>Binary</option></select></div>
+            <div class="prop-row"><span class="prop-label">Max Hotfix Size</span><input class="prop-field" value="0" /></div>
           </div>
         </section>
 
@@ -727,6 +674,7 @@
             <select class="tb-popup" style="width:140px" id="grpPopup">
               <option>DefaultGroup</option><option>GroupA</option><option>GroupB</option>
             </select>
+            <button class="tb-btn" style="width:84px">+ Package</button>
             <button class="tb-btn" style="width:72px">+ Folder</button>
             <button class="tb-btn" style="width:60px">+ File</button>
             <button class="tb-btn" style="width:74px">- Remove</button>
@@ -795,6 +743,23 @@
 
             <!-- Collector Detail -->
             <div class="collector-detail" id="collectorDetail">
+              <div style="font-weight:700;font-size:14px;color:#eee;margin-bottom:6px">Package</div>
+              <div class="prop-row"><span class="prop-label">Package Name</span><input class="mini-field" style="flex:1" value="DefaultPackage" /></div>
+              <div class="prop-row"><span class="prop-label">Min Reference Count</span><input class="mini-field" style="flex:1" value="2" /></div>
+              <div style="display:flex;justify-content:flex-end;margin-bottom:4px">
+                <button class="mini-btn">- Package</button>
+              </div>
+
+              <div style="font-weight:700;font-size:14px;color:#eee;margin:8px 0 6px">Group</div>
+              <div style="display:flex;gap:4px;justify-content:flex-end;margin-bottom:4px">
+                <button class="mini-btn">+ Group</button>
+                <button class="mini-btn">- Group</button>
+              </div>
+              <div class="prop-row"><span class="prop-label">Group Name</span><input class="mini-field" style="flex:1" value="GroupA" /></div>
+              <div class="prop-row"><span class="prop-label">Enabled</span><input type="checkbox" checked /></div>
+              <div class="prop-row"><span class="prop-label">Bundle Packing</span><select class="mini-field" style="flex:1"><option>PackTogetherByLabel</option><option>PackTogether</option><option>PackSeparately</option></select></div>
+              <div class="prop-row"><span class="prop-label">Group Labels</span><div class="mini-field" style="flex:1;min-height:20px">Size: 0</div></div>
+
               <div style="font-weight:700;font-size:14px;color:#eee;margin-bottom:6px">Collector Detail</div>
               <div class="prop-row"><span class="prop-label">Path Type</span><select class="mini-field" style="flex:1"><option>Folder</option></select></div>
               <div class="prop-row"><span class="prop-label">Collect Path</span><input class="mini-field" style="flex:1" value="Assets/FYAsset/Scripts" /></div>
@@ -1050,7 +1015,7 @@ Removed: 1
 
   const panels = {
     settings: document.getElementById('panel-settings'),
-    collect: document.getElementById('panel-collect'),
+    'ab-config': document.getElementById('panel-ab-config'),
     collector: document.getElementById('panel-collector'),
     pipeline: document.getElementById('panel-pipeline'),
     builder: document.getElementById('panel-builder'),
@@ -1058,8 +1023,8 @@ Removed: 1
     repository: document.getElementById('panel-repository')
   };
 
-  // AB PIPELINE panel indices: collect=1, collector=2, pipeline=3, builder=4
-  const abPanelIds = new Set(['collect', 'collector', 'pipeline', 'builder']);
+  // AB PIPELINE panel ids.
+  const abPanelIds = new Set(['ab-config', 'collector', 'pipeline']);
   const aaPanelIds = new Set(['aa-config', 'aa-build', 'aa-report']);
   let abEnabled = true;
 
