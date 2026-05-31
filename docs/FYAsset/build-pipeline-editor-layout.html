@@ -297,7 +297,7 @@
       border-radius: 2px;
     }
 
-    /* ── Collector package/group detail ── */
+    /* ── AssetsCollection: sidebar + detail ── */
     .cc-layout {
       flex: 1;
       min-height: 0;
@@ -561,7 +561,7 @@
         <div class="group" id="abGroup">
           <div class="group-title">AB PIPELINE</div>
           <button class="nav-btn" data-panel="ab-config">AB Config</button>
-          <button class="nav-btn" data-panel="collector">Collector</button>
+          <button class="nav-btn" data-panel="assets-collection">AssetsCollection</button>
           <button class="nav-btn" data-panel="pipeline">Pipeline</button>
         </div>
         <div class="group">
@@ -665,133 +665,77 @@
           </div>
         </section>
 
-        <!-- ═══════════════ Collector Panel ═══════════════ -->
-        <section class="panel" id="panel-collector">
-          <div class="unity-toolbar" style="height:24px">
-            <select class="tb-popup" style="width:130px" id="pkgPopup">
-              <option>DefaultPackage</option><option>Package2</option>
-            </select>
-            <select class="tb-popup" style="width:140px" id="grpPopup">
-              <option>DefaultGroup</option><option>GroupA</option><option>GroupB</option>
-            </select>
-            <button class="tb-btn" style="width:84px">+ Package</button>
-            <button class="tb-btn" style="width:72px">+ Folder</button>
-            <button class="tb-btn" style="width:60px">+ File</button>
-            <button class="tb-btn" style="width:74px">- Remove</button>
-            <input class="tb-search" placeholder="Search..." />
+        <!-- ═══════════════ AssetsCollection Panel ═══════════════ -->
+        <section class="panel" id="panel-assets-collection">
+          <div class="unity-toolbar">
+            <button class="tb-btn" data-action="Reload AssetsCollection">Reload</button>
+            <button class="tb-btn" data-action="Run Scan">Scan</button>
             <div class="tb-spacer"></div>
-            <button class="tb-btn" data-action="Reload Collector">Reload</button>
-            <button class="tb-btn" style="width:84px" data-action="Re-Validate">Re-Validate</button>
-            <button class="tb-btn" style="width:64px" data-action="Run Scan">Run Scan</button>
+            <span class="tb-label">Assets/FYAsset/CollectorData/CollectorSetting.asset</span>
           </div>
+          <div class="cc-layout">
+            <div class="cc-sidebar" id="ccSidebar">
+              <div class="tree-pkg active">DefaultPackage</div>
+              <div class="tree-grp active">Art</div>
+              <div class="tree-grp">Prefab</div>
+            </div>
+            <div class="cc-splitter" id="ccSplitter" title="Drag"></div>
+            <div class="cc-detail">
+              <div style="font-weight:700;font-size:14px;color:#eee;margin-bottom:8px">Group</div>
+              <div class="prop-row"><span class="prop-label">Group Name</span><input class="prop-field" value="Art" /></div>
+              <div class="prop-row"><span class="prop-label">Enabled</span><input type="checkbox" checked /></div>
+              <div class="prop-row"><span class="prop-label">Group Labels</span><div class="mini-field" style="flex:1;min-height:20px">Size: 0</div></div>
+              <div class="prop-row"><span class="prop-label">Bundle Packing Mode</span><select class="mini-field" style="flex:1"><option>PackTogetherByLabel</option><option>PackTogether</option><option>PackSeparately</option></select></div>
 
-          <!-- Middle: table + detail -->
-          <div style="flex:1;min-height:0;display:flex">
-            <!-- Collector Table -->
-            <div class="collector-table" id="collectorTable">
-              <!-- Table header row 1 -->
-              <div class="tbl-hdr">
-                <span style="width:92px">Path Type</span>
-                <span style="flex:1">Collect Path</span>
-                <span style="width:28px"></span>
-                <span style="width:24px"></span>
+              <div style="display:flex;align-items:center;justify-content:space-between;margin:8px 0 4px">
+                <span style="font-weight:700;font-size:13px;color:#eee">Collectors</span>
+                <div style="display:flex;gap:4px">
+                  <button class="mini-btn" style="width:72px">+ Folder</button>
+                  <button class="mini-btn" style="width:60px">+ File</button>
+                </div>
               </div>
-              <!-- Table header row 2 -->
-              <div class="tbl-hdr">
-                <span style="width:92px">Type</span>
-                <span style="width:104px">Payload</span>
-                <span style="width:92px">Filter</span>
-                <span style="width:92px">Group</span>
-              </div>
-              <div style="height:4px"></div>
 
-              <!-- Collector row 1 (selected) -->
-              <div class="tbl-row active">
+              <div class="box" style="border-color:var(--accent)">
                 <div class="tbl-row-top">
-                  <select class="mini-field" style="width:92px"><option>Folder</option></select>
+                  <select class="mini-field" style="width:92px"><option>Folder</option><option>File</option></select>
                   <input class="mini-field" style="flex:1" value="Assets/FYAsset/Scripts" />
                   <button class="mini-btn" style="width:28px">…</button>
                   <button class="mini-btn" style="width:24px">×</button>
                 </div>
-                <div class="tbl-row-bot">
+                <div class="tbl-row-bot" style="margin-top:4px">
                   <select class="mini-field" style="width:92px"><option>Main</option></select>
-                  <select class="mini-field" style="width:104px"><option>Auto</option></select>
+                  <select class="mini-field" style="width:108px"><option>Auto</option></select>
                   <select class="mini-field" style="width:92px"><option>CollectAll</option></select>
                   <select class="mini-field" style="width:92px"><option>GroupAll</option></select>
                 </div>
+                <div style="margin-top:6px">
+                  <div class="prop-row"><span class="prop-label">Ignore Patterns</span><div class="mini-field" style="flex:1;min-height:20px">Size: 0</div></div>
+                </div>
               </div>
 
-              <!-- Collector row 2 -->
-              <div class="tbl-row">
+              <div class="box">
                 <div class="tbl-row-top">
                   <select class="mini-field" style="width:92px"><option>File</option></select>
                   <input class="mini-field" style="flex:1" value="Assets/Example.txt" />
                   <button class="mini-btn" style="width:28px">…</button>
                   <button class="mini-btn" style="width:24px">×</button>
                 </div>
-                <div class="tbl-row-bot">
+                <div class="tbl-row-bot" style="margin-top:4px">
                   <select class="mini-field" style="width:92px"><option>Main</option></select>
-                  <select class="mini-field" style="width:104px"><option>Auto</option></select>
+                  <select class="mini-field" style="width:108px"><option>Auto</option></select>
                   <select class="mini-field" style="width:92px"><option>CollectAll</option></select>
                   <select class="mini-field" style="width:92px"><option>GroupAll</option></select>
                 </div>
               </div>
-            </div>
 
-            <!-- Detail splitter -->
-            <div class="cc-splitter" id="detailSplitter" title="Drag"></div>
-
-            <!-- Collector Detail -->
-            <div class="collector-detail" id="collectorDetail">
-              <div style="font-weight:700;font-size:14px;color:#eee;margin-bottom:6px">Package</div>
-              <div class="prop-row"><span class="prop-label">Package Name</span><input class="mini-field" style="flex:1" value="DefaultPackage" /></div>
-              <div class="prop-row"><span class="prop-label">Min Reference Count</span><input class="mini-field" style="flex:1" value="2" /></div>
-              <div style="display:flex;justify-content:flex-end;margin-bottom:4px">
-                <button class="mini-btn">- Package</button>
+              <div class="box">
+                <div style="font-weight:700;font-size:13px;color:#eee;margin-bottom:4px">Scan Tree</div>
+                <div style="color:#aaa">Assets: 2</div>
+                <div style="color:#aaa">▼ DefaultPackage (2)</div>
+                <div style="color:#aaa;padding-left:14px">▼ Art (1)</div>
+                <div style="color:#aaa;padding-left:28px">Assets/Art/example.prefab | Address | Bundle | Labels</div>
+                <div style="color:#aaa">AssetEntry detail edits Address, Asset Labels, Role, and Payload with Reset Auto actions.</div>
               </div>
-
-              <div style="font-weight:700;font-size:14px;color:#eee;margin:8px 0 6px">Group</div>
-              <div style="display:flex;gap:4px;justify-content:flex-end;margin-bottom:4px">
-                <button class="mini-btn">+ Group</button>
-                <button class="mini-btn">- Group</button>
-              </div>
-              <div class="prop-row"><span class="prop-label">Group Name</span><input class="mini-field" style="flex:1" value="GroupA" /></div>
-              <div class="prop-row"><span class="prop-label">Enabled</span><input type="checkbox" checked /></div>
-              <div class="prop-row"><span class="prop-label">Bundle Packing</span><select class="mini-field" style="flex:1"><option>PackTogetherByLabel</option><option>PackTogether</option><option>PackSeparately</option></select></div>
-              <div class="prop-row"><span class="prop-label">Group Labels</span><div class="mini-field" style="flex:1;min-height:20px">Size: 0</div></div>
-
-              <div style="font-weight:700;font-size:14px;color:#eee;margin-bottom:6px">Collector Detail</div>
-              <div class="prop-row"><span class="prop-label">Path Type</span><select class="mini-field" style="flex:1"><option>Folder</option></select></div>
-              <div class="prop-row"><span class="prop-label">Collect Path</span><input class="mini-field" style="flex:1" value="Assets/FYAsset/Scripts" /></div>
-              <div class="prop-row"><span class="prop-label">Collector Type</span><select class="mini-field" style="flex:1"><option>Main</option></select></div>
-              <div class="prop-row"><span class="prop-label">Payload</span><select class="mini-field" style="flex:1"><option>Auto</option></select></div>
-
-              <div style="font-weight:700;font-size:13px;color:#eee;margin:8px 0 4px">Rules</div>
-              <div class="prop-row"><span class="prop-label">Filter</span><select class="mini-field" style="flex:1"><option>CollectAll</option></select></div>
-              <div class="prop-row"><span class="prop-label">Group</span><select class="mini-field" style="flex:1"><option>GroupAll</option></select></div>
-
-              <div class="prop-row"><span class="prop-label">Ignore Patterns</span><div class="mini-field" style="flex:1;min-height:20px">Size: 0</div></div>
-            </div>
-          </div>
-
-          <!-- Bottom splitter -->
-          <div class="bottom-splitter" id="bottomSplitter" title="Drag to resize"></div>
-
-          <!-- Bottom result area -->
-          <div class="bottom-area" id="bottomArea">
-            <div class="bottom-toolbar">
-              <button class="tb-toggle pressed" data-bot="validation">Validation</button>
-              <button class="tb-toggle" data-bot="scan">Scan Preview</button>
-              <div class="tb-spacer"></div>
-            </div>
-            <div class="bottom-content" id="validationBox">
-              <div style="color:#8c8">No errors found.</div>
-              <div style="color:#ccc">All collectors pass validation.</div>
-            </div>
-            <div class="bottom-content hidden" id="scanBox" style="display:none">
-              <div style="color:#cca">Scan results with resolved AssetEntry metadata:</div>
-              <div style="color:#aaa">• Assets/FYAsset/Scripts/... | Address auto/manual | Group Labels + Asset Labels | Bundle Mode | Bundle Name</div>
-              <div style="color:#aaa">• Assets/Example.txt | RawFile | Reset Address / Role / Payload Auto</div>
             </div>
           </div>
         </section>
@@ -1016,7 +960,7 @@ Removed: 1
   const panels = {
     settings: document.getElementById('panel-settings'),
     'ab-config': document.getElementById('panel-ab-config'),
-    collector: document.getElementById('panel-collector'),
+    'assets-collection': document.getElementById('panel-assets-collection'),
     pipeline: document.getElementById('panel-pipeline'),
     builder: document.getElementById('panel-builder'),
     version: document.getElementById('panel-version'),
@@ -1024,7 +968,7 @@ Removed: 1
   };
 
   // AB PIPELINE panel ids.
-  const abPanelIds = new Set(['ab-config', 'collector', 'pipeline']);
+  const abPanelIds = new Set(['ab-config', 'assets-collection', 'pipeline']);
   const aaPanelIds = new Set(['aa-config', 'aa-build', 'aa-report']);
   let abEnabled = true;
 
@@ -1085,20 +1029,6 @@ Removed: 1
     sidebar.style.width = w + 'px';
   });
   window.addEventListener('mouseup', () => { dragging = false; document.body.style.cursor = ''; });
-
-  // Bottom tabs (Collector panel)
-  const bottomToggles = [...document.querySelectorAll('.tb-toggle')];
-  const validationBox = document.getElementById('validationBox');
-  const scanBox = document.getElementById('scanBox');
-  bottomToggles.forEach(btn => {
-    btn.addEventListener('click', () => {
-      bottomToggles.forEach(b => b.classList.remove('pressed'));
-      btn.classList.add('pressed');
-      const mode = btn.dataset.bot;
-      validationBox.style.display = mode === 'validation' ? '' : 'none';
-      scanBox.style.display = mode === 'scan' ? '' : 'none';
-    });
-  });
 
   // Action buttons
   document.querySelectorAll('[data-action]').forEach(btn => {

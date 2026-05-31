@@ -18,33 +18,30 @@ MonoBehaviour:
     - GroupName: Art
       Enabled: 1
       Labels: []
+      BundlePackingMode: 2
       Collectors:
       - CollectPath: Assets/Art
         CollectPathType: 0
         CollectorType: 0
         ForcePayloadKind: 0
-        AddressRuleName: AddressByFileName
-        PackRuleName: PackByCollectPath
         FilterRuleName: CollectAll
         GroupRuleName: GroupAll
-        Labels: []
         IgnorePatterns: []
     - GroupName: Prefab
       Enabled: 1
       Labels: []
+      BundlePackingMode: 2
       Collectors:
       - CollectPath: Assets/Prefab
         CollectPathType: 0
         CollectorType: 0
         ForcePayloadKind: 0
-        AddressRuleName: AddressByFileName
-        PackRuleName: PackByCollectPath
         FilterRuleName: CollectAll
         GroupRuleName: GroupAll
-        Labels: []
         IgnorePatterns: []
     SharePolicy:
       MinReferenceCount: 2
       MinAssetSizeBytes: 0
       NoSharePatterns: []
       ForceSharePatterns: []
+  AssetEntries: []

@@ -5,7 +5,7 @@
 > `Assets/FYAsset/Scripts/Build/Editor/Settings/SettingsPanel.cs`  
 > `Assets/FYAsset/Scripts/Build/Editor/Manage/VersionPanel.cs`  
 > `Assets/FYAsset/Scripts/Helpers/Editor/SOAddressableTagger.cs`  
-> `Assets/FYAsset/Scripts/Build/Collector/Editor/UI/CollectorPanel.cs`
+> `Assets/FYAsset/Scripts/Build/Editor/ABPipeline/AssetsCollectionPanel.cs`
 > `Assets/FYAsset/Scripts/Build/Editor/ABPipeline/PipelinePanel.cs`  
 > `Assets/XLuaFramework/Scripts/Editor/LuaFileCreatorWithName.cs`  
 > `Assets/XLuaFramework/Scripts/Editor/LuaDirectoryScanner.cs`
@@ -35,7 +35,7 @@
 | `VersionDataBase` | `VersionPanel` 中的创建按钮 | 路径由 `SharedBuildSettings.VersionDataBasePath` 决定 |
 | `ScriptObjectDataBase` | `SOAddressableTagger` 中的“创建新数据库” | 用于 SO 标签管理，不建议从菜单重复创建 |
 | `ScriptObjectContainer` | `LuaFileCreatorWindow` / `LuaDirectoryScanner` / `LuaAddressableTagger` 的创建流程 | 由工具根据数据库和目录自动创建 |
-| `AssetCollectionSetting` | `CollectorPanel` 中的创建按钮 | 资产收集配置资产，走 AB Pipeline 的 Collector 面板入口 |
+| `AssetCollectionSetting` | `AssetsCollectionPanel` 中的创建按钮 | 资产收集配置资产，走 AB Pipeline 的 AssetsCollection 面板入口 |
 | `BuildPipelineConfig` | `PipelinePanel` 中的创建按钮 | 由构建管线窗口创建并立即加载 |
 | `LuaDataBase` | `LuaFileCreatorWindow` / `LuaBatchConverterWindow` 内部创建流程 | 作为 Lua 工具的数据库资产 |
 | `LuaScriptContainer` | `LuaFileCreatorWindow` / `LuaDirectoryScanner` 内部创建流程 | 作为 Lua 脚本容器资产 |
