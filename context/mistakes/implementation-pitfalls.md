@@ -318,3 +318,10 @@ Verified historical errors and prevention rules.
 **Root cause:** Consolidation was treated as summary replacement instead of detailed entry migration.
 **Fix:** Restore the full main progress log, copy standalone progress entries into it with requirement ids, then remove standalone folders.
 **Prevention:** Before deleting standalone requirement folders, merge every meaningful `progress.txt` entry into `requirements/progress.txt`; never replace detailed history with summary-only lines.
+
+## IP-46: Backend Refactor Destroyed Approved Editor UX
+
+**Symptom:** The asset collection editor lost the approved Project Scan / Curate workflow, the mutually exclusive Details vs Scan Preview right panel, and the bundle-colored collected tree after the collector backend was refactored.
+**Root cause:** The backend model migration was treated as permission to redesign the editor panel instead of preserving the approved UX contract from git history.
+**Fix:** Restore the historical workflow implementation first, then adapt only the data model bindings and compile errors to the new backend.
+**Prevention:** For editor refactors, identify the approved UX commit and preserve its visible workflow before changing data bindings; do not replace an approved UX with a simpler temporary panel unless explicitly approved.

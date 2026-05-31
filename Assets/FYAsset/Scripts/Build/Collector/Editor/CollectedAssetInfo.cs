@@ -33,6 +33,12 @@ public class CollectedAssetInfo
     /// <summary>所属 Group 名称</summary>
     public string GroupName;
 
+    /// <summary>命中资产时所属的原始 Group 名称，供编辑器预览树回溯 Collector 来源</summary>
+    public string SourceGroupName;
+
+    /// <summary>命中资产时所属的原始 Collector 路径，供编辑器预览树回溯 Collector 来源</summary>
+    public string SourceCollectorPath;
+
     /// <summary>所属 Package 名称</summary>
     public string PackageName;
 
@@ -53,6 +59,10 @@ public class CollectedAssetInfo
 
     /// <summary>依赖分析决策：该隐式依赖被复制到多个引用 Bundle 中</summary>
     public bool IsDuplicated;
+
+    public bool HasError;
+
+    public bool HasWarning;
 
     #endregion
 }

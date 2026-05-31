@@ -494,6 +494,8 @@ public static class CollectionScanner
             GroupLabels = groupLabels,
             AssetLabels = assetLabels,
             GroupName = targetGroupName,
+            SourceGroupName = ctx.ParentGroupName,
+            SourceCollectorPath = collector.CollectPath,
             PackageName = packageName,
             BundleName = bundleName,
             BundlePackingMode = packingMode,

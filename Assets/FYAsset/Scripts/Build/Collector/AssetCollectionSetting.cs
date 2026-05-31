@@ -13,6 +13,9 @@ public class AssetCollectionSetting : ScriptableObject
     /// <summary>所有资产包配置列表</summary>
     public List<AssetCollectionPackage> Packages = new();
 
+    /// <summary>Project Scan 阶段的全局忽略规则，用于生成候选 Collector 前过滤项目资产。</summary>
+    public List<string> IgnorePatterns = CreateDefaultIgnorePatterns();
+
     /// <summary>资产级元数据，按 Unity GUID 作为权威键</summary>
     public List<AssetEntry> AssetEntries = new();
 
@@ -56,6 +59,16 @@ public class AssetCollectionSetting : ScriptableObject
         };
         AssetEntries.Add(entry);
         return entry;
+    }
+
+    public static List<string> CreateDefaultIgnorePatterns()
+    {
+        return new List<string>
+        {
+            "Assets/FYAsset/**",
+            "Assets/Build/**",
+            "Assets/StreamingAssets/**"
+        };
     }
 
     #endregion
