@@ -148,13 +148,13 @@ The build entry point is now split with the same orchestration pattern already u
 - Instance fields (configurable in Inspector): `ProjectName`, `HotfixUrl`, `UseABBackend`, `BuildPackagesFolderName`, `HotfixMaxRetryCount`, `HotfixRetryBaseDelaySeconds`
 - Build-only fields are not stored on `FYAssetSettings`.
 - Runtime consumers read configuration via `FYAssetSettings.Instance` at use sites; no `static readonly` settings snapshots remain in `RuntimePathManager` / `HotfixManager`
-- Static `const` members: all rule name strings (`RULE_*`), group/label identifiers (`LUA_SCRIPTS_INDEX`, `HOTFIX_GROUP_NAME`, `DEFAULT_XLUA_TYPE_CONFIG_LOAD_LABEL`), file names (`PACKAGE_INDEX_FILE_NAME`, `MANIFEST_FILE_NAME`, `MANIFEST_FILE_NAME_BIN`, `AA_MANIFEST_FILE_NAME`, `AA_MANIFEST_FILE_NAME_BIN`, `BUILD_INDEX_FILENAME`), and editor paths (`BUILD_PIPELINE_WINDOW_MENU_PATH`, `BINARY_SERIALIZER_GENERATE_PATH`)
+- Static `const` members: filter/group rule name strings (`RULE_COLLECT_ALL`, `RULE_GROUP_*`), group/label identifiers (`LUA_SCRIPTS_INDEX`, `HOTFIX_GROUP_NAME`, `DEFAULT_XLUA_TYPE_CONFIG_LOAD_LABEL`), file names (`PACKAGE_INDEX_FILE_NAME`, `MANIFEST_FILE_NAME`, `MANIFEST_FILE_NAME_BIN`, `AA_MANIFEST_FILE_NAME`, `AA_MANIFEST_FILE_NAME_BIN`, `BUILD_INDEX_FILENAME`), and editor paths (`BUILD_PIPELINE_WINDOW_MENU_PATH`, `BINARY_SERIALIZER_GENERATE_PATH`)
 - `UseABBackend` is the single source of truth for backend selection — `BuildPipelineConfig.DefaultBackendMode` was removed
 - `BackendMode.AA` is the canonical AA enum value; duplicate AA/Addressables mode names are not supported.
 
 ## Build Settings Assets
 
-- `SharedBuildSettings` stores shared build output and project asset paths: `BuildOutputRoot`, `VersionDataBasePath`, `BuildIndexJsonPath`, `CollectorDataFolder`, `CollectorSettingPath`, `LuaScriptsIndexPath`, and `PushTargets`.
+- `SharedBuildSettings` stores shared build output and project asset paths: `BuildOutputRoot`, `VersionDataBasePath`, `BuildIndexJsonPath`, `AssetCollectionDataFolder`, `AssetCollectionSettingPath`, `LuaScriptsIndexPath`, and `PushTargets`.
 - `AABuildSettings` stores AA-specific build settings: `BuildPipelineConfigPath`, `ManifestOutputFormat`, and `MaxHotfixSizeBytes`.
 - `ABBuildSettings` stores AB-specific build settings: `BuildPipelineConfigPath`, `ManifestOutputFormat`, and `MaxHotfixSizeBytes`.
 - `VersionDataBase` remains shared product-version data and is referenced from `SharedBuildSettings.VersionDataBasePath`; there are no AA/AB-specific version database paths.
@@ -193,7 +193,7 @@ Tradeoff:
 
 ## Relationship To The Collector Refactor
 
-The collector framework under `Assets/FYAsset/Scripts/Build/Collector/` is the current foundation for a future build-pipeline refactor. It already defines the configuration model and rule contracts, but it is not yet the only build system in the repository.
+The collector framework under `Assets/FYAsset/Scripts/Build/Collector/` is the current AB build-time collection foundation. It defines AssetCollectionSetting, AssetEntry metadata, Filter/Group rules, and BundlePackingMode-based bundle grouping.
 
 See `collector-framework.md` for the verified current scope.
 

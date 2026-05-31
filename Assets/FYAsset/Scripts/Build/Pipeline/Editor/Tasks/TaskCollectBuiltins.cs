@@ -6,7 +6,7 @@ using UnityEngine;
 /// <summary>
 /// 引擎隐式资产自动收集 Task。
 /// 扫描 Shader（全项目）和 Resources 目录下所有资产，统一打入 "$shared" Group
-/// 并以每类独立的 PackKey 隔离为不同 Bundle。
+/// 并以每类独立的 BundleKey 隔离为不同 Bundle。
 /// Unity 内置资源（Default-Material 等）已在 player build 中，无需额外收集。
 /// 在 TaskAnalyzeDependencies 之前执行。
 /// </summary>
@@ -20,8 +20,8 @@ public class TaskCollectBuiltins : IBuildTask
     /// <summary>可扩展的扫描类别：新增类型只需追加一行</summary>
     private static readonly BuiltinCategory[] Categories = new[]
     {
-        new BuiltinCategory { Filter = "t:Shader", Dir = null,                 PackKey = "shaders",   Label = "Shader" },
-        new BuiltinCategory { Filter = "",         Dir = "Assets/Resources",    PackKey = "resources", Label = "Resources" },
+        new BuiltinCategory { Filter = "t:Shader", Dir = null,                 BundleKey = "shaders",   Label = "Shader" },
+        new BuiltinCategory { Filter = "",         Dir = "Assets/Resources",    BundleKey = "resources", Label = "Resources" },
     };
 
     private struct BuiltinCategory
@@ -30,8 +30,8 @@ public class TaskCollectBuiltins : IBuildTask
         public string Filter;
         /// <summary>可选：限定搜索目录，null 表示全项目搜索</summary>
         public string Dir;
-        /// <summary>BundleName 的 PackKey 段</summary>
-        public string PackKey;
+        /// <summary>BundleName 的 BundleKey 段</summary>
+        public string BundleKey;
         /// <summary>日志用标签</summary>
         public string Label;
     }
@@ -89,9 +89,12 @@ public class TaskCollectBuiltins : IBuildTask
                     Address = AssetAddressGenerator.GenerateShortAddress(path, primaryType, true),
                     PrimaryType = primaryType,
                     Labels = new List<string>(),
+                    GroupLabels = new List<string>(),
+                    AssetLabels = new List<string>(),
                     GroupName = SystemIdentifiers.SharedGroupName,
                     PackageName = pkgName,
-                    BundleName = BundleNameBuilder.Build(pkgName, "$shared", cat.PackKey),
+                    BundleName = BundleNameBuilder.BuildShared(pkgName, cat.BundleKey),
+                    BundlePackingMode = BundlePackingMode.PackSeparately,
                     Classification = new AssetClassification
                     {
                         Role = EAssetRole.ImplicitDependency,

@@ -116,8 +116,8 @@ public class SettingsPanel : IBuildPipelinePanel
         card.Add(BuildPipelineUI.PathField(_sharedSo.FindProperty(nameof(SharedBuildSettings.BuildOutputRoot)), "Build Output Root", BuildPipelineUI.PathPickerMode.ProjectFolder));
         card.Add(BuildPipelineUI.PathField(_sharedSo.FindProperty(nameof(SharedBuildSettings.VersionDataBasePath)), "VersionDataBase Path", BuildPipelineUI.PathPickerMode.AssetFile));
         card.Add(BuildPipelineUI.PathField(_sharedSo.FindProperty(nameof(SharedBuildSettings.BuildIndexJsonPath)), "BuildIndex Json Path", BuildPipelineUI.PathPickerMode.AssetFile));
-        card.Add(BuildPipelineUI.PathField(_sharedSo.FindProperty(nameof(SharedBuildSettings.CollectorDataFolder)), "Collector Data Folder", BuildPipelineUI.PathPickerMode.AssetFolder));
-        card.Add(BuildPipelineUI.PathField(_sharedSo.FindProperty(nameof(SharedBuildSettings.CollectorSettingPath)), "CollectorSetting Path", BuildPipelineUI.PathPickerMode.AssetFile));
+        card.Add(BuildPipelineUI.PathField(_sharedSo.FindProperty(nameof(SharedBuildSettings.AssetCollectionDataFolder)), "Asset Collection Data Folder", BuildPipelineUI.PathPickerMode.AssetFolder));
+        card.Add(BuildPipelineUI.PathField(_sharedSo.FindProperty(nameof(SharedBuildSettings.AssetCollectionSettingPath)), "AssetCollectionSetting Path", BuildPipelineUI.PathPickerMode.AssetFile));
         card.Add(new PropertyField(_sharedSo.FindProperty(nameof(SharedBuildSettings.DependencyFilterExtensions)), "Dependency Filter Extensions"));
         card.Add(BuildPipelineUI.PathField(_sharedSo.FindProperty(nameof(SharedBuildSettings.LuaScriptsIndexPath)), "LuaScriptsIndex Path", BuildPipelineUI.PathPickerMode.AssetFile));
         card.Bind(_sharedSo);

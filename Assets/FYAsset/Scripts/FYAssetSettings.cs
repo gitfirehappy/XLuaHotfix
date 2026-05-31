@@ -43,12 +43,7 @@ public class FYAssetSettings : ScriptableObject
     public const string BINARY_SERIALIZER_GENERATE_PATH = "Assets/Tools/Scripts/Serialization/Generated";
 
     // --- Collector 规则名 ---
-    public const string RULE_ADDRESS_BY_FILE_NAME = "AddressByFileName";
     public const string RULE_COLLECT_ALL = "CollectAll";
-    public const string RULE_PACK_BY_COLLECT_PATH = "PackByCollectPath";
-    public const string RULE_PACK_SEPARATELY = "PackSeparately";
-    public const string RULE_PACK_BY_DIRECTORY = "PackByDirectory";
-    public const string RULE_PACK_BY_LABEL = "PackByLabel";
     public const string RULE_GROUP_ALL = "GroupAll";
     public const string RULE_GROUP_BY_TYPE = "GroupByType";
     public const string RULE_GROUP_BY_LABEL = "GroupByLabel";

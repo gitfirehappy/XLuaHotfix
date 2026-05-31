@@ -154,7 +154,7 @@ WriteKeys:    [CollectedAssets, BundleDependencyGraph]
 
 执行流程：
 1. 从 `BuildContext` 读取 `CollectedAssets`（由前置 Task 写入）
-2. 读取 `SharePolicies`；不存在时从 `CollectorSetting` SO 回退加载
+2. 读取 `SharePolicies`；不存在时从 `AssetCollectionSetting` SO 回退加载
 3. 调用 `DependencyAnalyzer.Analyze`
 4. 将增强后的资产列表和 `BundleDependencyGraph` 写回 `BuildContext`
 5. Error 级别消息 → `DEPENDENCY_ANALYSIS_FAILED`（Fatal），Warning 随 Ok 结果携带

@@ -11,7 +11,7 @@ public sealed class CollectorTargetPickerWindow : EditorWindow
 {
     private string[] _assetPaths = Array.Empty<string>();
     private Action _onApplied;
-    private CollectorSetting _setting;
+    private AssetCollectionSetting _setting;
     private int _selectedPackageIndex;
     private int _selectedGroupIndex;
     private ECollectorType _collectorType = ECollectorType.Main;
@@ -54,7 +54,7 @@ public sealed class CollectorTargetPickerWindow : EditorWindow
 
         if (_setting == null || _setting.Packages == null || _setting.Packages.Count == 0)
         {
-            rootVisualElement.Add(BuildPipelineUI.SmallText("CollectorSetting 缺失或未配置 Package。"));
+            rootVisualElement.Add(BuildPipelineUI.SmallText("AssetCollectionSetting 缺失或未配置 Package。"));
             return;
         }
 
@@ -72,7 +72,7 @@ public sealed class CollectorTargetPickerWindow : EditorWindow
         string[] groupNames = GetGroupNames(_selectedPackageIndex);
         if (groupNames.Length == 0)
         {
-            rootVisualElement.Add(BuildPipelineUI.SmallText("选中的 Package 没有 Group。先到 CollectorSettingPanel 新建。"));
+            rootVisualElement.Add(BuildPipelineUI.SmallText("选中的 Package 没有 Group。先到 AssetCollectionSettingPanel 新建。"));
             return;
         }
 
@@ -107,11 +107,11 @@ public sealed class CollectorTargetPickerWindow : EditorWindow
     }
 
     /// <summary>
-    /// 加载当前 CollectorSetting，并初始化默认选择项。
+    /// 加载当前 AssetCollectionSetting，并初始化默认选择项。
     /// </summary>
     private void LoadSetting()
     {
-        _setting = AssetDatabase.LoadAssetAtPath<CollectorSetting>(FYAssetBuildSettingsProvider.Shared.CollectorSettingPath);
+        _setting = AssetDatabase.LoadAssetAtPath<AssetCollectionSetting>(FYAssetBuildSettingsProvider.Shared.AssetCollectionSettingPath);
         _selectedPackageIndex = 0;
         _selectedGroupIndex = 0;
     }
@@ -138,7 +138,7 @@ public sealed class CollectorTargetPickerWindow : EditorWindow
         if (packageIndex < 0 || packageIndex >= _setting.Packages.Count)
             return Array.Empty<string>();
 
-        CollectorPackage package = _setting.Packages[packageIndex];
+        AssetCollectionPackage package = _setting.Packages[packageIndex];
         if (package?.Groups == null || package.Groups.Count == 0)
             return Array.Empty<string>();
 
@@ -160,11 +160,11 @@ public sealed class CollectorTargetPickerWindow : EditorWindow
         if (_setting == null || _selectedPackageIndex < 0 || _selectedPackageIndex >= _setting.Packages.Count)
             return;
 
-        CollectorPackage package = _setting.Packages[_selectedPackageIndex];
+        AssetCollectionPackage package = _setting.Packages[_selectedPackageIndex];
         if (package?.Groups == null || _selectedGroupIndex < 0 || _selectedGroupIndex >= package.Groups.Count)
             return;
 
-        CollectorGroup group = package.Groups[_selectedGroupIndex];
+        AssetCollectionGroup group = package.Groups[_selectedGroupIndex];
         group.Collectors ??= new List<Collector>();
 
         Undo.RecordObject(_setting, "Add Asset To Collector Group");
@@ -186,11 +186,8 @@ public sealed class CollectorTargetPickerWindow : EditorWindow
                 CollectPathType = isFolder ? ECollectPathType.Folder : ECollectPathType.File,
                 CollectorType = _collectorType,
                 ForcePayloadKind = _forcePayloadKind,
-                AddressRuleName = FYAssetSettings.RULE_ADDRESS_BY_FILE_NAME,
-                PackRuleName = isFolder ? FYAssetSettings.RULE_PACK_BY_COLLECT_PATH : FYAssetSettings.RULE_PACK_SEPARATELY,
                 FilterRuleName = FYAssetSettings.RULE_COLLECT_ALL,
                 GroupRuleName = FYAssetSettings.RULE_GROUP_ALL,
-                Labels = new List<string>(),
                 IgnorePatterns = new List<string>()
             });
         }

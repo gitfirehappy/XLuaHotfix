@@ -15,10 +15,10 @@ public enum BuildSeverity
 /// </summary>
 public static class BuildErrorCodes
 {
-    /// <summary>CollectorSetting 为 null</summary>
+    /// <summary>AssetCollectionSetting 为 null</summary>
     public const string SettingNull = "SETTING_NULL";
 
-    /// <summary>CollectorSetting 未配置任何 Package</summary>
+    /// <summary>AssetCollectionSetting 未配置任何 Package</summary>
     public const string NoPackages = "NO_PACKAGES";
 
     /// <summary>Package 内未配置任何 Group</summary>
@@ -166,10 +166,10 @@ public class BuildMessage
     #region 语义化工厂方法
 
     public static BuildMessage SettingNull(string source)
-        => Error(BuildErrorCodes.SettingNull, "CollectorSetting is null.", source);
+        => Error(BuildErrorCodes.SettingNull, "AssetCollectionSetting is null.", source);
 
     public static BuildMessage NoPackages(string source)
-        => Error(BuildErrorCodes.NoPackages, "CollectorSetting has no Packages configured.", source);
+        => Error(BuildErrorCodes.NoPackages, "AssetCollectionSetting has no Packages configured.", source);
 
     public static BuildMessage EmptyPackage(string packageName, string source)
         => Warning(BuildErrorCodes.EmptyPackage,

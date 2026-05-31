@@ -644,8 +644,8 @@
             <div class="prop-row"><span class="prop-label">Build Index Json Path</span><input class="prop-field" value="" /></div>
 
             <div class="section-header">New Pipeline Paths</div>
-            <div class="prop-row"><span class="prop-label">Collector Data Folder</span><input class="prop-field" value="Assets/FYAsset/CollectorData" /></div>
-            <div class="prop-row"><span class="prop-label">Collector Setting Path</span><input class="prop-field" value="Assets/FYAsset/CollectorData/CollectorSetting.asset" /></div>
+            <div class="prop-row"><span class="prop-label">Asset Collection Data Folder</span><input class="prop-field" value="Assets/FYAsset/AssetCollectionData" /></div>
+            <div class="prop-row"><span class="prop-label">Asset Collection Setting Path</span><input class="prop-field" value="Assets/FYAsset/AssetCollectionData/AssetCollectionSetting.asset" /></div>
             <div class="prop-row"><span class="prop-label">Pipeline Config Path</span><input class="prop-field" value="Assets/Build/BuildPipelineConfig.asset" /></div>
           </div>
         </section>
@@ -655,7 +655,7 @@
           <div class="unity-toolbar">
             <button class="tb-btn" data-action="Reload Collect Config">Reload</button>
             <div class="tb-spacer"></div>
-            <span class="tb-label">Assets/FYAsset/CollectorData/CollectorSetting.asset</span>
+            <span class="tb-label">Assets/FYAsset/AssetCollectionData/AssetCollectionSetting.asset</span>
           </div>
           <div class="cc-layout">
             <div class="cc-sidebar" id="ccSidebar">
@@ -672,6 +672,7 @@
               <div class="prop-row"><span class="prop-label">Group Name</span><input class="prop-field" value="GroupA" /></div>
               <div class="prop-row"><span class="prop-label">Enabled</span><input type="checkbox" checked /></div>
               <div class="prop-row"><span class="prop-label">Group Labels</span><div class="mini-field" style="flex:1;min-height:20px">Size: 0</div></div>
+              <div class="prop-row"><span class="prop-label">Bundle Packing Mode</span><select class="mini-field" style="flex:1"><option>PackTogetherByLabel</option><option>PackTogether</option><option>PackSeparately</option></select></div>
 
               <div style="display:flex;align-items:center;justify-content:space-between;margin:8px 0 4px">
                 <span style="font-weight:700;font-size:13px;color:#eee">Collectors</span>
@@ -691,13 +692,10 @@
                 <div class="tbl-row-bot" style="margin-top:4px">
                   <select class="mini-field" style="width:92px"><option>Main</option></select>
                   <select class="mini-field" style="width:108px"><option>Auto</option></select>
-                  <select class="mini-field" style="width:92px"><option>AddrByFileName</option></select>
-                  <select class="mini-field" style="width:92px"><option>PackByDirectory</option></select>
                   <select class="mini-field" style="width:92px"><option>CollectAll</option></select>
                   <select class="mini-field" style="width:92px"><option>GroupAll</option></select>
                 </div>
                 <div style="margin-top:6px">
-                  <div class="prop-row"><span class="prop-label">Labels</span><div class="mini-field" style="flex:1;min-height:20px">Size: 0</div></div>
                   <div class="prop-row"><span class="prop-label">Ignore Patterns</span><div class="mini-field" style="flex:1;min-height:20px">Size: 0</div></div>
                 </div>
               </div>
@@ -712,8 +710,6 @@
                 <div class="tbl-row-bot" style="margin-top:4px">
                   <select class="mini-field" style="width:92px"><option>Main</option></select>
                   <select class="mini-field" style="width:108px"><option>Auto</option></select>
-                  <select class="mini-field" style="width:92px"><option>AddrByFileName</option></select>
-                  <select class="mini-field" style="width:92px"><option>PackSeparately</option></select>
                   <select class="mini-field" style="width:92px"><option>CollectAll</option></select>
                   <select class="mini-field" style="width:92px"><option>GroupAll</option></select>
                 </div>
@@ -756,8 +752,6 @@
               <div class="tbl-hdr">
                 <span style="width:92px">Type</span>
                 <span style="width:104px">Payload</span>
-                <span style="width:92px">Addr</span>
-                <span style="width:92px">Pack</span>
                 <span style="width:92px">Filter</span>
                 <span style="width:92px">Group</span>
               </div>
@@ -774,8 +768,6 @@
                 <div class="tbl-row-bot">
                   <select class="mini-field" style="width:92px"><option>Main</option></select>
                   <select class="mini-field" style="width:104px"><option>Auto</option></select>
-                  <select class="mini-field" style="width:92px"><option>AddrByFileName</option></select>
-                  <select class="mini-field" style="width:92px"><option>PackByDirectory</option></select>
                   <select class="mini-field" style="width:92px"><option>CollectAll</option></select>
                   <select class="mini-field" style="width:92px"><option>GroupAll</option></select>
                 </div>
@@ -792,8 +784,6 @@
                 <div class="tbl-row-bot">
                   <select class="mini-field" style="width:92px"><option>Main</option></select>
                   <select class="mini-field" style="width:104px"><option>Auto</option></select>
-                  <select class="mini-field" style="width:92px"><option>AddrByFileName</option></select>
-                  <select class="mini-field" style="width:92px"><option>PackSeparately</option></select>
                   <select class="mini-field" style="width:92px"><option>CollectAll</option></select>
                   <select class="mini-field" style="width:92px"><option>GroupAll</option></select>
                 </div>
@@ -812,12 +802,9 @@
               <div class="prop-row"><span class="prop-label">Payload</span><select class="mini-field" style="flex:1"><option>Auto</option></select></div>
 
               <div style="font-weight:700;font-size:13px;color:#eee;margin:8px 0 4px">Rules</div>
-              <div class="prop-row"><span class="prop-label">Address</span><select class="mini-field" style="flex:1"><option>AddrByFileName</option></select></div>
-              <div class="prop-row"><span class="prop-label">Pack</span><select class="mini-field" style="flex:1"><option>PackByDirectory</option></select></div>
               <div class="prop-row"><span class="prop-label">Filter</span><select class="mini-field" style="flex:1"><option>CollectAll</option></select></div>
               <div class="prop-row"><span class="prop-label">Group</span><select class="mini-field" style="flex:1"><option>GroupAll</option></select></div>
 
-              <div class="prop-row" style="margin-top:6px"><span class="prop-label">Labels</span><div class="mini-field" style="flex:1;min-height:20px">Size: 0</div></div>
               <div class="prop-row"><span class="prop-label">Ignore Patterns</span><div class="mini-field" style="flex:1;min-height:20px">Size: 0</div></div>
             </div>
           </div>
@@ -837,9 +824,9 @@
               <div style="color:#ccc">All collectors pass validation.</div>
             </div>
             <div class="bottom-content hidden" id="scanBox" style="display:none">
-              <div style="color:#cca">Scan results:</div>
-              <div style="color:#aaa">• Assets/FYAsset/Scripts/...</div>
-              <div style="color:#aaa">• Assets/Example.txt</div>
+              <div style="color:#cca">Scan results with resolved AssetEntry metadata:</div>
+              <div style="color:#aaa">• Assets/FYAsset/Scripts/... | Address auto/manual | Group Labels + Asset Labels | Bundle Mode | Bundle Name</div>
+              <div style="color:#aaa">• Assets/Example.txt | RawFile | Reset Address / Role / Payload Auto</div>
             </div>
           </div>
         </section>

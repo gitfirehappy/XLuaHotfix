@@ -68,7 +68,7 @@
   - Build Pipeline 编辑器窗口已迁移为 UI Toolkit `CreateGUI()` 壳层，侧栏保持 SETTINGS / AA PIPELINE / AB PIPELINE / MANAGE；AA 与 AB 组互斥灰显，AA Config 面板仅做 catalog 摘要与 Groups 窗口入口
   - Settings、AA Config、AA Build、AA Report、Collect Config、Collector、Pipeline、Builder、Version 等 active 面板通过 UI Toolkit `CreateContent()` 承载；Pipeline 页继续复用现有 GraphView DAG
   - Collector 资产 Inspector 头部勾选入口仍使用 Unity 的 `Editor.finishedDefaultHeaderGUI` 回调，这是 Unity 默认 Inspector header 的 IMGUI 边界
-  - Collector 构建入口会先执行 `CollectorSettingValidator`，并通过结构化 `BuildMessage` 阻断空包名、非法手工 `Implicit` Collector、规则执行异常和非法命名；`Implicit` 仅由依赖分析系统生成
+  - Collector 构建入口会先执行 `AssetCollectionSettingValidator`，并通过结构化 `BuildMessage` 阻断空包名、非法手工 `Implicit` Collector、无效 Filter/Group 规则、非法命名和重复 AssetEntry；`Implicit` 仅由依赖分析系统生成
 
 ### 1.4 运行时资源管理
 

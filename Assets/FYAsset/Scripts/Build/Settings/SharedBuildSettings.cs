@@ -16,8 +16,8 @@ public sealed class SharedBuildSettings : ScriptableObject
     public string BuildIndexJsonPath = "Assets/Build/Bootstrap/BuildIndex.json";
 
     [Header("Collector")]
-    public string CollectorDataFolder = "Assets/FYAsset/CollectorData";
-    public string CollectorSettingPath = "Assets/FYAsset/CollectorData/CollectorSetting.asset";
+    public string AssetCollectionDataFolder = "Assets/FYAsset/AssetCollectionData";
+    public string AssetCollectionSettingPath = "Assets/FYAsset/AssetCollectionData/AssetCollectionSetting.asset";
     public List<string> DependencyFilterExtensions = new();
 
     [Header("AA")]

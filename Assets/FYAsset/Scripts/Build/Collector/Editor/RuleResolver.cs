@@ -11,16 +11,12 @@ public static class RuleResolver
 {
     #region 私有字段
 
-    private static readonly Dictionary<string, IAddressRule> AddressRuleCache = new(StringComparer.Ordinal);
-    private static readonly Dictionary<string, IPackRule> PackRuleCache = new(StringComparer.Ordinal);
     private static readonly Dictionary<string, IFilterRule> FilterRuleCache = new(StringComparer.Ordinal);
     private static readonly Dictionary<string, IGroupRule> GroupRuleCache = new(StringComparer.Ordinal);
 
     /// <summary>Type → 解析函数映射，支撑泛型 GetRule&lt;T&gt; 方法</summary>
     private static readonly Dictionary<Type, Func<string, object>> TypedResolvers = new()
     {
-        [typeof(IAddressRule)] = name => GetAddressRule(name),
-        [typeof(IPackRule)]    = name => GetPackRule(name),
         [typeof(IFilterRule)]  = name => GetFilterRule(name),
         [typeof(IGroupRule)]   = name => GetGroupRule(name),
     };
@@ -28,18 +24,6 @@ public static class RuleResolver
     #endregion
 
     #region 公共方法
-
-    /// <summary>根据类名获取地址规则实例（缓存）</summary>
-    public static IAddressRule GetAddressRule(string className)
-    {
-        return GetRule(className, AddressRuleCache);
-    }
-
-    /// <summary>根据类名获取打包规则实例（缓存）</summary>
-    public static IPackRule GetPackRule(string className)
-    {
-        return GetRule(className, PackRuleCache);
-    }
 
     /// <summary>根据类名获取过滤规则实例（缓存）</summary>
     public static IFilterRule GetFilterRule(string className)
@@ -55,7 +39,7 @@ public static class RuleResolver
 
     /// <summary>
     /// 泛型规则解析入口 —— 根据 Type 自动分发到对应的具体方法。
-    /// 调用方无需 if/typeof 链，直接 RuleResolver.GetRule&lt;IAddressRule&gt;(className)。
+    /// 调用方无需 if/typeof 链，直接 RuleResolver.GetRule&lt;IFilterRule&gt;(className)。
     /// 新增 Rule 接口后只需在 TypedResolvers 字典中追加一条映射。
     /// </summary>
     public static T GetRule<T>(string className) where T : class

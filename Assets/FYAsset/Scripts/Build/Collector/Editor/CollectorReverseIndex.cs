@@ -82,20 +82,20 @@ public sealed class CollectorReverseIndex
     }
 
     /// <summary>
-    /// 如索引脏则重建。遍历 CollectorSetting 所有 Package->Group->Collector，
+    /// 如索引脏则重建。遍历 AssetCollectionSetting 所有 Package->Group->Collector，
     /// 按深度降序排序后构建资产路径->CollectorRef 映射。
     /// </summary>
-    public void RebuildIfDirty(CollectorSetting setting)
+    public void RebuildIfDirty(AssetCollectionSetting setting)
     {
         if (!_dirty)
             return;
 
         _map.Clear();
 
-        CollectorSetting actualSetting = setting;
+        AssetCollectionSetting actualSetting = setting;
         if (actualSetting == null)
         {
-            actualSetting = AssetDatabase.LoadAssetAtPath<CollectorSetting>(FYAssetBuildSettingsProvider.Shared.CollectorSettingPath);
+            actualSetting = AssetDatabase.LoadAssetAtPath<AssetCollectionSetting>(FYAssetBuildSettingsProvider.Shared.AssetCollectionSettingPath);
         }
 
         if (actualSetting != null)
@@ -130,7 +130,7 @@ public sealed class CollectorReverseIndex
 
     #region Index Building
 
-    private List<CollectorBuildEntry> BuildEntries(CollectorSetting setting)
+    private List<CollectorBuildEntry> BuildEntries(AssetCollectionSetting setting)
     {
         List<CollectorBuildEntry> entries = new List<CollectorBuildEntry>();
         if (setting.Packages == null)
@@ -138,13 +138,13 @@ public sealed class CollectorReverseIndex
 
         for (int pi = 0; pi < setting.Packages.Count; pi++)
         {
-            CollectorPackage package = setting.Packages[pi];
+            AssetCollectionPackage package = setting.Packages[pi];
             if (package == null || package.Groups == null)
                 continue;
 
             for (int gi = 0; gi < package.Groups.Count; gi++)
             {
-                CollectorGroup group = package.Groups[gi];
+                AssetCollectionGroup group = package.Groups[gi];
                 if (group == null || !group.Enabled || group.Collectors == null)
                     continue;
 

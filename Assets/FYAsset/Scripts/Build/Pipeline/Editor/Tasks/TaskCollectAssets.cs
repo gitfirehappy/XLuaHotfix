@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using UnityEditor;
 
 /// <summary>
-/// 管线 Task：执行 CollectorSetting 扫描并写入 CollectedAssets / SharePolicies。
+/// 管线 Task：执行 AssetCollectionSetting 扫描并写入 CollectedAssets / SharePolicies。
 /// </summary>
 public class TaskCollectAssets : IBuildTask
 {
@@ -13,23 +13,23 @@ public class TaskCollectAssets : IBuildTask
 
     public BuildTaskResult Execute(BuildContext ctx)
     {
-        CollectorSetting setting = AssetDatabase.LoadAssetAtPath<CollectorSetting>(
-            FYAssetBuildSettingsProvider.Shared.CollectorSettingPath);
+        AssetCollectionSetting setting = AssetDatabase.LoadAssetAtPath<AssetCollectionSetting>(
+            FYAssetBuildSettingsProvider.Shared.AssetCollectionSettingPath);
         if (setting == null)
         {
             return BuildTaskResult.Fail(
                 BuildErrorCodes.SettingNull,
-                $"未找到 CollectorSetting: {FYAssetBuildSettingsProvider.Shared.CollectorSettingPath}");
+                $"未找到 AssetCollectionSetting: {FYAssetBuildSettingsProvider.Shared.AssetCollectionSettingPath}");
         }
 
         List<string> warnings = new List<string>();
 
-        List<BuildMessage> validationMessages = CollectorSettingValidator.Validate(setting);
+        List<BuildMessage> validationMessages = AssetCollectionSettingValidator.Validate(setting);
         if (AppendMessages(validationMessages, warnings))
         {
             BuildTaskResult result = BuildTaskResult.Fail(
                 BuildErrorCodes.CollectAssetsFailed,
-                $"CollectorSetting 校验失败，共 {validationMessages.Count} 个问题。");
+                $"AssetCollectionSetting 校验失败，共 {validationMessages.Count} 个问题。");
             result.Warnings = warnings;
             return result;
         }
@@ -74,13 +74,13 @@ public class TaskCollectAssets : IBuildTask
         return hasError;
     }
 
-    private static Dictionary<string, SharePolicyConfig> CollectSharePolicies(CollectorSetting setting)
+    private static Dictionary<string, SharePolicyConfig> CollectSharePolicies(AssetCollectionSetting setting)
     {
         Dictionary<string, SharePolicyConfig> policies = new Dictionary<string, SharePolicyConfig>();
         if (setting?.Packages == null)
             return policies;
 
-        foreach (CollectorPackage package in setting.Packages)
+        foreach (AssetCollectionPackage package in setting.Packages)
         {
             if (package == null || string.IsNullOrEmpty(package.PackageName) || package.SharePolicy == null)
                 continue;

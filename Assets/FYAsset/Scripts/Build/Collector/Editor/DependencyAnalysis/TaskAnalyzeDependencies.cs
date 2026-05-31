@@ -4,7 +4,7 @@ using UnityEditor;
 /// <summary>
 /// 管线 Task：依赖分析 + Bundle 依赖图构建 + 隐式依赖发现 + 共享提取决策。
 /// 在管线中位于采集 Task 之后、打包 Task 之前。
-/// ReadKeys: CollectedAssets, SharePolicies（可选，回退到 CollectorSetting SO）
+/// ReadKeys: CollectedAssets, SharePolicies（可选，回退到 AssetCollectionSetting SO）
 /// WriteKeys: CollectedAssets, BundleDependencyGraph
 /// </summary>
 public class TaskAnalyzeDependencies : IBuildTask
@@ -25,13 +25,13 @@ public class TaskAnalyzeDependencies : IBuildTask
         }
 
         // 读取 Per-Package SharePolicy：优先从 BuildContext 取（显式数据流），
-        // 不存在时回退到 AssetDatabase 加载 CollectorSetting SO
+        // 不存在时回退到 AssetDatabase 加载 AssetCollectionSetting SO
         var policies = ctx.Get<Dictionary<string, SharePolicyConfig>>(BuildContextKeys.SharePolicies);
         if (policies == null)
         {
             policies = new Dictionary<string, SharePolicyConfig>();
-            var setting = AssetDatabase.LoadAssetAtPath<CollectorSetting>(
-                FYAssetBuildSettingsProvider.Shared.CollectorSettingPath);
+            var setting = AssetDatabase.LoadAssetAtPath<AssetCollectionSetting>(
+                FYAssetBuildSettingsProvider.Shared.AssetCollectionSettingPath);
             if (setting != null)
             {
                 foreach (var pkg in setting.Packages)

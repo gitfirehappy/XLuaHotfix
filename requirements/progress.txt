@@ -13,6 +13,11 @@
 # Types: start / done / decision / blocked / next
 # Sign-off format: [done] YYYY-MM-DD plan-XX SIGNED OFF - {summary}
 
+[start] 2026-05-31 collector-asset-metadata-bundle-packing-20260531: Approved execution on main. Deleted stray local codex/collector-scan-aa-rework branch, restored the prior draft decisions from commit 63c2e52 into the standard active plan, and began implementation of AssetCollectionSetting + AssetEntry metadata + BundlePackingMode refactor.
+
+[done] 2026-05-31 collector-asset-metadata-bundle-packing-20260531: Executed AssetCollectionSetting refactor on main. CollectorSetting/CollectorPackage/CollectorGroup were replaced by AssetCollectionSetting/AssetCollectionPackage/AssetCollectionGroup, GUID-keyed AssetEntry became the authoritative Address/Labels/Role/Payload metadata source, Collector kept editor-time collection plus Role/Payload analysis only, AddressRule/PackRule code was removed, Group BundlePackingMode now controls bundle grouping, Scene forces PackSeparately behavior, and RawFile is auto-detected by Collector analysis.
+[done] 2026-05-31 collector-asset-metadata-bundle-packing-20260531: Updated Collector UI, scan preview asset metadata editing, build tasks, dependency analysis, shared build settings, README, context architecture docs, human FYAsset docs, active plan queue, and master plan status. Verification passed with `dotnet build XLuaHotfix.sln --no-restore` showing 0 errors and only existing System.Net.Http conflict warnings; `git diff --check` passed.
+
 [start] 2026-03-16 Created requirement, drafted refactor plan (plan.md + plan-A/B1/B2/B3/B4/C.md)
 [next] 2026-03-16 Awaiting developer approval of sub-plan checklists before execution
 [decision] 2026-03-17 Project directory does not need reorganization; refactor in place

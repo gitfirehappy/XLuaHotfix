@@ -299,8 +299,8 @@ public static class DependencyAnalyzer
             if (forceShare || (refCount >= policy.MinReferenceCount && meetsSizeThreshold))
             {
                 // 共享：打入 "$shared" Bundle
-                string packKey = candidate.PrimaryType;
-                bundleName = BundleNameBuilder.Build(packageName, SystemIdentifiers.SharedGroupName, packKey);
+                string bundleKey = candidate.PrimaryType;
+                bundleName = BundleNameBuilder.BuildShared(packageName, bundleKey);
                 isShared = true;
                 isDuplicated = false;
 
@@ -351,9 +351,12 @@ public static class DependencyAnalyzer
             Address = AssetAddressGenerator.GenerateShortAddress(candidate.AssetPath, candidate.PrimaryType, true),
             PrimaryType = candidate.PrimaryType,
             Labels = new List<string>(),
+            GroupLabels = new List<string>(),
+            AssetLabels = new List<string>(),
             GroupName = groupName,
             PackageName = candidate.PackageName,
             BundleName = bundleName,
+            BundlePackingMode = BundlePackingMode.PackSeparately,
             Classification = new AssetClassification
             {
                 Role = EAssetRole.ImplicitDependency,

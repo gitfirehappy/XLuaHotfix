@@ -15,14 +15,20 @@ public class CollectedAssetInfo
     /// <summary>资产的 Unity GUID，对应 RuntimeAssetEntry.EntryId</summary>
     public string AssetGUID;
 
-    /// <summary>运行时寻址地址，由 IAddressRule 生成</summary>
+    /// <summary>运行时寻址地址，由 AssetEntry 或自动地址生成器解析</summary>
     public string Address;
 
     /// <summary>资产主类型名称（如 Texture2D / GameObject），来自 AssetDatabase</summary>
     public string PrimaryType;
 
-    /// <summary>合并后的标签列表（Group.Labels ∪ Collector.Labels，去重）</summary>
+    /// <summary>最终标签列表（Group.Labels ∪ AssetEntry.Labels，去重）</summary>
     public List<string> Labels = new();
+
+    /// <summary>从 Group 强制继承的标签列表</summary>
+    public List<string> GroupLabels = new();
+
+    /// <summary>资产级手动标签列表</summary>
+    public List<string> AssetLabels = new();
 
     /// <summary>所属 Group 名称</summary>
     public string GroupName;
@@ -32,6 +38,9 @@ public class CollectedAssetInfo
 
     /// <summary>逻辑 Bundle 名称，由 BundleNameBuilder 组装</summary>
     public string BundleName;
+
+    /// <summary>Group 配置的打包模式；Scene 会在扫描时强制为 PackSeparately</summary>
+    public BundlePackingMode BundlePackingMode;
 
     /// <summary>分类结果：资产角色 + 载荷类型</summary>
     public AssetClassification Classification;

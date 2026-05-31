@@ -79,3 +79,18 @@ public enum EForcePayloadKind
     /// <summary>强制视为场景文件</summary>
     Scene = 3
 }
+
+/// <summary>
+/// Addressables-aligned bundle packing mode configured on Group.
+/// </summary>
+public enum BundlePackingMode
+{
+    /// <summary>All assets in the Group are packed into one bundle.</summary>
+    PackTogether = 0,
+
+    /// <summary>Each asset is packed into its own bundle.</summary>
+    PackSeparately = 1,
+
+    /// <summary>Assets are grouped by their final label set.</summary>
+    PackTogetherByLabel = 2
+}

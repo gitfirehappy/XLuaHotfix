@@ -3,16 +3,60 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// 采集器全局配置资产（单例 ScriptableObject）。
-/// 存放路径：Assets/FYAsset/CollectorData/CollectorSetting.asset。
-/// 包含所有 Package 的层级配置：Setting -> Package -> Group -> Collector。
+/// Asset collection configuration asset.
+/// Hierarchy: Setting -> Package -> Group -> Collector, with asset metadata stored separately by GUID.
 /// </summary>
-public class CollectorSetting : ScriptableObject
+public class AssetCollectionSetting : ScriptableObject
 {
     #region 字段
 
     /// <summary>所有资产包配置列表</summary>
-    public List<CollectorPackage> Packages = new();
+    public List<AssetCollectionPackage> Packages = new();
+
+    /// <summary>资产级元数据，按 Unity GUID 作为权威键</summary>
+    public List<AssetEntry> AssetEntries = new();
+
+    #endregion
+
+    #region Public Methods
+
+    public AssetEntry FindAssetEntry(string assetGuid)
+    {
+        if (string.IsNullOrEmpty(assetGuid) || AssetEntries == null)
+            return null;
+
+        for (int i = 0; i < AssetEntries.Count; i++)
+        {
+            AssetEntry entry = AssetEntries[i];
+            if (entry != null && string.Equals(entry.AssetGUID, assetGuid, StringComparison.Ordinal))
+                return entry;
+        }
+
+        return null;
+    }
+
+    public AssetEntry GetOrCreateAssetEntry(string assetGuid, string generatedAddress, AssetClassification generatedClassification)
+    {
+        AssetEntries ??= new List<AssetEntry>();
+
+        AssetEntry existing = FindAssetEntry(assetGuid);
+        if (existing != null)
+            return existing;
+
+        AssetEntry entry = new AssetEntry
+        {
+            AssetGUID = assetGuid,
+            AutoAddress = true,
+            Address = generatedAddress,
+            AutoRole = true,
+            Role = generatedClassification.Role,
+            AutoPayload = true,
+            PayloadKind = generatedClassification.PayloadKind,
+            Labels = new List<string>()
+        };
+        AssetEntries.Add(entry);
+        return entry;
+    }
 
     #endregion
 }
@@ -21,7 +65,7 @@ public class CollectorSetting : ScriptableObject
 /// Package 级别配置，对应一个独立的资产包（如主包、DLC 包等）。
 /// </summary>
 [Serializable]
-public class CollectorPackage
+public class AssetCollectionPackage
 {
     #region 字段
 
@@ -29,7 +73,7 @@ public class CollectorPackage
     public string PackageName;
     
     /// <summary>该包下的所有 Group 配置</summary>
-    public List<CollectorGroup> Groups = new();
+    public List<AssetCollectionGroup> Groups = new();
     
     /// <summary>Per-Package 共享提取策略，由依赖分析 Task 读取</summary>
     public SharePolicyConfig SharePolicy = new();
@@ -41,7 +85,7 @@ public class CollectorPackage
 /// Group 级别配置，对应一组具有相同标签和打包策略的采集器。
 /// </summary>
 [Serializable]
-public class CollectorGroup
+public class AssetCollectionGroup
 {
     #region 字段
 
@@ -51,8 +95,11 @@ public class CollectorGroup
     /// <summary>是否启用该 Group。为 false 时 CollectionScanner 跳过整个 Group</summary>
     public bool Enabled = true;
 
-    /// <summary>组级别标签，与 Collector.Labels 取并集后写入 CollectedAssetInfo.Labels</summary>
+    /// <summary>组级别标签，会强制继承到该 Group 下所有资产</summary>
     public List<string> Labels = new();
+
+    /// <summary>Addressables 风格的 Group 打包模式</summary>
+    public BundlePackingMode BundlePackingMode = BundlePackingMode.PackTogetherByLabel;
 
     /// <summary>该组下的所有采集器配置</summary>
     public List<Collector> Collectors = new();
@@ -80,23 +127,30 @@ public class Collector
     /// <summary>强制指定载荷类型；Auto 表示由 Classifier 自动推断</summary>
     public EForcePayloadKind ForcePayloadKind;
 
-    /// <summary>地址规则类名，由 RuleResolver 反射解析为 IAddressRule 实例</summary>
-    public string AddressRuleName;
-
-    /// <summary>打包规则类名，由 RuleResolver 反射解析为 IPackRule 实例</summary>
-    public string PackRuleName;
-
     /// <summary>过滤规则类名，由 RuleResolver 反射解析为 IFilterRule 实例</summary>
     public string FilterRuleName;
 
     /// <summary>分组规则类名，由 RuleResolver 反射解析为 IGroupRule 实例</summary>
     public string GroupRuleName;
 
-    /// <summary>采集器级别标签，与 Group.Labels 取并集后写入 CollectedAssetInfo.Labels</summary>
-    public List<string> Labels = new();
-
     /// <summary>忽略规则模式列表（类 gitignore 子集：*.ext / dirname/ / *keyword*）</summary>
     public List<string> IgnorePatterns = new();
 
     #endregion
+}
+
+/// <summary>
+/// Asset-level authoritative metadata keyed by Unity GUID.
+/// </summary>
+[Serializable]
+public class AssetEntry
+{
+    public string AssetGUID;
+    public bool AutoAddress = true;
+    public string Address;
+    public List<string> Labels = new();
+    public bool AutoRole = true;
+    public EAssetRole Role = EAssetRole.Main;
+    public bool AutoPayload = true;
+    public EPayloadKind PayloadKind = EPayloadKind.Serialized;
 }

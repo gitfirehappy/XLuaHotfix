@@ -421,7 +421,7 @@ public sealed class BuildPipelineWindow : EditorWindow
             new AABuildPanel(),
             new AAReportPanel(),
             new ABConfigPanel(),
-            new CollectorSettingPanel(),
+            new AssetCollectionSettingPanel(),
             new CollectorPanel(),
             new PipelinePanel(),
             new RepositoryStatusPanel(),

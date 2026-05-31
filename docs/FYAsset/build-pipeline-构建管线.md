@@ -225,7 +225,7 @@ Execute
 | TaskName | 职责 | 依赖 |
 |----------|------|------|
 | `TaskPrepareContext` | 初始化 BuildContext（解析 BackendMode、Version、OutputRoot、TargetPlatform、CLI 参数覆盖） | — |
-| `TaskCollectAssets` | 加载 CollectorSetting、运行 CollectionScanner、写入 CollectedAssets 和 SharePolicies | TaskPrepareContext |
+| `TaskCollectAssets` | 加载 AssetCollectionSetting、运行 CollectionScanner、写入 CollectedAssets 和 SharePolicies | TaskPrepareContext |
 | `TaskAnalyzeDependencies` | BFS 依赖扫描、共享资产提取、构建 BundleDependencyGraph | TaskCollectAssets |
 | `TaskCollectBuiltins` | 自动收集 Shader 和 Resources 内置资源，追加到 CollectedAssets | TaskCollectAssets |
 | `TaskBuildBundles` | 按 PayloadKind 分流构建（Serialized → AB, Scene → 独立, RawFile → 拷贝），输出 BundleBuildResults | TaskAnalyzeDependencies |

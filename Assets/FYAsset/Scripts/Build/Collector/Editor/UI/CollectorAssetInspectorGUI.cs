@@ -83,24 +83,24 @@ public static class CollectorAssetInspectorGUI
         GUILayout.EndVertical();
     }
 
-    private static CollectorSetting LoadSetting()
+    private static AssetCollectionSetting LoadSetting()
     {
-        return AssetDatabase.LoadAssetAtPath<CollectorSetting>(FYAssetBuildSettingsProvider.Shared.CollectorSettingPath);
+        return AssetDatabase.LoadAssetAtPath<AssetCollectionSetting>(FYAssetBuildSettingsProvider.Shared.AssetCollectionSettingPath);
     }
 
     private static Collector GetCollector(CollectorReverseIndex.CollectorRef collectorRef)
     {
-        CollectorSetting setting = LoadSetting();
+        AssetCollectionSetting setting = LoadSetting();
         if (setting?.Packages == null)
             return null;
         if (collectorRef.PackageIndex < 0 || collectorRef.PackageIndex >= setting.Packages.Count)
             return null;
 
-        CollectorPackage package = setting.Packages[collectorRef.PackageIndex];
+        AssetCollectionPackage package = setting.Packages[collectorRef.PackageIndex];
         if (package?.Groups == null || collectorRef.GroupIndex < 0 || collectorRef.GroupIndex >= package.Groups.Count)
             return null;
 
-        CollectorGroup group = package.Groups[collectorRef.GroupIndex];
+        AssetCollectionGroup group = package.Groups[collectorRef.GroupIndex];
         if (group?.Collectors == null || collectorRef.CollectorIndex < 0 || collectorRef.CollectorIndex >= group.Collectors.Count)
             return null;
 
@@ -109,7 +109,7 @@ public static class CollectorAssetInspectorGUI
 
     private static string GetPackageName(CollectorReverseIndex.CollectorRef collectorRef)
     {
-        CollectorSetting setting = LoadSetting();
+        AssetCollectionSetting setting = LoadSetting();
         if (setting?.Packages == null || collectorRef.PackageIndex < 0 || collectorRef.PackageIndex >= setting.Packages.Count)
             return "(unknown package)";
 
@@ -119,11 +119,11 @@ public static class CollectorAssetInspectorGUI
 
     private static string GetGroupName(CollectorReverseIndex.CollectorRef collectorRef)
     {
-        CollectorSetting setting = LoadSetting();
+        AssetCollectionSetting setting = LoadSetting();
         if (setting?.Packages == null || collectorRef.PackageIndex < 0 || collectorRef.PackageIndex >= setting.Packages.Count)
             return "(unknown group)";
 
-        CollectorPackage package = setting.Packages[collectorRef.PackageIndex];
+        AssetCollectionPackage package = setting.Packages[collectorRef.PackageIndex];
         if (package?.Groups == null || collectorRef.GroupIndex < 0 || collectorRef.GroupIndex >= package.Groups.Count)
             return "(unknown group)";
 
@@ -133,15 +133,15 @@ public static class CollectorAssetInspectorGUI
 
     private static void RemoveCollector(CollectorReverseIndex.CollectorRef collectorRef)
     {
-        CollectorSetting setting = LoadSetting();
+        AssetCollectionSetting setting = LoadSetting();
         if (setting?.Packages == null || collectorRef.PackageIndex < 0 || collectorRef.PackageIndex >= setting.Packages.Count)
             return;
 
-        CollectorPackage package = setting.Packages[collectorRef.PackageIndex];
+        AssetCollectionPackage package = setting.Packages[collectorRef.PackageIndex];
         if (package?.Groups == null || collectorRef.GroupIndex < 0 || collectorRef.GroupIndex >= package.Groups.Count)
             return;
 
-        CollectorGroup group = package.Groups[collectorRef.GroupIndex];
+        AssetCollectionGroup group = package.Groups[collectorRef.GroupIndex];
         if (group?.Collectors == null || collectorRef.CollectorIndex < 0 || collectorRef.CollectorIndex >= group.Collectors.Count)
             return;
 

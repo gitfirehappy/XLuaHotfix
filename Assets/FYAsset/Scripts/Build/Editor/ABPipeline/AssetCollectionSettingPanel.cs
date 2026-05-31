@@ -6,10 +6,10 @@ using UnityEngine;
 using UnityEngine.UIElements;
 
 /// <summary>
-/// CollectorSetting 总览面板。
+/// AssetCollectionSetting 总览面板。
 /// 负责 Package / Group 导航、基础详情编辑以及简化版 Collector 列表维护。
 /// </summary>
-public class CollectorSettingPanel : IBuildPipelinePanel
+public class AssetCollectionSettingPanel : IBuildPipelinePanel
 {
     /// <summary>
     /// 当前详情区选中的节点类型。
@@ -22,7 +22,7 @@ public class CollectorSettingPanel : IBuildPipelinePanel
     }
 
     private EditorWindow _window;
-    private CollectorSetting _setting;
+    private AssetCollectionSetting _setting;
     private SerializedObject _so;
     private VisualElement _root;
     private VisualElement _sidebar;
@@ -120,7 +120,7 @@ public class CollectorSettingPanel : IBuildPipelinePanel
             Rebuild();
         }, 60f));
         toolbar.Add(BuildPipelineUI.Spacer());
-        toolbar.Add(BuildPipelineUI.ToolbarLabel(FYAssetBuildSettingsProvider.Shared.CollectorSettingPath));
+        toolbar.Add(BuildPipelineUI.ToolbarLabel(FYAssetBuildSettingsProvider.Shared.AssetCollectionSettingPath));
         _root.Add(toolbar);
     }
 
@@ -317,6 +317,7 @@ public class CollectorSettingPanel : IBuildPipelinePanel
         card.Add(BuildPipelineUI.Header("Group"));
         card.Add(new PropertyField(groupProp.FindPropertyRelative("GroupName"), "Group Name"));
         card.Add(new PropertyField(groupProp.FindPropertyRelative("Enabled"), "Enabled"));
+        card.Add(new PropertyField(groupProp.FindPropertyRelative("BundlePackingMode"), "Bundle Packing"));
         card.Add(new PropertyField(groupProp.FindPropertyRelative("Labels"), "Group Labels"));
         parent.Add(card);
 
@@ -393,15 +394,12 @@ public class CollectorSettingPanel : IBuildPipelinePanel
         VisualElement rules = new VisualElement { style = { flexDirection = FlexDirection.Row } };
         AddCollectorTypePopup(rules, collectorProp.FindPropertyRelative("CollectorType"), 92f);
         AddCompactProperty(rules, collectorProp.FindPropertyRelative("ForcePayloadKind"), 108f);
-        AddRulePopup(rules, "Addr", collectorProp.FindPropertyRelative("AddressRuleName"), RuleDropdownHelper.GetAddressRuleNames());
-        AddRulePopup(rules, "Pack", collectorProp.FindPropertyRelative("PackRuleName"), RuleDropdownHelper.GetPackRuleNames());
         AddRulePopup(rules, "Filter", collectorProp.FindPropertyRelative("FilterRuleName"), RuleDropdownHelper.GetFilterRuleNames());
         AddRulePopup(rules, "Group", collectorProp.FindPropertyRelative("GroupRuleName"), RuleDropdownHelper.GetGroupRuleNames());
         row.Add(rules);
 
         if (selected)
         {
-            row.Add(new PropertyField(collectorProp.FindPropertyRelative("Labels"), "Labels"));
             row.Add(new PropertyField(collectorProp.FindPropertyRelative("IgnorePatterns"), "Ignore Patterns"));
         }
 
@@ -522,34 +520,34 @@ public class CollectorSettingPanel : IBuildPipelinePanel
     }
 
     /// <summary>
-    /// CollectorSetting 缺失时显示创建入口。
+    /// AssetCollectionSetting 缺失时显示创建入口。
     /// </summary>
     private void DrawNoSetting()
     {
         VisualElement panel = BuildPipelineUIToolkitPanel.CreateCenteredPanel(_root, 420f);
-        panel.Add(BuildPipelineUIToolkitPanel.CreateTitle("未找到 CollectorSetting"));
-        panel.Add(BuildPipelineUIToolkitPanel.CreateBody(FYAssetBuildSettingsProvider.Shared.CollectorSettingPath));
+        panel.Add(BuildPipelineUIToolkitPanel.CreateTitle("未找到 AssetCollectionSetting"));
+        panel.Add(BuildPipelineUIToolkitPanel.CreateBody(FYAssetBuildSettingsProvider.Shared.AssetCollectionSettingPath));
         panel.Add(new Button(CreateSetting) { text = "创建" });
     }
 
     /// <summary>
-    /// 加载 CollectorSetting 并修正当前选中状态。
+    /// 加载 AssetCollectionSetting 并修正当前选中状态。
     /// </summary>
     private void LoadSetting()
     {
-        _setting = AssetDatabase.LoadAssetAtPath<CollectorSetting>(FYAssetBuildSettingsProvider.Shared.CollectorSettingPath);
+        _setting = AssetDatabase.LoadAssetAtPath<AssetCollectionSetting>(FYAssetBuildSettingsProvider.Shared.AssetCollectionSettingPath);
         _so = _setting != null ? new SerializedObject(_setting) : null;
         EnsureSelection();
     }
 
     /// <summary>
-    /// 创建新的 CollectorSetting 资产。
+    /// 创建新的 AssetCollectionSetting 资产。
     /// </summary>
     private void CreateSetting()
     {
-        BuildPipelineUI.EnsureAssetParentFolder(FYAssetBuildSettingsProvider.Shared.CollectorSettingPath);
-        CollectorSetting asset = ScriptableObject.CreateInstance<CollectorSetting>();
-        AssetDatabase.CreateAsset(asset, FYAssetBuildSettingsProvider.Shared.CollectorSettingPath);
+        BuildPipelineUI.EnsureAssetParentFolder(FYAssetBuildSettingsProvider.Shared.AssetCollectionSettingPath);
+        AssetCollectionSetting asset = ScriptableObject.CreateInstance<AssetCollectionSetting>();
+        AssetDatabase.CreateAsset(asset, FYAssetBuildSettingsProvider.Shared.AssetCollectionSettingPath);
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
         CollectorReverseIndex.Instance.MarkDirty();
@@ -598,6 +596,7 @@ public class CollectorSettingPanel : IBuildPipelinePanel
         SerializedProperty groupProp = groupsProp.GetArrayElementAtIndex(index);
         groupProp.FindPropertyRelative("GroupName").stringValue = "NewGroup" + (index + 1);
         groupProp.FindPropertyRelative("Enabled").boolValue = true;
+        groupProp.FindPropertyRelative("BundlePackingMode").enumValueIndex = (int)BundlePackingMode.PackTogetherByLabel;
         groupProp.FindPropertyRelative("Labels").arraySize = 0;
         groupProp.FindPropertyRelative("Collectors").arraySize = 0;
         SelectGroup(packageIndex, index);
@@ -617,11 +616,8 @@ public class CollectorSettingPanel : IBuildPipelinePanel
         collectorProp.FindPropertyRelative("CollectPathType").enumValueIndex = isFile ? (int)ECollectPathType.File : (int)ECollectPathType.Folder;
         collectorProp.FindPropertyRelative("CollectorType").enumValueIndex = (int)ECollectorType.Main;
         collectorProp.FindPropertyRelative("ForcePayloadKind").enumValueIndex = (int)EForcePayloadKind.Auto;
-        collectorProp.FindPropertyRelative("AddressRuleName").stringValue = FYAssetSettings.RULE_ADDRESS_BY_FILE_NAME;
-        collectorProp.FindPropertyRelative("PackRuleName").stringValue = isFile ? FYAssetSettings.RULE_PACK_SEPARATELY : FYAssetSettings.RULE_PACK_BY_DIRECTORY;
         collectorProp.FindPropertyRelative("FilterRuleName").stringValue = FYAssetSettings.RULE_COLLECT_ALL;
         collectorProp.FindPropertyRelative("GroupRuleName").stringValue = FYAssetSettings.RULE_GROUP_ALL;
-        collectorProp.FindPropertyRelative("Labels").arraySize = 0;
         collectorProp.FindPropertyRelative("IgnorePatterns").arraySize = 0;
         _selectedCollectorIndex = index;
     }
@@ -777,7 +773,7 @@ public class CollectorSettingPanel : IBuildPipelinePanel
         if (_selectedPackageIndex < 0 || _selectedPackageIndex >= _setting.Packages.Count)
             _selectedPackageIndex = 0;
 
-        CollectorPackage package = _setting.Packages[_selectedPackageIndex];
+        AssetCollectionPackage package = _setting.Packages[_selectedPackageIndex];
         if (_selectionType == SelectionType.Group && package != null && package.Groups != null && package.Groups.Count > 0)
         {
             _selectedGroupIndex = Mathf.Clamp(_selectedGroupIndex, 0, package.Groups.Count - 1);

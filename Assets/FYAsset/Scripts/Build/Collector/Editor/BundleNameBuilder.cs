@@ -1,13 +1,19 @@
 /// <summary>
-/// Bundle 逻辑名组装工具 —— 将 PackRule 输出的分组键组装为标准化三段式名称。
-/// 输出不含 Hash 和 .bundle 扩展名，这些由 TaskBuildBundles 追加。
+/// Bundle logical-name builder for Group BundlePackingMode.
+/// Output does not include content hash or file extension; build tasks append those when needed.
 /// </summary>
 public static class BundleNameBuilder
 {
+    #region Constants
+
+    private const int ShortGuidLength = 8;
+
+    #endregion
+
     #region Public Methods
 
     /// <summary>
-    /// 校验 PackageName / GroupName / Label 是否包含保留字符。返回 null 表示合法。
+    /// Validate PackageName / GroupName / Label characters. Returns null when valid.
     /// </summary>
     public static string ValidateSegment(string segment)
     {
@@ -15,12 +21,81 @@ public static class BundleNameBuilder
     }
 
     /// <summary>
-    /// 校验 PackKey 是否包含保留字符（允许 ~ 标签连接符）。返回 null 表示合法。
+    /// Validate BundleKey characters. Allows "~" because it is the intentional key joiner.
     /// </summary>
-    public static string ValidatePackKey(string packKey)
+    public static string ValidateBundleKey(string bundleKey)
     {
-        return ValidateAgainst(packKey, SystemIdentifiers.PackKeyReservedChars);
+        if (string.Equals(bundleKey, SystemIdentifiers.UnlabeledBundleKey, System.StringComparison.Ordinal))
+            return null;
+
+        return ValidateAgainst(bundleKey, SystemIdentifiers.BundleKeyReservedChars);
     }
+
+    public static string Build(
+        string packageName,
+        string groupName,
+        BundlePackingMode mode,
+        string address,
+        string assetGuid,
+        System.Collections.Generic.List<string> finalLabels)
+    {
+        string safePkg = SanitizeSegment(packageName);
+        string safeGroup = SanitizeSegment(groupName);
+        string modeSegment = GetModeSegment(mode);
+        string bundleKey = GetBundleKey(mode, address, assetGuid, finalLabels);
+
+        if (mode == BundlePackingMode.PackTogether)
+        {
+            return string.Concat(
+                safePkg,
+                SystemIdentifiers.SegmentSeparator,
+                safeGroup,
+                SystemIdentifiers.SegmentSeparator,
+                modeSegment);
+        }
+
+        return string.Concat(
+            safePkg,
+            SystemIdentifiers.SegmentSeparator,
+            safeGroup,
+            SystemIdentifiers.SegmentSeparator,
+            modeSegment,
+            SystemIdentifiers.SegmentSeparator,
+            SanitizeBundleKey(bundleKey));
+    }
+
+    public static string BuildShared(string packageName, string bundleKey)
+    {
+        return string.Concat(
+            SanitizeSegment(packageName),
+            SystemIdentifiers.SegmentSeparator,
+            "$shared",
+            SystemIdentifiers.SegmentSeparator,
+            SanitizeBundleKey(bundleKey));
+    }
+
+    public static string GetBundleKey(
+        BundlePackingMode mode,
+        string address,
+        string assetGuid,
+        System.Collections.Generic.List<string> finalLabels)
+    {
+        switch (mode)
+        {
+            case BundlePackingMode.PackTogether:
+                return "all";
+            case BundlePackingMode.PackSeparately:
+                return string.Concat(SanitizeSegment(address), SystemIdentifiers.LabelSeparator, ShortGuid(assetGuid));
+            case BundlePackingMode.PackTogetherByLabel:
+                return BuildLabelKey(finalLabels);
+            default:
+                return SystemIdentifiers.DefaultBundleKey;
+        }
+    }
+
+    #endregion
+
+    #region Private Methods
 
     private static string ValidateAgainst(string value, char[] blacklist)
     {
@@ -40,28 +115,65 @@ public static class BundleNameBuilder
         return null;
     }
 
-    /// <summary>
-    /// 组装标准化 Bundle 逻辑名：{package}_{group}_{packKey}（全小写）。
-    /// </summary>
-    public static string Build(string packageName, string groupName, string packKey)
-    {
-        string safePkg = SanitizeSegment(packageName);
-        string safeGroup = SanitizeSegment(groupName);
-        string safeKey = SanitizeSegment(packKey);
-        return string.Concat(safePkg, SystemIdentifiers.SegmentSeparator, safeGroup, SystemIdentifiers.SegmentSeparator, safeKey);
-    }
-
-    #endregion
-
-    #region Private Methods
-
     private static string SanitizeSegment(string raw)
     {
         if (string.IsNullOrEmpty(raw))
-            return SystemIdentifiers.DefaultPackKey;
+            return SystemIdentifiers.DefaultBundleKey;
 
         string lowered = raw.ToLowerInvariant();
-        return lowered.Length > 0 ? lowered : SystemIdentifiers.DefaultPackKey;
+        return lowered.Length > 0 ? lowered : SystemIdentifiers.DefaultBundleKey;
+    }
+
+    private static string SanitizeBundleKey(string raw)
+    {
+        if (string.Equals(raw, SystemIdentifiers.UnlabeledBundleKey, System.StringComparison.Ordinal))
+            return raw;
+
+        return SanitizeSegment(raw);
+    }
+
+    private static string GetModeSegment(BundlePackingMode mode)
+    {
+        switch (mode)
+        {
+            case BundlePackingMode.PackTogether:
+                return "all";
+            case BundlePackingMode.PackSeparately:
+                return "asset";
+            case BundlePackingMode.PackTogetherByLabel:
+                return "labels";
+            default:
+                return "unknown";
+        }
+    }
+
+    private static string BuildLabelKey(System.Collections.Generic.List<string> labels)
+    {
+        if (labels == null || labels.Count == 0)
+            return SystemIdentifiers.UnlabeledBundleKey;
+
+        System.Collections.Generic.List<string> sorted = new System.Collections.Generic.List<string>();
+        for (int i = 0; i < labels.Count; i++)
+        {
+            if (!string.IsNullOrEmpty(labels[i]))
+                sorted.Add(labels[i].ToLowerInvariant());
+        }
+
+        if (sorted.Count == 0)
+            return SystemIdentifiers.UnlabeledBundleKey;
+
+        sorted.Sort(System.StringComparer.Ordinal);
+        return string.Join(SystemIdentifiers.LabelSeparator.ToString(), sorted);
+    }
+
+    private static string ShortGuid(string guid)
+    {
+        if (string.IsNullOrEmpty(guid))
+            return "noguid00";
+
+        return guid.Length <= ShortGuidLength
+            ? guid.ToLowerInvariant()
+            : guid.Substring(0, ShortGuidLength).ToLowerInvariant();
     }
 
     #endregion

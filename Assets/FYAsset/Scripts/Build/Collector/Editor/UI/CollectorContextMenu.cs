@@ -9,7 +9,7 @@ using UnityEngine;
 public static class CollectorContextMenu
 {
     [MenuItem("Assets/FYAsset/Add to Collector Group", false, 1000)]
-    private static void AddToCollectorGroup()
+    private static void AddToAssetCollectionGroup()
     {
         string[] assetPaths = GetSelectedAssetPaths(includeFolders: true);
         if (assetPaths.Length == 0)
@@ -23,7 +23,7 @@ public static class CollectorContextMenu
     }
 
     [MenuItem("Assets/FYAsset/Add to Collector Group", true)]
-    private static bool AddToCollectorGroupValidate()
+    private static bool AddToAssetCollectionGroupValidate()
     {
         return GetSelectedAssetPaths(includeFolders: true).Length > 0;
     }
@@ -35,7 +35,7 @@ public static class CollectorContextMenu
         if (assetPaths.Length == 0)
             return;
 
-        CollectorSetting setting = LoadSetting();
+        AssetCollectionSetting setting = LoadSetting();
         if (setting == null)
             return;
 
@@ -60,7 +60,7 @@ public static class CollectorContextMenu
             if (!string.Equals(CollectorPathUtility.NormalizePath(collector.CollectPath), assetPaths[i], StringComparison.OrdinalIgnoreCase))
                 continue;
 
-            CollectorGroup group = GetGroup(setting, collectorRef);
+            AssetCollectionGroup group = GetGroup(setting, collectorRef);
             if (group?.Collectors == null || collectorRef.CollectorIndex < 0 || collectorRef.CollectorIndex >= group.Collectors.Count)
                 continue;
 
@@ -84,7 +84,7 @@ public static class CollectorContextMenu
         if (assetPaths.Length == 0)
             return false;
 
-        CollectorSetting setting = LoadSetting();
+        AssetCollectionSetting setting = LoadSetting();
         for (int i = 0; i < assetPaths.Length; i++)
         {
             if (!CollectorReverseIndex.Instance.TryGetCollector(assetPaths[i], out CollectorReverseIndex.CollectorRef collectorRef))
@@ -124,26 +124,26 @@ public static class CollectorContextMenu
         return result.ToArray();
     }
 
-    private static CollectorSetting LoadSetting()
+    private static AssetCollectionSetting LoadSetting()
     {
-        return AssetDatabase.LoadAssetAtPath<CollectorSetting>(FYAssetBuildSettingsProvider.Shared.CollectorSettingPath);
+        return AssetDatabase.LoadAssetAtPath<AssetCollectionSetting>(FYAssetBuildSettingsProvider.Shared.AssetCollectionSettingPath);
     }
 
-    private static Collector GetCollector(CollectorSetting setting, CollectorReverseIndex.CollectorRef collectorRef)
+    private static Collector GetCollector(AssetCollectionSetting setting, CollectorReverseIndex.CollectorRef collectorRef)
     {
-        CollectorGroup group = GetGroup(setting, collectorRef);
+        AssetCollectionGroup group = GetGroup(setting, collectorRef);
         if (group?.Collectors == null || collectorRef.CollectorIndex < 0 || collectorRef.CollectorIndex >= group.Collectors.Count)
             return null;
 
         return group.Collectors[collectorRef.CollectorIndex];
     }
 
-    private static CollectorGroup GetGroup(CollectorSetting setting, CollectorReverseIndex.CollectorRef collectorRef)
+    private static AssetCollectionGroup GetGroup(AssetCollectionSetting setting, CollectorReverseIndex.CollectorRef collectorRef)
     {
         if (setting?.Packages == null || collectorRef.PackageIndex < 0 || collectorRef.PackageIndex >= setting.Packages.Count)
             return null;
 
-        CollectorPackage package = setting.Packages[collectorRef.PackageIndex];
+        AssetCollectionPackage package = setting.Packages[collectorRef.PackageIndex];
         if (package?.Groups == null || collectorRef.GroupIndex < 0 || collectorRef.GroupIndex >= package.Groups.Count)
             return null;
 

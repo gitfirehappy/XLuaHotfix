@@ -22,7 +22,7 @@ public sealed class CollectorPanel : IBuildPipelinePanel
     }
 
     private EditorWindow _window;
-    private CollectorSetting _setting;
+    private AssetCollectionSetting _setting;
     private SerializedObject _so;
     private VisualElement _root;
     private VisualElement _tablePane;
@@ -42,6 +42,7 @@ public sealed class CollectorPanel : IBuildPipelinePanel
     private int _selectedPackageIndex = -1;
     private int _selectedGroupIndex = -1;
     private int _selectedCollectorIndex = -1;
+    private string _selectedAssetGuid;
     private float _bottomResultHeight = 140f;
     private float _detailWidth = 320f;
     private bool _draggingBottomSplitter;
@@ -99,15 +100,15 @@ public sealed class CollectorPanel : IBuildPipelinePanel
     }
 
     /// <summary>
-    /// 加载 CollectorSetting，并预先计算一次校验结果。
+    /// 加载 AssetCollectionSetting，并预先计算一次校验结果。
     /// </summary>
     private void LoadSetting()
     {
-        _setting = AssetDatabase.LoadAssetAtPath<CollectorSetting>(FYAssetBuildSettingsProvider.Shared.CollectorSettingPath);
+        _setting = AssetDatabase.LoadAssetAtPath<AssetCollectionSetting>(FYAssetBuildSettingsProvider.Shared.AssetCollectionSettingPath);
         _so = _setting != null ? new SerializedObject(_setting) : null;
         EnsureSelection();
         if (_setting != null)
-            _validationMessages = CollectorSettingValidator.Validate(_setting);
+            _validationMessages = AssetCollectionSettingValidator.Validate(_setting);
     }
 
     /// <summary>
@@ -122,6 +123,7 @@ public sealed class CollectorPanel : IBuildPipelinePanel
             _selectedPackageIndex = Array.IndexOf(GetPackageNames(), value);
             _selectedGroupIndex = 0;
             _selectedCollectorIndex = 0;
+            _selectedAssetGuid = null;
             EnsureSelection();
             Rebuild();
         }, 130f);
@@ -131,6 +133,7 @@ public sealed class CollectorPanel : IBuildPipelinePanel
         {
             _selectedGroupIndex = Array.IndexOf(GetGroupNames(), value);
             _selectedCollectorIndex = 0;
+            _selectedAssetGuid = null;
             EnsureSelection();
             Rebuild();
         }, 140f);
@@ -170,7 +173,7 @@ public sealed class CollectorPanel : IBuildPipelinePanel
         }, 54f));
         toolbar.Add(BuildPipelineUI.ToolbarButton("重验", () =>
         {
-            _validationMessages = CollectorSettingValidator.Validate(_setting);
+            _validationMessages = AssetCollectionSettingValidator.Validate(_setting);
             BuildBottomContent();
         }, 84f));
         toolbar.Add(BuildPipelineUI.ToolbarButton("扫描", RunScan, 52f));
@@ -269,7 +272,7 @@ public sealed class CollectorPanel : IBuildPipelinePanel
         header.style.paddingTop = 4f;
         header.style.paddingBottom = 4f;
         header.Add(BuildPipelineUI.SmallText("Path Type  Collect Path"));
-        header.Add(BuildPipelineUI.SmallText("Type  Payload  Addr  Pack  Filter  Group"));
+        header.Add(BuildPipelineUI.SmallText("Type  Payload  Filter  Group"));
         return header;
     }
 
@@ -303,8 +306,6 @@ public sealed class CollectorPanel : IBuildPipelinePanel
         VisualElement second = new VisualElement { style = { flexDirection = FlexDirection.Row } };
         AddCollectorTypePopup(second, collectorProp.FindPropertyRelative("CollectorType"), 92f);
         AddCompactProperty(second, collectorProp.FindPropertyRelative("ForcePayloadKind"), 104f);
-        AddRulePopup(second, collectorProp.FindPropertyRelative("AddressRuleName"), RuleDropdownHelper.GetAddressRuleNames(), 92f);
-        AddRulePopup(second, collectorProp.FindPropertyRelative("PackRuleName"), RuleDropdownHelper.GetPackRuleNames(), 92f);
         AddRulePopup(second, collectorProp.FindPropertyRelative("FilterRuleName"), RuleDropdownHelper.GetFilterRuleNames(), 92f);
         AddRulePopup(second, collectorProp.FindPropertyRelative("GroupRuleName"), RuleDropdownHelper.GetGroupRuleNames(), 92f);
         row.Add(second);
@@ -312,6 +313,7 @@ public sealed class CollectorPanel : IBuildPipelinePanel
         row.RegisterCallback<PointerDownEvent>(evt =>
         {
             _selectedCollectorIndex = collectorIndex;
+            _selectedAssetGuid = null;
             BuildCollectorTable();
             BuildCollectorDetail();
             evt.StopPropagation();
@@ -330,11 +332,17 @@ public sealed class CollectorPanel : IBuildPipelinePanel
         _detailScroll.Bind(_so);
         _detailPane.Add(_detailScroll);
 
+        if (!string.IsNullOrEmpty(_selectedAssetGuid))
+        {
+            BuildAssetDetail(_detailScroll, _selectedAssetGuid);
+            return;
+        }
+
         SerializedProperty collectorProp = GetSelectedCollectorProperty();
         if (collectorProp == null)
         {
             _detailScroll.Add(BuildPipelineUI.Header("选中一行 Collector"));
-            _detailScroll.Add(BuildPipelineUI.SmallText("左侧改当前 Collector，Labels 和 IgnorePatterns 细节在这里。"));
+            _detailScroll.Add(BuildPipelineUI.SmallText("左侧改当前 Collector，IgnorePatterns 细节在这里。"));
             return;
         }
 
@@ -344,11 +352,8 @@ public sealed class CollectorPanel : IBuildPipelinePanel
         AddLabeledCollectorTypePopup(_detailScroll, "Type", collectorProp.FindPropertyRelative("CollectorType"));
         _detailScroll.Add(new PropertyField(collectorProp.FindPropertyRelative("ForcePayloadKind"), "Payload"));
         _detailScroll.Add(BuildPipelineUI.Header("Rules"));
-        AddLabeledRulePopup(_detailScroll, "Addr", collectorProp.FindPropertyRelative("AddressRuleName"), RuleDropdownHelper.GetAddressRuleNames());
-        AddLabeledRulePopup(_detailScroll, "Pack", collectorProp.FindPropertyRelative("PackRuleName"), RuleDropdownHelper.GetPackRuleNames());
         AddLabeledRulePopup(_detailScroll, "Filter", collectorProp.FindPropertyRelative("FilterRuleName"), RuleDropdownHelper.GetFilterRuleNames());
         AddLabeledRulePopup(_detailScroll, "Group", collectorProp.FindPropertyRelative("GroupRuleName"), RuleDropdownHelper.GetGroupRuleNames());
-        _detailScroll.Add(new PropertyField(collectorProp.FindPropertyRelative("Labels"), "Labels"));
         _detailScroll.Add(new PropertyField(collectorProp.FindPropertyRelative("IgnorePatterns"), "Ignore Patterns"));
     }
 
@@ -453,22 +458,161 @@ public sealed class CollectorPanel : IBuildPipelinePanel
             return;
         }
 
-        StringBuilder builder = new StringBuilder();
         for (int i = 0; i < _lastScanResult.Assets.Count; i++)
         {
             CollectedAssetInfo asset = _lastScanResult.Assets[i];
-            builder.Append(asset.AssetPath)
-                .Append("  ->  ")
-                .Append(asset.BundleName)
-                .AppendLine();
+            parent.Add(CreateAssetPreviewRow(asset));
+        }
+    }
+
+    private VisualElement CreateAssetPreviewRow(CollectedAssetInfo asset)
+    {
+        bool selected = string.Equals(_selectedAssetGuid, asset.AssetGUID, StringComparison.Ordinal);
+        VisualElement row = BuildPipelineUI.Card();
+        row.style.marginBottom = 3f;
+        if (selected)
+            row.style.backgroundColor = new Color(0.17f, 0.36f, 0.53f, 0.18f);
+
+        row.Add(BuildPipelineUI.SmallText(asset.AssetPath));
+        row.Add(BuildPipelineUI.SmallText($"{asset.BundlePackingMode}  {asset.Address}  ->  {asset.BundleName}"));
+        row.Add(BuildPipelineUI.SmallText($"Role={asset.Classification.Role}  Payload={asset.Classification.PayloadKind}  Labels={string.Join(",", asset.Labels)}"));
+        row.RegisterCallback<PointerDownEvent>(evt =>
+        {
+            _selectedAssetGuid = asset.AssetGUID;
+            BuildBottomContent();
+            BuildCollectorDetail();
+            evt.StopPropagation();
+        });
+        return row;
+    }
+
+    private void BuildAssetDetail(VisualElement parent, string assetGuid)
+    {
+        SerializedProperty entryProp = FindAssetEntryProperty(assetGuid);
+        CollectedAssetInfo preview = FindPreviewAsset(assetGuid);
+
+        parent.Add(BuildPipelineUI.Header("Asset"));
+        if (preview != null)
+        {
+            parent.Add(BuildPipelineUI.SmallText(preview.AssetPath));
+            parent.Add(BuildPipelineUI.SmallText($"Bundle: {preview.BundleName}"));
+            parent.Add(BuildPipelineUI.SmallText($"Inherited Labels: {string.Join(",", preview.GroupLabels)}"));
         }
 
-        TextField area = new TextField { multiline = true, value = builder.ToString() };
-        area.isReadOnly = true;
-        area.style.flexGrow = 1f;
-        area.style.minHeight = 120f;
-        area.style.whiteSpace = WhiteSpace.Normal;
-        parent.Add(area);
+        if (entryProp == null)
+        {
+            parent.Add(BuildPipelineUI.SmallText("AssetEntry 尚未生成。先执行扫描。"));
+            return;
+        }
+
+        parent.Add(new PropertyField(entryProp.FindPropertyRelative("AssetGUID"), "GUID"));
+
+        AddResettableAutoField(
+            parent,
+            "Address",
+            entryProp.FindPropertyRelative("AutoAddress"),
+            entryProp.FindPropertyRelative("Address"),
+            () => ResetAddress(entryProp, preview));
+
+        parent.Add(new PropertyField(entryProp.FindPropertyRelative("Labels"), "Asset Labels"));
+
+        AddResettableAutoField(
+            parent,
+            "Role",
+            entryProp.FindPropertyRelative("AutoRole"),
+            entryProp.FindPropertyRelative("Role"),
+            () => ResetRole(entryProp, preview));
+
+        AddResettableAutoField(
+            parent,
+            "Payload",
+            entryProp.FindPropertyRelative("AutoPayload"),
+            entryProp.FindPropertyRelative("PayloadKind"),
+            () => ResetPayload(entryProp, preview));
+    }
+
+    private void AddResettableAutoField(
+        VisualElement parent,
+        string label,
+        SerializedProperty autoProp,
+        SerializedProperty valueProp,
+        Action reset)
+    {
+        VisualElement row = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center } };
+        PropertyField autoField = new PropertyField(autoProp, "Auto " + label);
+        autoField.style.flexGrow = 1f;
+        row.Add(autoField);
+        row.Add(new Button(() =>
+        {
+            reset?.Invoke();
+            ApplyChanges();
+            RunScan();
+        }) { text = "Reset Auto" });
+        parent.Add(row);
+        parent.Add(new PropertyField(valueProp, label));
+    }
+
+    private SerializedProperty FindAssetEntryProperty(string assetGuid)
+    {
+        if (_so == null || string.IsNullOrEmpty(assetGuid))
+            return null;
+
+        _so.Update();
+        SerializedProperty entries = _so.FindProperty("AssetEntries");
+        if (entries == null)
+            return null;
+
+        for (int i = 0; i < entries.arraySize; i++)
+        {
+            SerializedProperty entry = entries.GetArrayElementAtIndex(i);
+            if (string.Equals(entry.FindPropertyRelative("AssetGUID")?.stringValue, assetGuid, StringComparison.Ordinal))
+                return entry;
+        }
+
+        return null;
+    }
+
+    private CollectedAssetInfo FindPreviewAsset(string assetGuid)
+    {
+        if (_lastScanResult?.Assets == null || string.IsNullOrEmpty(assetGuid))
+            return null;
+
+        for (int i = 0; i < _lastScanResult.Assets.Count; i++)
+        {
+            CollectedAssetInfo asset = _lastScanResult.Assets[i];
+            if (asset != null && string.Equals(asset.AssetGUID, assetGuid, StringComparison.Ordinal))
+                return asset;
+        }
+
+        return null;
+    }
+
+    private static void ResetAddress(SerializedProperty entryProp, CollectedAssetInfo preview)
+    {
+        if (entryProp == null || preview == null)
+            return;
+
+        entryProp.FindPropertyRelative("AutoAddress").boolValue = true;
+        entryProp.FindPropertyRelative("Address").stringValue =
+            AssetAddressGenerator.GenerateShortAddress(preview.AssetPath, preview.PrimaryType, true);
+    }
+
+    private static void ResetRole(SerializedProperty entryProp, CollectedAssetInfo preview)
+    {
+        if (entryProp == null || preview == null)
+            return;
+
+        entryProp.FindPropertyRelative("AutoRole").boolValue = true;
+        entryProp.FindPropertyRelative("Role").enumValueIndex = (int)preview.Classification.Role;
+    }
+
+    private static void ResetPayload(SerializedProperty entryProp, CollectedAssetInfo preview)
+    {
+        if (entryProp == null || preview == null)
+            return;
+
+        entryProp.FindPropertyRelative("AutoPayload").boolValue = true;
+        entryProp.FindPropertyRelative("PayloadKind").enumValueIndex = (int)preview.Classification.PayloadKind;
     }
 
     /// <summary>
@@ -697,11 +841,8 @@ public sealed class CollectorPanel : IBuildPipelinePanel
         collectorProp.FindPropertyRelative("CollectPathType").enumValueIndex = isFile ? (int)ECollectPathType.File : (int)ECollectPathType.Folder;
         collectorProp.FindPropertyRelative("CollectorType").enumValueIndex = (int)ECollectorType.Main;
         collectorProp.FindPropertyRelative("ForcePayloadKind").enumValueIndex = (int)EForcePayloadKind.Auto;
-        collectorProp.FindPropertyRelative("AddressRuleName").stringValue = FYAssetSettings.RULE_ADDRESS_BY_FILE_NAME;
-        collectorProp.FindPropertyRelative("PackRuleName").stringValue = isFile ? FYAssetSettings.RULE_PACK_SEPARATELY : FYAssetSettings.RULE_PACK_BY_DIRECTORY;
         collectorProp.FindPropertyRelative("FilterRuleName").stringValue = FYAssetSettings.RULE_COLLECT_ALL;
         collectorProp.FindPropertyRelative("GroupRuleName").stringValue = FYAssetSettings.RULE_GROUP_ALL;
-        collectorProp.FindPropertyRelative("Labels").arraySize = 0;
         collectorProp.FindPropertyRelative("IgnorePatterns").arraySize = 0;
     }
 
@@ -763,8 +904,6 @@ public sealed class CollectorPanel : IBuildPipelinePanel
 
         StringComparison comparison = StringComparison.OrdinalIgnoreCase;
         return Contains(collectorProp.FindPropertyRelative("CollectPath")?.stringValue, token, comparison)
-            || Contains(collectorProp.FindPropertyRelative("AddressRuleName")?.stringValue, token, comparison)
-            || Contains(collectorProp.FindPropertyRelative("PackRuleName")?.stringValue, token, comparison)
             || Contains(collectorProp.FindPropertyRelative("FilterRuleName")?.stringValue, token, comparison)
             || Contains(collectorProp.FindPropertyRelative("GroupRuleName")?.stringValue, token, comparison);
     }
@@ -819,29 +958,29 @@ public sealed class CollectorPanel : IBuildPipelinePanel
         _so?.ApplyModifiedProperties();
         EditorUtility.SetDirty(_setting);
         CollectorReverseIndex.Instance.MarkDirty();
-        _validationMessages = CollectorSettingValidator.Validate(_setting);
+        _validationMessages = AssetCollectionSettingValidator.Validate(_setting);
         Rebuild();
     }
 
     /// <summary>
-    /// CollectorSetting 缺失时显示创建入口。
+    /// AssetCollectionSetting 缺失时显示创建入口。
     /// </summary>
     private void DrawNoSetting()
     {
         VisualElement panel = BuildPipelineUIToolkitPanel.CreateCenteredPanel(_root, 420f);
-        panel.Add(BuildPipelineUIToolkitPanel.CreateTitle("未找到 CollectorSetting"));
-        panel.Add(BuildPipelineUIToolkitPanel.CreateBody(FYAssetBuildSettingsProvider.Shared.CollectorSettingPath));
-        panel.Add(new Button(CreateCollectorSetting) { text = "创建" });
+        panel.Add(BuildPipelineUIToolkitPanel.CreateTitle("未找到 AssetCollectionSetting"));
+        panel.Add(BuildPipelineUIToolkitPanel.CreateBody(FYAssetBuildSettingsProvider.Shared.AssetCollectionSettingPath));
+        panel.Add(new Button(CreateAssetCollectionSetting) { text = "创建" });
     }
 
     /// <summary>
-    /// 创建新的 CollectorSetting 资产并立即重新加载。
+    /// 创建新的 AssetCollectionSetting 资产并立即重新加载。
     /// </summary>
-    private void CreateCollectorSetting()
+    private void CreateAssetCollectionSetting()
     {
-        BuildPipelineUI.EnsureAssetParentFolder(FYAssetBuildSettingsProvider.Shared.CollectorSettingPath);
-        CollectorSetting newSetting = ScriptableObject.CreateInstance<CollectorSetting>();
-        AssetDatabase.CreateAsset(newSetting, FYAssetBuildSettingsProvider.Shared.CollectorSettingPath);
+        BuildPipelineUI.EnsureAssetParentFolder(FYAssetBuildSettingsProvider.Shared.AssetCollectionSettingPath);
+        AssetCollectionSetting newSetting = ScriptableObject.CreateInstance<AssetCollectionSetting>();
+        AssetDatabase.CreateAsset(newSetting, FYAssetBuildSettingsProvider.Shared.AssetCollectionSettingPath);
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
         CollectorReverseIndex.Instance.MarkDirty();
@@ -863,7 +1002,7 @@ public sealed class CollectorPanel : IBuildPipelinePanel
         }
 
         _selectedPackageIndex = Mathf.Clamp(_selectedPackageIndex < 0 ? 0 : _selectedPackageIndex, 0, _setting.Packages.Count - 1);
-        CollectorPackage package = _setting.Packages[_selectedPackageIndex];
+        AssetCollectionPackage package = _setting.Packages[_selectedPackageIndex];
 
         if (package?.Groups == null || package.Groups.Count == 0)
         {
@@ -873,7 +1012,7 @@ public sealed class CollectorPanel : IBuildPipelinePanel
         }
 
         _selectedGroupIndex = Mathf.Clamp(_selectedGroupIndex < 0 ? 0 : _selectedGroupIndex, 0, package.Groups.Count - 1);
-        CollectorGroup group = package.Groups[_selectedGroupIndex];
+        AssetCollectionGroup group = package.Groups[_selectedGroupIndex];
         int collectorCount = group?.Collectors?.Count ?? 0;
         _selectedCollectorIndex = collectorCount == 0 ? -1 : Mathf.Clamp(_selectedCollectorIndex < 0 ? 0 : _selectedCollectorIndex, 0, collectorCount - 1);
     }
@@ -900,7 +1039,7 @@ public sealed class CollectorPanel : IBuildPipelinePanel
     /// </summary>
     private string[] GetGroupNames()
     {
-        CollectorPackage package = GetCurrentPackage();
+        AssetCollectionPackage package = GetCurrentPackage();
         if (package?.Groups == null || package.Groups.Count == 0)
             return Array.Empty<string>();
 
@@ -916,7 +1055,7 @@ public sealed class CollectorPanel : IBuildPipelinePanel
     /// <summary>
     /// 获取当前选中的 Package 运行时对象。
     /// </summary>
-    private CollectorPackage GetCurrentPackage()
+    private AssetCollectionPackage GetCurrentPackage()
     {
         if (_setting?.Packages == null || _selectedPackageIndex < 0 || _selectedPackageIndex >= _setting.Packages.Count)
             return null;

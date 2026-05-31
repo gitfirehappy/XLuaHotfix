@@ -18,3 +18,8 @@ Shared executable plans live here while active. `requirements/plan.md` remains t
 | `plan-build-repository-release-20260523.md` | Archived |
 | `plan-comment-debug-coverage-20260524.md` | Archived |
 | `plan-hotfix-diff-task-20260524.md` | Archived |
+
+## Active
+| File | Status |
+|---|---|
+| `plan-collector-asset-metadata-bundle-packing-20260531.md` | Executed on `main`; awaiting sign-off |

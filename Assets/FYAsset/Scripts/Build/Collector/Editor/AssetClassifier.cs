@@ -50,7 +50,9 @@ public static class AssetClassifier
             case EForcePayloadKind.Scene:
                 return EPayloadKind.Scene;
             case EForcePayloadKind.Auto:
-                return IsScene(assetPath) ? EPayloadKind.Scene : EPayloadKind.Serialized;
+                if (IsScene(assetPath))
+                    return EPayloadKind.Scene;
+                return IsSerializedAsset(assetPath) ? EPayloadKind.Serialized : EPayloadKind.RawFile;
             default:
                 throw new ArgumentOutOfRangeException(nameof(forcePayloadKind), forcePayloadKind, "不支持的载荷类型覆盖值。");
         }
@@ -62,6 +64,40 @@ public static class AssetClassifier
             return false;
 
         return string.Equals(Path.GetExtension(assetPath), ".unity", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsSerializedAsset(string assetPath)
+    {
+        string extension = Path.GetExtension(assetPath);
+        if (string.IsNullOrEmpty(extension))
+            return false;
+
+        switch (extension.ToLowerInvariant())
+        {
+            case ".prefab":
+            case ".asset":
+            case ".controller":
+            case ".anim":
+            case ".mat":
+            case ".shader":
+            case ".compute":
+            case ".png":
+            case ".jpg":
+            case ".jpeg":
+            case ".tga":
+            case ".psd":
+            case ".fbx":
+            case ".mp3":
+            case ".wav":
+            case ".ogg":
+            case ".mp4":
+            case ".rendertexture":
+            case ".cubemap":
+            case ".spriteatlas":
+                return true;
+            default:
+                return false;
+        }
     }
 
     #endregion

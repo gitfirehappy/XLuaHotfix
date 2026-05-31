@@ -3,11 +3,11 @@ using UnityEditor.UIElements;
 using UnityEngine.UIElements;
 
 /// <summary>
-/// CollectorSetting 的自定义 Inspector。
+/// AssetCollectionSetting 的自定义 Inspector。
 /// 在默认字段之外提供 BuildPipelineWindow 快捷入口。
 /// </summary>
-[CustomEditor(typeof(CollectorSetting))]
-public class CollectorSettingInspector : Editor
+[CustomEditor(typeof(AssetCollectionSetting))]
+public class AssetCollectionSettingInspector : Editor
 {
     /// <summary>
     /// 使用 UI Toolkit 生成 Inspector，并保留原始 Serialized 字段折叠区。
