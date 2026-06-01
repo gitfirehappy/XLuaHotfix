@@ -2,15 +2,15 @@ using System.Collections.Generic;
 
 /// <summary>
 /// 构建管线上下文 —— 类型安全的 KV 数据总线。
-/// 各 Task 通过 ReadKeys/WriteKeys 声明确保数据流可见性，
-/// DAGScheduler 在执行前校验 Read-before-Write 和 Write-Write 冲突。
+/// 各 Task 通过 ReadKeys/WriteKeys 声明数据流可见性。
+/// WriteKeys 表示写入或更新，不表示独占写锁；DAGScheduler 在执行前校验依赖、循环和 Read-before-Write。
 /// 内部使用 Dictionary&lt;string, object&gt; 存储，兼容值类型和引用类型。
 /// </summary>
 public class BuildContext
 {
     private readonly Dictionary<string, object> _data = new();
 
-    /// <summary>写入键值对，同 Key 会被静默覆盖（W-W 冲突由 DAGScheduler Validate 前置检测）</summary>
+    /// <summary>写入键值对；同 Key staged write 会覆盖为最新阶段产物</summary>
     public void Set<T>(string key, T value)
     {
         _data[key] = value;

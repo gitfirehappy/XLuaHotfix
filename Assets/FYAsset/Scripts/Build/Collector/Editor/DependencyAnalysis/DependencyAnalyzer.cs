@@ -5,8 +5,8 @@ using UnityEngine;
 
 /// <summary>
 /// 依赖分析器 —— 单次 BFS 遍历完成三项工作：
-///   第一步： Bundle 依赖边构建 + 隐式依赖发现（refCount 计数）
-///   第二步： SharePolicy 决策（共享 vs 复制）
+///   第一步：Bundle 依赖边构建 + 隐式依赖发现（refCount 计数）
+///   第二步：SharePolicy 决策（共享 vs 复制）
 /// 单资产 visited set 防止无限展开，并缓存 AssetDatabase 依赖查询结果。
 /// </summary>
 public static class DependencyAnalyzer
@@ -24,7 +24,7 @@ public static class DependencyAnalyzer
     /// 对指定 Package 的已收集资产执行依赖分析。
     /// </summary>
     /// <param name="assets">CollectionScanner 产出的资产列表（可包含多个 Package）</param>
-    /// <param name="sharePolicies">Per-Package 共享策略（PackageName → SharePolicyConfig）</param>
+    /// <param name="sharePolicies">Package 级共享策略（PackageName → SharePolicyConfig）</param>
     /// <param name="extraFilterExtensions">BFS 展开时追加过滤的项目级扩展名</param>
     /// <param name="graph">输出：Bundle 依赖图</param>
     /// <param name="messages">输出：错误/警告/信息消息列表</param>
@@ -144,10 +144,10 @@ public static class DependencyAnalyzer
                     if (string.IsNullOrEmpty(depGuid))
                         continue;
 
-                    // 循环检测：depGuid 已在当前 BFS 路径中 → 报告并跳过（O(1) fast path）
+                    // 循环检测：depGuid 已在当前 BFS 路径中 → 报告并跳过（O(1) 快速路径）
                     if (bfsGuidSet.Contains(depGuid))
                     {
-                        // 从 bfsStack 查找路径用于报告（cycle 是极端情况，线性扫描可接受）
+                        // 从 bfsStack 查找路径用于报告（循环依赖是极端情况，线性扫描可接受）
                         for (int si = 0; si < bfsStack.Count; si++)
                         {
                             if (bfsStack[si].guid == depGuid)

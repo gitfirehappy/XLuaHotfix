@@ -8,7 +8,7 @@ using System.Reflection;
 /// </summary>
 public static class RuleDropdownHelper
 {
-    #region Cache
+    #region 缓存
 
     private static List<string> _filterRuleNames;
     private static List<string> _groupRuleNames;
@@ -18,7 +18,7 @@ public static class RuleDropdownHelper
 
     #endregion
 
-    #region Public Popup Methods
+    #region 公共弹窗方法
 
     public static string[] GetFilterRuleNames()
     {
@@ -43,7 +43,7 @@ public static class RuleDropdownHelper
 
     #endregion
 
-    #region Private — Cache & Scan
+    #region 私有方法 —— 缓存与扫描
 
     private static void EnsureCache()
     {

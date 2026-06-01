@@ -4,7 +4,7 @@
 /// </summary>
 public sealed class GroupAll : IGroupRule
 {
-    #region Public Methods
+    #region 公共方法
 
     /// <summary>始终返回父 Group 名称，保持资源归属 Collector 所在 Group</summary>
     public string GetTargetGroup(GroupRuleContext ctx)

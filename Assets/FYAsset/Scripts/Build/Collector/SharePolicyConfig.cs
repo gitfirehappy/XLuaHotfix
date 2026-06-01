@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 
 /// <summary>
-/// Per-Package 共享提取策略。Runtime 程序集，挂载于 AssetCollectionPackage 以供 SO 序列化。
+/// Package 级共享提取策略。Runtime 程序集，挂载于 AssetCollectionPackage 以供 SO 序列化。
 /// 决策逻辑在 Editor 程序集的 DependencyAnalyzer 中执行。
 ///
 /// 规则冲突处理：若同一资产同时匹配 ForceSharePatterns 和 NoSharePatterns

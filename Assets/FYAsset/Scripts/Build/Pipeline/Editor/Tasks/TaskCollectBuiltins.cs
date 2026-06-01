@@ -8,7 +8,7 @@ using UnityEngine;
 /// 扫描 Shader（全项目）和 Resources 目录下所有资产，统一打入 "$shared" Group
 /// 并以每类独立的 BundleKey 隔离为不同 Bundle。
 /// Unity 内置资源（Default-Material 等）已在 player build 中，无需额外收集。
-/// 在 TaskAnalyzeDependencies 之前执行。
+/// 在 TaskAnalyzeDependencies 之前执行，使 builtin 资产参与依赖分析。
 /// </summary>
 public class TaskCollectBuiltins : IBuildTask
 {

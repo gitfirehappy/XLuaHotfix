@@ -1,6 +1,6 @@
 # Plan: Collector Asset Metadata And Bundle Packing Refactor
 
-> Status: Executed; awaiting sign-off
+> Status: Signed off; archived
 > Date: 2026-05-31
 > Requirement ID: collector-asset-metadata-bundle-packing-20260531
 > Scope: AB build-time Collector model, asset-level metadata editing, and bundle packing semantics.
@@ -104,7 +104,8 @@ Refactor the current Collector-centered asset collection model into an asset-met
    - remove Collector `AddressRuleName`, `PackRuleName`, and `Labels`.
 2. Update build settings and default asset path:
    - rename `SharedBuildSettings.CollectorSettingPath` to `AssetCollectionSettingPath`;
-   - default path: `Assets/FYAsset/AssetCollectionData/AssetCollectionSetting.asset`.
+   - current default path: `Assets/FYAsset/CollectorData/CollectorSetting.asset`.
+   - Note: the 2026-05-31 UX recovery kept the existing asset path as the active `AssetCollectionSettingPath` to preserve the restored editor workflow and project asset.
 3. Refactor scanning:
    - remove address/pack rule resolution;
    - generate default address through `AssetAddressGenerator`;
@@ -151,4 +152,4 @@ Refactor the current Collector-centered asset collection model into an asset-met
 
 Approved by developer on 2026-05-31 with instruction to write this standard plan first, then execute on `main`.
 
-Executed on 2026-05-31. The plan remains active until developer sign-off, per the shared requirements workflow.
+Executed on 2026-05-31. Signed off and archived after acceptance cleanup.

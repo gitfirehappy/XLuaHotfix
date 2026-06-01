@@ -50,7 +50,7 @@ TaskA (WriteKeys: ["CollectedAssets"])     TaskB (ReadKeys: ["CollectedAssets"],
 - `Require<T>` — Key 不存在抛出 `KeyNotFoundException`
 - `Has` — 检查 Key 是否存在
 
-`ReadKeys` / `WriteKeys` 声明用于 DAG 调度器的静态校验，不是运行时强制。调度器在执行前检查 Read-before-Write 和 Write-Write 冲突。
+`ReadKeys` / `WriteKeys` 声明用于 DAG 调度器的静态校验和图形化展示，不是运行时强制。`WriteKeys` 表示 Task 会写入或更新该 Key，不表示独占写锁；调度器在执行前检查依赖存在性、循环依赖和 Read-before-Write 警告。
 
 ### DAGScheduler — 调度器
 
@@ -59,8 +59,7 @@ TaskA (WriteKeys: ["CollectedAssets"])     TaskB (ReadKeys: ["CollectedAssets"],
 **Validate（校验阶段）**：
 1. 依赖存在性 — 所有 `DependsOn` 指向的 Task 必须存在且已启用
 2. 循环依赖检测 — Kahn 排序后剩余节点数 > 0 → 报告 `CIRCULAR_TASK_DEPENDENCY`
-3. Write-Write 冲突 — 两个 Task 声明了相同的 `WriteKeys` → 报告 `CONFLICTING_WRITE_KEYS`
-4. Read-before-Write 警告 — Task 读取的 Key 没有任何前置 Task 写入 → 报告 `UNSATISFIED_READ_KEY`（Warning，不阻断）
+3. Read-before-Write 警告 — Task 读取的 Key 没有任何前置 Task 写入 → 报告 `UNSATISFIED_READ_KEY`（Warning，不阻断）
 
 **Execute（执行阶段）**：
 - 入度表驱动批循环：入度为 0 的节点形成当前批次
@@ -181,8 +180,7 @@ BuildResult
 Validate
   ├─ 1. 依赖存在性
   ├─ 2. Kahn 拓扑排序 → 循环依赖检测
-  ├─ 3. Write-Write 冲突
-  └─ 4. Read-before-Write 警告
+  └─ 3. Read-before-Write 警告
          ↓ 全部通过
 Execute
   ├─ 构建入度表 + 后继表

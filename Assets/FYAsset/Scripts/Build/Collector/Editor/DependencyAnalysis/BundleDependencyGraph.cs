@@ -12,7 +12,7 @@ public class BundleDependencyGraph
     private Dictionary<string, HashSet<string>> _dependencyMap;
 
     /// <summary>
-    /// 按需构建的 Per-Bundle 依赖索引。
+    /// 按 Bundle 按需构建的依赖索引。
     /// Key = FromBundle，Value = 直接依赖的 ToBundle 集合。
     /// O(1) 查找：某个 Bundle 依赖哪些其他 Bundle。
     /// </summary>

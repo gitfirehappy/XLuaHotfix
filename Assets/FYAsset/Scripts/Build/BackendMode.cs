@@ -1,7 +1,7 @@
 /// <summary>
 /// 构建管线后端模式 —— 决定 AssetBundle 构建的数据源和 manifest 格式。
 /// 实际来源为 FYAssetSettings.Instance.UseABBackend，CLI --backend 可局部覆盖。
-/// DAG W-W 冲突检测保证单一 Task 独占写入此 Key。
+/// Backend 选择由 BuildProjectManager 在创建 BuildPackageRequest 前确定。
 /// </summary>
 public enum BackendMode
 {

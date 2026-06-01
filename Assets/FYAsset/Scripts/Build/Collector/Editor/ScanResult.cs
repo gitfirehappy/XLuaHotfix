@@ -7,7 +7,7 @@ using System.Linq;
 /// </summary>
 public class ScanResult
 {
-    #region Public Fields
+    #region 公共字段
 
     /// <summary>采集到的资源列表（所有 Package 合并）</summary>
     public List<CollectedAssetInfo> Assets = new();
@@ -17,7 +17,7 @@ public class ScanResult
 
     #endregion
 
-    #region Public Properties
+    #region 公共属性
 
     /// <summary>是否存在 Error 级别的消息</summary>
     public bool HasErrors => Messages.Any(m => m.Severity == BuildSeverity.Error);

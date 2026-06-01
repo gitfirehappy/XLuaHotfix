@@ -5,7 +5,7 @@ using System;
 /// </summary>
 public sealed class CollectAll : IFilterRule
 {
-    #region Private Fields
+    #region 私有字段
 
     private static readonly string[] ExcludedExtensions =
     {
@@ -19,7 +19,7 @@ public sealed class CollectAll : IFilterRule
 
     #endregion
 
-    #region Public Methods
+    #region 公共方法
 
     /// <summary>排除脚本、程序集定义、元文件、Editor 目录，其余全部收集</summary>
     public bool IsCollectable(FilterRuleContext ctx)
@@ -35,7 +35,7 @@ public sealed class CollectAll : IFilterRule
 
     #endregion
 
-    #region Private Methods
+    #region 私有方法
 
     private static bool HasExcludedExtension(string extension)
     {

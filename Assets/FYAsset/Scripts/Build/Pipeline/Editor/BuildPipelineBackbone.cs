@@ -12,8 +12,8 @@ public static class BuildPipelineBackbone
     {
         "TaskPrepareContext",
         "TaskCollectAssets",
-        "TaskAnalyzeDependencies",
         "TaskCollectBuiltins",
+        "TaskAnalyzeDependencies",
         "TaskBuildBundles",
         "TaskGenerateManifest",
         "TaskVerifyBuildResult",
@@ -163,8 +163,17 @@ public static class BuildPipelineBackbone
         {
             "TaskMoveAddressableHotfixGroups" => new List<string> { "TaskScanAddressableHotfixDiff" },
             "TaskBuildAddressablesContent" => new List<string> { "TaskMoveAddressableHotfixGroups" },
+            "TaskCollectAssets" => new List<string> { "TaskPrepareContext" },
+            "TaskCollectBuiltins" => new List<string> { "TaskCollectAssets" },
+            "TaskAnalyzeDependencies" => new List<string> { "TaskCollectBuiltins" },
+            "TaskBuildBundles" => new List<string> { "TaskAnalyzeDependencies" },
+            "TaskGenerateManifest" => new List<string> { "TaskBuildBundles" },
+            "TaskVerifyBuildResult" => new List<string> { "TaskGenerateManifest" },
             "TaskScanABHotfixDiff" => new List<string> { "TaskVerifyBuildResult" },
             "TaskOrganizeOutput" => new List<string> { "TaskScanABHotfixDiff" },
+            "TaskWriteABPackageManifest" => new List<string> { "TaskOrganizeOutput" },
+            "TaskOrganizeAAOutput" => new List<string> { "TaskBuildAddressablesContent" },
+            "TaskWriteAAPackageManifest" => new List<string> { "TaskOrganizeAAOutput" },
             "TaskWritePackageIndex" => new List<string> { packageIndexDependency },
             "TaskExportLocalBuildData" => new List<string> { localBuildDataDependency },
             _ => new List<string>()

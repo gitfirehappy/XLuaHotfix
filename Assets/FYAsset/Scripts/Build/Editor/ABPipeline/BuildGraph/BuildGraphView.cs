@@ -157,7 +157,7 @@ public class BuildGraphView : GraphView
 
         // 数据流边先创建并下沉到最底层，执行依赖边后创建在上层
         // 保证主干执行依赖保持最高可读性，数据流作为辅助参考
-        CreateDataFlowEdges(instances);
+        CreateDataFlowEdges(instances, deps);
         CreateExecutionEdges(config, deps);
         CreateLegend();
     }
@@ -336,48 +336,52 @@ public class BuildGraphView : GraphView
     }
 
     /// <summary>
-    /// 创建数据流边：WriteKey → ReadKey 的 producer-consumer 关系。
+    /// 创建数据流边：按拓扑顺序连接 ReadKey 到最近上游 WriteKey。
     /// 边先创建然后 SendToBack() 下沉，避免干扰执行依赖边的可读性。
     /// </summary>
-    private void CreateDataFlowEdges(Dictionary<string, IBuildTask> instances)
+    private void CreateDataFlowEdges(Dictionary<string, IBuildTask> instances, Dictionary<string, string[]> deps)
     {
         if (instances.Count == 0) return;
 
-        // WriteKey → 生产者 TaskName 映射
-        var writers = new Dictionary<string, string>(StringComparer.Ordinal);
-        foreach (var kv in instances)
-        {
-            if (kv.Value.WriteKeys == null) continue;
-            foreach (var key in kv.Value.WriteKeys)
-                writers[key] = kv.Key;
-        }
-
-        // 遍历 ReadKeys，匹配到对应的 WriteKey 生产者
+        List<string> orderedTasks = SortTasksForDataFlow(instances, deps);
+        var latestWriters = new Dictionary<string, string>(StringComparer.Ordinal);
         var dataFlowPairs = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var kv in instances)
-        {
-            if (kv.Value.ReadKeys == null) continue;
-            foreach (var key in kv.Value.ReadKeys)
-            {
-                if (writers.TryGetValue(key, out var producerName)
-                    && producerName != kv.Key // 跳过自身读写
-                    && _nodeMap.TryGetValue(producerName, out var prodNode)
-                    && _nodeMap.TryGetValue(kv.Key, out var consNode))
-                {
-                    string pairKey = MakePairKey(producerName, kv.Key);
-                    if (!dataFlowPairs.Add(pairKey)) // 去重：同一对只连一条数据流边
-                        continue;
 
-                    var edge = new Edge
+        foreach (string taskName in orderedTasks)
+        {
+            if (!instances.TryGetValue(taskName, out IBuildTask task))
+                continue;
+
+            if (task.ReadKeys != null)
+            {
+                foreach (var key in task.ReadKeys)
+                {
+                    if (latestWriters.TryGetValue(key, out var producerName)
+                        && producerName != taskName
+                        && _nodeMap.TryGetValue(producerName, out var prodNode)
+                        && _nodeMap.TryGetValue(taskName, out var consNode))
                     {
-                        output = prodNode.DataOutput,
-                        input = consNode.DataInput,
-                    };
-                    ApplyEdgeStyle(edge, EdgeStyles.DataFlow);
-                    AddElement(edge);
-                    edge.SendToBack(); // 数据流边下沉，执行依赖边在上层
+                        string pairKey = MakePairKey(producerName, taskName);
+                        if (!dataFlowPairs.Add(pairKey))
+                            continue;
+
+                        var edge = new Edge
+                        {
+                            output = prodNode.DataOutput,
+                            input = consNode.DataInput,
+                        };
+                        ApplyEdgeStyle(edge, EdgeStyles.DataFlow);
+                        AddElement(edge);
+                        edge.SendToBack();
+                    }
                 }
             }
+
+            if (task.WriteKeys == null)
+                continue;
+
+            foreach (var key in task.WriteKeys)
+                latestWriters[key] = taskName;
         }
     }
 
@@ -432,6 +436,63 @@ public class BuildGraphView : GraphView
     private static string MakePairKey(string source, string target)
     {
         return string.Concat(source, "->", target);
+    }
+
+    /// <summary>按执行依赖推导数据流展示顺序；循环或缺口时回退到现有 Task 顺序。</summary>
+    private static List<string> SortTasksForDataFlow(
+        Dictionary<string, IBuildTask> instances,
+        Dictionary<string, string[]> deps)
+    {
+        var indegree = new Dictionary<string, int>(StringComparer.Ordinal);
+        var successors = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+        foreach (string taskName in instances.Keys)
+        {
+            indegree[taskName] = 0;
+            successors[taskName] = new List<string>();
+        }
+
+        foreach (var kv in deps)
+        {
+            if (!instances.ContainsKey(kv.Key) || kv.Value == null)
+                continue;
+
+            foreach (string dep in kv.Value)
+            {
+                if (!instances.ContainsKey(dep))
+                    continue;
+
+                successors[dep].Add(kv.Key);
+                indegree[kv.Key]++;
+            }
+        }
+
+        var result = new List<string>();
+        var ready = new List<string>();
+        foreach (var kv in indegree)
+        {
+            if (kv.Value == 0)
+                ready.Add(kv.Key);
+        }
+        ready.Sort(StringComparer.Ordinal);
+
+        while (ready.Count > 0)
+        {
+            string current = ready[0];
+            ready.RemoveAt(0);
+            result.Add(current);
+
+            foreach (string succ in successors[current])
+            {
+                indegree[succ]--;
+                if (indegree[succ] == 0)
+                {
+                    ready.Add(succ);
+                    ready.Sort(StringComparer.Ordinal);
+                }
+            }
+        }
+
+        return result.Count == instances.Count ? result : instances.Keys.ToList();
     }
 
     /// <summary>

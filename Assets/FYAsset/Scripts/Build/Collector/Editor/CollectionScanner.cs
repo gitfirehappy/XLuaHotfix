@@ -8,7 +8,7 @@ using UnityEditor;
 /// </summary>
 public static class CollectionScanner
 {
-    #region Public Methods
+    #region 公共方法
 
     /// <summary>
     /// 扫描 AssetCollectionSetting 中配置的所有 Package/Group/Collector，返回采集结果。
@@ -61,7 +61,7 @@ public static class CollectionScanner
 
     #endregion
 
-    #region Private — 跨 Package 路径重叠检测
+    #region 私有方法 —— 跨 Package 路径重叠检测
 
     private static bool CheckCrossPackageOverlaps(AssetCollectionSetting setting, ScanResult result)
     {
@@ -128,7 +128,7 @@ public static class CollectionScanner
 
     #endregion
 
-    #region Private — 逐 Package 扫描
+    #region 私有方法 —— 逐 Package 扫描
 
     private static bool ScanPackage(AssetCollectionSetting setting, AssetCollectionPackage package, ScanResult result)
     {
@@ -166,7 +166,7 @@ public static class CollectionScanner
             contexts[i].ExcludedPaths = excluded;
         }
 
-        // 第三步：构建 Group 名称 → Group 映射，用于Tags合并
+        // 第三步：构建 Group 名称 → Group 映射，用于 Tags 合并
         Dictionary<string, AssetCollectionGroup> groupLookup = new Dictionary<string, AssetCollectionGroup>(
             StringComparer.OrdinalIgnoreCase);
         for (int gi = 0; gi < package.Groups.Count; gi++)
@@ -262,7 +262,7 @@ public static class CollectionScanner
 
     #endregion
 
-    #region Private — Ownership & Dedup
+    #region 私有方法 —— 归属与去重
 
     private static bool IsExcludedByOwnership(string assetPath, List<string> excludedPaths)
     {
@@ -315,7 +315,7 @@ public static class CollectionScanner
 
     #endregion
 
-    #region Private — Helpers
+    #region 私有方法 —— 辅助函数
 
     private static List<CollectorContext> FlattenCollectors(AssetCollectionPackage package)
     {
@@ -693,7 +693,7 @@ public static class CollectionScanner
 
     #endregion
 
-    #region Private — 嵌套类型 — Collector 上下文
+    #region 私有类型 —— Collector 上下文
 
     private class CollectorContext
     {

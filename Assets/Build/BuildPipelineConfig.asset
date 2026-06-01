@@ -21,22 +21,28 @@ MonoBehaviour:
     DependsOn: []
   - TaskName: TaskCollectAssets
     Enabled: 1
-    DependsOn: []
-  - TaskName: TaskAnalyzeDependencies
-    Enabled: 1
-    DependsOn: []
+    DependsOn:
+    - TaskPrepareContext
   - TaskName: TaskCollectBuiltins
     Enabled: 1
-    DependsOn: []
+    DependsOn:
+    - TaskCollectAssets
+  - TaskName: TaskAnalyzeDependencies
+    Enabled: 1
+    DependsOn:
+    - TaskCollectBuiltins
   - TaskName: TaskBuildBundles
     Enabled: 1
-    DependsOn: []
+    DependsOn:
+    - TaskAnalyzeDependencies
   - TaskName: TaskGenerateManifest
     Enabled: 1
-    DependsOn: []
+    DependsOn:
+    - TaskBuildBundles
   - TaskName: TaskVerifyBuildResult
     Enabled: 1
-    DependsOn: []
+    DependsOn:
+    - TaskGenerateManifest
   - TaskName: TaskScanABHotfixDiff
     Enabled: 1
     DependsOn:
@@ -47,7 +53,8 @@ MonoBehaviour:
     - TaskScanABHotfixDiff
   - TaskName: TaskWriteABPackageManifest
     Enabled: 1
-    DependsOn: []
+    DependsOn:
+    - TaskOrganizeOutput
   - TaskName: TaskWritePackageIndex
     Enabled: 1
     DependsOn:

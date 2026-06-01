@@ -6,7 +6,7 @@ using System.IO;
 /// </summary>
 public static class AssetClassifier
 {
-    #region Public Methods
+    #region 公共方法
 
     /// <summary>
     /// 根据路径和采集器配置生成分类结果。
@@ -22,7 +22,7 @@ public static class AssetClassifier
 
     #endregion
 
-    #region Private Methods
+    #region 私有方法
 
     private static EAssetRole MapRole(ECollectorType collectorType)
     {

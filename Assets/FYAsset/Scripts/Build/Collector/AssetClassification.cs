@@ -1,7 +1,7 @@
 using System;
 
 /// <summary>
-/// Classifier 的输出契约，由 PackRule和依赖分析消费。
+/// Classifier 的输出契约，由 BundlePackingMode 解析和依赖分析消费。
 /// 两个正交维度：资产的语义角色（Role）和存储方式（PayloadKind）。
 /// </summary>
 [Serializable]

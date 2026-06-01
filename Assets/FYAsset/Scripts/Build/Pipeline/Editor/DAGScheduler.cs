@@ -6,9 +6,10 @@ using System.Linq;
 /// DAG 任务调度器 —— 基于 Kahn 拓扑排序算法实现分批确定性执行和事前校验。
 ///
 /// 两阶段模型：
-///   Validate — 依赖存在性、循环依赖、Write-Write 冲突、Read-before-Write 警告
+///   Validate — 依赖存在性、循环依赖、Read-before-Write 警告
 ///   Execute — 入度表驱动批循环，批内字母序确定性执行（单线程串行），Fatal 中止传播
 ///
+/// WriteKeys 表示 Task 会写入或更新 BuildContext Key，不表示独占写锁。
 /// 预留 ValidatePair / ValidateAll 公共 API，供编辑器蓝图连线时实时校验。
 /// SequentialMode 关闭批并发，所有 Task 按拓扑序逐个串行执行。
 /// </summary>
@@ -40,7 +41,7 @@ public static class DAGScheduler
         if (config == null) throw new ArgumentNullException(nameof(config));
         if (context == null) throw new ArgumentNullException(nameof(context));
 
-        var validation = ValidateInternal(config);
+        var validation = ValidateInternal(config, taskWhitelist);
         if (!validation.Success)
             return validation;
 
@@ -54,27 +55,11 @@ public static class DAGScheduler
         return ValidateInternal(config);
     }
 
-    /// <summary>编辑器连线时实时检查两个 Task 的 WriteKeys 是否有交集</summary>
-    /// <returns>冲突的 Key 列表，空数组表示无冲突</returns>
+    /// <summary>编辑器连线兼容入口。共享 WriteKeys 属于合法 staged write，不再返回冲突。</summary>
+    /// <returns>保留兼容的空数组</returns>
     public static string[] ValidatePair(string taskNameA, string taskNameB)
     {
-        if (string.Equals(taskNameA, taskNameB, StringComparison.Ordinal))
-            return Array.Empty<string>();
-
-        var taskA = BuildTaskResolver.CreateTask(taskNameA);
-        var taskB = BuildTaskResolver.CreateTask(taskNameB);
-
-        var writeA = taskA.WriteKeys ?? Array.Empty<string>();
-        var writeB = taskB.WriteKeys ?? Array.Empty<string>();
-
-        var setA = new HashSet<string>(writeA, StringComparer.Ordinal);
-        var conflicts = new List<string>();
-        foreach (var key in writeB)
-        {
-            if (setA.Contains(key))
-                conflicts.Add(key);
-        }
-        return conflicts.ToArray();
+        return Array.Empty<string>();
     }
 
     /// <summary>全图校验的便捷方法，返回 true 表示通过</summary>
@@ -88,24 +73,29 @@ public static class DAGScheduler
 
     #region Validation
 
-    private static BuildResult ValidateInternal(BuildPipelineConfig config)
+    private static BuildResult ValidateInternal(BuildPipelineConfig config, HashSet<string> taskWhitelist = null)
     {
         var errors = new List<BuildTaskResult>();
         var warnings = new List<BuildTaskResult>();
 
-        var enabled = config.Tasks.Where(e => e.Enabled).ToList();
+        var enabled = config.Tasks
+            .Where(e => e.Enabled && (taskWhitelist == null || taskWhitelist.Contains(e.TaskName)))
+            .ToList();
         if (enabled.Count == 0)
             return ErrorResult(config, new List<BuildTaskResult> { BuildTaskResult.Fail(
                 "NO_ENABLED_TASKS", "管线配置中无已启用的 Task。", true) });
 
-        List<string> missingBackboneTasks = BuildPipelineBackbone.GetMissingRequiredTasks(config);
-        if (missingBackboneTasks.Count > 0)
+        if (taskWhitelist == null)
         {
-            errors.Add(BuildTaskResult.Fail(
-                "MISSING_BACKBONE_TASK",
-                $"管线配置缺少必需主干 Task: {string.Join(", ", missingBackboneTasks)}。请更新 BuildPipelineConfig asset。",
-                true));
-            return ErrorResult(config, errors);
+            List<string> missingBackboneTasks = BuildPipelineBackbone.GetMissingRequiredTasks(config);
+            if (missingBackboneTasks.Count > 0)
+            {
+                errors.Add(BuildTaskResult.Fail(
+                    "MISSING_BACKBONE_TASK",
+                    $"管线配置缺少必需主干 Task: {string.Join(", ", missingBackboneTasks)}。请更新 BuildPipelineConfig asset。",
+                    true));
+                return ErrorResult(config, errors);
+            }
         }
 
         // 解析所有 Enabled Task
@@ -158,27 +148,7 @@ public static class DAGScheduler
             return ErrorResult(config, errors);
         }
 
-        // 校验 3：Write-Write 冲突
-        var writeOwners = new Dictionary<string, string>(StringComparer.Ordinal);
-        foreach (var instance in instances.Values)
-        {
-            if (instance.WriteKeys == null) continue;
-            foreach (var key in instance.WriteKeys)
-            {
-                if (writeOwners.TryGetValue(key, out var owner))
-                {
-                    errors.Add(BuildTaskResult.Fail("CONFLICTING_WRITE_KEYS",
-                        $"Key '{key}' 同时被 '{owner}' 和 '{instance.TaskName}' 声明写入。", true));
-                }
-                else
-                {
-                    writeOwners[key] = instance.TaskName;
-                }
-            }
-        }
-        if (errors.Count > 0) return ErrorResult(config, errors);
-
-        // 校验 4：Read-before-Write 警告
+        // 校验 3：Read-before-Write 警告
         var produced = new HashSet<string>(StringComparer.Ordinal);
         foreach (var taskName in sorted)
         {

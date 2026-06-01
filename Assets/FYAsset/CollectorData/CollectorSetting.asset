@@ -246,6 +246,7 @@ MonoBehaviour:
   - Assets/FYAsset/**
   - Assets/Build/**
   - Assets/StreamingAssets/**
+  - Assets/XLua/**
   AssetEntries:
   - AssetGUID: ff153ba4fa8c8e5419859ecba965187c
     AutoAddress: 1

@@ -81,16 +81,16 @@ public enum EForcePayloadKind
 }
 
 /// <summary>
-/// Addressables-aligned bundle packing mode configured on Group.
+/// Group 上配置的 Addressables 风格 Bundle 打包模式。
 /// </summary>
 public enum BundlePackingMode
 {
-    /// <summary>All assets in the Group are packed into one bundle.</summary>
+    /// <summary>Group 内所有资产打入同一个 Bundle</summary>
     PackTogether = 0,
 
-    /// <summary>Each asset is packed into its own bundle.</summary>
+    /// <summary>每个资产单独打入一个 Bundle</summary>
     PackSeparately = 1,
 
-    /// <summary>Assets are grouped by their final label set.</summary>
+    /// <summary>按资产最终 Label 集合分组打包</summary>
     PackTogetherByLabel = 2
 }

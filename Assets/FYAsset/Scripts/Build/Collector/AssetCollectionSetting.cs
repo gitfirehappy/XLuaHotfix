@@ -3,8 +3,8 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Asset collection configuration asset.
-/// Hierarchy: Setting -> Package -> Group -> Collector, with asset metadata stored separately by GUID.
+/// 资产采集配置资产。
+/// 层级结构：Setting -> Package -> Group -> Collector，资产元数据按 GUID 独立存储。
 /// </summary>
 public class AssetCollectionSetting : ScriptableObject
 {
@@ -21,7 +21,7 @@ public class AssetCollectionSetting : ScriptableObject
 
     #endregion
 
-    #region Public Methods
+    #region 公共方法
 
     public AssetEntry FindAssetEntry(string assetGuid)
     {
@@ -88,7 +88,7 @@ public class AssetCollectionPackage
     /// <summary>该包下的所有 Group 配置</summary>
     public List<AssetCollectionGroup> Groups = new();
     
-    /// <summary>Per-Package 共享提取策略，由依赖分析 Task 读取</summary>
+    /// <summary>Package 级共享提取策略，由依赖分析 Task 读取</summary>
     public SharePolicyConfig SharePolicy = new();
 
     #endregion
@@ -150,7 +150,7 @@ public class Collector
 }
 
 /// <summary>
-/// Asset-level authoritative metadata keyed by Unity GUID.
+/// 资产级权威元数据，以 Unity GUID 为键。
 /// </summary>
 [Serializable]
 public class AssetEntry

@@ -1,19 +1,19 @@
 /// <summary>
-/// Bundle logical-name builder for Group BundlePackingMode.
-/// Output does not include content hash or file extension; build tasks append those when needed.
+/// 面向 Group BundlePackingMode 的 Bundle 逻辑名构建器。
+/// 输出不包含内容 hash 或文件扩展名；构建 Task 在需要时追加。
 /// </summary>
 public static class BundleNameBuilder
 {
-    #region Constants
+    #region 常量
 
     private const int ShortGuidLength = 8;
 
     #endregion
 
-    #region Public Methods
+    #region 公共方法
 
     /// <summary>
-    /// Validate PackageName / GroupName / Label characters. Returns null when valid.
+    /// 校验 PackageName / GroupName / Label 字符；合法时返回 null。
     /// </summary>
     public static string ValidateSegment(string segment)
     {
@@ -21,7 +21,7 @@ public static class BundleNameBuilder
     }
 
     /// <summary>
-    /// Validate BundleKey characters. Allows "~" because it is the intentional key joiner.
+    /// 校验 BundleKey 字符；允许 "~"，因为它是有意使用的 key 连接符。
     /// </summary>
     public static string ValidateBundleKey(string bundleKey)
     {
@@ -95,7 +95,7 @@ public static class BundleNameBuilder
 
     #endregion
 
-    #region Private Methods
+    #region 私有方法
 
     private static string ValidateAgainst(string value, char[] blacklist)
     {

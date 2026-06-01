@@ -14,7 +14,7 @@ public static class RuleResolver
     private static readonly Dictionary<string, IFilterRule> FilterRuleCache = new(StringComparer.Ordinal);
     private static readonly Dictionary<string, IGroupRule> GroupRuleCache = new(StringComparer.Ordinal);
 
-    /// <summary>Type → 解析函数映射，支撑泛型 GetRule&lt;T&gt; 方法</summary>
+    /// <summary>Type -> 解析函数映射，支撑泛型 GetRule&lt;T&gt; 方法</summary>
     private static readonly Dictionary<Type, Func<string, object>> TypedResolvers = new()
     {
         [typeof(IFilterRule)]  = name => GetFilterRule(name),

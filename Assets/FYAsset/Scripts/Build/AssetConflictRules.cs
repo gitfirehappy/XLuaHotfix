@@ -89,7 +89,7 @@ public static class AssetConflictRules
     #region 检查规则实现
 
     /// <summary>
-    /// 规则 1：EntryId 必须全局唯一 → 重复则阻断
+    /// 规则 1：EntryId 必须全局唯一 -> 重复则阻断
     /// </summary>
     private static void CheckDuplicateEntryIds(IList<RuntimeAssetEntry> entries, ConflictReport report)
     {
@@ -111,8 +111,8 @@ public static class AssetConflictRules
 
     /// <summary>
     /// 规则 2 + 3：Address + PrimaryType 冲突检测
-    /// - 完全相同 LabelSet → 阻断
-    /// - 不同 LabelSet → 警告
+    /// - 完全相同 LabelSet -> 阻断
+    /// - 不同 LabelSet -> 警告
     /// </summary>
     private static void CheckAddressTypeConflicts(IList<RuntimeAssetEntry> entries, ConflictReport report)
     {
@@ -136,7 +136,7 @@ public static class AssetConflictRules
                 var sameLabels = lsg.ToList();
                 if (sameLabels.Count > 1)
                 {
-                    // 完全相同 Address + Type + LabelSet → 阻断
+                    // 完全相同 Address + Type + LabelSet -> 阻断
                     report.Blocks.Add(new ConflictEntry
                     {
                         Type = ConflictType.IdenticalAddressTypeLabelSet,
@@ -151,7 +151,7 @@ public static class AssetConflictRules
 
             if (labelSetGroups.Count > 1)
             {
-                // 同 Address + Type 但不同 LabelSet → 警告
+                // 同 Address + Type 但不同 LabelSet -> 警告
                 report.Warnings.Add(new ConflictEntry
                 {
                     Type = ConflictType.AddressTypeSameLabelsDiffer,

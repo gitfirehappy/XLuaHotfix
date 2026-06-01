@@ -3,11 +3,11 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// AssetCollectionSetting save-time validator.
+/// AssetCollectionSetting 保存时校验器。
 /// </summary>
 public static class AssetCollectionSettingValidator
 {
-    #region Public API
+    #region 公共接口
 
     public static List<BuildMessage> Validate(AssetCollectionSetting setting)
     {
@@ -48,7 +48,7 @@ public static class AssetCollectionSettingValidator
 
     #endregion
 
-    #region Private Methods
+    #region 私有方法
 
     private static void ValidatePackage(AssetCollectionPackage pkg, int pkgIdx, List<BuildMessage> messages)
     {

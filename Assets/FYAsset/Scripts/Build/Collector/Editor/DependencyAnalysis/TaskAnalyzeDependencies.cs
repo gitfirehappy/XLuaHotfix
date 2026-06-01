@@ -3,14 +3,14 @@ using UnityEditor;
 
 /// <summary>
 /// 管线 Task：依赖分析 + Bundle 依赖图构建 + 隐式依赖发现 + 共享提取决策。
-/// 在管线中位于采集 Task 之后、打包 Task 之前。
-/// ReadKeys: CollectedAssets, SharePolicies（可选，回退到 AssetCollectionSetting SO）
-/// WriteKeys: CollectedAssets, BundleDependencyGraph
+/// 在管线中位于采集和 builtin 收集之后、打包 Task 之前。
+/// 读取 Keys: CollectedAssets, SharePolicies（可选，回退到 AssetCollectionSetting SO）
+/// 写入 Keys: CollectedAssets, BundleDependencyGraph
 /// </summary>
 public class TaskAnalyzeDependencies : IBuildTask
 {
     public string TaskName => "TaskAnalyzeDependencies";
-    public string[] DependsOn => new[] { "TaskCollectAssets" };
+    public string[] DependsOn => new[] { "TaskCollectBuiltins" };
     public string[] ReadKeys => new[] { BuildContextKeys.CollectedAssets, BuildContextKeys.SharePolicies };
     public string[] WriteKeys => new[] { BuildContextKeys.CollectedAssets, BuildContextKeys.BundleDependencyGraph };
 
@@ -24,7 +24,7 @@ public class TaskAnalyzeDependencies : IBuildTask
                 "TaskCollectAssets 未产出 Asset。请检查 Collector 配置。", false);
         }
 
-        // 读取 Per-Package SharePolicy：优先从 BuildContext 取（显式数据流），
+        // 读取 Package 级 SharePolicy：优先从 BuildContext 取（显式数据流），
         // 不存在时回退到 AssetDatabase 加载 AssetCollectionSetting SO
         var policies = ctx.Get<Dictionary<string, SharePolicyConfig>>(BuildContextKeys.SharePolicies);
         if (policies == null)

@@ -1,12 +1,22 @@
 # Collector Framework
 
-Last reviewed: 2026-05-31
+Last reviewed: 2026-06-01
 
 ## Scope
 
 This document describes the verified build-time collector foundation currently present in `Assets/FYAsset/Scripts/Build/Collector/`.
 
 It is an editor/build-time framework. It is not the runtime loading backend and does not define Lua bridge behavior.
+
+## Editor Workflow
+
+`AssetsCollectionPanel` uses a Scan / Preview / Curate workflow.
+
+- Project Scan builds a read-only preview from project assets and `AssetCollectionSetting.IgnorePatterns`. It does not mutate saved Packages or the current Curate candidate.
+- `Confirm To Curate` is the explicit boundary that copies the current scan preview into editable Curate data.
+- Returning to Curate from Scan or Preview without confirmation reloads the saved/current `AssetCollectionSetting` and runs `CollectionScanner.Scan` only to populate navigation and details.
+- Save persists Curate data, reloads it, rebuilds the scan result used by the sidebar/details view, and preserves existing sidebar expansion state.
+- The Curate sidebar defaults to Package-expanded and Group-collapsed; expanding a Group reveals asset rows.
 
 ## Configuration Hierarchy
 

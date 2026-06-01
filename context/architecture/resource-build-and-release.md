@@ -1,6 +1,6 @@
 # Resource Build And Release
 
-Last reviewed: 2026-05-24
+Last reviewed: 2026-06-01
 
 ## Scope
 
@@ -106,6 +106,9 @@ The build entry point is now split with the same orchestration pattern already u
 - backend selection is centralized in `BuildProjectManager.CreateBackend()` using `FYAssetSettings.Instance.UseABBackend`
 - `IBuildBackend` exposes only `BuildAsync(BuildPackageRequest, BuildExecutionOptions)`; output organization and manifest publication are not backend post-build API methods
 - Task graph assets are the backbone source of truth. `BuildPipelineBackbone` supplies default task entries for new config creation plus validation/UI metadata, but existing `BuildPipelineConfig` assets are not auto-repaired during load or build execution.
+- `DAGScheduler` treats `WriteKeys` as BuildContext write/update declarations, not exclusive write locks. Staged writes to the same key are valid when explicit task dependencies define the order.
+- AB `CollectedAssets` is a staged key: `TaskCollectAssets` creates the list, `TaskCollectBuiltins` appends builtin shader/resources entries, and `TaskAnalyzeDependencies` writes the dependency-augmented list back.
+- Diff Preview uses `DAGScheduler.Execute` with a whitelist and validates only the effective preview task set.
 - Build-time settings are loaded through the Editor-only `FYAssetBuildSettingsProvider`. Missing default assets are created at `Assets/Build/FYAssetSharedBuildSettings.asset`, `Assets/Build/FYAssetAABuildSettings.asset`, and `Assets/Build/FYAssetABBuildSettings.asset`.
 
 ### AA backend
@@ -124,6 +127,7 @@ The build entry point is now split with the same orchestration pattern already u
 ### AB backend
 
 - `ABBuildBackend` is a stateless DAG runner: it receives the shared `BuildPackageRequest`, writes it into `BuildContext`, and runs the AB task graph through `DAGScheduler.Execute()`
+- The AB backbone order is `TaskPrepareContext -> TaskCollectAssets -> TaskCollectBuiltins -> TaskAnalyzeDependencies -> TaskBuildBundles -> TaskGenerateManifest -> TaskVerifyBuildResult -> TaskScanABHotfixDiff -> TaskOrganizeOutput -> TaskWriteABPackageManifest -> TaskWritePackageIndex -> TaskExportLocalBuildData`.
 - `TaskScanABHotfixDiff` is the AB graph diff task between `TaskVerifyBuildResult` and `TaskOrganizeOutput`; standalone AB diff stops after this task so package organization and publication do not run.
 - `TaskOrganizeOutput` consumes the request and writes the final AB package layout directly under `BuildPackageRequest.OutputDir`, copying bundles into `BuildPackageRequest.BundlesDir`
 - `TaskWriteABPackageManifest` publishes `ABManifest.json` and/or `ABManifest.bin` at the final package root according to `ABBuildSettings.ManifestOutputFormat` and applies the AB hotfix size limit from `ABBuildSettings`

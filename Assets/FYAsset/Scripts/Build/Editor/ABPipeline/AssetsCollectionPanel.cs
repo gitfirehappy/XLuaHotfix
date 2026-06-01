@@ -101,7 +101,7 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
 
     #region Lifecycle
 
-    private void LoadSetting()
+    private void LoadSetting(bool preserveExpansionState = false)
     {
         _setting = AssetDatabase.LoadAssetAtPath<AssetCollectionSetting>(FYAssetBuildSettingsProvider.Shared.AssetCollectionSettingPath);
 
@@ -110,7 +110,10 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
 
         EnsureScanDefaults(_setting);
         if (HasPackages(_setting))
-            EnterCurate(CloneSetting(_setting), false);
+        {
+            AssetCollectionSetting candidate = CloneSetting(_setting);
+            EnterCurate(candidate, false, CollectionScanner.Scan(candidate), !preserveExpansionState);
+        }
         else
             EnterScan();
     }
@@ -166,14 +169,19 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         ClearSelection();
     }
 
-    private void EnterCurate(AssetCollectionSetting candidate, bool selectFirst, ScanResult initialResult = null)
+    private void EnterCurate(
+        AssetCollectionSetting candidate,
+        bool selectFirst,
+        ScanResult initialResult = null,
+        bool initializeExpansionState = true)
     {
         _stage = WorkflowStage.Curate;
         _curateSetting = candidate;
         _curateResult = initialResult;
         _curatePreviewDirty = initialResult == null;
         _curatePanelMode = CuratePanelMode.Details;
-        EnsureDefaultExpandedState(candidate);
+        if (initializeExpansionState)
+            EnsureDefaultExpandedState(candidate);
         EnsureSelection(selectFirst);
     }
 
@@ -189,7 +197,7 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         toolbar.Add(scan);
 
         Button curate = BuildPipelineUI.ToolbarButton("Curate", EnterCurateFromToolbar, 82f);
-        curate.SetEnabled(_stage != WorkflowStage.Curate || _projectSnapshot?.PreviewSetting != null || HasPackages(_setting));
+        curate.SetEnabled(_stage != WorkflowStage.Curate);
         toolbar.Add(curate);
 
         if (_stage == WorkflowStage.Curate)
@@ -210,7 +218,7 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         switch (_stage)
         {
             case WorkflowStage.Preview:
-                return "Scan Preview is read-only. Curate copies the snapshot into editable data.";
+                return "Scan Preview is read-only. Confirm To Curate copies the snapshot into editable data.";
             case WorkflowStage.Curate:
                 return _curatePreviewDirty
                     ? "Curate preview is outdated. Use the right-panel Preview button to refresh manually."
@@ -222,14 +230,11 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
 
     private void EnterCurateFromToolbar()
     {
-        if (_projectSnapshot?.PreviewSetting != null)
-        {
-            ConfirmPreview();
-            return;
-        }
-
         if (HasPackages(_setting))
-            EnterCurate(CloneSetting(_setting), false);
+        {
+            AssetCollectionSetting candidate = CloneSetting(_setting);
+            EnterCurate(candidate, false, CollectionScanner.Scan(candidate));
+        }
         else
             EnterCurate(ScriptableObject.CreateInstance<AssetCollectionSetting>(), false);
 
@@ -253,7 +258,7 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         scroll.Add(BuildPipelineUI.SmallText("Edit Ignore first. Scan generates a read-only preview from Assets/* without writing Packages."));
         scroll.Add(CreatePersistentIgnoreEditor());
         scroll.Add(BuildPipelineUI.SmallText("Default package: " + GetDefaultPackageName()));
-        scroll.Add(BuildPipelineUI.ToolbarButton("Project Scan", RunProjectScan, 120f));
+        scroll.Add(CreateScanActionRow(false));
         _root.Add(scroll);
     }
 
@@ -305,11 +310,24 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
 
         scroll.Add(CreatePersistentIgnoreEditor());
         scroll.Add(BuildPipelineUI.SmallText("Edit Ignore and run Project Scan again to refresh this read-only preview."));
-        scroll.Add(BuildPipelineUI.ToolbarButton("Project Scan", RunProjectScan, 120f));
+        scroll.Add(CreateScanActionRow(true));
         RenderPreviewSummary(scroll);
         RenderPreviewTree(scroll, _projectSnapshot.PreviewSetting, _projectSnapshot.Result);
         RenderMessages(scroll, _projectSnapshot.Result);
         _root.Add(scroll);
+    }
+
+    private VisualElement CreateScanActionRow(bool canConfirm)
+    {
+        VisualElement row = BuildPipelineUI.Toolbar();
+        row.style.marginTop = 8f;
+        row.style.marginBottom = 8f;
+        Button scan = BuildPipelineUI.ToolbarButton("Project Scan", RunProjectScan, 120f);
+        row.Add(scan);
+        Button confirm = BuildPipelineUI.ToolbarButton("Confirm To Curate", ConfirmPreview, 140f);
+        confirm.SetEnabled(canConfirm);
+        row.Add(confirm);
+        return row;
     }
 
     private void RenderPreviewSummary(VisualElement parent)
@@ -326,7 +344,7 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
 
         parent.Add(BuildPipelineUI.Header("Scan Preview: " + packageName));
         parent.Add(CreateMetricStrip(packageName, groupCount, assetCount, bundleCount, warningCount, errorCount));
-        parent.Add(BuildPipelineUI.SmallText("Preview is read-only. Use Confirm to start Curate from this snapshot."));
+        parent.Add(BuildPipelineUI.SmallText("Preview is read-only. Confirm To Curate replaces the current Curate candidate with this snapshot."));
     }
 
     private void ConfirmPreview()
@@ -921,7 +939,7 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         AssetDatabase.ForceReserializeAssets(new List<string> { FYAssetBuildSettingsProvider.Shared.AssetCollectionSettingPath });
         AssetDatabase.Refresh();
         CollectorReverseIndex.Instance.MarkDirty();
-        LoadSetting();
+        LoadSetting(true);
         Rebuild();
     }
 
@@ -1413,11 +1431,6 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         {
             AssetCollectionPackage package = setting.Packages[pi];
             _expandedPackages.Add(GetPackageNavKey(pi, package));
-            if (package?.Groups == null)
-                continue;
-
-            for (int gi = 0; gi < package.Groups.Count; gi++)
-                _expandedGroups.Add(GetGroupNavKey(pi, gi, package.Groups[gi]));
         }
     }
 
