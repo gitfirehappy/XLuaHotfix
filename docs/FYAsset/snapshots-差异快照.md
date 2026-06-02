@@ -130,7 +130,7 @@ public static ArtifactDelta Diff(
 
 ### Repository Push
 
-`FileBuildRepository.Push()` 使用 `ArtifactDiffer.Diff()` 计算 from → to 的差异，只推送 Added 和 Modified 的 Bundle 文件。
+`FileBuildRepository.Push()` 使用 `ArtifactDiffer.Diff()` 计算 from → to 的差异数量，用于 `PushHistory` 展示；实际发布由 `LocalDirectoryPushTarget` 整体替换目标包体目录，不重新解释包内 `PackageIndex.json`。
 
 ---
 
@@ -149,8 +149,8 @@ CollectionScanner / BuildPipeline
   RepositoryArtifacts ──→ BuildRepositoryFacade.Commit()（写入 HEAD）
          │
          ▼
-  FileBuildRepository.Push() ──→ ArtifactDiffer.Diff(fromCommit, toCommit)
+  FileBuildRepository.Push() ──→ 计算 changed artifact count
          │
          ▼
-    PushPayload ──→ LocalDirectoryPushTarget.Push()
+    PushPayload ──→ LocalDirectoryPushTarget.Push()（替换目标包体目录）
 ```

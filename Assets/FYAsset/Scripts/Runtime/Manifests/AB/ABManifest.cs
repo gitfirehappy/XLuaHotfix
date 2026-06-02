@@ -39,8 +39,6 @@ public class ABManifest
     #endregion
 
     #region 运行时索引（不序列化，由 Initialize 构建）
-    // TODO: 明确哪些唯一映射，哪些允许重复映射。
-
     /// <summary>Address -> AssetEntry 索引列表（支持重复 Address）</summary>
     [NonSerialized] private Dictionary<string, List<int>> _addressIndex;
 
@@ -138,8 +136,11 @@ public class ABManifest
         for (int i = 0; i < bundleCount; i++)
         {
             var bundle = BundleEntries[i];
-            if (!string.IsNullOrEmpty(bundle.BundleName))
-                _bundleNameIndex[bundle.BundleName] = i;
+            if (string.IsNullOrEmpty(bundle.BundleName))
+                continue;
+            if (_bundleNameIndex.ContainsKey(bundle.BundleName))
+                throw new InvalidOperationException($"Duplicate ManifestBundleEntry.BundleName: {bundle.BundleName}");
+            _bundleNameIndex[bundle.BundleName] = i;
         }
 
         // 6. 填充 IncludeAssets 反向映射

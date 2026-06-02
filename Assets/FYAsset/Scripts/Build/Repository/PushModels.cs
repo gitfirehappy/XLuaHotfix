@@ -24,16 +24,14 @@ public sealed class PushTargetConfig
 
 /// <summary>
 /// Push 操作负载。
-/// 由 repository 组装，PushTarget 只消费已算好的文件集合。
+/// 由 repository 组装，PushTarget 只发布已经构建完成的包体目录。
 /// </summary>
 [Serializable]
 public sealed class PushPayload
 {
     public RepositoryCommit FromCommit;
     public RepositoryCommit ToCommit;
-    public List<string> DeltaBundleFiles = new();
-    public string AbManifestPath;
-    public string PackageIndexPath;
+    public int ChangedArtifactCount;
 }
 
 /// <summary>

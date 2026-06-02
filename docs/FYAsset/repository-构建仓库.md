@@ -16,7 +16,7 @@ Build Repository 是构建产物的版本化存储系统，采用类 git 的 HEA
 - **JSON 唯一持久化格式**，所有写入通过 `FileHelper` 原子写保证一致性
 - **先写 object 再交换 HEAD**，HEAD 交换失败时 object 作为孤立文件保留，不会丢数据
 - **AA / AB 仓库空间隔离**，通过 ChannelKey 中的 BackendMode 段区分
-- **Push 只推送差异 Bundle**（Added + Modified），不推送 Removed 或未变的文件
+- **Push 发布已构建包体**：目标包体目录整体替换，包内 `PackageIndex.json` 由构建 Task 负责
 
 ---
 
@@ -117,15 +117,13 @@ HEAD 指针文件路径：`{channelRoot}/HEAD.json`。Object 文件路径由目�
 | `Type` | PushTargetType | ✓ | 目标类型，当前仅 `LocalDirectory`(0) |
 | `Path` | string | ✓ | 目标路径（目录选择器编辑） |
 
-**PushPayload** — 由 Repository 组装，PushTarget 只消费已计算好的文件集合：
+**PushPayload** — 由 Repository 组装，PushTarget 只消费已构建完成的包体目录：
 
 | 字段 | 类型 | 语义 |
 |------|------|------|
 | `FromCommit` | RepositoryCommit | 基准提交 |
 | `ToCommit` | RepositoryCommit | 目标提交 |
-| `DeltaBundleFiles` | List\<string\> | 差异 Bundle 文件的绝对路径列表（Added + Modified） |
-| `AbManifestPath` | string | ABManifest.json 路径 |
-| `PackageIndexPath` | string | PackageIndex.json 路径（来自 `BuildPathManager.PackageIndexPath`） |
+| `ChangedArtifactCount` | int | 本次 from/to 差异数量，仅用于 PushHistory 展示 |
 
 **PushReceipt** — Push 执行结果：
 
@@ -164,8 +162,8 @@ public interface IPushTarget
 
 1. `FileBuildRepository.Push()` 加载 `fromCommit` 和 `toCommit`
 2. 调用 `ArtifactDiffer.Diff(fromCommit.Artifacts, toCommit.Artifacts)` 计算差异
-3. 校验所有差异 Bundle 文件存在 + `PackageIndexPath` 存在
-4. 组装 `PushPayload` 并调用 `target.Push(payload)`
+3. 组装 `PushPayload` 并调用 `target.Push(payload)`
+4. `LocalDirectoryPushTarget` 整体替换目标 `{path}/{packageName}/` 目录
 5. Push 成功后追加 `PushHistoryEntry` 并写入 `PushHistory.json`
 6. **注意：当前版本 AA Push 被显式拒绝**（ChannelKey 含 `/AA` 时直接返回失败）
 
@@ -173,9 +171,8 @@ public interface IPushTarget
 
 将产物推送到本地目录：
 - 清空目标 `{path}/{packageName}/` 目录
-- 拷贝所有差异 Bundle 文件到 `bundles/`
-- 拷贝 `ABManifest.json` 到包体目录
-- 拷贝 `PackageIndex.json` 到目标根目录
+- 将 `RepositoryCommit.PackageRootDir` 下的已构建包体文件整体复制到目标包体目录
+- 不重新解释、重写或校验包体内部 `PackageIndex.json`
 
 ---
 

@@ -48,4 +48,15 @@ public sealed class RepositoryStatus
     public string LastPushAtUtc;
     public string HeadErrorReason;
 }
+
+/// <summary>
+/// Repository HEAD 读取异常。
+/// 缺失 HEAD 由调用方按无 HEAD 处理；损坏 HEAD 必须显式报错。
+/// </summary>
+public sealed class RepositoryHeadException : Exception
+{
+    public RepositoryHeadException(string message) : base(message)
+    {
+    }
+}
 #endif

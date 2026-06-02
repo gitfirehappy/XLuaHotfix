@@ -14,7 +14,8 @@ public class TaskScanABHotfixDiff : IBuildTask
     public string[] ReadKeys => new[]
     {
         BuildContextKeys.BuildPackageRequest,
-        BuildContextKeys.ABManifest
+        BuildContextKeys.ABManifest,
+        BuildContextKeys.BuildType
     };
     public string[] WriteKeys => new[] { BuildContextKeys.ArtifactDelta, BuildContextKeys.RepositoryArtifacts };
 
@@ -22,14 +23,22 @@ public class TaskScanABHotfixDiff : IBuildTask
     {
         var request = ctx.Require<BuildPackageRequest>(BuildContextKeys.BuildPackageRequest);
         var manifest = ctx.Require<ABManifest>(BuildContextKeys.ABManifest);
+        var buildType = ctx.Require<BuildType>(BuildContextKeys.BuildType);
+
+        var current = ScanCurrentArtifacts(manifest);
+        ctx.Set(BuildContextKeys.RepositoryArtifacts, current);
+        if (buildType != BuildType.Hotfix)
+        {
+            ctx.Set(BuildContextKeys.ArtifactDelta, new ArtifactDelta());
+            Debug.Log($"[{nameof(TaskScanABHotfixDiff)}] Full build 不需要计算 Hotfix diff，已记录当前 Bundle 快照: {current.Count}");
+            return BuildTaskResult.Ok(new List<string> { "[AB DIFF] Full build skipped, current artifacts recorded" });
+        }
 
         try
         {
             Debug.Log($"[{nameof(TaskScanABHotfixDiff)}] 开始 AB diff scan，对比本次 Bundle 输出与 Repository HEAD。Package={request.PackageName}");
             var head = BuildRepositoryFacade.GetHeadCommit(BuildRepositoryFacade.GetChannelKey(request));
             var baseline = head != null ? head.Artifacts : new List<ArtifactDigest>();
-            var current = ScanCurrentArtifacts(manifest);
-            ctx.Set(BuildContextKeys.RepositoryArtifacts, current);
             var delta = ArtifactDiffer.Diff(baseline, current);
             ctx.Set(BuildContextKeys.ArtifactDelta, delta);
             LogDelta(delta);

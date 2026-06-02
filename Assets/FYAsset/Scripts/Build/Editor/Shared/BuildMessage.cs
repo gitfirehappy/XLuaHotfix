@@ -99,6 +99,9 @@ public static class BuildErrorCodes
     /// <summary>ABManifest 初始化失败（数据为空或格式错误）</summary>
     public const string ManifestInitFailed = "MANIFEST_INIT_FAILED";
 
+    /// <summary>Bundle 构建结果中存在重复或冲突的 Bundle 身份</summary>
+    public const string DuplicateBundleName = "DUPLICATE_BUNDLE_NAME";
+
     /// <summary>构建结果校验失败</summary>
     public const string VerificationFailed = "VERIFICATION_FAILED";
 

@@ -6,7 +6,7 @@ using UnityEngine;
 
 /// <summary>
 /// 将 AB 产物推送到本地目录。
-/// 只写 delta bundles、ABManifest.json 和 PackageIndex.json。
+/// Push 只发布已经构建完成的包体目录，不重新解释包内 PackageIndex。
 /// </summary>
 public sealed class LocalDirectoryPushTarget : IPushTarget
 {
@@ -37,32 +37,12 @@ public sealed class LocalDirectoryPushTarget : IPushTarget
             return Fail("Push target path is empty.");
 
         string packageDir = Path.Combine(_path, payload.ToCommit.PackageName);
-        string bundleDir = Path.Combine(packageDir, "bundles");
-        if (FileHelper.DirectoryExists(packageDir))
-            FileHelper.TryDeleteDirectory(packageDir, true);
-        FileHelper.EnsureDirectory(bundleDir);
 
         try
         {
-            for (int i = 0; i < payload.DeltaBundleFiles.Count; i++)
-            {
-                string src = payload.DeltaBundleFiles[i];
-                string dest = Path.Combine(bundleDir, Path.GetFileName(src));
-                if (!FileHelper.Exists(src))
-                    return Fail($"Delta bundle missing: {src}");
-                FileHelper.CopyFile(src, dest, true);
-            }
-
-            if (!string.IsNullOrEmpty(payload.AbManifestPath))
-            {
-                string manifestDest = Path.Combine(packageDir, FYAssetSettings.MANIFEST_FILE_NAME);
-                FileHelper.CopyFile(payload.AbManifestPath, manifestDest, true);
-            }
-
-            if (!string.IsNullOrEmpty(payload.PackageIndexPath) && FileHelper.Exists(payload.PackageIndexPath))
-                FileHelper.CopyFile(payload.PackageIndexPath, Path.Combine(_path, FYAssetSettings.PACKAGE_INDEX_FILE_NAME), true);
-            else if (!string.IsNullOrEmpty(payload.PackageIndexPath))
-                return Fail($"PackageIndexPath missing: {payload.PackageIndexPath}");
+            if (FileHelper.DirectoryExists(packageDir))
+                FileHelper.TryDeleteDirectory(packageDir, true);
+            CopyDirectory(payload.ToCommit.PackageRootDir, packageDir);
 
             return new PushReceipt
             {
@@ -89,6 +69,19 @@ public sealed class LocalDirectoryPushTarget : IPushTarget
             PushedAtUtc = DateTime.UtcNow.ToString("o"),
             FailureReason = reason
         };
+    }
+
+    private static void CopyDirectory(string sourceDir, string targetDir)
+    {
+        FileHelper.EnsureDirectory(targetDir);
+
+        string[] files = FileHelper.GetFiles(sourceDir, "*", SearchOption.AllDirectories);
+        for (int i = 0; i < files.Length; i++)
+        {
+            string relativePath = files[i].Substring(sourceDir.Length).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            string targetPath = Path.Combine(targetDir, relativePath);
+            FileHelper.CopyFile(files[i], targetPath, true);
+        }
     }
 }
 #endif

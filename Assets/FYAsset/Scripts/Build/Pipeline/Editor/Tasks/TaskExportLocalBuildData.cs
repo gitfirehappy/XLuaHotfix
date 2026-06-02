@@ -15,6 +15,8 @@ public class TaskExportLocalBuildData : IBuildTask
 
     public string TaskName => "TaskExportLocalBuildData";
     public string[] DependsOn => new string[0];
+    // OutputPath 只在 Full Build 分支实际读取；Hotfix 分支提前返回。
+    // 静态 ReadKeys 仍声明它，确保 Full Build 的尾部导出保持正确 DAG 顺序。
     public string[] ReadKeys => new[]
     {
         BuildContextKeys.BuildPackageRequest,

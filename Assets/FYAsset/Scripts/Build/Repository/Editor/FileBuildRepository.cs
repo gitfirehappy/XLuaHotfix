@@ -50,7 +50,12 @@ public sealed class FileBuildRepository : IBuildRepository
 
     public RepositoryCommit GetHeadCommit(string channelKey)
     {
-        return TryLoadHead(channelKey);
+        var head = TryLoadHead(channelKey);
+        if (head != null)
+            return head;
+        if (TryGetLastHeadError(channelKey, out string headError))
+            throw new RepositoryHeadException(headError);
+        throw new RepositoryHeadException($"Repository has no HEAD: {channelKey}");
     }
 
     public List<RepositoryCommit> ListCommits(string channelKey)
@@ -124,10 +129,6 @@ public sealed class FileBuildRepository : IBuildRepository
             return FailPush(target, $"Target commit missing: {toVersion.GetFullVersionString()}");
         if (string.IsNullOrEmpty(toCommit.PackageRootDir))
             return FailPush(target, "Target commit PackageRootDir is empty.");
-        if (string.IsNullOrEmpty(BuildPathManager.PackageIndexPath))
-            return FailPush(target, "PackageIndexPath is empty.");
-        if (!FileHelper.Exists(BuildPathManager.PackageIndexPath))
-            return FailPush(target, $"PackageIndexPath missing: {BuildPathManager.PackageIndexPath}");
 
         var fromCommit = TryLoadCommit(channelKey, fromVersion);
         if (fromCommit == null)
@@ -138,24 +139,8 @@ public sealed class FileBuildRepository : IBuildRepository
         {
             FromCommit = fromCommit,
             ToCommit = toCommit,
-            AbManifestPath = Path.Combine(toCommit.PackageRootDir, FYAssetSettings.MANIFEST_FILE_NAME),
-            PackageIndexPath = BuildPathManager.PackageIndexPath
         };
-
-        for (int i = 0; i < delta.Added.Count; i++)
-        {
-            string filePath = Path.Combine(toCommit.PackageRootDir, "bundles", delta.Added[i].Name);
-            if (!FileHelper.Exists(filePath))
-                return FailPush(target, $"Missing delta file: {filePath}");
-            payload.DeltaBundleFiles.Add(filePath);
-        }
-        for (int i = 0; i < delta.Modified.Count; i++)
-        {
-            string filePath = Path.Combine(toCommit.PackageRootDir, "bundles", delta.Modified[i].Name);
-            if (!FileHelper.Exists(filePath))
-                return FailPush(target, $"Missing delta file: {filePath}");
-            payload.DeltaBundleFiles.Add(filePath);
-        }
+        payload.ChangedArtifactCount = delta.Added.Count + delta.Modified.Count + delta.Removed.Count;
 
         var receipt = target.Push(payload);
         if (receipt == null || !receipt.Success)
@@ -169,7 +154,7 @@ public sealed class FileBuildRepository : IBuildRepository
             TargetId = receipt.TargetId,
             TargetLocation = receipt.TargetLocation,
             PushedAtUtc = receipt.PushedAtUtc,
-            DeltaFileCount = payload.DeltaBundleFiles.Count
+            DeltaFileCount = payload.ChangedArtifactCount
         });
         WritePushHistory(channelKey, history);
         return receipt;

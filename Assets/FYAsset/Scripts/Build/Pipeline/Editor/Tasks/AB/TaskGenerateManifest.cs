@@ -29,6 +29,10 @@ public class TaskGenerateManifest : IBuildTask
         var buildResults = ctx.Require<List<BundleBuildInfo>>(BuildContextKeys.BundleBuildResults);
         var depGraph = ctx.Get<BundleDependencyGraph>(BuildContextKeys.BundleDependencyGraph);
 
+        var validation = ValidateBundleIdentity(buildResults);
+        if (!validation.Success)
+            return validation;
+
         // ③ bundleNameToIndex
         var bundleNameToIndex = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         for (int i = 0; i < buildResults.Count; i++)
@@ -174,6 +178,47 @@ public class TaskGenerateManifest : IBuildTask
         {
             $"[MANIFEST] {assetEntries.Count} assets, {bundleEntries.Count} bundles generated."
         });
+    }
+
+    private static BuildTaskResult ValidateBundleIdentity(List<BundleBuildInfo> buildResults)
+    {
+        var logicalToOutput = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var physicalNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        for (int i = 0; i < buildResults.Count; i++)
+        {
+            var result = buildResults[i];
+            string logicalName = result != null ? result.BundleName : string.Empty;
+            string outputName = result != null ? (result.OutputFileName ?? result.BundleName) : string.Empty;
+
+            if (string.IsNullOrEmpty(logicalName))
+                return BuildTaskResult.Fail(BuildErrorCodes.DuplicateBundleName,
+                    $"BundleBuildResults[{i}] 的逻辑 BundleName 为空。", true);
+            if (string.IsNullOrEmpty(outputName))
+                return BuildTaskResult.Fail(BuildErrorCodes.DuplicateBundleName,
+                    $"BundleBuildResults[{i}] 的输出 BundleName 为空: Logical={logicalName}", true);
+
+            if (logicalToOutput.TryGetValue(logicalName, out string existingOutput))
+            {
+                if (!string.Equals(existingOutput, outputName, StringComparison.OrdinalIgnoreCase))
+                {
+                    return BuildTaskResult.Fail(BuildErrorCodes.DuplicateBundleName,
+                        $"逻辑 Bundle '{logicalName}' 映射到多个输出文件: '{existingOutput}' / '{outputName}'。Scene 必须保持 PackSeparately + short GUID 唯一 BundleKey。", true);
+                }
+
+                return BuildTaskResult.Fail(BuildErrorCodes.DuplicateBundleName,
+                    $"BundleBuildResults 中存在重复逻辑 BundleName: '{logicalName}'。", true);
+            }
+            logicalToOutput[logicalName] = outputName;
+
+            if (!physicalNames.Add(outputName))
+            {
+                return BuildTaskResult.Fail(BuildErrorCodes.DuplicateBundleName,
+                    $"BundleBuildResults 中存在重复输出 BundleName: '{outputName}'。", true);
+            }
+        }
+
+        return BuildTaskResult.Ok();
     }
 
 }
