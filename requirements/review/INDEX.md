@@ -23,7 +23,7 @@ Reports missing Date or Reviewer will be rejected before content review.
 
 | File | Status | Scope |
 |------|--------|-------|
-| `review-build-repository-batch-20260524.md` | Archived | Build Repository batch archive review: plan lifecycle, documentation alignment, repository storage, push path, and unresolved follow-up extraction |
+| `review-collector-20260521.md` | P0/P1 remediated; P2 deferred | Collector subsystem and direct build-pipeline consumers |
 
 ## Archive Criteria
 

@@ -19,8 +19,10 @@ Shared executable plans live here while active. `requirements/plan.md` remains t
 | `plan-comment-debug-coverage-20260524.md` | Archived |
 | `plan-hotfix-diff-task-20260524.md` | Archived |
 | `plan-collector-asset-metadata-bundle-packing-20260531.md` | Signed off and archived |
+| `plan-dag-staged-write-order-fix-20260601.md` | Signed off and archived |
+| `plan-review-hardening-20260602.md` | Signed off and archived |
 
 ## Active
 | File | Status |
 |---|---|
-| `plan-dag-staged-write-order-fix-20260601.md` | Executed; awaiting sign-off |
+| _None_ | _No active shared plan_ |

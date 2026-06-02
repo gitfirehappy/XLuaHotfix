@@ -5,6 +5,23 @@
 > **Scope**: FYAsset build pipeline, Collector integration, AB/AA backend selection, AB manifest/runtime/hotfix flow, repository preview, and relevant plan/progress/git traceability
 > **Method**: Static code review, workflow simulation, configuration review, historical plan/progress/review trace, and git log trace
 
+## Remediation Status
+
+Updated: 2026-06-02
+
+Archival status: all findings in this review have been fixed, clarified, or explicitly accepted as deferred outside this review.
+
+| Finding | Status | Resolution |
+|---|---|---|
+| P0 legacy W-W validation and comments conflict with current data-dependency model | Fixed / signed off | `plan-dag-staged-write-order-fix-20260601` removed fatal W-W validation, kept dependency/cycle validation, aligned `WriteKeys` comments/docs, and updated BuildGraph data-flow rendering for staged writes. Developer confirmed Unity Editor AB Validate/Build has no errors. |
+| P1 `TaskCollectBuiltins` runs after dependency analysis | Fixed / signed off | `TaskAnalyzeDependencies` now depends on `TaskCollectBuiltins`; AB backbone and `Assets/Build/BuildPipelineConfig.asset` now order `TaskCollectAssets -> TaskCollectBuiltins -> TaskAnalyzeDependencies`. |
+| P2 BackendMode comments/docs still describe older CLI and W-W authority model | Fixed | Official Full/Hotfix backend selection is `FYAssetSettings.Instance.UseABBackend`; `TaskPrepareContext` no longer accepts `--backend` as a task-local override, and docs distinguish Repository CLI `-backend` from release backend selection. |
+| P2 Preview whitelist does not isolate validation from unrelated full-config errors | Fixed / signed off | `DAGScheduler.Execute(... taskWhitelist)` now validates the effective whitelisted task set used by preview. |
+| P2 scene bundle manifest mapping defensive validation | Fixed by `plan-review-hardening-20260602` | `TaskGenerateManifest` now fails fast if one logical bundle name maps to multiple physical outputs, preserving the Scene PackSeparately + short GUID invariant. |
+| P3 `BuildConfig.OutputRoot` naming/comment clarity | Clarified | Active comments/docs now describe it as temporary build config/root, while final package identity remains owned by `BuildPackageRequest`. |
+| P3 conditional `TaskExportLocalBuildData.ReadKeys` | Documented by `plan-review-hardening-20260602` | `TaskExportLocalBuildData` now documents that `OutputPath` is only read in the Full Build branch while static `ReadKeys` still declares it for DAG ordering. |
+| P3 duplicate manifest bundle names | Fixed by `plan-review-hardening-20260602` | Build-time manifest generation and runtime `ABManifest.Initialize()` now reject duplicate physical bundle names instead of overwriting dictionary entries. |
+
 ## Findings
 
 ### P0: Legacy W-W validation and comments conflict with the current single-thread data-dependency model

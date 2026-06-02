@@ -1,6 +1,6 @@
 /// <summary>
 /// 构建管线后端模式 —— 决定 AssetBundle 构建的数据源和 manifest 格式。
-/// 实际来源为 FYAssetSettings.Instance.UseABBackend，CLI --backend 可局部覆盖。
+/// 正式构建的实际来源为 FYAssetSettings.Instance.UseABBackend。
 /// Backend 选择由 BuildProjectManager 在创建 BuildPackageRequest 前确定。
 /// </summary>
 public enum BackendMode

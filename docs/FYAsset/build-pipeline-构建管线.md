@@ -79,7 +79,7 @@ TaskA (WriteKeys: ["CollectedAssets"])     TaskB (ReadKeys: ["CollectedAssets"],
 | `AA` | 基于 Addressables 的 AA 构建 |
 | `AB` | 基于 ABManifest 的自研构建（默认） |
 
-由 `FYAssetSettings.Instance.UseABBackend` 控制，CLI 可通过 `--backend` 覆盖。`BackendMode.AA` 与 `BackendMode.AB` 分别对应两条构建管线，各有独立的 `BuildPipelineConfig` 资产。
+正式 Full/Hotfix 构建由 `FYAssetSettings.Instance.UseABBackend` 控制。Repository CLI 的 `-backend` 只用于选择仓库通道，不覆盖正式构建后端。`BackendMode.AA` 与 `BackendMode.AB` 分别对应两条构建管线，各有独立的 `BuildPipelineConfig` 资产。
 
 ---
 
@@ -222,7 +222,7 @@ Execute
 
 | TaskName | 职责 | 依赖 |
 |----------|------|------|
-| `TaskPrepareContext` | 初始化 BuildContext（解析 BackendMode、Version、OutputRoot、TargetPlatform、CLI 参数覆盖） | — |
+| `TaskPrepareContext` | 初始化 BuildContext（读取 BackendMode、Version、OutputRoot、TargetPlatform；正式构建后端来自 FYAssetSettings） | — |
 | `TaskCollectAssets` | 加载 AssetCollectionSetting、运行 CollectionScanner、写入 CollectedAssets 和 SharePolicies | TaskPrepareContext |
 | `TaskAnalyzeDependencies` | BFS 依赖扫描、共享资产提取、构建 BundleDependencyGraph | TaskCollectAssets |
 | `TaskCollectBuiltins` | 自动收集 Shader 和 Resources 内置资源，追加到 CollectedAssets | TaskCollectAssets |

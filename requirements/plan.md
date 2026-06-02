@@ -178,7 +178,7 @@ Phase 4 and Phase 6 must be coordinated (ABManifest runtime consumption + build-
 | plan-build-repository-release-20260523.md | Build Repository Plan 3: AB Push, IPushTarget, PushHistory, Repository CLI, and ConfirmRelease cleanup | Archived |
 | plan-hotfix-diff-task-20260524.md | AA/AB current-vs-HEAD diff unified under DAG stop-after flow; PackageIndex writing moved into AA/AB DAG | Archived |
 | plan-comment-debug-coverage-20260524.md | Build/repository/hotfix task comments and direct Debug log coverage improved without behavior changes | Archived |
-| plan-dag-staged-write-order-fix-20260601.md | DAG staged-write and AB task order fix: remove legacy W-W fatal validation for staged `CollectedAssets` updates, reorder AB builtin collection before dependency analysis, and align BuildGraph data-flow display | Active | Executed; awaiting sign-off |
+| plan-dag-staged-write-order-fix-20260601.md | DAG staged-write and AB task order fix: remove legacy W-W fatal validation for staged `CollectedAssets` updates, reorder AB builtin collection before dependency analysis, and align BuildGraph data-flow display | Archived | DONE / Signed off |
 
 ### Phase 5: Build-Time - Asset Collection & Indexing
 

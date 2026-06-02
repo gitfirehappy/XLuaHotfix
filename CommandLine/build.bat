@@ -32,9 +32,8 @@ if "%UNITY_PATH%"=="" (
 
 echo [1] Hotfix Build (Patch+1)
 echo [2] Full Package Build (Major+1)
-echo [3] Hotfix + ConfirmRelease
 echo.
-set /p CHOICE="Select build mode (1/2/3): "
+set /p CHOICE="Select build mode (1/2): "
 
 if "%CHOICE%"=="1" (
     set BUILD_TYPE=hotfix
@@ -46,11 +45,6 @@ if "%CHOICE%"=="1" (
     set EXTRA_ARGS=
     echo.
     echo [Build] Starting full package build...
-) else if "%CHOICE%"=="3" (
-    set BUILD_TYPE=hotfix
-    set EXTRA_ARGS= -confirmRelease
-    echo.
-    echo [Build] Starting hotfix build with auto-confirm...
 ) else (
     echo.
     echo [Error] Invalid choice!
