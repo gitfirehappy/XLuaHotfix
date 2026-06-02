@@ -1744,6 +1744,7 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
 
             string groupName = CreateProjectScanGroupName(GetSceneGroupName(assetPath));
             AssetCollectionGroup group = FindOrCreateGroup(package, groupName);
+            group.BundlePackingMode = BundlePackingMode.PackSeparately;
             group.Collectors.Add(CreateFileCollector(assetPath));
         }
     }
