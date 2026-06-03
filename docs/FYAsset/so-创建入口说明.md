@@ -29,9 +29,10 @@
 | SO 类型 | 推荐入口 | 说明 |
 |---|---|---|
 | `FYAssetSettings` | `SettingsPanel` 中的创建按钮 | 默认路径为 `Assets/Resources/FYAssetSettings.asset`，也支持启动时自动补齐 |
-| `SharedBuildSettings` | `SettingsPanel` 自动创建/编辑 | 默认路径为 `Assets/Build/FYAssetSharedBuildSettings.asset`，保存共享构建路径和 PushTargets |
+| `SharedBuildSettings` | `SettingsPanel` 自动创建/编辑 | 默认路径为 `Assets/Build/FYAssetSharedBuildSettings.asset`，保存共享构建路径 |
 | `AABuildSettings` | `AAConfigPanel` 自动创建/编辑 | 默认路径为 `Assets/Build/FYAssetAABuildSettings.asset`，保存 AA 构建参数 |
-| `ABBuildSettings` | `PipelinePanel` 自动创建/编辑 | 默认路径为 `Assets/Build/FYAssetABBuildSettings.asset`，保存 AB 构建参数 |
+| `ABBuildSettings` | `ABConfigPanel` 自动创建/编辑 | 默认路径为 `Assets/Build/FYAssetABBuildSettings.asset`，保存 AB 构建参数与 AssetCollection 配置 |
+| `BuildRepositorySettings` | `RepositoryStatusPanel` 自动创建/编辑 | 默认路径为 `Assets/Build/FYAssetBuildRepositorySettings.asset`，保存 Build Repository PushTargets |
 | `VersionDataBase` | `VersionPanel` 中的创建按钮 | 路径由 `SharedBuildSettings.VersionDataBasePath` 决定 |
 | `ScriptObjectDataBase` | `SOAddressableTagger` 中的“创建新数据库” | 用于 SO 标签管理，不建议从菜单重复创建 |
 | `ScriptObjectContainer` | `LuaFileCreatorWindow` / `LuaDirectoryScanner` / `LuaAddressableTagger` 的创建流程 | 由工具根据数据库和目录自动创建 |

@@ -110,7 +110,7 @@ The build entry point is now split with the same orchestration pattern already u
 - `DAGScheduler` treats `WriteKeys` as BuildContext write/update declarations, not exclusive write locks. Staged writes to the same key are valid when explicit task dependencies define the order.
 - AB `CollectedAssets` is a staged key: `TaskCollectAssets` creates the list, `TaskCollectBuiltins` appends builtin shader/resources entries, and `TaskAnalyzeDependencies` writes the dependency-augmented list back.
 - Diff Preview uses `DAGScheduler.Execute` with a whitelist and validates only the effective preview task set.
-- Build-time settings are loaded through the Editor-only `FYAssetBuildSettingsProvider`. Missing default assets are created at `Assets/Build/FYAssetSharedBuildSettings.asset`, `Assets/Build/FYAssetAABuildSettings.asset`, and `Assets/Build/FYAssetABBuildSettings.asset`.
+- Build-time settings are loaded through the Editor-only `FYAssetBuildSettingsProvider`. Missing default assets are created at `Assets/Build/FYAssetSharedBuildSettings.asset`, `Assets/Build/FYAssetAABuildSettings.asset`, `Assets/Build/FYAssetABBuildSettings.asset`, and `Assets/Build/FYAssetBuildRepositorySettings.asset`.
 
 ### AA backend
 
@@ -159,14 +159,15 @@ The build entry point is now split with the same orchestration pattern already u
 
 ## Build Settings Assets
 
-- `SharedBuildSettings` stores shared build output and project asset paths: `BuildOutputRoot`, `VersionDataBasePath`, `BuildIndexJsonPath`, `AssetCollectionDataFolder`, `AssetCollectionSettingPath`, `LuaScriptsIndexPath`, and `PushTargets`.
+- `SharedBuildSettings` stores shared build output and project asset paths: `BuildOutputRoot`, `VersionDataBasePath`, `BuildIndexJsonPath`, and `LuaScriptsIndexPath`.
 - `AABuildSettings` stores AA-specific build settings: `BuildPipelineConfigPath`, `ManifestOutputFormat`, and `MaxHotfixSizeBytes`.
-- `ABBuildSettings` stores AB-specific build settings: `BuildPipelineConfigPath`, `ManifestOutputFormat`, and `MaxHotfixSizeBytes`.
+- `ABBuildSettings` stores AB-specific build settings: `BuildPipelineConfigPath`, `ManifestOutputFormat`, `MaxHotfixSizeBytes`, `AssetCollectionDataFolder`, `AssetCollectionSettingPath`, and `DependencyFilterExtensions`.
+- `BuildRepositorySettings` stores repository Push targets.
 - `VersionDataBase` remains shared product-version data and is referenced from `SharedBuildSettings.VersionDataBasePath`; there are no AA/AB-specific version database paths.
-- The Settings panel edits `FYAssetSettings` first and `SharedBuildSettings` second. AA Config edits `AABuildSettings` first. AB Config edits `ABBuildSettings`; the AB Pipeline page owns the BuildGraph and build controls.
+- The Settings panel edits `FYAssetSettings` first and `SharedBuildSettings` second. AA Config edits `AABuildSettings` first. AB Config edits `ABBuildSettings`; the AB Pipeline page owns the BuildGraph and build controls. Repository Push target configuration is edited from the repository panel.
 - Build settings path fields now use chooser buttons in the Editor UI instead of raw string-only editing.
 - `MaxHotfixSizeBytes` in AA/AB build settings is edited through a byte-unit control that displays the exact byte count alongside a selectable unit.
-- `PushTargetConfig.Path` is edited through a chooser-based path field in the Settings panel.
+- `PushTargetConfig.Path` is edited through a chooser-based path field in the repository panel.
 
 ## Build-Time Architectural Decisions
 
