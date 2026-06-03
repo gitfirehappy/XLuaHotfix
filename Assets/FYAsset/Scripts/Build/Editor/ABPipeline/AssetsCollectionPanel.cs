@@ -103,7 +103,7 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
 
     private void LoadSetting(bool preserveExpansionState = false)
     {
-        _setting = AssetDatabase.LoadAssetAtPath<AssetCollectionSetting>(FYAssetBuildSettingsProvider.Shared.AssetCollectionSettingPath);
+        _setting = AssetDatabase.LoadAssetAtPath<AssetCollectionSetting>(FYAssetBuildSettingsProvider.AB.AssetCollectionSettingPath);
 
         if (_setting == null)
             return;
@@ -936,7 +936,7 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         _setting.AssetEntries = CloneAssetEntries(_curateSetting.AssetEntries);
         EditorUtility.SetDirty(_setting);
         AssetDatabase.SaveAssets();
-        AssetDatabase.ForceReserializeAssets(new List<string> { FYAssetBuildSettingsProvider.Shared.AssetCollectionSettingPath });
+        AssetDatabase.ForceReserializeAssets(new List<string> { FYAssetBuildSettingsProvider.AB.AssetCollectionSettingPath });
         AssetDatabase.Refresh();
         CollectorReverseIndex.Instance.MarkDirty();
         LoadSetting(true);
@@ -1240,12 +1240,12 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         Action<string> onValueChanged,
         Action onReset)
     {
-        VisualElement row = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center } };
+        VisualElement row = CreateAutoControlRow();
         Toggle auto = new Toggle("Auto " + label) { value = autoValue };
-        auto.style.flexGrow = 1f;
+        StyleAutoToggle(auto);
         auto.RegisterValueChangedCallback(evt => onAutoChanged(evt.newValue));
         row.Add(auto);
-        row.Add(new Button(onReset) { text = "Reset Auto" });
+        row.Add(CreateResetAutoButton(onReset));
         parent.Add(row);
         parent.Add(CreateTextField(label, value, onValueChanged));
     }
@@ -1260,17 +1260,50 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         Action onReset)
         where T : Enum
     {
-        VisualElement row = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center } };
+        VisualElement row = CreateAutoControlRow();
         Toggle auto = new Toggle("Auto " + label) { value = autoValue };
-        auto.style.flexGrow = 1f;
+        StyleAutoToggle(auto);
         auto.RegisterValueChangedCallback(evt => onAutoChanged(evt.newValue));
         row.Add(auto);
-        row.Add(new Button(onReset) { text = "Reset Auto" });
+        row.Add(CreateResetAutoButton(onReset));
         parent.Add(row);
 
         EnumField field = new EnumField(label, value);
         field.RegisterValueChangedCallback(evt => onValueChanged((T)evt.newValue));
         parent.Add(field);
+    }
+
+    private static VisualElement CreateAutoControlRow()
+    {
+        VisualElement row = new VisualElement
+        {
+            style =
+            {
+                flexDirection = FlexDirection.Row,
+                alignItems = Align.Center,
+                flexWrap = Wrap.Wrap,
+                minWidth = 0f
+            }
+        };
+        return row;
+    }
+
+    private static void StyleAutoToggle(Toggle toggle)
+    {
+        toggle.style.flexGrow = 1f;
+        toggle.style.flexShrink = 1f;
+        toggle.style.minWidth = 0f;
+        toggle.style.marginRight = 6f;
+    }
+
+    private static Button CreateResetAutoButton(Action onReset)
+    {
+        Button button = new Button(onReset) { text = "Reset Auto" };
+        button.style.width = 92f;
+        button.style.minWidth = 92f;
+        button.style.flexShrink = 0f;
+        button.style.marginBottom = 2f;
+        return button;
     }
 
     private VisualElement CreateStringListEditor(string title, List<string> values, Action onChanged, bool persistent = false)
@@ -2331,15 +2364,15 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
     {
         VisualElement panel = BuildPipelineUIToolkitPanel.CreateCenteredPanel(_root, 420f);
         panel.Add(BuildPipelineUIToolkitPanel.CreateTitle("未找到 AssetCollectionSetting"));
-        panel.Add(BuildPipelineUIToolkitPanel.CreateBody(FYAssetBuildSettingsProvider.Shared.AssetCollectionSettingPath));
+        panel.Add(BuildPipelineUIToolkitPanel.CreateBody(FYAssetBuildSettingsProvider.AB.AssetCollectionSettingPath));
         panel.Add(new Button(CreateAssetCollectionSetting) { text = "Create" });
     }
 
     private void CreateAssetCollectionSetting()
     {
-        BuildPipelineUI.EnsureAssetParentFolder(FYAssetBuildSettingsProvider.Shared.AssetCollectionSettingPath);
+        BuildPipelineUI.EnsureAssetParentFolder(FYAssetBuildSettingsProvider.AB.AssetCollectionSettingPath);
         AssetCollectionSetting newSetting = ScriptableObject.CreateInstance<AssetCollectionSetting>();
-        AssetDatabase.CreateAsset(newSetting, FYAssetBuildSettingsProvider.Shared.AssetCollectionSettingPath);
+        AssetDatabase.CreateAsset(newSetting, FYAssetBuildSettingsProvider.AB.AssetCollectionSettingPath);
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
         CollectorReverseIndex.Instance.MarkDirty();
