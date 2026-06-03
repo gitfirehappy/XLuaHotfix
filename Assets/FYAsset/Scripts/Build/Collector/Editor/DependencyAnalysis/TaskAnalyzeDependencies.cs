@@ -31,7 +31,7 @@ public class TaskAnalyzeDependencies : IBuildTask
         {
             policies = new Dictionary<string, SharePolicyConfig>();
             var setting = AssetDatabase.LoadAssetAtPath<AssetCollectionSetting>(
-                FYAssetBuildSettingsProvider.Shared.AssetCollectionSettingPath);
+                FYAssetBuildSettingsProvider.AB.AssetCollectionSettingPath);
             if (setting != null)
             {
                 foreach (var pkg in setting.Packages)
@@ -44,7 +44,7 @@ public class TaskAnalyzeDependencies : IBuildTask
 
         // 执行依赖分析
         var augmented = DependencyAnalyzer.Analyze(assets, policies,
-            FYAssetBuildSettingsProvider.Shared.DependencyFilterExtensions,
+            FYAssetBuildSettingsProvider.AB.DependencyFilterExtensions,
             out var graph, out var messages);
 
         // 汇总消息：统一收集，再根据是否有 Error 决定返回 Ok 或 Fail

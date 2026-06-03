@@ -15,3 +15,6 @@ MonoBehaviour:
   BuildPipelineConfigPath: Assets/Build/BuildPipelineConfig.asset
   ManifestOutputFormat: 1
   MaxHotfixSizeBytes: 1073741824
+  AssetCollectionDataFolder: Assets/FYAsset/CollectorData
+  AssetCollectionSettingPath: Assets/FYAsset/CollectorData/CollectorSetting.asset
+  DependencyFilterExtensions: []

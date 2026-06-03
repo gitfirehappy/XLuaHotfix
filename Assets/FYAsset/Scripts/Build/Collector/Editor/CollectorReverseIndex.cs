@@ -95,7 +95,7 @@ public sealed class CollectorReverseIndex
         AssetCollectionSetting actualSetting = setting;
         if (actualSetting == null)
         {
-            actualSetting = AssetDatabase.LoadAssetAtPath<AssetCollectionSetting>(FYAssetBuildSettingsProvider.Shared.AssetCollectionSettingPath);
+            actualSetting = AssetDatabase.LoadAssetAtPath<AssetCollectionSetting>(FYAssetBuildSettingsProvider.AB.AssetCollectionSettingPath);
         }
 
         if (actualSetting != null)

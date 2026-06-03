@@ -11,10 +11,12 @@ public static class FYAssetBuildSettingsProvider
     private static SharedBuildSettings _shared;
     private static AABuildSettings _aa;
     private static ABBuildSettings _ab;
+    private static BuildRepositorySettings _repository;
 
     public static SharedBuildSettings Shared => _shared ??= LoadOrCreate(SharedBuildSettings.DEFAULT_ASSET_PATH, CreateDefaultSharedSettings);
     public static AABuildSettings AA => _aa ??= LoadOrCreate(AABuildSettings.DEFAULT_ASSET_PATH, CreateDefaultAASettings);
     public static ABBuildSettings AB => _ab ??= LoadOrCreate(ABBuildSettings.DEFAULT_ASSET_PATH, CreateDefaultABSettings);
+    public static BuildRepositorySettings Repository => _repository ??= LoadOrCreate(BuildRepositorySettings.DEFAULT_ASSET_PATH, CreateDefaultRepositorySettings);
 
     public static ScriptableObject CurrentBackend => FYAssetSettings.Instance.UseABBackend ? AB : AA;
 
@@ -44,6 +46,7 @@ public static class FYAssetBuildSettingsProvider
         _shared = null;
         _aa = null;
         _ab = null;
+        _repository = null;
     }
 
     private static T LoadOrCreate<T>(string assetPath, System.Func<T> factory) where T : ScriptableObject
@@ -63,12 +66,17 @@ public static class FYAssetBuildSettingsProvider
 
     private static SharedBuildSettings CreateDefaultSharedSettings()
     {
-        var settings = ScriptableObject.CreateInstance<SharedBuildSettings>();
+        return ScriptableObject.CreateInstance<SharedBuildSettings>();
+    }
+
+    private static BuildRepositorySettings CreateDefaultRepositorySettings()
+    {
+        var settings = ScriptableObject.CreateInstance<BuildRepositorySettings>();
         settings.PushTargets.Add(new PushTargetConfig
         {
             Id = "local",
             Type = PushTargetType.LocalDirectory,
-            Path = Path.Combine(settings.BuildOutputRoot, "PushTargets", "local")
+            Path = Path.Combine(Shared.BuildOutputRoot, "PushTargets", "local")
         });
         return settings;
     }

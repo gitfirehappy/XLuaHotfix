@@ -111,7 +111,7 @@ public sealed class CollectorTargetPickerWindow : EditorWindow
     /// </summary>
     private void LoadSetting()
     {
-        _setting = AssetDatabase.LoadAssetAtPath<AssetCollectionSetting>(FYAssetBuildSettingsProvider.Shared.AssetCollectionSettingPath);
+        _setting = AssetDatabase.LoadAssetAtPath<AssetCollectionSetting>(FYAssetBuildSettingsProvider.AB.AssetCollectionSettingPath);
         _selectedPackageIndex = 0;
         _selectedGroupIndex = 0;
     }

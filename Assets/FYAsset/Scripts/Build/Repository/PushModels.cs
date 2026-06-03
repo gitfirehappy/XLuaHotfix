@@ -12,7 +12,7 @@ public enum PushTargetType
 
 /// <summary>
 /// Push 目标配置。
-/// 持久化在 FYAssetSettings 中，由 SettingsPanel 编辑。
+/// 持久化在 BuildRepositorySettings 中，由仓库面板编辑。
 /// </summary>
 [Serializable]
 public sealed class PushTargetConfig

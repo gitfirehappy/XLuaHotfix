@@ -75,7 +75,7 @@ public static class BuildRepositoryCLI
 
     private static IPushTarget CreatePushTarget(string targetId)
     {
-        var settings = FYAssetBuildSettingsProvider.Shared;
+        var settings = FYAssetBuildSettingsProvider.Repository;
         for (int i = 0; i < settings.PushTargets.Count; i++)
         {
             var config = settings.PushTargets[i];

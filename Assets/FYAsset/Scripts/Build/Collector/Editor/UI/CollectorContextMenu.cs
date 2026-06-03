@@ -126,7 +126,7 @@ public static class CollectorContextMenu
 
     private static AssetCollectionSetting LoadSetting()
     {
-        return AssetDatabase.LoadAssetAtPath<AssetCollectionSetting>(FYAssetBuildSettingsProvider.Shared.AssetCollectionSettingPath);
+        return AssetDatabase.LoadAssetAtPath<AssetCollectionSetting>(FYAssetBuildSettingsProvider.AB.AssetCollectionSettingPath);
     }
 
     private static Collector GetCollector(AssetCollectionSetting setting, CollectorReverseIndex.CollectorRef collectorRef)
