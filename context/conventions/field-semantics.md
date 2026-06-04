@@ -11,6 +11,7 @@ Binding rules for field naming across the FYAsset codebase. Consult before writi
 5. **PrimaryType** = single asset's Unity type name. **BundleType** = bundle's dominant type (>80% threshold) or "Mixed".
 6. **FileHash** = canonical hash field name (MD5). All code now uses PascalCase.
 7. **BundleName** = canonical bundle identifier. All code now uses PascalCase.
+8. **URL** fields are remote locator strings and must be joined as URLs. **FilePath/Dir/Root** fields are local filesystem paths and must be joined/resolved as local paths. **AssetPath** fields are Unity `Assets/...` paths and must keep `/` separators.
 
 ## Hierarchy
 
@@ -37,5 +38,5 @@ Fields: Major, Minor, Patch, Build, Channel.
 ## Naming Convention
 
 - Entire codebase: PascalCase for public fields (`FileHash`, `BundleName`, `LatestPackage`)
-- `FYAssetConstants.cs` is the PascalCase exemplar for new code
+- `FYAssetSettings` constants and manifest DTO fields are the PascalCase exemplars for new code
 - Same semantic across structures MUST use same name (e.g., `PrimaryType` everywhere)

@@ -16,7 +16,7 @@ AB 运行时加载系统负责从磁盘加载 AssetBundle 文件、从 Bundle �
 
 | 组件 | 职责 |
 |------|------|
-| `ManifestLoader` | 异步加载 ABManifest 清单文件 |
+| `ABManifestLoader` | 异步加载 ABManifest 清单文件 |
 | `ABAssetIndex` | 基于 ABManifest 构建运行时索引，提供零分配查询 |
 | `ABBundleLoader` | AssetBundle 文件加载/卸载，管理 Bundle 级引用计数和依赖递归 |
 | `ABPackageBackend` | Asset 级加载/卸载，管理 Asset 缓存和 Handle 回调 |
@@ -28,17 +28,17 @@ AB 运行时加载系统负责从磁盘加载 AssetBundle 文件、从 Bundle �
 
 ## 清单加载
 
-`ManifestLoader.LoadAsync()` 异步加载 `ABManifest`。
+`ABManifestLoader.LoadAsync()` 异步加载 `ABManifest`。
 
 **路径策略**：
-1. 热更目录优先（`PathManager.CurrentGUIDRoot`）
+1. 热更目录优先（`RuntimePathManager.CurrentGUIDRoot`）
 2. StreamingAssets 回退（包内初始资源）
 
 **格式优先级**（每个目录内）：
 1. `ABManifest.bin`（二进制，优先）
 2. `ABManifest.json`（JSON，fallback）
 
-返回 null 表示全部路径均加载失败。Android StreamingAssets 路径需要 `UnityWebRequest`，当前通过 `File.ReadAllBytes` + `Task.Run` 包装处理。
+返回 null 表示全部路径均加载失败。当前通过 `FileHelper.ReadAllBytesAsync` 读取；Android StreamingAssets 路径由 `FileHelper` 走 `UnityWebRequest`，其他平台走文件系统异步读取。
 
 ---
 
@@ -212,8 +212,7 @@ ABBundleLoader.UnloadBundle(bundleName)
 
 ```csharp
 // 初始化
-AssetPackageManager.Instance.Initialize(backend);
-AssetPackageManager.Instance.SetBackend(abBackend);
+await AssetPackageManager.Instance.Initialize();
 
 // 加载
 var handle = await AssetPackageManager.Instance.LoadByAddress<Texture2D>("myTex");
@@ -224,7 +223,7 @@ handle.Release();
 AssetPackageManager.Instance.UnloadByLabel("ui");
 ```
 
-所有加载方法返回 `AssetHandle<T>`。内部按后端模式（AB / AA）路由到对应的 `IPackageBackend` 实现。
+Resolve-And-Handle API 返回 `AssetHandle<T>`；兼容的 `LoadAssetAsync<T>` / `LoadAssetSync<T>` 仍直接返回资源对象。内部按后端模式（AB / AA）路由到对应的 `IPackageBackend` 实现。
 
 ---
 

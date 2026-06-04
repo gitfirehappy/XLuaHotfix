@@ -1,9 +1,9 @@
 # Refactor Plan: XLuaHotfix Full Resource Management System Overhaul — Master Plan
 
-> **Status**: In progress (Phase 1-4 completed, Phase 5 E1-1/E1-2/E1-3/E1-4/E2 realized, Phase 6 E4/E5-1/E5-2a/E5-2b/E6/E9/E10/E11 realized, review-fix-20260509 and naming-unification executed, E7 pending)
+> **Status**: In progress (Phase 1-4 completed, Phase 5 E1-1/E1-2/E1-3/E1-4/E2 realized, Phase 6 E4/E5-1/E5-2a/E5-2b/E6/E7/E9/E10/E11 main path realized, Build Repository AA Push signed off and archived, review-fix-20260509 and naming-unification executed)
 > **Ultimate Goal**: Fully replace Addressables with custom runtime + build-time resource management system (referencing YooAsset architecture)
 > **Created**: 2026-03-16
-> **Updated**: 2026-05-24 — consolidated recent standalone requirement plans into the shared plan/archive flow
+> **Updated**: 2026-06-04 — Build Repository AA Push parity signed off and archived; E7 main path complete, repository hardening remains deferred
 
 ---
 
@@ -179,6 +179,7 @@ Phase 4 and Phase 6 must be coordinated (ABManifest runtime consumption + build-
 | plan-hotfix-diff-task-20260524.md | AA/AB current-vs-HEAD diff unified under DAG stop-after flow; PackageIndex writing moved into AA/AB DAG | Archived |
 | plan-comment-debug-coverage-20260524.md | Build/repository/hotfix task comments and direct Debug log coverage improved without behavior changes | Archived |
 | plan-dag-staged-write-order-fix-20260601.md | DAG staged-write and AB task order fix: remove legacy W-W fatal validation for staged `CollectedAssets` updates, reorder AB builtin collection before dependency analysis, and align BuildGraph data-flow display | Archived | DONE / Signed off |
+| plan-build-repository-aa-push-20260603.md | Build Repository AA Push completion: make AA Push a basic build-pipeline capability before E7 closure, reusing existing whole-package `IPushTarget` and `PushHistory` semantics | Archived / Signed off |
 
 ### Phase 5: Build-Time - Asset Collection & Indexing
 
@@ -202,7 +203,7 @@ Phase 4 and Phase 6 must be coordinated (ABManifest runtime consumption + build-
 | E5-2a | Backbone Tasks Phase 1 — TaskPrepareContext / TaskCollectBuiltins / TaskBuildBundles + BundleBuildInfo + BundleCompression. **2026-05-07 review fixes: scene output collapse + folder guard + rawfile multi-file** | **Realized** (plan-E5-2a.md) |
 | E5-2b | Backbone Tasks Phase 2 — TaskVerifyBuildResult (6 checks) / TaskOrganizeOutput (copy+serialize+summary+cleanup). Includes HashGenerator unification (CRC32 merge + enum) + BuildVerificationResult type | **Realized** (plan-E5-2b.md) |
 | E6 | ABManifest build export — TaskGenerateManifest + CRC32Helper + BundleType int→string | **Realized** (plan-E6.md) |
-| E7 | Diff snapshot adaptation → **Build Repository** (统一 git-like 版本管理系统，合并原 E7 + Smart Versioning) | **Draft** (draft-build-repository-20260518.md) — 2026-05-18 重新设计：7 操作（status/add/diff/commit/reset/tag/push）、统一 ArtifactDigest 数据结构、IArtifactScanner 注入 AA/AB 差异、apply 移出 Repository |
+| E7 | Diff snapshot adaptation → **Build Repository** (统一 git-like 版本管理系统，合并原 E7 + Smart Versioning) | **Main path complete** — repository HEAD/object storage, AA/AB commit, status, diff preview, AA/AB whole-package Push, PushHistory, CLI/UI, PackageIndex DAG writing, and hotfix read chain are in place. Deferred repository hardening remains outside the closure scope. AA Push closure archived: `requirements/plan/archive/plan-build-repository-aa-push-20260603.md` |
 | E9 | VersionNumber SemVer+Build extension (Major.Minor.Patch + Build + Channel, IComparable, Parse/TryParse, operator overloads). Prerequisite for E7 | **Realized** (plan-E9-version.md) |
 | E10 | BuildProjectManager dual-backend split — `IBuildBackend` + `LegacyAddressableBuildBackend` + `ABBuildBackend` + orchestrator-style `BuildProjectManager`. `BuildCommandLine` kept on the same public API path. AB output layout aligned to `{PackageRoot}/bundles/` to match hotfix/runtime contracts | **Realized** (plan-E10-buildbackend.md) |
 | E11 | FYAssetSettings SO — new `FYAssetSettings` ScriptableObject (Runtime assembly) replaces `FYAssetConstants`; all configurable fields (ProjectName, HotfixUrl, UseABBackend, paths) become SO instance fields; `static const` members preserved on SO type; `BuildPipelineConfig.DefaultBackendMode` removed; `SettingsPanel` added; `BuildPipelineWindow` sidebar reorganized to SETTINGS → AB PIPELINE → MANAGE; AB PIPELINE grayed-out when `UseABBackend=false`; `FYAssetConstants.cs` deleted | **Realized** (plan-E11-settings.md) |

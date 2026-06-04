@@ -1,6 +1,6 @@
 # System Overview
 
-Last reviewed: 2026-05-24
+Last reviewed: 2026-06-03
 
 ## Purpose
 
@@ -47,7 +47,7 @@ Primary Build subdirectories:
 - `Build/Release/Editor/Addressables/` for the catalog-backed release backend and export helpers
 - `Build/Release/Editor/AB/` for AB release backend
 - `Runtime/Manifests/Addressables/` and `Runtime/Manifests/AB/` for runtime-readable AA and AB manifest models
-- `Runtime/Manifests/Shared/` for the shared `PackageIndex` pointer model
+- `Runtime/Manifests/` for the shared `PackageIndex` pointer model
 - `Assets/XLuaFramework/Scripts/XLuaLoader/` for `LuaScriptsIndex` and XLua loader runtime data
 - `Build/Bootstrap/` for packaged startup metadata
 - `Build/Snapshots/` for differential snapshot data and processing
@@ -135,7 +135,7 @@ This repository contains both the current production-oriented path and an in-pro
 - `AB PIPELINE` contains `AB Config`, `AssetsCollection`, and `Pipeline`.
 - `AssetCollectionSettingInspector` is a UI Toolkit shortcut inspector that opens `BuildPipelineWindow` directly.
 - `AssetsCollectionPanel` is the single UI Toolkit panel for `AssetCollectionSetting`. It preserves the approved Project Scan -> read-only Scan Preview -> Curate workflow: the top toolbar exposes Scan and Curate, Curate keeps the package/group sidebar, and the right details area switches between Details and Scan Preview. Scan Preview renders the collected tree as Package -> Group -> Collector -> Bundle -> Asset, with bundle rows color-marked by bundle bucket.
-- Build settings are split from runtime settings. `FYAssetSettings` keeps runtime/global fields; `SharedBuildSettings` stores shared build paths and push targets; `AABuildSettings` and `ABBuildSettings` store backend-specific pipeline config paths, manifest output format, and hotfix size limits.
+- Build settings are split from runtime settings. `FYAssetSettings` keeps runtime/global fields; `SharedBuildSettings` stores shared build paths; `BuildRepositorySettings` stores repository Push targets; `AABuildSettings` and `ABBuildSettings` store backend-specific pipeline config paths, manifest output format, and hotfix size limits.
 - `SettingsPanel` edits `FYAssetSettings` first and `SharedBuildSettings` second. `AAConfigPanel` edits `AABuildSettings` before the Addressables overview. `PipelinePanel` edits `ABBuildSettings` before the AB BuildGraph.
 - `PipelinePanel` is parameterized by config path, default backbone factory, Build Options visibility, and Build controls visibility. The AB sidebar entry uses it with `ABBuildSettings.BuildPipelineConfigPath` and `BuildPipelineBackbone.CreateABTasks()`, exposing Reload, Validate, Build Options, Build Mode, Build controls, and BuildGraph inspection. The AA Build sidebar entry delegates to the same panel with `AABuildSettings.BuildPipelineConfigPath` and `BuildPipelineBackbone.CreateAATasks()`, exposing Reload, Validate, Build Mode, Build controls, and BuildGraph inspection, but not Build Options because AA configuration remains owned by Addressables.
 - `PipelinePanel` uses a `BuildGraphView` GraphView DAG visualization powered by `BuildGraphLayoutEngine` and `BuildTaskNode`. The graph shows code-level execution edges, SO-level execution edges, and data-flow edges derived from `ReadKeys`/`WriteKeys`. It supports Reload, `DAGScheduler.Validate()`, a right-click optional-task creation menu, node-level source opening for registered Task types, and Pipeline-triggered Full/Hotfix builds through `BuildProjectManager`.

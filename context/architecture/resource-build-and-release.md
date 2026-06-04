@@ -1,6 +1,6 @@
 # Resource Build And Release
 
-Last reviewed: 2026-06-01
+Last reviewed: 2026-06-03
 
 ## Scope
 
@@ -54,10 +54,11 @@ The hotfix build flow relies on repository HEAD comparison instead of manual gro
 - `TaskScanAddressableHotfixDiff` runs before AA hotfix content build, compares current AA source against repository HEAD, and writes `ArtifactDelta` into `BuildContext`
 - `TaskMoveAddressableHotfixGroups` moves Added and Modified AA assets into the Hotfix group, writes `Assets/FYAsset/Editor/Generated/HotfixGroupUndoLog.json`, blocks another move while pending moves exist, and keeps the manual restore path available
 - `TaskScanABHotfixDiff` runs after AB bundle build verification, compares AB bundle output against repository HEAD, and writes `ArtifactDelta` into `BuildContext`
-- `ConfirmReleaseHotfix` is a placeholder for future release/push work and does not mutate repository HEAD
+- `ConfirmReleaseHotfix` is a placeholder wrapper and does not mutate repository HEAD, build artifacts, or push targets
 - `BuildRepositoryCLI` exposes `Status`, `Diff`, `Push`, and `ListCommits`; `Diff` runs the AA or AB DAG to the backend-specific diff task and stops there
-- `FileBuildRepository.Push()` loads the from/to commits, computes the changed artifact count for history display, and delegates publication to the configured `IPushTarget`
-- `LocalDirectoryPushTarget` publishes by replacing the target package directory with the already built `RepositoryCommit.PackageRootDir`; Push does not reinterpret or regenerate package-internal `PackageIndex.json`
+- `FileBuildRepository.Push()` loads the from/to commits for either AA or AB channels, computes the changed artifact count for history display, and delegates publication to the configured `IPushTarget`
+- `LocalDirectoryPushTarget` treats `PushTargetConfig.Path` as a publish root. An empty path resolves to `BuildPathManager.OutputRoot`; publication writes `{PublishRoot}/PackageIndex.json` and `{PublishRoot}/{BuildPackagesFolderName}/{PackageName}/...`
+- Push writes the root `PackageIndex.json` from the target commit's package name, version, and backend mode. It does not reinterpret package-internal catalog or manifest files.
 - `PushHistory.json` is written by the repository at `BuildData/Snapshots/{BuildTarget}[-Channel]/{BackendMode}/PushHistory.json` after a successful push
 - `RepositoryStatusPanel` exposes repository status and read-only Diff Preview in the build pipeline window
 - `RepositoryStatusPanel` is a shared Manage panel entry and is not owned by the AA or AB sidebar groups
@@ -84,8 +85,8 @@ The hotfix build flow relies on repository HEAD comparison instead of manual gro
 
 ### `ConfirmRelease`
 
-- currently logs a placeholder because release/push is deferred
-- does not update repository HEAD or build artifacts
+- currently logs a placeholder and does not update repository HEAD, build artifacts, or push targets
+- repository push is available through Build Repository CLI/UI rather than this wrapper
 
 ### `ResetGroupsToOriginal`
 
@@ -120,7 +121,7 @@ The build entry point is now split with the same orchestration pattern already u
 - `TaskOrganizeAAOutput` copies ServerData output into the request-owned final package directory and sets `BuildContextKeys.OutputPath` to `BuildPackageRequest.OutputDir`
 - `TaskWriteAAPackageManifest` exports `AAManifest.json` and `AAManifest.bin` by default by scanning `{PackageRoot}/bundles/*.bundle`
 - `TaskWritePackageIndex` runs after the AA package manifest task and writes the remote latest-package pointer for both Full and Hotfix official builds
-- `TaskExportLocalBuildData` is the AA graph tail task and implementation owner for local startup data export. It writes `BuildIndexData` only for full builds, cleans stale AB baseline manifests from `StreamingAssets`, and returns success without exporting for hotfix builds. AA baseline file copying remains handled by the existing player build flow.
+- `TaskExportLocalBuildData` is the AA graph tail task and implementation owner for local startup data export. It writes `BuildIndexData` only for full builds, copies the final `AAManifest` files into `StreamingAssets` as the AA query-index baseline, cleans stale AB baseline manifests, and returns success without exporting for hotfix builds. AA catalog and bundle placement remain handled by the existing Addressables player build flow.
 - each exported `BundleInfo` stores `FileHash` (MD5 content identity), `FileCRC` (CRC32 fast verification), and `FileSize`
 - `AAManifest` also stores `AssetEntries`, `KeysByType`, and `KeysByLabel`
 - `AAAssetIndexBuilder` is the single Editor-only source for those AA index lists and writes them into `AAManifest`
@@ -140,6 +141,9 @@ The build entry point is now split with the same orchestration pattern already u
 ### Build path helpers
 
 - `BuildPathManager` is the Editor-only source for build output paths. It reads `SharedBuildSettings.BuildOutputRoot` and runtime `FYAssetSettings.BuildPackagesFolderName`; the default layout remains `HotfixOutput/Packages/Build_{yyyyMMddHHmmss}_{version}`.
+- `FYAssetPathUtility` is the shared helper for URL joining, local file path joining/resolution, Unity asset path normalization, relative file path calculation, and path identity comparison.
+- Remote URL roots and path segments are joined with `FYAssetPathUtility.JoinUrl(...)`; local filesystem paths from settings, CLI arguments, repository publication, package output, temporary build output, and StreamingAssets export are joined or resolved with `JoinFilePath(...)` / `ResolveFilePath(...)`.
+- Unity `AssetDatabase` paths remain `Assets/...` paths with `/` separators and are normalized with `NormalizeAssetPath(...)` / `JoinAssetPath(...)`. URI-like paths such as Android StreamingAssets `jar:` paths are joined with `/` and are not normalized as local OS paths.
 - `AddressablesBuildOutputOrganizer` owns AA `ServerData` cleanup and package output copying rules.
 
 ## FYAssetSettings
@@ -153,7 +157,7 @@ The build entry point is now split with the same orchestration pattern already u
 - Instance fields (configurable in Inspector): `ProjectName`, `HotfixUrl`, `UseABBackend`, `BuildPackagesFolderName`, `HotfixMaxRetryCount`, `HotfixRetryBaseDelaySeconds`
 - Build-only fields are not stored on `FYAssetSettings`.
 - Runtime consumers read configuration via `FYAssetSettings.Instance` at use sites; no `static readonly` settings snapshots remain in `RuntimePathManager` / `HotfixManager`
-- Static `const` members: filter/group rule name strings (`RULE_COLLECT_ALL`, `RULE_GROUP_*`), group/label identifiers (`LUA_SCRIPTS_INDEX`, `HOTFIX_GROUP_NAME`, `DEFAULT_XLUA_TYPE_CONFIG_LOAD_LABEL`), file names (`PACKAGE_INDEX_FILE_NAME`, `MANIFEST_FILE_NAME`, `MANIFEST_FILE_NAME_BIN`, `AA_MANIFEST_FILE_NAME`, `AA_MANIFEST_FILE_NAME_BIN`, `BUILD_INDEX_FILENAME`), and editor paths (`BUILD_PIPELINE_WINDOW_MENU_PATH`, `BINARY_SERIALIZER_GENERATE_PATH`)
+- Static `const` members: filter/group rule name strings (`RULE_COLLECT_ALL`, `RULE_GROUP_*`), group/label identifiers (`LUA_SCRIPTS_INDEX`, `HOTFIX_GROUP_NAME`, `DEFAULT_XLUA_TYPE_CONFIG_LOAD_LABEL`), file/directory names (`PACKAGE_INDEX_FILE_NAME`, `MANIFEST_FILE_NAME`, `MANIFEST_FILE_NAME_BIN`, `AA_MANIFEST_FILE_NAME`, `AA_MANIFEST_FILE_NAME_BIN`, `BUILD_INDEX_FILENAME`, `BUNDLES_DIRECTORY_NAME`, `ADDRESSABLES_CATALOG_FILE_NAME`), and editor paths (`BUILD_PIPELINE_WINDOW_MENU_PATH`, `BINARY_SERIALIZER_GENERATE_PATH`)
 - `UseABBackend` is the single source of truth for backend selection — `BuildPipelineConfig.DefaultBackendMode` was removed
 - `BackendMode.AA` is the canonical AA enum value; duplicate AA/Addressables mode names are not supported.
 
@@ -162,7 +166,7 @@ The build entry point is now split with the same orchestration pattern already u
 - `SharedBuildSettings` stores shared build output and project asset paths: `BuildOutputRoot`, `VersionDataBasePath`, `BuildIndexJsonPath`, and `LuaScriptsIndexPath`.
 - `AABuildSettings` stores AA-specific build settings: `BuildPipelineConfigPath`, `ManifestOutputFormat`, and `MaxHotfixSizeBytes`.
 - `ABBuildSettings` stores AB-specific build settings: `BuildPipelineConfigPath`, `ManifestOutputFormat`, `MaxHotfixSizeBytes`, `AssetCollectionDataFolder`, `AssetCollectionSettingPath`, and `DependencyFilterExtensions`.
-- `BuildRepositorySettings` stores repository Push targets.
+- `BuildRepositorySettings` stores repository Push targets. `PushTargetConfig.Path` is a publish root; an empty path means the current `BuildPathManager.OutputRoot`.
 - `VersionDataBase` remains shared product-version data and is referenced from `SharedBuildSettings.VersionDataBasePath`; there are no AA/AB-specific version database paths.
 - The Settings panel edits `FYAssetSettings` first and `SharedBuildSettings` second. AA Config edits `AABuildSettings` first. AB Config edits `ABBuildSettings`; the AB Pipeline page owns the BuildGraph and build controls. Repository Push target configuration is edited from the repository panel.
 - Build settings path fields now use chooser buttons in the Editor UI instead of raw string-only editing.

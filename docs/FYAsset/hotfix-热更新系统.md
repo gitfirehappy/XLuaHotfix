@@ -14,7 +14,7 @@
 
 设计目标：
 - 热更流程本身**与后端解耦** — 编排逻辑写在 `HotfixManager` 里，后端只实现 5 个差异方法
-- AA 路径行为与重构前**零变更**，AB 路径用自研 ABManifest 替代 catalog + AAManifest 双文件
+- AA 路径仍依赖 Addressables catalog 进行资源定位；自定义 AAManifest 用于版本、Bundle 校验和查询索引。AB 路径用自研 ABManifest 替代 Addressables catalog。
 
 ---
 
@@ -25,7 +25,7 @@
 | `HotfixManager` | 11 步热更流程编排，进度/错误回调，BuildIndex 初始化 |
 | `IHotfixPipeline` | 后端抽象接口，定义 5 个后端差异方法 |
 | `ABHotfixBackend` | AB 后端实现 — 基于 ABManifest，无需 Addressables 依赖 |
-| `AAHotfixBackend` | AA 后端实现 — 基于 Addressables + catalog，保持原有行为 |
+| `AAHotfixBackend` | AA 后端实现 — 基于 Addressables + catalog，同时使用 AAManifest 作为版本和查询索引数据 |
 | `HotfixContext` | 热更流程上下文，携带 BuildIndex / 目标包名 / URL 等 |
 | `HotfixVersionInfo` | 统一版本视图，屏蔽 AA/AB 的数据模型差异 |
 | `BundleDownloadItem` | 下载项最小信息集（BundleName / FileHash / FileCRC / FileSize） |
@@ -90,12 +90,13 @@ Start
   ├─[1] Initialize Backend ── 后端初始化（AB 路径无操作，AA 路径调 InitializeAsync）
   │
   ├─[2] Download PackageIndex ── 下载远端 PackageIndex.json
-  │     └─ 解析 LatestPackage → 确定目标包名和 URL
+  │     └─ 解析 LatestPackage → 确定目标包名和规范化 URL
   │
-  ├─[3] Load Local Version ── 从当前 GUID 目录读取本地版本信息
+  ├─[3] Load Local Version ── 从当前 GUID 目录读取本地版本信息；AA 首包可回退 StreamingAssets 中的 AAManifest
   │
   ├─[4] Fetch Remote Version ── 下载远端 ABManifest/AAManifest
-  │     └─ AB: 优先 .bin 二进制，回退 .json
+  │     ├─ AB: 优先 .bin 二进制，回退 .json
+  │     └─ AA: 优先 .bin 二进制，回退 .json
   │
   ├─[5] Compare Version ── 比对本地与远端版本
   │     ├─ Major 不一致 + BuildIndex.Version 匹配远端 → 全量清理（整包更新）
@@ -143,6 +144,15 @@ Bundle 下载阶段由 `HotfixManager` 统一管理重试与校验：
 - 本地同 Hash 复用也先复制到 `.tmp`，CRC 通过后再替换目标文件。
 - 启动下载前会清理目标 bundles 目录中的 stale `.tmp` 文件。
 - `FileCRC == 0` 表示 CRC 元数据不可用，会输出 Warning 并跳过 CRC 校验。
+
+---
+
+## URL 与本地路径规范
+
+- 远端路径统一通过 `FYAssetPathUtility.JoinUrl(...)` 生成，包括 `PackageIndex.json`、包体根、manifest、`catalog.json` 和 bundle 下载 URL；`HotfixUrl` 带不带尾斜杠都应得到相同的单斜杠 URL。
+- 本地热更目录、目标包体目录、bundle 保存路径、manifest 写入路径和本地 `PackageIndex.json` 使用本地文件系统路径规则拼接。
+- Unity `StreamingAssets` 读取路径通过共享路径工具拼接，但 Android `jar:` URI-like 路径保持 `/` 分隔符，不会被规范化成 Windows 本地路径。
+- `bundles`、`catalog.json`、`BuildIndex.json` 等跨模块目录/文件名来自 `FYAssetSettings` 常量，不在热更主链路中重复写字符串字面量。
 
 ---
 

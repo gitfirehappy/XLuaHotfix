@@ -1,6 +1,6 @@
 # Runtime Resource Loading
 
-Last reviewed: 2026-05-20
+Last reviewed: 2026-06-03
 
 ## Scope
 
@@ -10,7 +10,7 @@ This document covers the current runtime asset-loading entry points, the AA-vs-A
 
 `AssetPackageManager` is the approved runtime facade for resource loading.
 
-Source location: `Assets/FYAsset/Scripts/Runtime/Facade/AssetPackageManager.cs`.
+Source location: `Assets/FYAsset/Scripts/Runtime/Core/AssetPackageManager.cs`.
 
 Key responsibilities:
 
@@ -37,7 +37,7 @@ There is intentionally no supported mixed mode such as:
 
 When `FYAssetSettings.Instance.UseABBackend` is `false`:
 
-- index source: `AAManifestLoader` loads `AAManifest.bin` or `AAManifest.json` under `RuntimePathManager.CurrentGUIDRoot`
+- index source: `AAManifestLoader` loads `AAManifest.bin` or `AAManifest.json` from `RuntimePathManager.CurrentGUIDRoot`, then falls back to `Application.streamingAssetsPath` for the full-build baseline
 - backend: `AddressablesBackend`
 - query caches are built from `AAManifest.AssetEntries`, `AAManifest.KeysByType`, and `AAManifest.KeysByLabel`
 - `AddressablesBackend` only loads/unloads objects through Addressables; it does not read the AA manifest or build query indexes
@@ -48,7 +48,7 @@ This is still the default assumption unless code explicitly selects the AB path.
 
 When `FYAssetSettings.Instance.UseABBackend` is `true`:
 
-- `ABManifestLoader.LoadAsync()` loads the AB manifest via `FileHelper.ReadAllBytesAsync`
+- `ABManifestLoader.LoadAsync()` loads the AB manifest via `FileHelper.ReadAllBytesAsync`, checking `RuntimePathManager.CurrentGUIDRoot` before `Application.streamingAssetsPath`
 - `ABAssetIndex` becomes the active `IAssetIndex`
 - `ABBundleLoader` manages bundle loading and dependency traversal
 - `ABPackageBackend` becomes the active `IPackageBackend`
@@ -145,7 +145,7 @@ Responsibilities:
 - write the local PackageIndex pointer and switch paths
 - call `AssetPackageManager.Instance.Initialize()` as the final resource bootstrap step
 
-AA hotfix metadata prefers `AAManifest.bin` and falls back to `AAManifest.json`; it still downloads `catalog.json` for resource-location data.
+AA hotfix metadata prefers `AAManifest.bin` and falls back to `AAManifest.json`; it still downloads `catalog.json` for resource-location data. The AA full-build baseline copies `AAManifest` into `StreamingAssets` only for query-index fallback; Addressables catalog and built-in bundle placement remain owned by the existing Addressables player build flow.
 
 Hotfix backend locations:
 
@@ -176,11 +176,19 @@ Hotfix backend locations:
 ### `FileHelper`
 
 - cross-platform file I/O utility, same shared helper tier as `NetworkDownloader`; `RuntimePathManager` is runtime-root owned
-- Android StreamingAssets reads go through `UnityWebRequest`; other platforms use `Task.Run(File.ReadAllBytes)`
+- Android StreamingAssets reads go through `UnityWebRequest`; other platforms use `Task.Run(File.ReadAllBytes)` through the shared helper
 - atomic writes via temp-file + rename pattern (`WriteAllBytesAtomic` / `WriteAllTextAtomic`)
 - safe deletion via `TryDelete` / `TryDeleteDirectory` that return bool and never throw
 - bundle download/copy commit uses `ReplaceFile` after verification
-- used by `ABManifestLoader`, `AAManifestLoader`, `HotfixManager.LoadBuildIndexFromStreamingAssets`, and `ABHotfixBackend.PostDownloadAsync`; `ABManifestLoader` does not precheck raw file existence before helper reads so Android StreamingAssets fallback can use the helper's UnityWebRequest branch
+- used by `ABManifestLoader`, `AAManifestLoader`, `HotfixManager.LoadBuildIndexFromStreamingAssets`, and hotfix backend post-download paths; manifest loaders do not rely on raw file existence checks before async reads so Android StreamingAssets fallback can use the helper's UnityWebRequest branch
+
+### `FYAssetPathUtility`
+
+- shared helper under `Assets/FYAsset/Scripts/Helpers/`
+- joins remote URL roots and path segments without depending on trailing slashes
+- joins local filesystem paths for runtime hotfix roots, bundle paths, manifest paths, and StreamingAssets fallbacks
+- preserves URI-like path roots such as Android StreamingAssets `jar:` paths by joining those segments with `/` instead of OS separators
+- compares normalized local paths when repository publication needs to detect source and target identity
 
 ### `HashGenerator`
 

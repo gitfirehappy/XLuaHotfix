@@ -77,9 +77,9 @@ TaskA (WriteKeys: ["CollectedAssets"])     TaskB (ReadKeys: ["CollectedAssets"],
 | 值 | 含义 |
 |----|------|
 | `AA` | 基于 Addressables 的 AA 构建 |
-| `AB` | 基于 ABManifest 的自研构建（默认） |
+| `ABManifest` | 基于 ABManifest 的自研构建（显示名为 AB） |
 
-正式 Full/Hotfix 构建由 `FYAssetSettings.Instance.UseABBackend` 控制。Repository CLI 的 `-backend` 只用于选择仓库通道，不覆盖正式构建后端。`BackendMode.AA` 与 `BackendMode.AB` 分别对应两条构建管线，各有独立的 `BuildPipelineConfig` 资产。
+正式 Full/Hotfix 构建由 `FYAssetSettings.Instance.UseABBackend` 控制。Repository CLI 的 `-backend` 只用于选择仓库通道，不覆盖正式构建后端。`BackendMode.AA` 与 `BackendMode.ABManifest` 分别对应两条构建管线，显示名分别为 `AA` / `AB`，各有独立的 `BuildPipelineConfig` 资产。
 
 ---
 
@@ -162,7 +162,7 @@ BuildResult
 | AA Diff Preview | DAG whitelist 只允许 `TaskScanAddressableHotfixDiff`，并在该 Task 后 stop-after | 只计算 `ArtifactDelta`，不移动 group、不构建、不写 PackageIndex、不提交 repository |
 | AB Diff Preview | DAG whitelist 允许 AB 构建到 `TaskScanABHotfixDiff`，并在该 Task 后 stop-after | 使用 `Temp/BuildRepositoryPreview/{guid}` 临时输出，finally 清理，不写正式 PackageIndex/HEAD/objects |
 | AA Full Build | `TaskScanAddressableHotfixDiff` 和 `TaskMoveAddressableHotfixGroups` 内按 `BuildType` 返回成功跳过 | Full 不做 hotfix diff/group move，但继续后续构建 |
-| Full Build 本地启动数据 | `TaskExportLocalBuildData` 只在 `BuildType.Full` 执行 | 写 `BuildIndex` 和 baseline 到 `StreamingAssets` |
+| Full Build 本地启动数据 | `TaskExportLocalBuildData` 只在 `BuildType.Full` 执行 | 写 `BuildIndex` 和当前后端 baseline 到 `StreamingAssets`；AB 复制 `ABManifest + bundles`，AA 复制 `AAManifest` 查询索引 |
 | Hotfix Build 本地启动数据 | `TaskExportLocalBuildData` 在 `BuildType.Hotfix` 返回成功跳过 | Hotfix 不覆盖整包启动数据 |
 | AA Hotfix 无差异 | diff Task 写空 `ArtifactDelta`，group move Task no-op 成功 | 继续构建，确认无变更流程仍正确 |
 | AB Hotfix 无差异 | `TaskScanABHotfixDiff` 返回成功并继续 | 后续 organize/manifest/PackageIndex 仍按官方构建执行 |
@@ -171,6 +171,15 @@ BuildResult
 | DAG 校验失败 | Validate 阶段阻断 | 不执行任何 Task |
 | AA pending group move | `TaskMoveAddressableHotfixGroups` 检测 undo log 并 fatal fail | 要求先手动 reset，避免覆盖原始 group 归属 |
 | AB 手动 reset | `ResetGroupsToOriginal()` 检测 AB backend | 直接跳过并提示，因为 AB 没有 Addressables group move |
+
+---
+
+## 路径规范
+
+- `BuildConfig.OutputRoot` 在创建时解析为规范本地路径；CLI `--output`、Diff Preview 输出根和默认输出根进入后续 Task 前都会经过统一解析。
+- 远端 URL 只使用 `FYAssetPathUtility.JoinUrl(...)` 拼接。
+- 构建输出、临时目录、包体目录、manifest、bundle、`StreamingAssets` 导出等本地路径使用 `FYAssetPathUtility.JoinFilePath(...)` / `ResolveFilePath(...)`。
+- Unity `AssetDatabase` 路径保持 `Assets/...` 和 `/` 分隔符，通过 `NormalizeAssetPath(...)` / `JoinAssetPath(...)` 处理。
 
 ---
 
@@ -233,7 +242,7 @@ Execute
 | `TaskOrganizeOutput` | 拷贝 Bundle 到最终输出目录、生成 build_summary.txt、清理临时目录 | TaskScanABHotfixDiff |
 | `TaskWriteABPackageManifest` | 发布 ABManifest（JSON + Binary），校验热更包体大小 | TaskOrganizeOutput |
 | `TaskWritePackageIndex` | 写入远端包体指针 PackageIndex.json | TaskWriteABPackageManifest |
-| `TaskExportLocalBuildData` | Full Build 时导出 BuildIndexData 和 AB baseline 到 StreamingAssets；Hotfix 跳过 | TaskWritePackageIndex |
+| `TaskExportLocalBuildData` | Full Build 时导出 BuildIndexData、ABManifest 和 bundles 到 StreamingAssets；Hotfix 跳过 | TaskWritePackageIndex |
 
 ### AA 管线（7 个 Task）
 
@@ -245,6 +254,6 @@ Execute
 | `TaskOrganizeAAOutput` | 整理 ServerData 输出到最终包目录 | TaskBuildAddressablesContent |
 | `TaskWriteAAPackageManifest` | 扫描 .bundle 文件、构建 AAManifest（含 AAAssetIndex）、发布 JSON + Binary | TaskOrganizeAAOutput |
 | `TaskWritePackageIndex` | 写入远端包体指针 PackageIndex.json | TaskWriteAAPackageManifest |
-| `TaskExportLocalBuildData` | Full Build 时写 BuildIndexData、清理 stale AA baseline；Hotfix 跳过 | TaskWritePackageIndex |
+| `TaskExportLocalBuildData` | Full Build 时写 BuildIndexData、复制 AAManifest 查询索引、清理 stale AB baseline；Hotfix 跳过 | TaskWritePackageIndex |
 
 > 两条管线共享 `TaskWritePackageIndex` 和 `TaskExportLocalBuildData`。PipelinePanel 按当前 BackendMode 加载对应的 BuildPipelineConfig 资产（AB: `BuildPipelineConfig.asset`，AA: `AABuildPipelineConfig.asset`）。
