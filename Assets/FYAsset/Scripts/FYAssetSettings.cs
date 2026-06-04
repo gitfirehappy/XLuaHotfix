@@ -37,6 +37,8 @@ public class FYAssetSettings : ScriptableObject
     public const string MANIFEST_FILE_NAME_BIN = "ABManifest.bin";
     public const string AA_MANIFEST_FILE_NAME = "AAManifest.json";
     public const string AA_MANIFEST_FILE_NAME_BIN = "AAManifest.bin";
+    public const string BUNDLES_DIRECTORY_NAME = "bundles";
+    public const string ADDRESSABLES_CATALOG_FILE_NAME = "catalog.json";
 
     // --- 编辑器路径 ---
     public const string BUILD_PIPELINE_WINDOW_MENU_PATH = "Tools/Build/Build Pipeline";

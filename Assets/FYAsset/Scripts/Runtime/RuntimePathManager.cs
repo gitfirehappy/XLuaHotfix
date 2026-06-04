@@ -7,7 +7,7 @@ using UnityEngine;
 /// </summary>
 public static class RuntimePathManager
 {
-    public static string PersistentRoot => Path.Combine(Application.persistentDataPath, FYAssetSettings.Instance.ProjectName);
+    public static string PersistentRoot => FYAssetPathUtility.JoinFilePath(Application.persistentDataPath, FYAssetSettings.Instance.ProjectName);
     
     // 运行时动态决定的路径
     public static string EnvRoot { get; private set; }    // .../[Platform]/[Debug]
@@ -31,22 +31,22 @@ public static class RuntimePathManager
 
         // 组装路径结构
         // .../ProjectName/[Platform]/Release
-        EnvRoot = Path.Combine(PersistentRoot, platform, envDir); 
+        EnvRoot = FYAssetPathUtility.JoinFilePath(PersistentRoot, platform, envDir);
         
         // .../ProjectName/[Platform]/Release/Hotfix
-        HotfixRoot = Path.Combine(EnvRoot, "Hotfix");
+        HotfixRoot = FYAssetPathUtility.JoinFilePath(EnvRoot, "Hotfix");
         
         // .../ProjectName/[Platform]/Release/Hotfix/Build_abc-123-guid (当前生效目录)
         // 注意：这里假设 buildIndex.BuildGUID 已经是完整的目录名 (如 Build_2023...) 或者只是 GUID 部分
         // BuildProjectManager 生成的是完整包目录名，例如 Build_20260209123045_2.0.0
         // 这里的 guidDir 需要与热更流程中记录的一致
         if (!guidDir.StartsWith("Build_")) guidDir = "Build_" + guidDir;
-        CurrentGUIDRoot = Path.Combine(HotfixRoot, guidDir);
+        CurrentGUIDRoot = FYAssetPathUtility.JoinFilePath(HotfixRoot, guidDir);
         
         // Save, Logs, Cache 在 EnvRoot 下
-        CacheRoot = Path.Combine(EnvRoot, "Cache");
-        SaveRoot = Path.Combine(EnvRoot, "Saves");
-        LogRoot = Path.Combine(EnvRoot, "Logs");
+        CacheRoot = FYAssetPathUtility.JoinFilePath(EnvRoot, "Cache");
+        SaveRoot = FYAssetPathUtility.JoinFilePath(EnvRoot, "Saves");
+        LogRoot = FYAssetPathUtility.JoinFilePath(EnvRoot, "Logs");
         
         Debug.Log($"[RuntimePathManager] 路径已锁定至 GUID: {guidDir}\nRoot: {CurrentGUIDRoot}");
     }
@@ -66,7 +66,7 @@ public static class RuntimePathManager
         string guidDir = newBuildName;
         if (!guidDir.StartsWith("Build_")) guidDir = "Build_" + guidDir;
         
-        CurrentGUIDRoot = Path.Combine(HotfixRoot, guidDir);
+        CurrentGUIDRoot = FYAssetPathUtility.JoinFilePath(HotfixRoot, guidDir);
         Debug.Log($"[RuntimePathManager] 已切换至新 Build: {guidDir}\nRoot: {CurrentGUIDRoot}");
     }
 

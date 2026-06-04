@@ -11,7 +11,7 @@ using UnityEngine;
 /// </summary>
 public sealed class FileBuildRepository : IBuildRepository
 {
-    private static string SnapshotRoot => Path.Combine(BuildPathManager.ProjectRoot, "BuildData", "Snapshots");
+    private static string SnapshotRoot => FYAssetPathUtility.JoinFilePath(BuildPathManager.ProjectRoot, "BuildData", "Snapshots");
 
     public RepositoryStatus GetStatus(string channelKey)
     {
@@ -89,9 +89,9 @@ public sealed class FileBuildRepository : IBuildRepository
             throw new ArgumentException($"commit.BackendMode 与 channelKey 不匹配: {commit.ChannelKey} / {commit.BackendMode}", nameof(commit));
 
         string channelRoot = GetChannelRoot(commit.ChannelKey);
-        string objectsDir = Path.Combine(channelRoot, "objects");
-        string objectPath = Path.Combine(objectsDir, GetSnapshotFileName(commit.Version));
-        string headPath = Path.Combine(channelRoot, "HEAD.json");
+        string objectsDir = FYAssetPathUtility.JoinFilePath(channelRoot, "objects");
+        string objectPath = FYAssetPathUtility.JoinFilePath(objectsDir, GetSnapshotFileName(commit.Version));
+        string headPath = FYAssetPathUtility.JoinFilePath(channelRoot, "HEAD.json");
 
         FileHelper.EnsureDirectory(objectsDir);
         FileHelper.WriteAllTextAtomic(objectPath, SerializationUtility.SerializeToJson(commit, true));
@@ -121,8 +121,6 @@ public sealed class FileBuildRepository : IBuildRepository
             return FailPush(target, "toVersion is null.");
         if (target == null)
             throw new ArgumentNullException(nameof(target));
-        if (channelKey.IndexOf("/AA", StringComparison.OrdinalIgnoreCase) >= 0)
-            return FailPush(target, "AA Push not supported in this version.");
 
         var toCommit = TryLoadCommit(channelKey, toVersion);
         if (toCommit == null)
@@ -168,7 +166,7 @@ public sealed class FileBuildRepository : IBuildRepository
     private static RepositoryCommit TryLoadHead(string channelKey)
     {
         ClearLastHeadError(channelKey);
-        string headPath = Path.Combine(GetChannelRoot(channelKey), "HEAD.json");
+        string headPath = FYAssetPathUtility.JoinFilePath(GetChannelRoot(channelKey), "HEAD.json");
         if (!FileHelper.Exists(headPath))
             return null;
 
@@ -191,7 +189,7 @@ public sealed class FileBuildRepository : IBuildRepository
             return null;
         }
 
-        string objectPath = Path.Combine(GetObjectsDir(channelKey), headState.HeadVersion + ".json");
+        string objectPath = FYAssetPathUtility.JoinFilePath(GetObjectsDir(channelKey), headState.HeadVersion + ".json");
         if (!FileHelper.Exists(objectPath))
         {
             Debug.LogError($"[FileBuildRepository] HEAD 指向的 commit 不存在: {objectPath}");
@@ -229,7 +227,7 @@ public sealed class FileBuildRepository : IBuildRepository
     {
         if (version == null)
             return null;
-        string objectPath = Path.Combine(GetObjectsDir(channelKey), version.GetFullVersionString() + ".json");
+        string objectPath = FYAssetPathUtility.JoinFilePath(GetObjectsDir(channelKey), version.GetFullVersionString() + ".json");
         return FileHelper.Exists(objectPath) ? TryReadSnapshot(objectPath) : null;
     }
 
@@ -250,13 +248,13 @@ public sealed class FileBuildRepository : IBuildRepository
     {
         string[] parts = (channelKey ?? string.Empty).Split('/');
         if (parts.Length == 2)
-            return Path.Combine(SnapshotRoot, SanitizePathSegment(parts[0]), SanitizePathSegment(parts[1]));
-        return Path.Combine(SnapshotRoot, SanitizePathSegment(channelKey));
+            return FYAssetPathUtility.JoinFilePath(SnapshotRoot, SanitizePathSegment(parts[0]), SanitizePathSegment(parts[1]));
+        return FYAssetPathUtility.JoinFilePath(SnapshotRoot, SanitizePathSegment(channelKey));
     }
 
     private static string GetObjectsDir(string channelKey)
     {
-        return Path.Combine(GetChannelRoot(channelKey), "objects");
+        return FYAssetPathUtility.JoinFilePath(GetChannelRoot(channelKey), "objects");
     }
 
     private static string GetSnapshotFileName(VersionNumber version)
@@ -266,7 +264,7 @@ public sealed class FileBuildRepository : IBuildRepository
 
     private static string GetPushHistoryPath(string channelKey)
     {
-        return Path.Combine(GetChannelRoot(channelKey), "PushHistory.json");
+        return FYAssetPathUtility.JoinFilePath(GetChannelRoot(channelKey), "PushHistory.json");
     }
 
     private static List<PushHistoryEntry> TryLoadPushHistory(string channelKey)

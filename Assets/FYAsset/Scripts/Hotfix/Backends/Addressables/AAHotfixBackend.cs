@@ -68,19 +68,20 @@ public class AAHotfixBackend : IHotfixPipeline
     /// </summary>
     /// <param name="currentGUIDRoot">当前生效目录根目录。</param>
     /// <returns>本地版本信息视图。</returns>
-    public Task<HotfixVersionInfo> LoadLocalVersionAsync(string currentGUIDRoot)
+    public async Task<HotfixVersionInfo> LoadLocalVersionAsync(string currentGUIDRoot)
     {
         try
         {
-            var localManifest = LoadLocalManifest(currentGUIDRoot);
+            var localManifest = await AAManifestLoader.LoadFromDirectoryAsync(currentGUIDRoot)
+                                ?? await AAManifestLoader.LoadFromDirectoryAsync(Application.streamingAssetsPath);
             Debug.Log(
                 $"[AAHotfixBackend] 本地版本: {localManifest?.Version.GetVersionString()}, Hash: {localManifest?.FileHash}");
-            return Task.FromResult(ToHotfixVersionInfo(localManifest));
+            return ToHotfixVersionInfo(localManifest);
         }
         catch (Exception ex)
         {
             Debug.LogWarning($"[AAHotfixBackend] 本地 AAManifest 读取失败: {ex.Message}");
-            return Task.FromResult<HotfixVersionInfo>(null);
+            return null;
         }
     }
 
@@ -92,13 +93,13 @@ public class AAHotfixBackend : IHotfixPipeline
     /// <returns>远端版本信息视图。</returns>
     public async Task<HotfixVersionInfo> FetchRemoteVersionAsync(string remoteUrlRoot)
     {
-        string remoteManifestBinUrl = $"{remoteUrlRoot}/{FYAssetSettings.AA_MANIFEST_FILE_NAME_BIN}";
+        string remoteManifestBinUrl = FYAssetPathUtility.JoinUrl(remoteUrlRoot, FYAssetSettings.AA_MANIFEST_FILE_NAME_BIN);
         _remoteManifestData = await NetworkDownloader.DownloadBytes(remoteManifestBinUrl);
         _remoteManifestIsBinary = _remoteManifestData != null && _remoteManifestData.Length > 0;
 
         if (!_remoteManifestIsBinary)
         {
-            string remoteManifestUrl = $"{remoteUrlRoot}/{FYAssetSettings.AA_MANIFEST_FILE_NAME}";
+            string remoteManifestUrl = FYAssetPathUtility.JoinUrl(remoteUrlRoot, FYAssetSettings.AA_MANIFEST_FILE_NAME);
             string remoteManifestJson = await NetworkDownloader.DownloadText(remoteManifestUrl);
             if (string.IsNullOrEmpty(remoteManifestJson))
                 return null;
@@ -137,8 +138,8 @@ public class AAHotfixBackend : IHotfixPipeline
     public async Task<HotfixStepResult> PostDownloadAsync(HotfixContext ctx)
     {
         // 下载 catalog.json
-        string catalogUrl = $"{ctx.RemoteUrlRoot}/catalog.json";
-        string catalogSavePath = Path.Combine(ctx.TargetGUIDRoot, "catalog.json");
+        string catalogUrl = FYAssetPathUtility.JoinUrl(ctx.RemoteUrlRoot, FYAssetSettings.ADDRESSABLES_CATALOG_FILE_NAME);
+        string catalogSavePath = FYAssetPathUtility.JoinFilePath(ctx.TargetGUIDRoot, FYAssetSettings.ADDRESSABLES_CATALOG_FILE_NAME);
         bool catalogOk = await NetworkDownloader.DownloadFile(catalogUrl, catalogSavePath);
         if (!catalogOk)
             return HotfixStepResult.Fail(
@@ -155,11 +156,11 @@ public class AAHotfixBackend : IHotfixPipeline
         string alternateFileName = _remoteManifestIsBinary
             ? FYAssetSettings.AA_MANIFEST_FILE_NAME
             : FYAssetSettings.AA_MANIFEST_FILE_NAME_BIN;
-        FileHelper.TryDelete(Path.Combine(ctx.TargetGUIDRoot, alternateFileName));
-        FileHelper.WriteAllBytesAtomic(Path.Combine(ctx.TargetGUIDRoot, fileName), _remoteManifestData);
+        FileHelper.TryDelete(FYAssetPathUtility.JoinFilePath(ctx.TargetGUIDRoot, alternateFileName));
+        FileHelper.WriteAllBytesAtomic(FYAssetPathUtility.JoinFilePath(ctx.TargetGUIDRoot, fileName), _remoteManifestData);
 
         // 加载外部 Catalog（使 Addressables 识别热更资源）
-        string localCatalogPath = Path.Combine(ctx.TargetGUIDRoot, "catalog.json");
+        string localCatalogPath = FYAssetPathUtility.JoinFilePath(ctx.TargetGUIDRoot, FYAssetSettings.ADDRESSABLES_CATALOG_FILE_NAME);
         bool catalogLoaded = await CatalogUpdater.LoadExternalCatalog(localCatalogPath);
         if (!catalogLoaded)
             return HotfixStepResult.Fail(
@@ -204,11 +205,6 @@ public class AAHotfixBackend : IHotfixPipeline
             TotalSize = manifest.TotalSize,
             Bundles = bundles
         };
-    }
-
-    private static AAManifest LoadLocalManifest(string currentGUIDRoot)
-    {
-        return AAManifestLoader.LoadFromDirectory(currentGUIDRoot);
     }
 
     #endregion

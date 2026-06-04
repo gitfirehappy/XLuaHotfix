@@ -72,8 +72,8 @@ public class TaskWriteAAPackageManifest : IBuildTask
             return BuildTaskResult.Fail(BuildErrorCodes.VerificationFailed,
                 "AA 热更包大小超过阈值，Manifest 发布已中止。", true);
 
-        string jsonSavePath = Path.Combine(request.OutputDir, FYAssetSettings.AA_MANIFEST_FILE_NAME);
-        string binSavePath = Path.Combine(request.OutputDir, FYAssetSettings.AA_MANIFEST_FILE_NAME_BIN);
+        string jsonSavePath = FYAssetPathUtility.JoinFilePath(request.OutputDir, FYAssetSettings.AA_MANIFEST_FILE_NAME);
+        string binSavePath = FYAssetPathUtility.JoinFilePath(request.OutputDir, FYAssetSettings.AA_MANIFEST_FILE_NAME_BIN);
         string tempManifestPath = jsonSavePath + ".tmp";
 
         FileHelper.TryDelete(tempManifestPath);

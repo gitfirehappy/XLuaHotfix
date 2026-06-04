@@ -9,28 +9,28 @@ using UnityEngine;
 /// </summary>
 public static class BuildPathManager
 {
-    public static string ProjectRoot => Directory.GetParent(Application.dataPath).FullName;
+    public static string ProjectRoot => FYAssetPathUtility.NormalizePath(Directory.GetParent(Application.dataPath).FullName);
 
     public static string OutputRoot => ResolveProjectRelativePath(FYAssetBuildSettingsProvider.Shared.BuildOutputRoot);
 
-    public static string PackagesDir => Path.Combine(OutputRoot, FYAssetSettings.Instance.BuildPackagesFolderName);
+    public static string PackagesDir => FYAssetPathUtility.JoinFilePath(OutputRoot, FYAssetSettings.Instance.BuildPackagesFolderName);
 
-    public static string PackageIndexPath => Path.Combine(OutputRoot, FYAssetSettings.PACKAGE_INDEX_FILE_NAME);
+    public static string PackageIndexPath => FYAssetPathUtility.JoinFilePath(OutputRoot, FYAssetSettings.PACKAGE_INDEX_FILE_NAME);
 
     public static string GetPackageDir(string packageName)
     {
-        return Path.Combine(PackagesDir, packageName);
+        return FYAssetPathUtility.JoinFilePath(PackagesDir, packageName);
     }
 
     public static string GetBundlesDir(string packageDir)
     {
-        return Path.Combine(packageDir, "bundles");
+        return FYAssetPathUtility.JoinFilePath(packageDir, FYAssetSettings.BUNDLES_DIRECTORY_NAME);
     }
 
     public static string GetServerDataDir()
     {
         string platformSubDir = EditorUserBuildSettings.activeBuildTarget.ToString();
-        return Path.Combine(ProjectRoot, "ServerData", platformSubDir);
+        return FYAssetPathUtility.JoinFilePath(ProjectRoot, "ServerData", platformSubDir);
     }
 
     private static string ResolveProjectRelativePath(string path)
@@ -38,11 +38,7 @@ public static class BuildPathManager
         if (string.IsNullOrWhiteSpace(path))
             return ProjectRoot;
 
-        string normalized = path.Replace('\\', Path.DirectorySeparatorChar);
-        if (Path.IsPathRooted(normalized))
-            return normalized;
-
-        return Path.Combine(ProjectRoot, normalized);
+        return FYAssetPathUtility.ResolveFilePath(ProjectRoot, path);
     }
 }
 #endif

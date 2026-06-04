@@ -92,7 +92,7 @@ public class TaskScanABHotfixDiff : IBuildTask
 
     private static List<ArtifactDigest> ScanOutputDirectory()
     {
-        string outputDir = Path.Combine(BuildPathManager.ProjectRoot, "Temp", "BuildRepositoryPreview");
+        string outputDir = FYAssetPathUtility.JoinFilePath(BuildPathManager.ProjectRoot, "Temp", "BuildRepositoryPreview");
         var files = FileHelper.GetFiles(outputDir, "*", SearchOption.TopDirectoryOnly);
         var result = new List<ArtifactDigest>(files.Length);
         for (int i = 0; i < files.Length; i++)

@@ -427,9 +427,8 @@ public class SOAddressableTagger : EditorWindow
         if (string.IsNullOrEmpty(selectedPath))
             return;
 
-        if (selectedPath.StartsWith(Application.dataPath))
+        if (FYAssetPathUtility.TryMakeAssetPath(selectedPath, Application.dataPath, out string assetPath))
         {
-            string assetPath = "Assets" + selectedPath.Substring(Application.dataPath.Length);
             ScriptableObject soAsset = AssetDatabase.LoadAssetAtPath<ScriptableObject>(assetPath);
 
             if (soAsset != null && !container.soAssets.Contains(soAsset))

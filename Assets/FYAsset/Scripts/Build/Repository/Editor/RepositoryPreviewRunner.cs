@@ -42,8 +42,12 @@ public static class RepositoryPreviewRunner
         if (request == null)
             throw new ArgumentNullException(nameof(request));
 
-        string previewRoot = Path.Combine(BuildPathManager.ProjectRoot, "Temp", "BuildRepositoryPreview", Guid.NewGuid().ToString("N"));
-        string previewBuildRoot = Path.Combine(previewRoot, "build");
+        string previewRoot = FYAssetPathUtility.JoinFilePath(
+            BuildPathManager.ProjectRoot,
+            "Temp",
+            "BuildRepositoryPreview",
+            Guid.NewGuid().ToString("N"));
+        string previewBuildRoot = FYAssetPathUtility.JoinFilePath(previewRoot, "build");
 
         FileHelper.TryDeleteDirectory(previewRoot, true);
         FileHelper.EnsureDirectory(previewBuildRoot);

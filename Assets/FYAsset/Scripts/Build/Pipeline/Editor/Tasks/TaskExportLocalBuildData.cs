@@ -10,8 +10,6 @@ using UnityEngine;
 public class TaskExportLocalBuildData : IBuildTask
 {
     private const string BuildIndexFileName = FYAssetSettings.BUILD_INDEX_FILENAME;
-    private const string BundlesDirectoryName = "bundles";
-    private const string AddressablesCatalogFileName = "catalog.json";
 
     public string TaskName => "TaskExportLocalBuildData";
     public string[] DependsOn => new string[0];
@@ -55,7 +53,7 @@ public class TaskExportLocalBuildData : IBuildTask
         });
     }
 
-    private static string BuildIndexStreamingPath => Path.Combine(Application.streamingAssetsPath, BuildIndexFileName);
+    private static string BuildIndexStreamingPath => FYAssetPathUtility.JoinFilePath(Application.streamingAssetsPath, BuildIndexFileName);
 
     /// <summary>
     /// 导出启动期所需的本地构建数据。
@@ -112,8 +110,18 @@ public class TaskExportLocalBuildData : IBuildTask
             return;
         }
 
-        Debug.Log("[TaskExportLocalBuildData] AA baseline 由 player build 既有流程处理，跳过额外复制。");
+        ExportAABaselineManifest(request);
         CleanABManifest();
+    }
+
+    private static void ExportAABaselineManifest(BuildPackageRequest request)
+    {
+        Debug.Log("[TaskExportLocalBuildData] 正在复制 AA baseline manifest...");
+
+        CopyPackageFileIfExists(request.OutputDir, Application.streamingAssetsPath, FYAssetSettings.AA_MANIFEST_FILE_NAME);
+        CopyPackageFileIfExists(request.OutputDir, Application.streamingAssetsPath, FYAssetSettings.AA_MANIFEST_FILE_NAME_BIN);
+
+        Debug.Log($"[TaskExportLocalBuildData] AA baseline manifest 已复制: {request.OutputDir} -> {Application.streamingAssetsPath}");
     }
 
     private static void ExportABBaselinePackage(BuildPackageRequest request)
@@ -129,8 +137,8 @@ public class TaskExportLocalBuildData : IBuildTask
 
     private static void CopyPackageFileIfExists(string sourceDir, string targetDir, string fileName)
     {
-        string sourcePath = Path.Combine(sourceDir, fileName);
-        string targetPath = Path.Combine(targetDir, fileName);
+        string sourcePath = FYAssetPathUtility.JoinFilePath(sourceDir, fileName);
+        string targetPath = FYAssetPathUtility.JoinFilePath(targetDir, fileName);
         if (FileHelper.Exists(sourcePath))
         {
             FileHelper.CopyFile(sourcePath, targetPath, true);
@@ -142,7 +150,7 @@ public class TaskExportLocalBuildData : IBuildTask
 
     private static void CopyPackageBundles(BuildPackageRequest request)
     {
-        string targetBundlesDir = Path.Combine(Application.streamingAssetsPath, BundlesDirectoryName);
+        string targetBundlesDir = FYAssetPathUtility.JoinFilePath(Application.streamingAssetsPath, FYAssetSettings.BUNDLES_DIRECTORY_NAME);
         if (FileHelper.DirectoryExists(targetBundlesDir))
             FileHelper.TryDeleteDirectory(targetBundlesDir, true);
 
@@ -153,26 +161,26 @@ public class TaskExportLocalBuildData : IBuildTask
         string[] bundleFiles = FileHelper.GetFiles(request.BundlesDir, "*", SearchOption.AllDirectories);
         for (int i = 0; i < bundleFiles.Length; i++)
         {
-            string relativePath = bundleFiles[i].Substring(request.BundlesDir.Length).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-            string targetPath = Path.Combine(targetBundlesDir, relativePath);
+            string relativePath = FYAssetPathUtility.GetRelativeFilePath(request.BundlesDir, bundleFiles[i]);
+            string targetPath = FYAssetPathUtility.JoinFilePath(targetBundlesDir, relativePath);
             FileHelper.CopyFile(bundleFiles[i], targetPath, true);
         }
     }
 
     private static void CleanAABaselineFiles()
     {
-        FileHelper.TryDelete(Path.Combine(Application.streamingAssetsPath, AddressablesCatalogFileName));
-        FileHelper.TryDelete(Path.Combine(Application.streamingAssetsPath, FYAssetSettings.AA_MANIFEST_FILE_NAME));
-        FileHelper.TryDelete(Path.Combine(Application.streamingAssetsPath, FYAssetSettings.AA_MANIFEST_FILE_NAME_BIN));
+        FileHelper.TryDelete(FYAssetPathUtility.JoinFilePath(Application.streamingAssetsPath, FYAssetSettings.ADDRESSABLES_CATALOG_FILE_NAME));
+        FileHelper.TryDelete(FYAssetPathUtility.JoinFilePath(Application.streamingAssetsPath, FYAssetSettings.AA_MANIFEST_FILE_NAME));
+        FileHelper.TryDelete(FYAssetPathUtility.JoinFilePath(Application.streamingAssetsPath, FYAssetSettings.AA_MANIFEST_FILE_NAME_BIN));
     }
 
     private static void CleanABManifest()
     {
         bool cleaned = false;
-        if (FileHelper.TryDelete(Path.Combine(Application.streamingAssetsPath, FYAssetSettings.MANIFEST_FILE_NAME)))
+        if (FileHelper.TryDelete(FYAssetPathUtility.JoinFilePath(Application.streamingAssetsPath, FYAssetSettings.MANIFEST_FILE_NAME)))
             cleaned = true;
 
-        if (FileHelper.TryDelete(Path.Combine(Application.streamingAssetsPath, FYAssetSettings.MANIFEST_FILE_NAME_BIN)))
+        if (FileHelper.TryDelete(FYAssetPathUtility.JoinFilePath(Application.streamingAssetsPath, FYAssetSettings.MANIFEST_FILE_NAME_BIN)))
             cleaned = true;
 
         if (cleaned)

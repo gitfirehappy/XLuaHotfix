@@ -8,7 +8,7 @@ public enum BackendMode
     /// <summary>基于 AAManifest 的 AA 后端</summary>
     AA = 0,
 
-    /// <summary>基于 ABManifest 的新版后端，后续 Task 默认使用此模式</summary>
+    /// <summary>基于 ABManifest 的 AB 后端</summary>
     ABManifest = 1
 }
 

@@ -45,7 +45,7 @@ public class TaskGenerateManifest : IBuildTask
             var b = buildResults[i];
             string outputDir = cfg.OutputRoot;
             string fileName = b.OutputFileName ?? b.BundleName;
-            string filePath = Path.Combine(outputDir, "_temp", fileName);
+            string filePath = FYAssetPathUtility.JoinFilePath(outputDir, "_temp", fileName);
             if (!File.Exists(filePath))
                 return BuildTaskResult.Fail(BuildErrorCodes.BundleFileNotFound,
                     $"Bundle 输出文件不存在: '{filePath}'。", true);

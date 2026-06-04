@@ -36,8 +36,8 @@ public class TaskWriteABPackageManifest : IBuildTask
                 "AB 热更包大小超过阈值，Manifest 发布已中止。", true);
 
         ManifestOutputFormat outputFormat = FYAssetBuildSettingsProvider.GetManifestOutputFormat(request.BackendMode);
-        string manifestPath = Path.Combine(request.OutputDir, FYAssetSettings.MANIFEST_FILE_NAME);
-        string manifestBinPath = Path.Combine(request.OutputDir, FYAssetSettings.MANIFEST_FILE_NAME_BIN);
+        string manifestPath = FYAssetPathUtility.JoinFilePath(request.OutputDir, FYAssetSettings.MANIFEST_FILE_NAME);
+        string manifestBinPath = FYAssetPathUtility.JoinFilePath(request.OutputDir, FYAssetSettings.MANIFEST_FILE_NAME_BIN);
 
         FileHelper.EnsureDirectory(request.OutputDir);
 

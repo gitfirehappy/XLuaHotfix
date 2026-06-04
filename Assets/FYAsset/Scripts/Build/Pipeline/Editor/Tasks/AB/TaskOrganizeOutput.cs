@@ -31,7 +31,7 @@ public class TaskOrganizeOutput : IBuildTask
         var platform = cfg.TargetPlatform;
         var backendMode = cfg.BackendMode;
 
-        string tempDir = Path.Combine(outputRoot, "_temp");
+        string tempDir = FYAssetPathUtility.JoinFilePath(outputRoot, "_temp");
         string outputDir = request.OutputDir;
         string bundleOutputDir = request.BundlesDir;
 
@@ -45,8 +45,8 @@ public class TaskOrganizeOutput : IBuildTask
         var copiedFiles = new List<string>();
         foreach (var bundle in manifest.BundleEntries)
         {
-            string srcPath = Path.Combine(tempDir, bundle.BundleName);
-            string destPath = Path.Combine(bundleOutputDir, bundle.BundleName);
+            string srcPath = FYAssetPathUtility.JoinFilePath(tempDir, bundle.BundleName);
+            string destPath = FYAssetPathUtility.JoinFilePath(bundleOutputDir, bundle.BundleName);
             if (!FileHelper.Exists(srcPath))
                 return BuildTaskResult.Fail(BuildErrorCodes.BundleFileNotFound,
                     $"AB 最终输出缺少 Bundle 文件: '{srcPath}'。", true);
@@ -86,7 +86,7 @@ public class TaskOrganizeOutput : IBuildTask
             }
         }
 
-        string summaryPath = Path.Combine(outputDir, "build_summary.txt");
+        string summaryPath = FYAssetPathUtility.JoinFilePath(outputDir, "build_summary.txt");
         FileHelper.WriteAllTextAtomic(summaryPath, summary.ToString(), Encoding.UTF8);
 
         // ④ 清理临时构建产物

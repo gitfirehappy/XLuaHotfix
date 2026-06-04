@@ -20,13 +20,16 @@ public static class AddressablesBuildOutputOrganizer
     /// <param name="finalOutputDir">最终打包输出目录，默认形如 Project/HotfixOutput/Packages/Build_yyyyMMddHHmmss_version</param>
     public static void OrganizeBuildOutput(string buildSourceDir, string finalOutputDir)
     {
+        buildSourceDir = FYAssetPathUtility.NormalizePath(buildSourceDir);
+        finalOutputDir = FYAssetPathUtility.NormalizePath(finalOutputDir);
+
         if (FileHelper.DirectoryExists(finalOutputDir))
         {
             FileHelper.TryDeleteDirectory(finalOutputDir, true);
         }
         FileHelper.EnsureDirectory(finalOutputDir);
 
-        string bundleTargetDir = Path.Combine(finalOutputDir, "bundles");
+        string bundleTargetDir = FYAssetPathUtility.JoinFilePath(finalOutputDir, FYAssetSettings.BUNDLES_DIRECTORY_NAME);
         FileHelper.EnsureDirectory(bundleTargetDir);
 
         var sourceFiles = Directory.GetFiles(buildSourceDir, "*", SearchOption.AllDirectories);
@@ -39,7 +42,7 @@ public static class AddressablesBuildOutputOrganizer
             // 处理 Catalog (通常是 catalog_hash.json，需重命名为 catalog.json)
             if (fileName.StartsWith("catalog") && extension == ".json")
             {
-                string targetPath = Path.Combine(finalOutputDir, "catalog.json");
+                string targetPath = FYAssetPathUtility.JoinFilePath(finalOutputDir, FYAssetSettings.ADDRESSABLES_CATALOG_FILE_NAME);
                 FileHelper.CopyFile(file, targetPath, true);
                 Debug.Log($"[AddressablesBuildOutputOrganizer] Catalog 已复制并重命名: {targetPath}");
             }
@@ -53,13 +56,13 @@ public static class AddressablesBuildOutputOrganizer
             // 全量导出，下载时再通过 AAManifest.json 优化
             else if (extension == ".bundle")
             {
-                string targetPath = Path.Combine(bundleTargetDir, fileName);
+                string targetPath = FYAssetPathUtility.JoinFilePath(bundleTargetDir, fileName);
                 FileHelper.CopyFile(file, targetPath, true);
             }
             // 其他文件 (如 bin 等，Addressable 默认 .bundle 扩展名，如果是 .bin 需自行适配)
             else if (extension == ".bin") 
             {
-                string targetPath = Path.Combine(bundleTargetDir, fileName);
+                string targetPath = FYAssetPathUtility.JoinFilePath(bundleTargetDir, fileName);
                 FileHelper.CopyFile(file, targetPath, true);
             }
         }
@@ -72,6 +75,8 @@ public static class AddressablesBuildOutputOrganizer
     /// </summary>
     public static void CleanServerData(string serverDataPath)
     {
+        serverDataPath = FYAssetPathUtility.NormalizePath(serverDataPath);
+
         if (FileHelper.DirectoryExists(serverDataPath))
         {
             try 

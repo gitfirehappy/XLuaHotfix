@@ -113,7 +113,7 @@ public class TaskBuildBundles : IBuildTask
         }
 
         // 创建临时构建目录
-        string tempDir = Path.Combine(outputRoot, "_temp");
+        string tempDir = FYAssetPathUtility.JoinFilePath(outputRoot, "_temp");
         if (!Directory.Exists(tempDir))
             Directory.CreateDirectory(tempDir);
 
@@ -175,7 +175,7 @@ public class TaskBuildBundles : IBuildTask
             string[] allBundles = unityManifest.GetAllAssetBundles();
             foreach (var outputName in allBundles)
             {
-                string filePath = Path.Combine(tempDir, outputName);
+                string filePath = FYAssetPathUtility.JoinFilePath(tempDir, outputName);
                 var info = new FileInfo(filePath);
                 string hash = HashGenerator.GenerateFileHash(filePath);
                 long size = info.Exists ? info.Length : 0;
@@ -246,7 +246,7 @@ public class TaskBuildBundles : IBuildTask
                     $"Bundle '{bundleName}' 包含 {rawBundleFileCount[bundleName]} 个 RawFile，" +
                     "每个 Bundle 仅支持一个 RawFile。", true);
 
-            string destPath = Path.Combine(tempDir, bundleName);
+            string destPath = FYAssetPathUtility.JoinFilePath(tempDir, bundleName);
             try
             {
                 File.Copy(assetPath, destPath, true);

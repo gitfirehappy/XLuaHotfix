@@ -19,7 +19,7 @@ public readonly struct BuildConfig
         BackendMode = mode;
         Version = version;
         BuildVersionString = buildVersionString;
-        OutputRoot = outputRoot;
+        OutputRoot = FYAssetPathUtility.ResolveFilePath(BuildPathManager.ProjectRoot, outputRoot);
         TargetPlatform = platform;
     }
 }

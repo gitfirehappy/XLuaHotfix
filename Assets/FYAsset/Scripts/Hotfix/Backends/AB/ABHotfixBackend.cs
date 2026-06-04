@@ -46,8 +46,8 @@ public class ABHotfixBackend : IHotfixPipeline
     /// <inheritdoc/>
     public Task<HotfixVersionInfo> LoadLocalVersionAsync(string currentGUIDRoot)
     {
-        string manifestBinPath = Path.Combine(currentGUIDRoot, FYAssetSettings.MANIFEST_FILE_NAME_BIN);
-        string manifestJsonPath = Path.Combine(currentGUIDRoot, FYAssetSettings.MANIFEST_FILE_NAME);
+        string manifestBinPath = FYAssetPathUtility.JoinFilePath(currentGUIDRoot, FYAssetSettings.MANIFEST_FILE_NAME_BIN);
+        string manifestJsonPath = FYAssetPathUtility.JoinFilePath(currentGUIDRoot, FYAssetSettings.MANIFEST_FILE_NAME);
 
         try
         {
@@ -79,14 +79,14 @@ public class ABHotfixBackend : IHotfixPipeline
     public async Task<HotfixVersionInfo> FetchRemoteVersionAsync(string remoteUrlRoot)
     {
         // 优先下载二进制格式
-        string manifestBinUrl = $"{remoteUrlRoot}/{FYAssetSettings.MANIFEST_FILE_NAME_BIN}";
+        string manifestBinUrl = FYAssetPathUtility.JoinUrl(remoteUrlRoot, FYAssetSettings.MANIFEST_FILE_NAME_BIN);
         _remoteManifestData = await NetworkDownloader.DownloadBytes(manifestBinUrl);
         _remoteManifestIsBinary = _remoteManifestData != null && _remoteManifestData.Length > 0;
 
         // 二进制下载失败，回退到 JSON 格式
         if (!_remoteManifestIsBinary)
         {
-            string manifestJsonUrl = $"{remoteUrlRoot}/{FYAssetSettings.MANIFEST_FILE_NAME}";
+            string manifestJsonUrl = FYAssetPathUtility.JoinUrl(remoteUrlRoot, FYAssetSettings.MANIFEST_FILE_NAME);
             string manifestJson = await NetworkDownloader.DownloadText(manifestJsonUrl);
             if (string.IsNullOrEmpty(manifestJson))
                 return null;
@@ -124,11 +124,11 @@ public class ABHotfixBackend : IHotfixPipeline
 
         // 根据下载格式确定写入文件名
         string fileName = _remoteManifestIsBinary ? FYAssetSettings.MANIFEST_FILE_NAME_BIN : FYAssetSettings.MANIFEST_FILE_NAME;
-        string filePath = Path.Combine(ctx.TargetGUIDRoot, fileName);
+        string filePath = FYAssetPathUtility.JoinFilePath(ctx.TargetGUIDRoot, fileName);
 
         // 删除异格式旧文件（避免残留）
         string alternateFileName = _remoteManifestIsBinary ? FYAssetSettings.MANIFEST_FILE_NAME : FYAssetSettings.MANIFEST_FILE_NAME_BIN;
-        string alternateFilePath = Path.Combine(ctx.TargetGUIDRoot, alternateFileName);
+        string alternateFilePath = FYAssetPathUtility.JoinFilePath(ctx.TargetGUIDRoot, alternateFileName);
 
         try
         {

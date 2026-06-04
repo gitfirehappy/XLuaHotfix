@@ -54,7 +54,7 @@ public class TaskPrepareContext : IBuildTask
         // OutputRoot: CLI --output > 默认路径
         string outputRoot = GetCommandLineArg("--output")
             ?? ctx.Get<string>(BuildContextKeys.RepositoryPreviewOutput)
-            ?? Path.Combine(Application.dataPath, "..", "Build", platform.ToString());
+            ?? FYAssetPathUtility.JoinFilePath(BuildPathManager.ProjectRoot, "Build", platform.ToString());
 
         var version = versionData != null
             ? versionData.CurrentVersion

@@ -306,7 +306,7 @@ public static class BuildPipelineUI
     /// </summary>
     public static void EnsureAssetParentFolder(string assetPath)
     {
-        string folderPath = Path.GetDirectoryName(assetPath)?.Replace('\\', '/');
+        string folderPath = FYAssetPathUtility.NormalizeAssetPath(Path.GetDirectoryName(assetPath));
         if (string.IsNullOrEmpty(folderPath) || AssetDatabase.IsValidFolder(folderPath))
             return;
 
@@ -317,7 +317,7 @@ public static class BuildPipelineUI
         string current = parts[0];
         for (int i = 1; i < parts.Length; i++)
         {
-            string next = current + "/" + parts[i];
+            string next = FYAssetPathUtility.JoinAssetPath(current, parts[i]);
             if (!AssetDatabase.IsValidFolder(next))
                 AssetDatabase.CreateFolder(current, parts[i]);
             current = next;
@@ -367,11 +367,10 @@ public static class BuildPipelineUI
         if (string.IsNullOrEmpty(absolutePath))
             return null;
 
-        string normalizedAbsolute = absolutePath.Replace('\\', '/');
         return mode switch
         {
-            PathPickerMode.AssetFile or PathPickerMode.AssetFolder => TryToAssetPath(normalizedAbsolute),
-            PathPickerMode.ProjectFile or PathPickerMode.ProjectFolder => TryToProjectRelativePath(normalizedAbsolute),
+            PathPickerMode.AssetFile or PathPickerMode.AssetFolder => TryToAssetPath(absolutePath),
+            PathPickerMode.ProjectFile or PathPickerMode.ProjectFolder => TryToProjectRelativePath(absolutePath),
             _ => null
         };
     }
@@ -382,7 +381,7 @@ public static class BuildPipelineUI
         if (string.IsNullOrWhiteSpace(currentPath))
             return mode == PathPickerMode.AssetFile || mode == PathPickerMode.AssetFolder ? Application.dataPath : root;
 
-        string normalized = currentPath.Replace('\\', '/');
+        string normalized = FYAssetPathUtility.NormalizeAssetPath(currentPath);
         string absolute = mode == PathPickerMode.AssetFile || mode == PathPickerMode.AssetFolder
             ? ToAbsoluteAssetPath(normalized)
             : ToAbsoluteProjectPath(normalized);
@@ -395,59 +394,48 @@ public static class BuildPipelineUI
 
     private static string GetProjectRoot()
     {
-        return Directory.GetParent(Application.dataPath)?.FullName ?? Application.dataPath;
+        return FYAssetPathUtility.NormalizePath(Directory.GetParent(Application.dataPath)?.FullName ?? Application.dataPath);
     }
 
     private static string ToAbsoluteAssetPath(string assetPath)
     {
-        string normalized = assetPath?.Replace('\\', '/');
+        string normalized = FYAssetPathUtility.NormalizeAssetPath(assetPath);
         if (string.IsNullOrEmpty(normalized))
             return string.Empty;
 
         if (Path.IsPathRooted(normalized))
-            return normalized;
+            return FYAssetPathUtility.NormalizePath(normalized);
 
         if (!normalized.StartsWith("Assets", StringComparison.Ordinal))
             return string.Empty;
 
-        return Path.Combine(GetProjectRoot(), normalized);
+        return FYAssetPathUtility.ResolveFilePath(GetProjectRoot(), normalized);
     }
 
     private static string ToAbsoluteProjectPath(string path)
     {
-        string normalized = path?.Replace('\\', '/');
+        string normalized = FYAssetPathUtility.NormalizeAssetPath(path);
         if (string.IsNullOrEmpty(normalized))
             return string.Empty;
 
         if (Path.IsPathRooted(normalized))
-            return normalized;
+            return FYAssetPathUtility.NormalizePath(normalized);
 
-        return Path.Combine(GetProjectRoot(), normalized);
+        return FYAssetPathUtility.ResolveFilePath(GetProjectRoot(), normalized);
     }
 
     private static string TryToAssetPath(string absolutePath)
     {
-        string dataPath = Application.dataPath.Replace('\\', '/');
-        if (absolutePath.Equals(dataPath, StringComparison.OrdinalIgnoreCase))
-            return "Assets";
-
-        if (!absolutePath.StartsWith(dataPath, StringComparison.OrdinalIgnoreCase))
-            return null;
-
-        string relative = absolutePath.Substring(dataPath.Length).TrimStart('/');
-        return string.IsNullOrEmpty(relative) ? "Assets" : "Assets/" + relative;
+        return FYAssetPathUtility.TryMakeAssetPath(absolutePath, Application.dataPath, out string assetPath)
+            ? assetPath
+            : null;
     }
 
     private static string TryToProjectRelativePath(string absolutePath)
     {
-        string projectRoot = GetProjectRoot().Replace('\\', '/');
-        if (absolutePath.Equals(projectRoot, StringComparison.OrdinalIgnoreCase))
-            return string.Empty;
-
-        if (!absolutePath.StartsWith(projectRoot, StringComparison.OrdinalIgnoreCase))
-            return null;
-
-        return absolutePath.Substring(projectRoot.Length).TrimStart('/');
+        return FYAssetPathUtility.TryMakeProjectRelativePath(absolutePath, GetProjectRoot(), out string relativePath)
+            ? relativePath
+            : null;
     }
 
     private static int GetBestByteUnitIndex(long bytes)

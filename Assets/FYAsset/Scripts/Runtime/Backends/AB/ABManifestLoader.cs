@@ -31,10 +31,10 @@ public static class ABManifestLoader
         string primaryDir = RuntimePathManager.CurrentGUIDRoot;
         string fallbackDir = Application.streamingAssetsPath;
 
-        string primaryBinPath = Path.Combine(primaryDir, ManifestFileNameBin);
-        string primaryJsonPath = Path.Combine(primaryDir, ManifestFileNameJson);
-        string fallbackBinPath = Path.Combine(fallbackDir, ManifestFileNameBin);
-        string fallbackJsonPath = Path.Combine(fallbackDir, ManifestFileNameJson);
+        string primaryBinPath = FYAssetPathUtility.JoinFilePath(primaryDir, ManifestFileNameBin);
+        string primaryJsonPath = FYAssetPathUtility.JoinFilePath(primaryDir, ManifestFileNameJson);
+        string fallbackBinPath = FYAssetPathUtility.JoinFilePath(fallbackDir, ManifestFileNameBin);
+        string fallbackJsonPath = FYAssetPathUtility.JoinFilePath(fallbackDir, ManifestFileNameJson);
 
         var manifest = await TryLoadFromFile(primaryBinPath);
         if (manifest != null)

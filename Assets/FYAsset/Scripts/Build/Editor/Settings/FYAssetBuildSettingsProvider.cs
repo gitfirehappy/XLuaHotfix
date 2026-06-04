@@ -76,7 +76,7 @@ public static class FYAssetBuildSettingsProvider
         {
             Id = "local",
             Type = PushTargetType.LocalDirectory,
-            Path = Path.Combine(Shared.BuildOutputRoot, "PushTargets", "local")
+            Path = string.Empty
         });
         return settings;
     }
@@ -93,7 +93,7 @@ public static class FYAssetBuildSettingsProvider
 
     private static void EnsureAssetParentFolder(string assetPath)
     {
-        string folder = Path.GetDirectoryName(assetPath)?.Replace('\\', '/');
+        string folder = FYAssetPathUtility.NormalizeAssetPath(Path.GetDirectoryName(assetPath));
         if (string.IsNullOrEmpty(folder) || AssetDatabase.IsValidFolder(folder))
             return;
 
@@ -101,7 +101,7 @@ public static class FYAssetBuildSettingsProvider
         string current = parts[0];
         for (int i = 1; i < parts.Length; i++)
         {
-            string next = current + "/" + parts[i];
+            string next = FYAssetPathUtility.JoinAssetPath(current, parts[i]);
             if (!AssetDatabase.IsValidFolder(next))
                 AssetDatabase.CreateFolder(current, parts[i]);
             current = next;

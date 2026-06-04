@@ -12,7 +12,7 @@ using UnityEngine;
 public static class HotfixManager
 {
     private static string HotfixUrl => FYAssetSettings.Instance.HotfixUrl;
-    private static string PackageIndexUrl => $"{HotfixUrl}{FYAssetSettings.PACKAGE_INDEX_FILE_NAME}";
+    private static string PackageIndexUrl => FYAssetPathUtility.JoinUrl(HotfixUrl, FYAssetSettings.PACKAGE_INDEX_FILE_NAME);
 
     /// <summary>
     /// 当热更步骤发生改变时触发
@@ -151,7 +151,7 @@ public static class HotfixManager
 
         // 尝试读取已保存的 PackageIndex.json 来覆盖 GUID (断点续传/二次启动)
         // 使用 RuntimePathManager.HotfixRoot 确保读取路径与 StepApplyUpdate 的保存路径一致
-        string localPackageIndexPath = Path.Combine(RuntimePathManager.HotfixRoot, FYAssetSettings.PACKAGE_INDEX_FILE_NAME);
+        string localPackageIndexPath = FYAssetPathUtility.JoinFilePath(RuntimePathManager.HotfixRoot, FYAssetSettings.PACKAGE_INDEX_FILE_NAME);
         if (FileHelper.Exists(localPackageIndexPath))
         {
             try
@@ -230,8 +230,11 @@ public static class HotfixManager
         }
 
         ctx.TargetPackageName = packageIndex.LatestPackage;
-        ctx.RemoteUrlRoot = $"{HotfixUrl}/{FYAssetSettings.Instance.BuildPackagesFolderName}/{ctx.TargetPackageName}";
-        ctx.TargetGUIDRoot = Path.Combine(RuntimePathManager.HotfixRoot, ctx.TargetPackageName);
+        ctx.RemoteUrlRoot = FYAssetPathUtility.JoinUrl(
+            HotfixUrl,
+            FYAssetSettings.Instance.BuildPackagesFolderName,
+            ctx.TargetPackageName);
+        ctx.TargetGUIDRoot = FYAssetPathUtility.JoinFilePath(RuntimePathManager.HotfixRoot, ctx.TargetPackageName);
 
         Debug.Log($"[HotfixManager] 获取最新包体: {ctx.TargetPackageName}，URL已更新: {ctx.RemoteUrlRoot}");
         CompleteStep();
@@ -317,7 +320,7 @@ public static class HotfixManager
         PackageCleaner.CleanOldBuildPackages(maxKeepCount: 1);
 
         // 目标 Bundles 目录
-        string targetBundleRoot = Path.Combine(ctx.TargetGUIDRoot, "bundles");
+        string targetBundleRoot = FYAssetPathUtility.JoinFilePath(ctx.TargetGUIDRoot, FYAssetSettings.BUNDLES_DIRECTORY_NAME);
         if (!FileHelper.DirectoryExists(targetBundleRoot)) FileHelper.EnsureDirectory(targetBundleRoot);
         CleanupStaleTempFiles(targetBundleRoot);
 
@@ -345,13 +348,13 @@ public static class HotfixManager
 
         foreach (var bundleInfo in remoteBundles)
         {
-            string savePath = Path.Combine(targetBundleRoot, bundleInfo.BundleName);
+            string savePath = FYAssetPathUtility.JoinFilePath(targetBundleRoot, bundleInfo.BundleName);
 
             // 优化：检查本地是否有相同 Hash 的文件，直接复制
             bool copied = false;
             if (localBundleMap.TryGetValue(bundleInfo.FileHash, out string localName))
             {
-                string localPath = Path.Combine(RuntimePathManager.CurrentGUIDRoot, "bundles", localName);
+                string localPath = FYAssetPathUtility.JoinFilePath(RuntimePathManager.CurrentGUIDRoot, FYAssetSettings.BUNDLES_DIRECTORY_NAME, localName);
                 if (FileHelper.Exists(localPath))
                 {
                     string copyTempPath = savePath + ".tmp";
@@ -387,7 +390,10 @@ public static class HotfixManager
 
             if (!copied)
             {
-                string bundleUrl = $"{ctx.RemoteUrlRoot}/bundles/{bundleInfo.BundleName}";
+                string bundleUrl = FYAssetPathUtility.JoinUrl(
+                    ctx.RemoteUrlRoot,
+                    FYAssetSettings.BUNDLES_DIRECTORY_NAME,
+                    bundleInfo.BundleName);
                 tasks.Add(DownloadBundleWithThrottle(semaphore, bundleUrl, savePath, bundleInfo, () =>
                 {
                     int done = Interlocked.Increment(ref completedBundles);
@@ -440,7 +446,7 @@ public static class HotfixManager
         BeginStep("Apply update", 9);
 
         // 更新本地记录的 PackageIndex，指向新的包体
-        string packageIndexPath = Path.Combine(RuntimePathManager.HotfixRoot, FYAssetSettings.PACKAGE_INDEX_FILE_NAME);
+        string packageIndexPath = FYAssetPathUtility.JoinFilePath(RuntimePathManager.HotfixRoot, FYAssetSettings.PACKAGE_INDEX_FILE_NAME);
         var packageIndex = new PackageIndex
         {
             LatestPackage = ctx.TargetPackageName,
@@ -616,7 +622,7 @@ public static class HotfixManager
     /// </summary>
     private static void CheckAndCleanIfNewBuild(BuildIndexData currentBuildIndex)
     {
-        string guidFilePath = Path.Combine(Application.persistentDataPath, "build_guid.txt");
+        string guidFilePath = FYAssetPathUtility.JoinFilePath(Application.persistentDataPath, "build_guid.txt");
         string lastGuid = "";
 
         // 从文件读取上次的 GUID
@@ -653,7 +659,7 @@ public static class HotfixManager
             }
 
             // 3. 清理 Addressables 内部缓存 (Catalog 缓存)
-            string aaCachePath = Path.Combine(Application.persistentDataPath, "com.unity.addressables");
+            string aaCachePath = FYAssetPathUtility.JoinFilePath(Application.persistentDataPath, "com.unity.addressables");
             try
             {
                 if (FileHelper.DirectoryExists(aaCachePath))
@@ -689,7 +695,7 @@ public static class HotfixManager
     /// </summary>
     private static async Task<BuildIndexData> LoadBuildIndexFromStreamingAssets()
     {
-        string path = Path.Combine(Application.streamingAssetsPath, "BuildIndex.json");
+        string path = FYAssetPathUtility.JoinFilePath(Application.streamingAssetsPath, FYAssetSettings.BUILD_INDEX_FILENAME);
 
         try
         {

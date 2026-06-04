@@ -33,7 +33,7 @@ public class TaskVerifyBuildResult : IBuildTask
         var manifest = ctx.Require<ABManifest>(BuildContextKeys.ABManifest);
         var buildResults = ctx.Require<List<BundleBuildInfo>>(BuildContextKeys.BundleBuildResults);
         string outputRoot = cfg.OutputRoot;
-        string tempDir = Path.Combine(outputRoot, "_temp");
+        string tempDir = FYAssetPathUtility.JoinFilePath(outputRoot, "_temp");
 
         // 构建 bundleName → PayloadKind 索引
         var payloadKindByBundle = new Dictionary<string, EPayloadKind>(StringComparer.OrdinalIgnoreCase);
@@ -50,7 +50,7 @@ public class TaskVerifyBuildResult : IBuildTask
         // ① FILE EXISTENCE + ② FILE INTEGRITY + ④ HASH RE-VERIFY + ⑤ SIZE ANOMALY
         foreach (var bundle in manifest.BundleEntries)
         {
-            string bundlePath = Path.Combine(tempDir, bundle.BundleName);
+            string bundlePath = FYAssetPathUtility.JoinFilePath(tempDir, bundle.BundleName);
             knownFiles.Add(bundle.BundleName);
 
             // ①

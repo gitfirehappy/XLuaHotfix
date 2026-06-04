@@ -14,6 +14,10 @@ using UnityEngine;
 /// 文件搜索顺序（每个目录）：
 /// 1. AAManifest.bin（二进制格式，优先）
 /// 2. AAManifest.json（JSON 格式，fallback）
+///
+/// 目录搜索顺序：
+/// 1. RuntimePathManager.CurrentGUIDRoot（热更目录）
+/// 2. Application.streamingAssetsPath（包内首包 baseline）
 /// </summary>
 public static class AAManifestLoader
 {
@@ -21,11 +25,20 @@ public static class AAManifestLoader
     private const string ManifestFileNameJson = FYAssetSettings.AA_MANIFEST_FILE_NAME;
 
     /// <summary>
-    /// 从 RuntimePathManager.CurrentGUIDRoot 异步加载 AAManifest。
+    /// 从热更目录异步加载 AAManifest，失败后回退到 StreamingAssets baseline。
     /// </summary>
-    public static Task<AAManifest> LoadAsync()
+    public static async Task<AAManifest> LoadAsync()
     {
-        return LoadFromDirectoryAsync(RuntimePathManager.CurrentGUIDRoot);
+        var manifest = await LoadFromDirectoryAsync(RuntimePathManager.CurrentGUIDRoot);
+        if (manifest != null)
+            return manifest;
+
+        manifest = await LoadFromDirectoryAsync(Application.streamingAssetsPath);
+        if (manifest != null)
+            return manifest;
+
+        Debug.LogWarning("[AAManifestLoader] AAManifest 在热更目录与 StreamingAssets 中均加载失败。");
+        return null;
     }
 
     /// <summary>
@@ -39,8 +52,8 @@ public static class AAManifestLoader
             return null;
         }
 
-        string binPath = Path.Combine(packageRoot, ManifestFileNameBin);
-        string jsonPath = Path.Combine(packageRoot, ManifestFileNameJson);
+        string binPath = FYAssetPathUtility.JoinFilePath(packageRoot, ManifestFileNameBin);
+        string jsonPath = FYAssetPathUtility.JoinFilePath(packageRoot, ManifestFileNameJson);
 
         var manifest = await TryLoadFromFileAsync(binPath);
         if (manifest != null)
@@ -74,11 +87,11 @@ public static class AAManifestLoader
             return null;
         }
 
-        string binPath = Path.Combine(packageRoot, ManifestFileNameBin);
+        string binPath = FYAssetPathUtility.JoinFilePath(packageRoot, ManifestFileNameBin);
         if (FileHelper.Exists(binPath))
             return TryLoadFromFile(binPath);
 
-        string jsonPath = Path.Combine(packageRoot, ManifestFileNameJson);
+        string jsonPath = FYAssetPathUtility.JoinFilePath(packageRoot, ManifestFileNameJson);
         if (FileHelper.Exists(jsonPath))
             return TryLoadFromFile(jsonPath);
 

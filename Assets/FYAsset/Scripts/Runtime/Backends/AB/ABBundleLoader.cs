@@ -296,12 +296,12 @@ public class ABBundleLoader
     private string ResolveBundlePath(string bundleName)
     {
         // Primary: 当前热更包的 bundles 目录
-        string primaryPath = Path.Combine(RuntimePathManager.CurrentGUIDRoot, "bundles", bundleName);
+        string primaryPath = FYAssetPathUtility.JoinFilePath(RuntimePathManager.CurrentGUIDRoot, FYAssetSettings.BUNDLES_DIRECTORY_NAME, bundleName);
         if (FileHelper.Exists(primaryPath))
             return primaryPath;
 
         // Fallback: 包内初始 bundles 目录
-        string fallbackPath = Path.Combine(Application.streamingAssetsPath, "bundles", bundleName);
+        string fallbackPath = FYAssetPathUtility.JoinFilePath(Application.streamingAssetsPath, FYAssetSettings.BUNDLES_DIRECTORY_NAME, bundleName);
         if (FileHelper.Exists(fallbackPath))
             return fallbackPath;
 
@@ -315,7 +315,7 @@ public class ABBundleLoader
     /// </summary>
     private static async Task<AssetBundle> LoadBundleFromStreamingAssetsAsync(string bundleName)
     {
-        string path = Path.Combine(Application.streamingAssetsPath, "bundles", bundleName);
+        string path = FYAssetPathUtility.JoinFilePath(Application.streamingAssetsPath, FYAssetSettings.BUNDLES_DIRECTORY_NAME, bundleName);
 
 #if UNITY_ANDROID && !UNITY_EDITOR
         using var request = UnityWebRequestAssetBundle.GetAssetBundle(path);
@@ -327,7 +327,7 @@ public class ABBundleLoader
         }
         return DownloadHandlerAssetBundle.GetContent(request);
 #else
-        if (!File.Exists(path))
+        if (!FileHelper.Exists(path))
         {
             Debug.LogError($"[ABBundleLoader] StreamingAssets 中未找到 Bundle: {path}");
             return null;

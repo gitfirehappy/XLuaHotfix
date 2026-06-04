@@ -75,11 +75,11 @@ public static class CatalogUpdater
             string id = location.InternalId;
 
             // 如果 internalId 是 HTTP(S)，说明来自 remote catalog
-            if (id.StartsWith("http"))
+            if (FYAssetPathUtility.IsHttpUrl(id))
             {
                 string fileName = Path.GetFileName(id);
                 // 所有有效资源位于 CurrentGUIDRoot/bundles 下
-                string localPath = Path.Combine(RuntimePathManager.CurrentGUIDRoot, "bundles", fileName);
+                string localPath = FYAssetPathUtility.JoinFilePath(RuntimePathManager.CurrentGUIDRoot, FYAssetSettings.BUNDLES_DIRECTORY_NAME, fileName);
 
                 // 如果本地已有下载的包，则强制使用本地路径
                 if (FileHelper.Exists(localPath))

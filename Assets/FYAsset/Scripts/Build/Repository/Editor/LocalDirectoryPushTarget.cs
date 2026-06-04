@@ -5,8 +5,8 @@ using System.IO;
 using UnityEngine;
 
 /// <summary>
-/// 将 AB 产物推送到本地目录。
-/// Push 只发布已经构建完成的包体目录，不重新解释包内 PackageIndex。
+/// 将构建产物推送到本地发布根。
+/// Push 发布根包含 PackageIndex.json 和 Packages/{PackageName}。
 /// </summary>
 public sealed class LocalDirectoryPushTarget : IPushTarget
 {
@@ -33,22 +33,23 @@ public sealed class LocalDirectoryPushTarget : IPushTarget
             return Fail("PackageRootDir is empty.");
         if (!FileHelper.DirectoryExists(payload.ToCommit.PackageRootDir))
             return Fail($"PackageRootDir missing: {payload.ToCommit.PackageRootDir}");
-        if (string.IsNullOrEmpty(_path))
-            return Fail("Push target path is empty.");
-
-        string packageDir = Path.Combine(_path, payload.ToCommit.PackageName);
+        string publishRoot = ResolvePublishRoot();
+        string packageRoot = FYAssetPathUtility.JoinFilePath(
+            publishRoot,
+            FYAssetSettings.Instance.BuildPackagesFolderName,
+            payload.ToCommit.PackageName);
 
         try
         {
-            if (FileHelper.DirectoryExists(packageDir))
-                FileHelper.TryDeleteDirectory(packageDir, true);
-            CopyDirectory(payload.ToCommit.PackageRootDir, packageDir);
+            FileHelper.EnsureDirectory(publishRoot);
+            PublishPackage(payload.ToCommit.PackageRootDir, packageRoot);
+            WritePackageIndex(publishRoot, payload.ToCommit);
 
             return new PushReceipt
             {
                 Success = true,
                 TargetId = Id,
-                TargetLocation = _path,
+                TargetLocation = publishRoot,
                 PushedAtUtc = DateTime.UtcNow.ToString("o")
             };
         }
@@ -65,10 +66,44 @@ public sealed class LocalDirectoryPushTarget : IPushTarget
         {
             Success = false,
             TargetId = Id,
-            TargetLocation = _path ?? string.Empty,
+            TargetLocation = ResolvePublishRoot(),
             PushedAtUtc = DateTime.UtcNow.ToString("o"),
             FailureReason = reason
         };
+    }
+
+    private string ResolvePublishRoot()
+    {
+        if (string.IsNullOrWhiteSpace(_path))
+            return BuildPathManager.OutputRoot;
+
+        return FYAssetPathUtility.ResolveFilePath(BuildPathManager.ProjectRoot, _path);
+    }
+
+    private static void PublishPackage(string sourceDir, string targetDir)
+    {
+        if (FYAssetPathUtility.AreSamePath(sourceDir, targetDir))
+        {
+            Debug.Log($"[LocalDirectoryPushTarget] Source package already lives at publish target: {targetDir}");
+            return;
+        }
+
+        if (FileHelper.DirectoryExists(targetDir))
+            FileHelper.TryDeleteDirectory(targetDir, true);
+        CopyDirectory(sourceDir, targetDir);
+    }
+
+    private static void WritePackageIndex(string publishRoot, RepositoryCommit commit)
+    {
+        var packageIndex = new PackageIndex
+        {
+            LatestPackage = commit.PackageName,
+            LatestVersion = commit.Version,
+            BackendMode = commit.BackendMode
+        };
+
+        string path = FYAssetPathUtility.JoinFilePath(publishRoot, FYAssetSettings.PACKAGE_INDEX_FILE_NAME);
+        SerializationUtility.WriteToFile(path, packageIndex);
     }
 
     private static void CopyDirectory(string sourceDir, string targetDir)
@@ -78,8 +113,8 @@ public sealed class LocalDirectoryPushTarget : IPushTarget
         string[] files = FileHelper.GetFiles(sourceDir, "*", SearchOption.AllDirectories);
         for (int i = 0; i < files.Length; i++)
         {
-            string relativePath = files[i].Substring(sourceDir.Length).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-            string targetPath = Path.Combine(targetDir, relativePath);
+            string relativePath = FYAssetPathUtility.GetRelativeFilePath(sourceDir, files[i]);
+            string targetPath = FYAssetPathUtility.JoinFilePath(targetDir, relativePath);
             FileHelper.CopyFile(files[i], targetPath, true);
         }
     }

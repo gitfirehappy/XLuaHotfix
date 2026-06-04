@@ -2216,12 +2216,10 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         if (string.IsNullOrEmpty(absolutePath))
             return string.Empty;
 
-        string projectDataPath = Application.dataPath.Replace('\\', '/');
-        string normalizedAbsolute = absolutePath.Replace('\\', '/');
-        if (!normalizedAbsolute.StartsWith(projectDataPath, StringComparison.OrdinalIgnoreCase))
+        if (!FYAssetPathUtility.TryMakeAssetPath(absolutePath, Application.dataPath, out string assetPath))
             return string.Empty;
 
-        return "Assets" + normalizedAbsolute.Substring(projectDataPath.Length);
+        return assetPath;
     }
 
     private static AssetCollectionSetting CloneSetting(AssetCollectionSetting source)
