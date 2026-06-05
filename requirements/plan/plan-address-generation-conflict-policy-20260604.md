@@ -26,7 +26,7 @@ Make Address generation deterministic and explicit:
 - `AssetCollectionSetting` stores project-level `AddressStyle`.
 - Supported styles:
   - `ShortName`: filename without extension, for example `Icon`.
-  - `LongAssetPathWithoutExtension`: normalized Unity asset path without extension, for example `Assets/UI/Icon`.
+  - `LongAssetPathWithoutExtension`: serialized compatibility enum name; current behavior preserves the file extension, for example `Assets/UI/Icon.png`. This was corrected by `assets-collection-followup-20260605`.
   - `NameType`: short name plus type with `#`, for example `Player#Prefab`.
 - `#` is allowed in Address but must be blocked from PackageName, GroupName, Labels, and BundleKey.
 - `BundleNameBuilder.NormalizeAddressKey()` projects `#` to `-` through the BundleKey blacklist, so PackSeparately bundle names never contain `#`.
@@ -90,8 +90,7 @@ public static string GenerateAddress(string assetPath, string primaryType, Asset
 public static string GenerateLongAssetPath(string assetPath)
 {
     string normalized = FYAssetPathUtility.NormalizeAssetPath(assetPath);
-    string extension = Path.GetExtension(normalized);
-    return string.IsNullOrEmpty(extension) ? normalized : normalized.Substring(0, normalized.Length - extension.Length);
+    return normalized;
 }
 
 public static string GenerateNameTypeAddress(string assetPath, string primaryType)
@@ -145,7 +144,7 @@ File: `Assets/FYAsset/Scripts/Build/Editor/ABPipeline/AssetsCollectionPanel.cs`
 - Add a project-level `Address Style` enum field in the package/setting detail surface.
 - Asset Details:
   - `Apply Short`
-  - `Apply Long Path`
+  - `Apply Path+Ext`
   - `Apply Name#Type`
   - Each operation sets `entry.Address`, sets `entry.AutoAddress = true`, and marks preview dirty.
 - Group Details:
@@ -162,7 +161,7 @@ Update comments that still describe automatic conflict upgrade or `Filename_Type
 ## Acceptance Cases
 
 - `Assets/UI/Icon.png` with `ShortName` generates `Icon`.
-- `Assets/UI/Icon.png` with `LongAssetPathWithoutExtension` generates `Assets/UI/Icon`.
+- `Assets/UI/Icon.png` with `LongAssetPathWithoutExtension` generates `Assets/UI/Icon.png`.
 - `Assets/Characters/Player.prefab` with primary type `Prefab` and `NameType` generates `Player#Prefab`.
 - PackSeparately bundle key for `Player#Prefab` normalizes to a key containing `player-prefab`, never `#`.
 - Two assets with the same short Address are not automatically rewritten.

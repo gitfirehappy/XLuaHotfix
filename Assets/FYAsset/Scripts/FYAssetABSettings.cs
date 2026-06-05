@@ -28,6 +28,8 @@ public sealed class FYAssetABSettings : ScriptableObject
     public string AssetCollectionSettingPath = "Assets/FYAsset/CollectorData/CollectorSetting.asset";
 
     public List<string> DependencyFilterExtensions = new();
+
+    [HideInInspector]
     public List<string> ExcludedAssetGUIDs = new();
 
     private static FYAssetABSettings _instance;

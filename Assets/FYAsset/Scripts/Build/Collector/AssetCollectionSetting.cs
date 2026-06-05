@@ -1,5 +1,8 @@
 using System;
 using System.Collections.Generic;
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 using UnityEngine;
 
 /// <summary>
@@ -29,6 +32,9 @@ public class AssetCollectionSetting : ScriptableObject
     /// <summary>Project Scan 阶段的全局忽略规则，用于生成候选 Collector 前过滤项目资产。</summary>
     public List<string> IgnorePatterns = CreateDefaultIgnorePatterns();
 
+    /// <summary>被 Folder Collector 覆盖但显式排除的资产列表，按 GUID 判断，路径只作为可读缓存。</summary>
+    public List<AssetExclusion> ExcludedAssets = new();
+
     /// <summary>资产级元数据，按 Unity GUID 作为权威键</summary>
     public List<AssetEntry> AssetEntries = new();
 
@@ -50,6 +56,106 @@ public class AssetCollectionSetting : ScriptableObject
 
         return null;
     }
+
+    public AssetExclusion FindExcludedAsset(string assetGuid)
+    {
+        if (string.IsNullOrEmpty(assetGuid) || ExcludedAssets == null)
+            return null;
+
+        for (int i = 0; i < ExcludedAssets.Count; i++)
+        {
+            AssetExclusion exclusion = ExcludedAssets[i];
+            if (exclusion != null && string.Equals(exclusion.AssetGUID, assetGuid, StringComparison.Ordinal))
+                return exclusion;
+        }
+
+        return null;
+    }
+
+    public bool IsExcludedAssetGuid(string assetGuid)
+    {
+        return FindExcludedAsset(assetGuid) != null;
+    }
+
+    public bool AddExcludedAsset(string assetGuid, string assetPath)
+    {
+        if (string.IsNullOrEmpty(assetGuid))
+            return false;
+
+        ExcludedAssets ??= new List<AssetExclusion>();
+        AssetExclusion existing = FindExcludedAsset(assetGuid);
+        if (existing != null)
+        {
+            string normalizedPath = NormalizeAssetPath(assetPath);
+            if (string.Equals(existing.AssetPath, normalizedPath, StringComparison.Ordinal))
+                return false;
+
+            existing.AssetPath = normalizedPath;
+            return true;
+        }
+
+        ExcludedAssets.Add(new AssetExclusion
+        {
+            AssetGUID = assetGuid,
+            AssetPath = NormalizeAssetPath(assetPath)
+        });
+        return true;
+    }
+
+    public bool RemoveExcludedAsset(string assetGuid)
+    {
+        if (string.IsNullOrEmpty(assetGuid) || ExcludedAssets == null)
+            return false;
+
+        for (int i = ExcludedAssets.Count - 1; i >= 0; i--)
+        {
+            AssetExclusion exclusion = ExcludedAssets[i];
+            if (exclusion == null || !string.Equals(exclusion.AssetGUID, assetGuid, StringComparison.Ordinal))
+                continue;
+
+            ExcludedAssets.RemoveAt(i);
+            return true;
+        }
+
+        return false;
+    }
+
+#if UNITY_EDITOR
+    public bool AddExcludedAssetByGuid(string assetGuid)
+    {
+        if (string.IsNullOrEmpty(assetGuid))
+            return false;
+
+        return AddExcludedAsset(assetGuid, AssetDatabase.GUIDToAssetPath(assetGuid));
+    }
+
+    public bool RefreshExcludedAssetPaths()
+    {
+        if (ExcludedAssets == null)
+            return false;
+
+        bool changed = false;
+        for (int i = ExcludedAssets.Count - 1; i >= 0; i--)
+        {
+            AssetExclusion exclusion = ExcludedAssets[i];
+            if (exclusion == null || string.IsNullOrEmpty(exclusion.AssetGUID))
+            {
+                ExcludedAssets.RemoveAt(i);
+                changed = true;
+                continue;
+            }
+
+            string assetPath = NormalizeAssetPath(AssetDatabase.GUIDToAssetPath(exclusion.AssetGUID));
+            if (string.Equals(exclusion.AssetPath, assetPath, StringComparison.Ordinal))
+                continue;
+
+            exclusion.AssetPath = assetPath;
+            changed = true;
+        }
+
+        return changed;
+    }
+#endif
 
     public AssetEntry GetOrCreateAssetEntry(string assetGuid, string generatedAddress, AssetClassification generatedClassification)
     {
@@ -84,7 +190,22 @@ public class AssetCollectionSetting : ScriptableObject
         };
     }
 
+    private static string NormalizeAssetPath(string assetPath)
+    {
+        return string.IsNullOrEmpty(assetPath) ? string.Empty : assetPath.Replace('\\', '/').TrimEnd('/');
+    }
+
     #endregion
+}
+
+/// <summary>
+/// 资产级排除条目。GUID 是权威键，AssetPath 是面向编辑器显示和迁移审计的缓存。
+/// </summary>
+[Serializable]
+public class AssetExclusion
+{
+    public string AssetGUID;
+    public string AssetPath;
 }
 
 /// <summary>

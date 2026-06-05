@@ -4,7 +4,7 @@ using UnityEditor;
 using UnityEngine;
 
 /// <summary>
-/// Shared editor mutations for Collector membership and AB asset exclusions.
+/// Shared editor mutations for Collector membership and setting-owned asset exclusions.
 /// </summary>
 public static class CollectorMutationUtility
 {
@@ -32,7 +32,9 @@ public static class CollectorMutationUtility
 
     public static AssetCollectionSetting LoadSetting()
     {
-        return AssetDatabase.LoadAssetAtPath<AssetCollectionSetting>(FYAssetBuildSettingsProvider.AB.AssetCollectionSettingPath);
+        AssetCollectionSetting setting = AssetDatabase.LoadAssetAtPath<AssetCollectionSetting>(FYAssetBuildSettingsProvider.AB.AssetCollectionSettingPath);
+        MigrateLegacyExcludedAssets(setting);
+        return setting;
     }
 
     public static MembershipInfo GetMembership(string assetPath)
@@ -78,9 +80,8 @@ public static class CollectorMutationUtility
             return false;
 
         string guid = AssetDatabase.AssetPathToGUID(normalized);
-        if (RemoveExcludedGuid(guid))
+        if (RemoveExcludedAsset(setting, guid))
         {
-            SaveABSettings();
             NotifyChanged();
             return true;
         }
@@ -132,11 +133,9 @@ public static class CollectorMutationUtility
 
         if (!info.IsFolder && info.State == CollectionState.CoveredByFolderCollector)
         {
-            string guid = AssetDatabase.AssetPathToGUID(normalized);
-            if (!AddExcludedGuid(guid))
+            if (!AddExcludedAsset(setting, normalized))
                 return false;
 
-            SaveABSettings();
             NotifyChanged();
             return true;
         }
@@ -147,10 +146,10 @@ public static class CollectorMutationUtility
     public static bool RestoreExcluded(string assetPath)
     {
         string guid = AssetDatabase.AssetPathToGUID(CollectorPathUtility.NormalizePath(assetPath));
-        if (!RemoveExcludedGuid(guid))
+        AssetCollectionSetting setting = LoadSetting();
+        if (!RemoveExcludedAsset(setting, guid))
             return false;
 
-        SaveABSettings();
         NotifyChanged();
         return true;
     }
@@ -162,10 +161,10 @@ public static class CollectorMutationUtility
             return false;
 
         string guid = AssetDatabase.AssetPathToGUID(normalized);
-        if (!AddExcludedGuid(guid))
+        AssetCollectionSetting setting = LoadSetting();
+        if (!AddExcludedAsset(setting, normalized))
             return false;
 
-        SaveABSettings();
         NotifyChanged();
         return true;
     }
@@ -175,17 +174,8 @@ public static class CollectorMutationUtility
         if (string.IsNullOrEmpty(guid))
             return false;
 
-        List<string> excluded = FYAssetABSettings.Instance.ExcludedAssetGUIDs;
-        if (excluded == null)
-            return false;
-
-        for (int i = 0; i < excluded.Count; i++)
-        {
-            if (string.Equals(excluded[i], guid, StringComparison.Ordinal))
-                return true;
-        }
-
-        return false;
+        AssetCollectionSetting setting = LoadSetting();
+        return setting != null && setting.IsExcludedAssetGuid(guid);
     }
 
     public static void NotifyChanged()
@@ -251,46 +241,65 @@ public static class CollectorMutationUtility
         return requested;
     }
 
-    private static bool AddExcludedGuid(string guid)
+    private static bool AddExcludedAsset(AssetCollectionSetting setting, string assetPath)
     {
-        if (string.IsNullOrEmpty(guid))
+        if (setting == null || string.IsNullOrEmpty(assetPath))
             return false;
 
-        FYAssetABSettings settings = FYAssetABSettings.Instance;
-        settings.ExcludedAssetGUIDs ??= new List<string>();
-        if (IsExcludedGuid(guid))
+        string guid = AssetDatabase.AssetPathToGUID(assetPath);
+        if (string.IsNullOrEmpty(guid) || setting.IsExcludedAssetGuid(guid))
             return false;
 
-        Undo.RecordObject(settings, "Exclude Asset From Collector");
-        settings.ExcludedAssetGUIDs.Add(guid);
+        Undo.RecordObject(setting, "Exclude Asset From Collector");
+        setting.AddExcludedAsset(guid, assetPath);
+        SaveSetting(setting);
         return true;
     }
 
-    private static bool RemoveExcludedGuid(string guid)
+    private static bool RemoveExcludedAsset(AssetCollectionSetting setting, string guid)
     {
-        if (string.IsNullOrEmpty(guid))
+        if (setting == null || string.IsNullOrEmpty(guid) || !setting.IsExcludedAssetGuid(guid))
             return false;
 
-        FYAssetABSettings settings = FYAssetABSettings.Instance;
-        if (settings.ExcludedAssetGUIDs == null)
-            return false;
-
-        for (int i = settings.ExcludedAssetGUIDs.Count - 1; i >= 0; i--)
-        {
-            if (!string.Equals(settings.ExcludedAssetGUIDs[i], guid, StringComparison.Ordinal))
-                continue;
-
-            Undo.RecordObject(settings, "Restore Asset To Collector");
-            settings.ExcludedAssetGUIDs.RemoveAt(i);
-            return true;
-        }
-
-        return false;
+        Undo.RecordObject(setting, "Restore Asset To Collector");
+        setting.RemoveExcludedAsset(guid);
+        SaveSetting(setting);
+        return true;
     }
 
-    private static void SaveABSettings()
+    private static void SaveSetting(AssetCollectionSetting setting)
     {
-        EditorUtility.SetDirty(FYAssetABSettings.Instance);
+        EditorUtility.SetDirty(setting);
+        AssetDatabase.SaveAssets();
+    }
+
+    private static void MigrateLegacyExcludedAssets(AssetCollectionSetting setting)
+    {
+        if (setting == null)
+            return;
+
+        FYAssetABSettings legacySettings = FYAssetABSettings.Instance;
+        List<string> legacyGuids = legacySettings.ExcludedAssetGUIDs;
+        bool settingChanged = setting.RefreshExcludedAssetPaths();
+        if (legacyGuids == null || legacyGuids.Count == 0)
+        {
+            if (settingChanged)
+                SaveSetting(setting);
+            return;
+        }
+
+        Undo.RecordObjects(new UnityEngine.Object[] { setting, legacySettings }, "Migrate Collector Exclusions");
+        for (int i = 0; i < legacyGuids.Count; i++)
+        {
+            string guid = legacyGuids[i];
+            if (!string.IsNullOrEmpty(guid))
+                settingChanged |= setting.AddExcludedAssetByGuid(guid);
+        }
+
+        legacyGuids.Clear();
+        EditorUtility.SetDirty(legacySettings);
+        if (settingChanged)
+            EditorUtility.SetDirty(setting);
         AssetDatabase.SaveAssets();
     }
 }

@@ -178,8 +178,8 @@ Stores AB backend runtime, build, and collection configuration.
 
 - Asset path: `Assets/Resources/FYAssetABSettings.asset`
 - Singleton access: `FYAssetABSettings.Instance`
-- Instance fields: `HotfixUrl`, `HotfixMaxRetryCount`, `HotfixRetryBaseDelaySeconds`, `BuildPipelineConfigPath`, `ManifestOutputFormat`, `MaxHotfixSizeBytes`, `AssetCollectionDataFolder`, `AssetCollectionSettingPath`, `DependencyFilterExtensions`, and `ExcludedAssetGUIDs`
-- `ExcludedAssetGUIDs` is the AB collection exclusion source used by `CollectionScanOptions.FromABSettings()`.
+- Instance fields: `HotfixUrl`, `HotfixMaxRetryCount`, `HotfixRetryBaseDelaySeconds`, `BuildPipelineConfigPath`, `ManifestOutputFormat`, `MaxHotfixSizeBytes`, `AssetCollectionDataFolder`, `AssetCollectionSettingPath`, and `DependencyFilterExtensions`
+- Hidden legacy field: `ExcludedAssetGUIDs`; current editor code treats it only as a migration input into `AssetCollectionSetting.ExcludedAssets`.
 
 ## Compatibility Settings Assets
 

@@ -187,7 +187,7 @@ Phase 4 and Phase 6 must be coordinated (ABManifest runtime consumption + build-
 |------|---------|--------|
 | plan-address-generation-conflict-policy-20260604.md | Explicit Address generation policy, style-based asset/group operations, and automatic conflict-upgrade removal | Executed / Awaiting sign-off |
 | plan-assets-collection-settings-cleanup-20260605.md | AssetsCollection add/remove/exclude workflow, Scene collector shape cleanup, BuildPipeline Sequential removal, and three-settings ownership cleanup | Executed / Awaiting sign-off |
-| plan-assets-collection-followup-20260605.md | AssetsCollection acceptance follow-up: Scene-only folder scan, long-path Address extension, and setting-owned exclusion UI | Approved / In progress |
+| plan-assets-collection-followup-20260605.md | AssetsCollection acceptance follow-up: Scene-only folder scan, long-path Address extension, and setting-owned exclusion UI | Executed / Awaiting sign-off |
 
 ### Phase 5: Build-Time - Asset Collection & Indexing
 

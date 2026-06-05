@@ -62,7 +62,7 @@ public static class AssetAddressGenerator
     }
 
     /// <summary>
-    /// 生成 Unity 资产路径形式的 Address，保留 Assets/... 前缀并去掉扩展名。
+    /// 生成 Unity 资产路径形式的 Address，保留 Assets/... 前缀和文件扩展名。
     /// </summary>
     public static string GenerateLongAssetPath(string assetPath)
     {
@@ -70,10 +70,7 @@ public static class AssetAddressGenerator
         if (string.IsNullOrEmpty(normalized))
             throw new ArgumentException("Asset path 不能为 null 或空。", nameof(assetPath));
 
-        string extension = Path.GetExtension(normalized);
-        return string.IsNullOrEmpty(extension)
-            ? normalized
-            : normalized.Substring(0, normalized.Length - extension.Length);
+        return normalized;
     }
 
     /// <summary>

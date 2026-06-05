@@ -102,7 +102,7 @@ public sealed class CollectorReverseIndex
         {
             List<CollectorBuildEntry> entries = BuildEntries(actualSetting);
             for (int i = 0; i < entries.Count; i++)
-                IndexCollector(entries[i]);
+                IndexCollector(entries[i], actualSetting);
         }
 
         _dirty = false;
@@ -167,22 +167,25 @@ public sealed class CollectorReverseIndex
         return entries;
     }
 
-    private void IndexCollector(CollectorBuildEntry entry)
+    private void IndexCollector(CollectorBuildEntry entry, AssetCollectionSetting setting)
     {
         Collector collector = entry.Collector;
         if (collector.CollectPathType == ECollectPathType.File)
         {
-            IndexFileCollector(entry.Reference, collector);
+            IndexFileCollector(entry.Reference, collector, setting);
             return;
         }
 
-        IndexFolderCollector(entry.Reference, collector);
+        IndexFolderCollector(entry.Reference, collector, setting);
     }
 
-    private void IndexFileCollector(CollectorRef collectorRef, Collector collector)
+    private void IndexFileCollector(CollectorRef collectorRef, Collector collector, AssetCollectionSetting setting)
     {
         string collectPath = CollectorPathUtility.NormalizePath(collector.CollectPath);
         if (!IsValidFileCollectPath(collectPath))
+            return;
+
+        if (IsExcludedAsset(setting, collectPath))
             return;
 
         if (ShouldSkipAsset(collector, collectPath))
@@ -191,7 +194,7 @@ public sealed class CollectorReverseIndex
         AddIfMissing(collectPath, collectorRef);
     }
 
-    private void IndexFolderCollector(CollectorRef collectorRef, Collector collector)
+    private void IndexFolderCollector(CollectorRef collectorRef, Collector collector, AssetCollectionSetting setting)
     {
         string collectPath = CollectorPathUtility.NormalizePath(collector.CollectPath);
         if (!AssetDatabase.IsValidFolder(collectPath))
@@ -216,7 +219,7 @@ public sealed class CollectorReverseIndex
                 continue;
             }
 
-            if (IsExcludedAsset(assetPath))
+            if (IsExcludedAsset(setting, assetPath))
                 continue;
 
             if (ShouldSkipAsset(collector, assetPath))
@@ -258,26 +261,16 @@ public sealed class CollectorReverseIndex
 
     private static AssetCollectionSetting LoadSetting()
     {
-        return AssetDatabase.LoadAssetAtPath<AssetCollectionSetting>(FYAssetBuildSettingsProvider.AB.AssetCollectionSettingPath);
+        return CollectorMutationUtility.LoadSetting();
     }
 
-    private static bool IsExcludedAsset(string assetPath)
+    private static bool IsExcludedAsset(AssetCollectionSetting setting, string assetPath)
     {
         string guid = AssetDatabase.AssetPathToGUID(assetPath);
         if (string.IsNullOrEmpty(guid))
             return false;
 
-        List<string> excluded = FYAssetABSettings.Instance.ExcludedAssetGUIDs;
-        if (excluded == null)
-            return false;
-
-        for (int i = 0; i < excluded.Count; i++)
-        {
-            if (string.Equals(excluded[i], guid, StringComparison.Ordinal))
-                return true;
-        }
-
-        return false;
+        return setting != null && setting.IsExcludedAssetGuid(guid);
     }
 
     private void AddIfMissing(string assetPath, CollectorRef collectorRef)

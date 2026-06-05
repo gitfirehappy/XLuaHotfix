@@ -19,6 +19,7 @@ AssetCollectionSetting
   ├─ Packages
   │   └─ Groups
   │       └─ Collectors
+  ├─ ExcludedAssets（按 AssetGUID 保存排除）
   └─ AssetEntries（按 AssetGUID 保存）
 ```
 
@@ -35,7 +36,7 @@ AssetCollectionSetting
 
 Collector 不再保存 `AddressRuleName`、`PackRuleName` 或 Collector Labels。
 
-Collector 也不保存资产级排除列表。文件级移除意图由 `FYAssetABSettings.ExcludedAssetGUIDs` 记录，扫描时通过 `CollectionScanOptions.FromABSettings()` 生效。
+Collector 也不保存资产级排除列表。文件级移除意图由 `AssetCollectionSetting.ExcludedAssets` 记录，扫描时通过 `CollectionScanOptions.FromSetting(setting)` 生效。旧的 `FYAssetABSettings.ExcludedAssetGUIDs` 只作为隐藏迁移输入保留。
 
 ---
 
@@ -51,6 +52,15 @@ Collector 也不保存资产级排除列表。文件级移除意图由 `FYAssetA
 
 新扫描到的资产会用 Collector 分析结果初始化。已有 AssetEntry 不会被重新扫描静默覆盖；编辑器提供 Address、Role、Payload 三个独立的 Reset Auto 操作。
 
+## AssetExclusion
+
+`AssetExclusion` 按 Unity GUID 保存：
+
+- `AssetGUID`
+- `AssetPath`
+
+`AssetGUID` 是真正生效的排除键；`AssetPath` 是编辑器展示和审计用缓存，会在资产仍可解析时刷新。AssetsCollection 的 Ignore 面板同时管理 Project Scan Ignore Patterns 和 Excluded Assets，排除项可显示资源对象、路径，并支持 Ping/Remove。
+
 ---
 
 ## Address 生成与覆写
@@ -61,7 +71,7 @@ Address 是运行期逻辑名，允许重复，不是资产唯一身份。资产
 
 - 默认自动 Address = 文件短名（文件名去扩展）。
 - 短名冲突不自动升级；同名 Address 本身允许存在。
-- 长路径样式 = `Assets/...` 去扩展名，例如 `Assets/UI/Icon`。
+- 长路径样式 = `Assets/...` 且保留文件后缀，例如 `Assets/UI/Icon.png`。
 - `Name#Type` 只作为显式统一选项，由用户在资产级或 Group 批量操作中应用。
 - 手动覆写项保持锁定；Group 批量操作只修改 `AutoAddress=true` 的资产。
 
@@ -122,13 +132,13 @@ Collector 仍保留 RawFile/Scene/Serialized 的分析能力。`ForcePayloadKind
 Inspector、Project 右键菜单、选择器窗口和 AssetsCollection Curate 里的资产增删统一走 `CollectorMutationUtility`：
 
 - 添加未收集资产：在目标 Group 下创建 File 或 Folder Collector。
-- 添加已排除资产：移除 `ExcludedAssetGUIDs` 中的 GUID，不创建重复 File Collector。
+- 添加已排除资产：移除 `AssetCollectionSetting.ExcludedAssets` 中的 GUID，不创建重复 File Collector。
 - 删除直接 File Collector：移除该 Collector。
-- 删除被 Folder Collector 覆盖的文件：把该文件 GUID 写入 `FYAssetABSettings.ExcludedAssetGUIDs`。
+- 删除被 Folder Collector 覆盖的文件：把该文件 GUID 和当前路径写入 `AssetCollectionSetting.ExcludedAssets`。
 - 被父级 Folder Collector 覆盖的嵌套文件夹在 Inspector 中显示为已覆盖，不再显示成未收集。
 - 每次变更都会通知 AssetsCollection 面板重建 Curate 扫描状态，避免左栏或 Scan Preview 使用旧 Collector 结果。
 
-Scene 的 Project Scan 只生成 `.unity` 文件级 Collector，不生成 Scene 根文件夹 Collector。这样 Scene 资源始终以明确文件 Collector 和 Scene Payload 参与 PackSeparately。
+Scene 的 Project Scan 只生成 `.unity` 文件级 Collector，不生成只有 Scene 资产的根文件夹 Collector。Project Scan 只有在文件夹内存在非 Scene、未忽略、未排除的可采集资源时才生成 Folder Collector；Scene 资源始终以明确文件 Collector 和 Scene Payload 参与 PackSeparately。
 
 ---
 

@@ -5,6 +5,8 @@
 > Requirement ID: assets-collection-settings-cleanup-20260605
 > Scope: AssetsCollection editor workflow, Collector exclusion semantics, Scene collector shape, BuildPipeline Sequential removal, and FYAsset settings ownership.
 
+> 2026-06-05 follow-up correction: `assets-collection-followup-20260605` superseded the exclusion owner from `FYAssetABSettings.ExcludedAssetGUIDs` to `AssetCollectionSetting.ExcludedAssets`. The AB field is now hidden legacy migration input only.
+
 ## Goal
 
 Fix the current AssetsCollection usability and ownership issues without weakening the Collector model:

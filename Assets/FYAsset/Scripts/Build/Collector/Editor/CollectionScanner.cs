@@ -736,16 +736,16 @@ public sealed class CollectionScanOptions
 
     private readonly HashSet<string> _excludedAssetGuids;
 
-    public CollectionScanOptions(IReadOnlyCollection<string> excludedAssetGuids)
+    public CollectionScanOptions(IReadOnlyCollection<AssetExclusion> excludedAssets)
     {
         _excludedAssetGuids = new HashSet<string>(StringComparer.Ordinal);
-        if (excludedAssetGuids == null)
+        if (excludedAssets == null)
             return;
 
-        foreach (string guid in excludedAssetGuids)
+        foreach (AssetExclusion exclusion in excludedAssets)
         {
-            if (!string.IsNullOrEmpty(guid))
-                _excludedAssetGuids.Add(guid);
+            if (!string.IsNullOrEmpty(exclusion?.AssetGUID))
+                _excludedAssetGuids.Add(exclusion.AssetGUID);
         }
     }
 
@@ -754,8 +754,8 @@ public sealed class CollectionScanOptions
         return !string.IsNullOrEmpty(guid) && _excludedAssetGuids.Contains(guid);
     }
 
-    public static CollectionScanOptions FromABSettings()
+    public static CollectionScanOptions FromSetting(AssetCollectionSetting setting)
     {
-        return new CollectionScanOptions(FYAssetABSettings.Instance.ExcludedAssetGUIDs);
+        return new CollectionScanOptions(setting?.ExcludedAssets);
     }
 }

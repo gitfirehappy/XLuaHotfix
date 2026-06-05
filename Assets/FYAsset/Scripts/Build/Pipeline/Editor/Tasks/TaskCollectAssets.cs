@@ -13,8 +13,7 @@ public class TaskCollectAssets : IBuildTask
 
     public BuildTaskResult Execute(BuildContext ctx)
     {
-        AssetCollectionSetting setting = AssetDatabase.LoadAssetAtPath<AssetCollectionSetting>(
-            FYAssetBuildSettingsProvider.AB.AssetCollectionSettingPath);
+        AssetCollectionSetting setting = CollectorMutationUtility.LoadSetting();
         if (setting == null)
         {
             return BuildTaskResult.Fail(
@@ -35,7 +34,7 @@ public class TaskCollectAssets : IBuildTask
         }
 
         // 执行全量扫描
-        ScanResult scanResult = CollectionScanner.Scan(setting, CollectionScanOptions.FromABSettings());
+        ScanResult scanResult = CollectionScanner.Scan(setting, CollectionScanOptions.FromSetting(setting));
         bool hasError = false;
 
         // 扫描消息分类归档

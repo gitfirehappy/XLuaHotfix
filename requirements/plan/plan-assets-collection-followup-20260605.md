@@ -1,6 +1,6 @@
 # Plan: Assets Collection Follow-up Fixes
 
-> Status: Approved / In progress
+> Status: Executed / Awaiting sign-off
 > Date: 2026-06-05
 > Requirement ID: assets-collection-followup-20260605
 > Scope: Project Scan Scene folder cleanup, long-path Address semantics, and asset exclusion ownership/UI.

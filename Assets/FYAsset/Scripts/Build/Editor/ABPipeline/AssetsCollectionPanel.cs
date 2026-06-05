@@ -108,7 +108,7 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
 
     private void LoadSetting(bool preserveExpansionState = false)
     {
-        _setting = AssetDatabase.LoadAssetAtPath<AssetCollectionSetting>(FYAssetBuildSettingsProvider.AB.AssetCollectionSettingPath);
+        _setting = CollectorMutationUtility.LoadSetting();
 
         if (_setting == null)
             return;
@@ -117,7 +117,7 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         if (HasPackages(_setting))
         {
             AssetCollectionSetting candidate = CloneSetting(_setting);
-            EnterCurate(candidate, false, CollectionScanner.Scan(candidate, CollectionScanOptions.FromABSettings()), !preserveExpansionState);
+            EnterCurate(candidate, false, CollectionScanner.Scan(candidate, CollectionScanOptions.FromSetting(candidate)), !preserveExpansionState);
         }
         else
             EnterScan();
@@ -258,7 +258,7 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         if (HasPackages(_setting))
         {
             AssetCollectionSetting candidate = CloneSetting(_setting);
-            EnterCurate(candidate, false, CollectionScanner.Scan(candidate, CollectionScanOptions.FromABSettings()));
+            EnterCurate(candidate, false, CollectionScanner.Scan(candidate, CollectionScanOptions.FromSetting(candidate)));
         }
         else
             EnterCurate(ScriptableObject.CreateInstance<AssetCollectionSetting>(), false);
@@ -293,7 +293,7 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         var snapshot = new ProjectScanSnapshot
         {
             PreviewSetting = preview,
-            Result = CollectionScanner.Scan(preview, CollectionScanOptions.FromABSettings())
+            Result = CollectionScanner.Scan(preview, CollectionScanOptions.FromSetting(preview))
         };
         EnterPreview(snapshot);
         Rebuild();
@@ -305,6 +305,7 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         EnsureScanDefaults(_setting);
         setting.AddressStyle = _setting != null ? _setting.AddressStyle : AssetAddressStyle.ShortName;
         setting.IgnorePatterns = CloneList(_setting?.IgnorePatterns);
+        setting.ExcludedAssets = CloneExcludedAssets(_setting?.ExcludedAssets);
         var package = new AssetCollectionPackage
         {
             PackageName = GetDefaultPackageName()
@@ -316,7 +317,7 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         for (int i = 0; i < folders.Length; i++)
         {
             string folder = CollectorPathUtility.NormalizePath(folders[i]);
-            if (HasCollectableAssets(folder, setting.IgnorePatterns))
+            if (HasNonSceneCollectableAssets(folder, setting))
                 AddProjectScanGroup(package, folder);
         }
 
@@ -953,7 +954,7 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         if (_curateSetting == null)
             return;
 
-        _curateResult = CollectionScanner.Scan(_curateSetting, CollectionScanOptions.FromABSettings());
+        _curateResult = CollectionScanner.Scan(_curateSetting, CollectionScanOptions.FromSetting(_curateSetting));
         _curatePreviewDirty = false;
         _curatePanelMode = mode;
         if (markUnsaved)
@@ -966,7 +967,7 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
     {
         if (_curateSetting != null && (_curatePreviewDirty || _curateResult == null))
         {
-            _curateResult = CollectionScanner.Scan(_curateSetting, CollectionScanOptions.FromABSettings());
+            _curateResult = CollectionScanner.Scan(_curateSetting, CollectionScanOptions.FromSetting(_curateSetting));
             _curatePreviewDirty = false;
         }
 
@@ -980,6 +981,7 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         EnsureScanDefaults(_curateSetting);
         _setting.AddressStyle = _curateSetting.AddressStyle;
         _setting.IgnorePatterns = CloneList(_curateSetting.IgnorePatterns);
+        _setting.ExcludedAssets = CloneExcludedAssets(_curateSetting.ExcludedAssets);
         _setting.Packages = ClonePackages(_curateSetting.Packages);
         _setting.AssetEntries = CloneAssetEntries(_curateSetting.AssetEntries);
         EditorUtility.SetDirty(_setting);
@@ -1231,12 +1233,120 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         card.Add(BuildPipelineUI.SmallText("These patterns are editable in Scan stage and are applied before Project Scan creates candidate Collectors."));
         card.Add(CreateStringListEditor("Patterns", _setting.IgnorePatterns, () =>
         {
-            EditorUtility.SetDirty(_setting);
-            AssetDatabase.SaveAssets();
+            SavePersistentSetting();
             CollectorReverseIndex.Instance.MarkDirty();
         }, true));
         card.Add(BuildPipelineUI.SmallText("Saved on AssetCollectionSetting and applied before Project Scan generation."));
+        card.Add(CreateExcludedAssetsEditor(_setting));
         return card;
+    }
+
+    private VisualElement CreateExcludedAssetsEditor(AssetCollectionSetting setting)
+    {
+        VisualElement box = new VisualElement();
+        box.style.marginTop = 8f;
+        box.style.width = Length.Percent(100f);
+        box.style.minWidth = 0f;
+        box.Add(BuildPipelineUI.Header("Excluded Assets"));
+        box.Add(BuildPipelineUI.SmallText("Folder-owned files removed from collection are stored here by GUID with a cached path."));
+
+        setting.ExcludedAssets ??= new List<AssetExclusion>();
+        if (setting.ExcludedAssets.Count == 0)
+            box.Add(BuildPipelineUI.SmallText("No excluded assets."));
+
+        for (int i = 0; i < setting.ExcludedAssets.Count; i++)
+        {
+            int index = i;
+            AssetExclusion exclusion = setting.ExcludedAssets[i];
+            if (exclusion == null)
+                continue;
+
+            string assetPath = ResolveExclusionPath(exclusion);
+            UnityEngine.Object assetObject = string.IsNullOrEmpty(assetPath)
+                ? null
+                : AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(assetPath);
+
+            VisualElement row = new VisualElement
+            {
+                style =
+                {
+                    flexDirection = FlexDirection.Row,
+                    alignItems = Align.Center,
+                    width = Length.Percent(100f),
+                    minWidth = 0f,
+                    marginBottom = 3f
+                }
+            };
+
+            ObjectField objectField = new ObjectField
+            {
+                objectType = typeof(UnityEngine.Object),
+                allowSceneObjects = false,
+                value = assetObject
+            };
+            objectField.SetEnabled(false);
+            objectField.style.width = 0f;
+            objectField.style.flexGrow = 1f;
+            objectField.style.flexShrink = 1f;
+            objectField.style.flexBasis = 0f;
+            objectField.style.minWidth = 0f;
+            objectField.style.marginRight = 4f;
+            row.Add(objectField);
+
+            Button ping = new Button(() => PingAsset(assetPath)) { text = "Ping" };
+            ping.SetEnabled(assetObject != null);
+            ping.style.width = 48f;
+            ping.style.flexShrink = 0f;
+            row.Add(ping);
+
+            Button remove = new Button(() =>
+            {
+                Undo.RecordObject(setting, "Remove Excluded Asset");
+                setting.ExcludedAssets.RemoveAt(index);
+                SavePersistentSetting();
+                CollectorReverseIndex.Instance.MarkDirty();
+                Rebuild();
+            }) { text = "Remove" };
+            remove.style.width = 72f;
+            remove.style.flexShrink = 0f;
+            row.Add(remove);
+            box.Add(row);
+
+            string pathText = !string.IsNullOrEmpty(assetPath)
+                ? assetPath
+                : string.Concat("Missing asset, GUID: ", exclusion.AssetGUID);
+            Label pathLabel = BuildPipelineUI.SmallText(pathText);
+            pathLabel.style.marginLeft = 4f;
+            box.Add(pathLabel);
+        }
+
+        ObjectField addField = new ObjectField("Add Asset")
+        {
+            objectType = typeof(UnityEngine.Object),
+            allowSceneObjects = false
+        };
+        addField.RegisterValueChangedCallback(evt =>
+        {
+            UnityEngine.Object assetObject = evt.newValue;
+            addField.SetValueWithoutNotify(null);
+            if (assetObject == null)
+                return;
+
+            string assetPath = CollectorPathUtility.NormalizePath(AssetDatabase.GetAssetPath(assetObject));
+            string guid = AssetDatabase.AssetPathToGUID(assetPath);
+            if (string.IsNullOrEmpty(guid) || AssetDatabase.IsValidFolder(assetPath))
+                return;
+
+            Undo.RecordObject(setting, "Add Excluded Asset");
+            if (setting.AddExcludedAsset(guid, assetPath))
+            {
+                SavePersistentSetting();
+                CollectorReverseIndex.Instance.MarkDirty();
+                Rebuild();
+            }
+        });
+        box.Add(addField);
+        return box;
     }
 
     #endregion
@@ -1378,7 +1488,7 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         };
 
         row.Add(CreateAddressStyleButton("Apply Short", () => onApply(AssetAddressStyle.ShortName)));
-        row.Add(CreateAddressStyleButton("Apply Long Path", () => onApply(AssetAddressStyle.LongAssetPathWithoutExtension)));
+        row.Add(CreateAddressStyleButton("Apply Path+Ext", () => onApply(AssetAddressStyle.LongAssetPathWithoutExtension)));
         row.Add(CreateAddressStyleButton("Apply Name#Type", () => onApply(AssetAddressStyle.NameType)));
         box.Add(row);
         parent.Add(box);
@@ -1697,16 +1807,23 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         if (string.IsNullOrEmpty(guid))
             return;
 
-        if (CollectorMutationUtility.IsExcludedGuid(guid))
-                _suppressExternalCollectorChanged = true;
-                try
-                {
-                    CollectorMutationUtility.RestoreExcluded(assetPath);
-                }
-                finally
-                {
-                    _suppressExternalCollectorChanged = false;
-                }
+        if (IsExcludedInCurate(guid))
+        {
+            RemoveExcludedFromCurate(guid);
+        }
+        else if (CollectorMutationUtility.IsExcludedGuid(guid))
+        {
+            // 外部 Inspector/右键菜单可能刚修改了保存态，进入 Curate 前优先恢复保存态排除。
+            _suppressExternalCollectorChanged = true;
+            try
+            {
+                CollectorMutationUtility.RestoreExcluded(assetPath);
+            }
+            finally
+            {
+                _suppressExternalCollectorChanged = false;
+            }
+        }
 
         if (!IsCoveredByCurateCollector(assetPath))
         {
@@ -1738,15 +1855,7 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         if (RemoveDirectFileCollectorFromCurate(asset))
             return;
 
-        _suppressExternalCollectorChanged = true;
-        try
-        {
-            CollectorMutationUtility.ExcludeAsset(asset.AssetPath);
-        }
-        finally
-        {
-            _suppressExternalCollectorChanged = false;
-        }
+        AddExcludedToCurate(asset.AssetPath);
     }
 
     private bool RemoveDirectFileCollectorFromCurate(CollectedAssetInfo asset)
@@ -1809,6 +1918,30 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         }
 
         return false;
+    }
+
+    private bool IsExcludedInCurate(string guid)
+    {
+        return _curateSetting != null && _curateSetting.IsExcludedAssetGuid(guid);
+    }
+
+    private bool AddExcludedToCurate(string assetPath)
+    {
+        if (_curateSetting == null || string.IsNullOrEmpty(assetPath))
+            return false;
+
+        string normalized = CollectorPathUtility.NormalizePath(assetPath);
+        string guid = AssetDatabase.AssetPathToGUID(normalized);
+        if (string.IsNullOrEmpty(guid))
+            return false;
+
+        _curateSetting.ExcludedAssets ??= new List<AssetExclusion>();
+        return _curateSetting.AddExcludedAsset(guid, normalized);
+    }
+
+    private bool RemoveExcludedFromCurate(string guid)
+    {
+        return _curateSetting != null && _curateSetting.RemoveExcludedAsset(guid);
     }
 
     private AssetCollectionGroup GetSourceGroup(CollectedAssetInfo asset)
@@ -2027,6 +2160,8 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
                 continue;
             if (CollectorPathUtility.MatchesIgnorePattern(assetPath, "Assets", setting.IgnorePatterns))
                 continue;
+            if (IsExcludedBySetting(setting, assetPath))
+                continue;
             if (IsOwnedByExistingFileCollector(package, assetPath))
                 continue;
 
@@ -2037,8 +2172,9 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         }
     }
 
-    private static bool HasCollectableAssets(string folder, List<string> ignorePatterns)
+    private static bool HasNonSceneCollectableAssets(string folder, AssetCollectionSetting setting)
     {
+        List<string> ignorePatterns = setting?.IgnorePatterns;
         if (CollectorPathUtility.MatchesIgnorePattern(folder, "Assets", ignorePatterns))
             return false;
 
@@ -2050,6 +2186,10 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         {
             string assetPath = CollectorPathUtility.NormalizePath(AssetDatabase.GUIDToAssetPath(guids[i]));
             if (string.IsNullOrEmpty(assetPath) || AssetDatabase.IsValidFolder(assetPath))
+                continue;
+            if (IsSceneAssetPath(assetPath))
+                continue;
+            if (IsExcludedBySetting(setting, assetPath))
                 continue;
             if (!CollectorPathUtility.MatchesIgnorePattern(assetPath, "Assets", ignorePatterns))
                 return true;
@@ -2196,6 +2336,52 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
     {
         if (setting != null && setting.IgnorePatterns == null)
             setting.IgnorePatterns = AssetCollectionSetting.CreateDefaultIgnorePatterns();
+        if (setting != null && setting.ExcludedAssets == null)
+            setting.ExcludedAssets = new List<AssetExclusion>();
+    }
+
+    private void SavePersistentSetting()
+    {
+        if (_setting == null)
+            return;
+
+        _setting.RefreshExcludedAssetPaths();
+        EditorUtility.SetDirty(_setting);
+        AssetDatabase.SaveAssets();
+    }
+
+    private static string ResolveExclusionPath(AssetExclusion exclusion)
+    {
+        if (exclusion == null)
+            return string.Empty;
+
+        string assetPath = CollectorPathUtility.NormalizePath(AssetDatabase.GUIDToAssetPath(exclusion.AssetGUID));
+        if (!string.IsNullOrEmpty(assetPath))
+        {
+            exclusion.AssetPath = assetPath;
+            return assetPath;
+        }
+
+        return CollectorPathUtility.NormalizePath(exclusion.AssetPath);
+    }
+
+    private static void PingAsset(string assetPath)
+    {
+        if (string.IsNullOrEmpty(assetPath))
+            return;
+
+        UnityEngine.Object assetObject = AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(assetPath);
+        if (assetObject == null)
+            return;
+
+        Selection.activeObject = assetObject;
+        EditorGUIUtility.PingObject(assetObject);
+    }
+
+    private static bool IsExcludedBySetting(AssetCollectionSetting setting, string assetPath)
+    {
+        string guid = AssetDatabase.AssetPathToGUID(assetPath);
+        return !string.IsNullOrEmpty(guid) && setting != null && setting.IsExcludedAssetGuid(guid);
     }
 
     private static bool HasPackages(AssetCollectionSetting setting)
@@ -2491,6 +2677,7 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         var clone = ScriptableObject.CreateInstance<AssetCollectionSetting>();
         clone.AddressStyle = source != null ? source.AddressStyle : AssetAddressStyle.ShortName;
         clone.IgnorePatterns = CloneList(source?.IgnorePatterns);
+        clone.ExcludedAssets = CloneExcludedAssets(source?.ExcludedAssets);
         clone.Packages = ClonePackages(source?.Packages);
         clone.AssetEntries = CloneAssetEntries(source?.AssetEntries);
         return clone;
@@ -2602,6 +2789,28 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         }
 
         return entries;
+    }
+
+    private static List<AssetExclusion> CloneExcludedAssets(List<AssetExclusion> source)
+    {
+        var exclusions = new List<AssetExclusion>();
+        if (source == null)
+            return exclusions;
+
+        for (int i = 0; i < source.Count; i++)
+        {
+            AssetExclusion exclusion = source[i];
+            if (exclusion == null)
+                continue;
+
+            exclusions.Add(new AssetExclusion
+            {
+                AssetGUID = exclusion.AssetGUID,
+                AssetPath = exclusion.AssetPath
+            });
+        }
+
+        return exclusions;
     }
 
     private static SharePolicyConfig CloneSharePolicy(SharePolicyConfig source)
