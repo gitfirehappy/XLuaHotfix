@@ -1305,20 +1305,6 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
             objectField.style.marginRight = 4f;
             row.Add(objectField);
 
-            Button select = new Button(() => SelectAsset(assetPath)) { text = "Select" };
-            select.SetEnabled(assetObject != null);
-            select.style.width = 52f;
-            select.style.flexShrink = 0f;
-            select.style.marginRight = 4f;
-            row.Add(select);
-
-            Button ping = new Button(() => PingAsset(assetPath)) { text = "Ping" };
-            ping.SetEnabled(assetObject != null);
-            ping.style.width = 48f;
-            ping.style.flexShrink = 0f;
-            ping.style.marginRight = 4f;
-            row.Add(ping);
-
             Button remove = new Button(() =>
             {
                 Undo.RecordObject(setting, "Remove Excluded Asset");
@@ -2530,25 +2516,6 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
 
         UnityEngine.Object[] assets = AssetDatabase.LoadAllAssetsAtPath(normalized);
         return assets != null && assets.Length > 0 ? assets[0] : null;
-    }
-
-    private static void SelectAsset(string assetPath)
-    {
-        UnityEngine.Object assetObject = LoadAssetObject(assetPath);
-        if (assetObject == null)
-            return;
-
-        Selection.activeObject = assetObject;
-    }
-
-    private static void PingAsset(string assetPath)
-    {
-        UnityEngine.Object assetObject = LoadAssetObject(assetPath);
-        if (assetObject == null)
-            return;
-
-        Selection.activeObject = assetObject;
-        EditorGUIUtility.PingObject(assetObject);
     }
 
     private static bool IsExcludedBySetting(AssetCollectionSetting setting, string assetPath)
