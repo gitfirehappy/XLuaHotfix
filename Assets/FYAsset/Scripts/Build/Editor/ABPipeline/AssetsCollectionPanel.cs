@@ -278,7 +278,8 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
     {
         var setting = ScriptableObject.CreateInstance<AssetCollectionSetting>();
         EnsureScanDefaults(_setting);
-        setting.IgnorePatterns = CloneList(_setting.IgnorePatterns);
+        setting.AddressStyle = _setting != null ? _setting.AddressStyle : AssetAddressStyle.ShortName;
+        setting.IgnorePatterns = CloneList(_setting?.IgnorePatterns);
         var package = new AssetCollectionPackage
         {
             PackageName = GetDefaultPackageName()
@@ -655,6 +656,13 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
 
         VisualElement card = BuildPipelineUI.Card();
         card.Add(BuildPipelineUI.Header("Package"));
+        EnumField addressStyle = new EnumField("Address Style", _curateSetting.AddressStyle);
+        addressStyle.RegisterValueChangedCallback(evt =>
+        {
+            _curateSetting.AddressStyle = (AssetAddressStyle)evt.newValue;
+            MarkCuratePreviewDirty();
+        });
+        card.Add(addressStyle);
         card.Add(CreateTextField("Package Name", package.PackageName, value =>
         {
             package.PackageName = value;
@@ -686,6 +694,7 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
 
     private void DrawGroupEditor(VisualElement parent)
     {
+        AssetCollectionPackage package = GetSelectedPackage();
         AssetCollectionGroup group = GetSelectedGroup();
         if (group == null)
         {
@@ -717,6 +726,7 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         });
         card.Add(packingMode);
         card.Add(CreateStringListEditor("Group Labels", group.Labels, MarkCuratePreviewDirty));
+        AddAddressOperationButtons(card, "Apply Auto Address", style => ApplyAddressStyleToGroup(package?.PackageName, group.GroupName, style));
         parent.Add(card);
 
         DrawCollectorsEditor(parent, group);
@@ -931,6 +941,7 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
 
         Undo.RecordObject(_setting, "Save Collectors");
         EnsureScanDefaults(_curateSetting);
+        _setting.AddressStyle = _curateSetting.AddressStyle;
         _setting.IgnorePatterns = CloneList(_curateSetting.IgnorePatterns);
         _setting.Packages = ClonePackages(_curateSetting.Packages);
         _setting.AssetEntries = CloneAssetEntries(_curateSetting.AssetEntries);
@@ -1127,10 +1138,12 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         }, () =>
         {
             if (preview != null)
-                entry.Address = AssetAddressGenerator.GenerateShortAddress(preview.AssetPath, preview.PrimaryType, true);
+                entry.Address = GeneratePreviewAddress(preview, _curateSetting.AddressStyle);
             entry.AutoAddress = true;
             MarkCuratePreviewDirty();
         });
+        if (preview != null)
+            AddAddressOperationButtons(card, "Apply Address", style => ApplyAddressStyleToAsset(entry, preview, style));
         card.Add(CreateStringListEditor("Asset Labels", entry.Labels, MarkCuratePreviewDirty));
         AddAutoEnumField(card, "Role", entry.AutoRole, entry.Role, value =>
         {
@@ -1302,6 +1315,43 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         button.style.width = 92f;
         button.style.minWidth = 92f;
         button.style.flexShrink = 0f;
+        button.style.marginBottom = 2f;
+        return button;
+    }
+
+    private static void AddAddressOperationButtons(VisualElement parent, string title, Action<AssetAddressStyle> onApply)
+    {
+        VisualElement box = new VisualElement();
+        box.style.marginTop = 4f;
+        box.style.width = Length.Percent(100f);
+        box.style.minWidth = 0f;
+        box.Add(BuildPipelineUI.SmallText(title));
+
+        VisualElement row = new VisualElement
+        {
+            style =
+            {
+                flexDirection = FlexDirection.Row,
+                alignItems = Align.Center,
+                flexWrap = Wrap.Wrap,
+                minWidth = 0f
+            }
+        };
+
+        row.Add(CreateAddressStyleButton("Apply Short", () => onApply(AssetAddressStyle.ShortName)));
+        row.Add(CreateAddressStyleButton("Apply Long Path", () => onApply(AssetAddressStyle.LongAssetPathWithoutExtension)));
+        row.Add(CreateAddressStyleButton("Apply Name#Type", () => onApply(AssetAddressStyle.NameType)));
+        box.Add(row);
+        parent.Add(box);
+    }
+
+    private static Button CreateAddressStyleButton(string text, Action onClick)
+    {
+        Button button = new Button(onClick) { text = text };
+        button.style.width = 116f;
+        button.style.minWidth = 116f;
+        button.style.flexShrink = 0f;
+        button.style.marginRight = 4f;
         button.style.marginBottom = 2f;
         return button;
     }
@@ -2164,7 +2214,7 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
             PayloadKind = EPayloadKind.Serialized
         };
         string address = preview != null
-            ? AssetAddressGenerator.GenerateShortAddress(preview.AssetPath, preview.PrimaryType, true)
+            ? GeneratePreviewAddress(preview, _curateSetting.AddressStyle)
             : string.Empty;
 
         AssetEntry created = new AssetEntry
@@ -2180,6 +2230,54 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         };
         _curateSetting.AssetEntries.Add(created);
         return created;
+    }
+
+    private void ApplyAddressStyleToAsset(AssetEntry entry, CollectedAssetInfo preview, AssetAddressStyle style)
+    {
+        if (entry == null || preview == null)
+            return;
+
+        entry.Address = GeneratePreviewAddress(preview, style);
+        entry.AutoAddress = true;
+        MarkCuratePreviewDirty();
+    }
+
+    private void ApplyAddressStyleToGroup(string packageName, string groupName, AssetAddressStyle style)
+    {
+        List<CollectedAssetInfo> assets = GetAssetsForSourceGroup(_curateResult, packageName, groupName);
+        for (int i = 0; i < assets.Count; i++)
+        {
+            CollectedAssetInfo asset = assets[i];
+            AssetEntry entry = EnsureAssetEntry(asset.AssetGUID, asset);
+            if (entry == null || !entry.AutoAddress)
+                continue;
+
+            entry.Address = GeneratePreviewAddress(asset, style);
+        }
+
+        MarkCuratePreviewDirty();
+    }
+
+    private static string GeneratePreviewAddress(CollectedAssetInfo preview, AssetAddressStyle style)
+    {
+        return preview == null
+            ? string.Empty
+            : AssetAddressGenerator.GenerateAddress(preview.AssetPath, preview.PrimaryType, style);
+    }
+
+    private static List<CollectedAssetInfo> GetAssetsForSourceGroup(ScanResult result, string packageName, string groupName)
+    {
+        List<CollectedAssetInfo> assets = GetAssetsForSourceGroup(result, groupName);
+        if (string.IsNullOrEmpty(packageName))
+            return assets;
+
+        for (int i = assets.Count - 1; i >= 0; i--)
+        {
+            if (!string.Equals(assets[i].PackageName, packageName, StringComparison.OrdinalIgnoreCase))
+                assets.RemoveAt(i);
+        }
+
+        return assets;
     }
 
     private static string JoinLabels(List<string> labels)
@@ -2225,6 +2323,7 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
     private static AssetCollectionSetting CloneSetting(AssetCollectionSetting source)
     {
         var clone = ScriptableObject.CreateInstance<AssetCollectionSetting>();
+        clone.AddressStyle = source != null ? source.AddressStyle : AssetAddressStyle.ShortName;
         clone.IgnorePatterns = CloneList(source?.IgnorePatterns);
         clone.Packages = ClonePackages(source?.Packages);
         clone.AssetEntries = CloneAssetEntries(source?.AssetEntries);

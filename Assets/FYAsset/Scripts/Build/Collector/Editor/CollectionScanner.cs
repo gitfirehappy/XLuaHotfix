@@ -451,7 +451,7 @@ public static class CollectionScanner
             targetGroupName = ctx.ParentGroupName;
 
         AssetCollectionGroup targetGroup = ResolveGroup(groupLookup, targetGroupName, ctx.ParentGroup);
-        string generatedAddress = AssetAddressGenerator.GenerateShortAddress(assetPath, primaryType, true);
+        string generatedAddress = AssetAddressGenerator.GenerateAddress(assetPath, primaryType, ctx.Setting.AddressStyle);
         AssetEntry entry = ctx.Setting.GetOrCreateAssetEntry(guid, generatedAddress, classification);
 
         string address = entry.AutoAddress || string.IsNullOrEmpty(entry.Address)

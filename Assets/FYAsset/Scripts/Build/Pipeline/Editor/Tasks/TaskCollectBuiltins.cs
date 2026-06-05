@@ -86,7 +86,7 @@ public class TaskCollectBuiltins : IBuildTask
                 {
                     AssetPath = path,
                     AssetGUID = guid,
-                    Address = AssetAddressGenerator.GenerateShortAddress(path, primaryType, true),
+                    Address = AssetAddressGenerator.GenerateAddress(path, primaryType, AssetAddressStyle.ShortName),
                     PrimaryType = primaryType,
                     Labels = new List<string>(),
                     GroupLabels = new List<string>(),

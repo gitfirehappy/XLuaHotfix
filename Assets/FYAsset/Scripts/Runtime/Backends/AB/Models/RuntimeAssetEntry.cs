@@ -24,7 +24,7 @@ public class RuntimeAssetEntry
 
     /// <summary>
     /// 逻辑名（允许重复）。
-    /// 默认由文件名去扩展自动生成；冲突时升级为 Filename_Type 格式。
+    /// 自动生成样式由构建期 AssetCollectionSetting.AddressStyle 决定；不会因短名冲突自动重写。
     /// </summary>
     public string Address;
 

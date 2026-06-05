@@ -1,23 +1,22 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 
 /// <summary>
 /// Address 自动生成与覆写策略（仅编辑器/构建期使用）。
 /// 
 /// 规则：
-/// 1. 自动短名 = 文件名去扩展（如 "Player.prefab" -> "Player"）
-/// 2. 短名冲突时升级为 Filename_Type 格式（如 "Player_Prefab"）
+/// 1. 自动 Address 由项目级 AssetAddressStyle 决定
+/// 2. Address 允许重复；可解析性由 Address + PrimaryType + Labels 决定
 /// 3. 自动项可重建；手动覆写项保持锁定，除非显式切回 Auto
 /// </summary>
 public static class AssetAddressGenerator
 {
     /// <summary>
     /// 类型后缀分隔符。
-    /// 升级格式：{Filename}_{Type}，从后向前解析最后一段为类型后缀。
+    /// 显式 NameType 格式：{Filename}#{Type}，从后向前解析最后一段为类型后缀。
     /// </summary>
-    public const char TypeSuffixSeparator = '_';
+    public const char TypeSuffixSeparator = '#';
 
     /// <summary>
     /// 从资源路径生成默认短名（文件名去扩展）。
@@ -46,17 +45,54 @@ public static class AssetAddressGenerator
     }
 
     /// <summary>
+    /// 按项目级样式生成单个资源 Address。
+    /// </summary>
+    public static string GenerateAddress(string assetPath, string primaryType, AssetAddressStyle style)
+    {
+        switch (style)
+        {
+            case AssetAddressStyle.LongAssetPathWithoutExtension:
+                return GenerateLongAssetPath(assetPath);
+            case AssetAddressStyle.NameType:
+                return GenerateNameTypeAddress(assetPath, primaryType);
+            case AssetAddressStyle.ShortName:
+            default:
+                return GenerateShortName(assetPath);
+        }
+    }
+
+    /// <summary>
+    /// 生成 Unity 资产路径形式的 Address，保留 Assets/... 前缀并去掉扩展名。
+    /// </summary>
+    public static string GenerateLongAssetPath(string assetPath)
+    {
+        string normalized = FYAssetPathUtility.NormalizeAssetPath(assetPath);
+        if (string.IsNullOrEmpty(normalized))
+            throw new ArgumentException("Asset path 不能为 null 或空。", nameof(assetPath));
+
+        string extension = Path.GetExtension(normalized);
+        return string.IsNullOrEmpty(extension)
+            ? normalized
+            : normalized.Substring(0, normalized.Length - extension.Length);
+    }
+
+    /// <summary>
+    /// 生成显式 Name#Type Address。
+    /// </summary>
+    public static string GenerateNameTypeAddress(string assetPath, string primaryType)
+    {
+        return GenerateTypeSuffixAddress(GenerateShortName(assetPath), primaryType);
+    }
+
+    /// <summary>
     /// 生成单个资源的默认 Address。
-    /// 约定：先取文件短名；仅当调用方确认存在同名冲突时，再升级为 Filename_Type 形式。
-    /// AddressByFileName 复用这个入口，保持地址命名规则统一。
+    /// 兼容旧调用：false 表示 ShortName，true 表示显式 Name#Type。
     /// </summary>
     public static string GenerateShortAddress(string assetPath, string primaryType, bool useTypeSuffix = false)
     {
-        string shortName = GenerateShortName(assetPath);
-        if (!useTypeSuffix)
-            return shortName;
-
-        return GenerateTypeSuffixAddress(shortName, primaryType);
+        return useTypeSuffix
+            ? GenerateNameTypeAddress(assetPath, primaryType)
+            : GenerateShortName(assetPath);
     }
 
     /// <summary>
@@ -76,42 +112,25 @@ public static class AssetAddressGenerator
     }
 
     /// <summary>
-    /// 为一组条目批量生成自动 Address，处理冲突升级。
-    /// 仅修改 AutoAddress = true 的条目；手动覆写项保持不变。
+    /// 为一组条目批量生成自动 Address。
+    /// 仅修改 AutoAddress = true 的条目；手动覆写项保持不变，不做冲突驱动重写。
+    /// </summary>
+    public static void GenerateAddresses(IList<RuntimeAssetEntry> entries, AssetAddressStyle style)
+    {
+        foreach (var entry in entries)
+        {
+            if (!entry.AutoAddress)
+                continue;
+
+            entry.Address = GenerateAddress(entry.SourcePath, entry.PrimaryType, style);
+        }
+    }
+
+    /// <summary>
+    /// 兼容旧批量入口；默认使用短名。
     /// </summary>
     public static void GenerateAddresses(IList<RuntimeAssetEntry> entries)
     {
-        // 第一轮：为所有自动条目生成短名
-        foreach (var entry in entries)
-        {
-            if (!entry.AutoAddress) continue;
-            entry.Address = GenerateShortName(entry.SourcePath);
-        }
-
-        // 第二轮：检测短名冲突，升级为 Filename_Type
-        var addressGroups = entries
-            .Where(e => e.AutoAddress)
-            .GroupBy(e => e.Address, StringComparer.OrdinalIgnoreCase);
-
-        foreach (var group in addressGroups)
-        {
-            var items = group.ToList();
-            if (items.Count <= 1) continue;
-
-            // 同名但不同 PrimaryType → 全部升级为 Filename_Type
-            var distinctTypes = items.Select(e => e.PrimaryType).Distinct().ToList();
-            if (distinctTypes.Count > 1)
-            {
-                foreach (var entry in items)
-                {
-                    entry.Address = GenerateTypeSuffixAddress(
-                        GenerateShortName(entry.SourcePath),
-                        entry.PrimaryType
-                    );
-                }
-            }
-            // 同名且同 PrimaryType -> 不自动升级
-            // （由 AssetConflictRules 校验工具报告警告）
-        }
+        GenerateAddresses(entries, AssetAddressStyle.ShortName);
     }
 }

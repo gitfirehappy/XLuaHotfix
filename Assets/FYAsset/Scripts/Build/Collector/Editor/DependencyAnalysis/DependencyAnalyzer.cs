@@ -348,7 +348,7 @@ public static class DependencyAnalyzer
         {
             AssetPath = candidate.AssetPath,
             AssetGUID = guid,
-            Address = AssetAddressGenerator.GenerateShortAddress(candidate.AssetPath, candidate.PrimaryType, true),
+            Address = AssetAddressGenerator.GenerateAddress(candidate.AssetPath, candidate.PrimaryType, AssetAddressStyle.ShortName),
             PrimaryType = candidate.PrimaryType,
             Labels = new List<string>(),
             GroupLabels = new List<string>(),

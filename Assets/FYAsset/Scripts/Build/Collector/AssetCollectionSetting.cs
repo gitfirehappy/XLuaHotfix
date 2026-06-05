@@ -3,6 +3,16 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
+/// 项目级自动 Address 生成样式。
+/// </summary>
+public enum AssetAddressStyle
+{
+    ShortName = 0,
+    LongAssetPathWithoutExtension = 1,
+    NameType = 2
+}
+
+/// <summary>
 /// 资产采集配置资产。
 /// 层级结构：Setting -> Package -> Group -> Collector，资产元数据按 GUID 独立存储。
 /// </summary>
@@ -12,6 +22,9 @@ public class AssetCollectionSetting : ScriptableObject
 
     /// <summary>所有资产包配置列表</summary>
     public List<AssetCollectionPackage> Packages = new();
+
+    /// <summary>自动 Address 的项目级默认生成样式。</summary>
+    public AssetAddressStyle AddressStyle = AssetAddressStyle.ShortName;
 
     /// <summary>Project Scan 阶段的全局忽略规则，用于生成候选 Collector 前过滤项目资产。</summary>
     public List<string> IgnorePatterns = CreateDefaultIgnorePatterns();

@@ -25,11 +25,11 @@ public static class SystemIdentifiers
 
     /// <summary>段值中不允许出现的保留字符（PackageName / GroupName / Labels 使用）</summary>
     public static readonly char[] ReservedChars =
-        { '/', '\\', ':', '*', '?', '<', '>', '"', '|', '.', ' ', ';', '%', '~', '$', '_' };
+        { '/', '\\', ':', '*', '?', '<', '>', '"', '|', '.', ' ', ';', '%', '~', '$', '_', '#' };
 
     /// <summary>BundleKey 中不允许出现的保留字符（不含 ~，因为它是有意使用的连接符）</summary>
     public static readonly char[] BundleKeyReservedChars =
-        { '/', '\\', ':', '*', '?', '<', '>', '"', '|', '.', ' ', ';', '%', '$', '_' };
+        { '/', '\\', ':', '*', '?', '<', '>', '"', '|', '.', ' ', ';', '%', '$', '_', '#' };
 
     /// <summary>检查给定值是否为系统保留标识符（以 $ 开头）</summary>
     public static bool IsSystemReserved(string value)
