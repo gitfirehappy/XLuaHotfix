@@ -27,4 +27,5 @@ Shared executable plans live here while active. `requirements/plan.md` remains t
 | File | Status |
 |---|---|
 | `plan-address-generation-conflict-policy-20260604.md` | Executed / Awaiting sign-off |
-| `plan-assets-collection-settings-cleanup-20260605.md` | Approved / In progress |
+| `plan-assets-collection-settings-cleanup-20260605.md` | Executed / Awaiting sign-off |
+| `plan-assets-collection-followup-20260605.md` | Approved / In progress |

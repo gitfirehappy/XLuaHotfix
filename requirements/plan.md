@@ -1,9 +1,9 @@
 # Refactor Plan: XLuaHotfix Full Resource Management System Overhaul — Master Plan
 
-> **Status**: In progress (Phase 1-4 completed, Phase 5 E1-1/E1-2/E1-3/E1-4/E2 realized, Phase 6 E4/E5-1/E5-2a/E5-2b/E6/E7/E9/E10/E11 main path realized, Build Repository AA Push signed off and archived, AssetsCollection settings cleanup executed and awaiting sign-off)
+> **Status**: In progress (Phase 1-4 completed, Phase 5 E1-1/E1-2/E1-3/E1-4/E2 realized, Phase 6 E4/E5-1/E5-2a/E5-2b/E6/E7/E9/E10/E11 main path realized, Build Repository AA Push signed off and archived, AssetsCollection follow-up fixes in progress)
 > **Ultimate Goal**: Fully replace Addressables with custom runtime + build-time resource management system (referencing YooAsset architecture)
 > **Created**: 2026-03-16
-> **Updated**: 2026-06-05 — AssetsCollection settings cleanup executed and awaiting sign-off; E7 main path complete, repository hardening remains deferred
+> **Updated**: 2026-06-05 — AssetsCollection follow-up fixes approved and in progress; E7 main path complete, repository hardening remains deferred
 
 ---
 
@@ -187,6 +187,7 @@ Phase 4 and Phase 6 must be coordinated (ABManifest runtime consumption + build-
 |------|---------|--------|
 | plan-address-generation-conflict-policy-20260604.md | Explicit Address generation policy, style-based asset/group operations, and automatic conflict-upgrade removal | Executed / Awaiting sign-off |
 | plan-assets-collection-settings-cleanup-20260605.md | AssetsCollection add/remove/exclude workflow, Scene collector shape cleanup, BuildPipeline Sequential removal, and three-settings ownership cleanup | Executed / Awaiting sign-off |
+| plan-assets-collection-followup-20260605.md | AssetsCollection acceptance follow-up: Scene-only folder scan, long-path Address extension, and setting-owned exclusion UI | Approved / In progress |
 
 ### Phase 5: Build-Time - Asset Collection & Indexing
 
