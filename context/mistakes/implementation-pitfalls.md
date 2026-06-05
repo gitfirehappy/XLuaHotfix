@@ -401,4 +401,11 @@ Verified historical errors and prevention rules.
 **Symptom:** Excluded Assets rows showed a grey `None (Object)` field with disabled Select/Ping behavior, leaving only Remove usable even when the cached asset path existed.
 **Root cause:** The row used a disabled `ObjectField` and resolved the asset with a generic path load that could return null for the displayed asset, so the UI became a read-only dead display instead of a resource reference control.
 **Fix:** Resolve excluded assets through GUID/path to `AssetDatabase.LoadMainAssetAtPath` with an all-assets fallback, keep the ObjectField enabled for replacement, and provide explicit Select, Ping, and Remove actions.
-**Prevention:** Inspector rows that represent project assets should be actionable references. If the user needs to identify or navigate the asset, do not disable the reference field; resolve by GUID first, show the cached path, and keep navigation independent from removal.
+**Prevention:** Inspector rows that represent project assets should be actionable references. If the user needs to identify or navigate the asset, do not disable the reference field; resolve by GUID first, show the cached path, and keep navigation independent from removal. If a valid path still resolves to `None`, continue the investigation into the asset's serialized references instead of treating the UI as the root cause.
+
+## IP-58: Script Meta GUID Drift Broke Serialized Assets
+
+**Symptom:** An Excluded Assets row displayed the correct cached path for `Assets/SO/SOContainer/Bridge/AnimeBridge.asset`, but the ObjectField still showed `None (Object)` and Select/Ping stayed unavailable.
+**Root cause:** The asset file existed, but its main object referenced `m_Script` GUID `8804d7e5753b2164ba51f8a66736d5f5`; a previous helper-directory refactor recreated `ScriptObjectContainer.cs.meta` with GUID `b31ac084c03fc4a4e83105057cd4ebec`, so Unity could not bind the serialized ScriptableObject script and returned no usable main asset object.
+**Fix:** Restore `Assets/FYAsset/Scripts/Helpers/ScriptObjectContainer.cs.meta` to the historical GUID `8804d7e5753b2164ba51f8a66736d5f5` instead of rewriting the serialized `.asset` files or masking the failure in the inspector UI.
+**Prevention:** Unity script moves and directory refactors must preserve `.meta` files. When an asset path exists but `AssetDatabase.LoadMainAssetAtPath` returns null or an inspector ObjectField shows `None`, inspect the YAML `m_Script` GUID, search current `.meta` files, and check git history before changing UI code or asset data.
