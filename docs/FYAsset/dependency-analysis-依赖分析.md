@@ -113,7 +113,7 @@ flowchart TD
 - `CollectorType` = `Implicit`
 - `EAssetRole` = `ImplicitDependency`
 - `BundleName` = `{package}_shared_{primaryType}`
-- `Address` = 由 `AssetAddressGenerator` 自动生成，遵循当前自动地址策略；后续重构方向是默认短名，`Filename_Type` 只作为显式资产/Group 操作
+- `Address` = 隐式依赖条目没有 AssetCollectionSetting 上下文，固定使用短名样式生成；显式资产/Group 操作可在采集面板中使用 `Name#Type`
 - `Labels` = 空
 
 复制型隐式依赖：

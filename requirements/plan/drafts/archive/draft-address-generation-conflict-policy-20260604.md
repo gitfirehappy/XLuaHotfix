@@ -1,9 +1,18 @@
 # Draft: Address Generation Conflict Policy
 
-> **Status**: Draft
+> **Status**: Promoted to `requirements/plan/plan-address-generation-conflict-policy-20260604.md`
 > **Date**: 2026-06-04
 > **Purpose**: discuss the replacement for automatic Address conflict upgrade in `AssetAddressGenerator`.
 > **Executable**: No. This draft records direction and code surfaces; it must be promoted to `requirements/plan/` before implementation.
+
+## Promotion Note
+
+Promoted on 2026-06-04. The executable plan adds the final decisions that were open here:
+
+- project-level `AssetCollectionSetting.AddressStyle`;
+- three explicit styles: `ShortName`, `LongAssetPathWithoutExtension`, and `NameType`;
+- `NameType` uses `#` instead of `_`;
+- group batch operations modify only `AutoAddress=true` entries.
 
 ## Current Verified State
 

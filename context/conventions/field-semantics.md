@@ -6,7 +6,7 @@ Binding rules for field naming across the FYAsset codebase. Consult before writi
 
 1. **Labels** = asset-level query tags (ManifestAssetEntry.Labels, RuntimeAssetEntry.Labels). Never use "Labels" on a Bundle structure.
 2. **Tags** = bundle-level download strategy markers (ManifestBundleEntry.Tags). Never use "Tags" on an asset structure. Labels and Tags do NOT auto-aggregate.
-3. **Address** = runtime logical name (allows duplicates, primary query key). **AssetPath/SourcePath** = project-relative path (editor diagnostic only, never a runtime key).
+3. **Address** = runtime logical name (allows duplicates, primary query key). Auto Address generation is controlled by `AssetCollectionSetting.AddressStyle`; it is not conflict-rewritten. **AssetPath/SourcePath** = project-relative path (editor diagnostic only, never a runtime key).
 4. **EntryId** = runtime canonical unique ID (reuses Unity GUID). **AssetGUID** = same value, build-time naming. Always map 1:1.
 5. **PrimaryType** = single asset's Unity type name. **BundleType** = bundle's dominant type (>80% threshold) or "Mixed".
 6. **FileHash** = canonical hash field name (MD5). All code now uses PascalCase.

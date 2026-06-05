@@ -55,14 +55,15 @@ Collector 不再保存 `AddressRuleName`、`PackRuleName` 或 Collector Labels�
 
 Address 是运行期逻辑名，允许重复，不是资产唯一身份。资产唯一身份由 Unity GUID 映射到运行期 `EntryId`；运行期解析通过 `Address + PrimaryType + Labels` 逐步收敛，完全无法区分时才应阻断。
 
-当前代码中仍存在历史行为：部分采集和 Reset Auto 路径默认调用 `GenerateShortAddress(..., true)`，会生成 `Filename_Type`。新的重构方向已记录在 `requirements/plan/drafts/draft-address-generation-conflict-policy-20260604.md`：
+当前自动 Address 由 `AssetCollectionSetting.AddressStyle` 控制，AssetsCollection 的 Package 详情中可以调整项目级默认样式：
 
 - 默认自动 Address = 文件短名（文件名去扩展）。
 - 短名冲突不自动升级；同名 Address 本身允许存在。
-- `Filename_Type` 只作为显式统一选项，由用户在资产级或 Group 批量操作中应用。
-- 手动覆写项保持锁定，除非用户显式切回 Auto 或执行明确会覆盖选中资产 Address 的批量操作。
+- 长路径样式 = `Assets/...` 去扩展名，例如 `Assets/UI/Icon`。
+- `Name#Type` 只作为显式统一选项，由用户在资产级或 Group 批量操作中应用。
+- 手动覆写项保持锁定；Group 批量操作只修改 `AutoAddress=true` 的资产。
 
-这与 Addressables 的心智相近：Addressables 默认长路径，可由用户显式简化；FYAsset 计划反过来默认短名，并提供显式扩展到 `Filename_Type` 的操作。
+`#` 可以出现在 Address 中，但不能出现在 PackageName、GroupName、Labels 或 BundleKey 中。PackSeparately 会把 Address 投影成 BundleKey，因此 `Player#Prefab` 这类 Address 最终不会让 BundleName 带上 `#`。
 
 ---
 

@@ -26,4 +26,4 @@ Shared executable plans live here while active. `requirements/plan.md` remains t
 ## Active
 | File | Status |
 |---|---|
-| _None_ | — |
+| `plan-address-generation-conflict-policy-20260604.md` | Executed / Awaiting sign-off |
