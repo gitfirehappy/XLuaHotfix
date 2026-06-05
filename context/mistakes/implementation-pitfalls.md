@@ -388,3 +388,17 @@ Verified historical errors and prevention rules.
 **Root cause:** Project Scan used a generic "has any collectable file" folder-generation check, so scene files satisfied the folder Collector condition before file-level Scene collectors were added. Long-path Address generation kept an old "without extension" implementation after the accepted UI semantics changed. Per-asset collection exclusions were stored as raw GUID strings in `FYAssetABSettings`, placing collection filter state outside `AssetCollectionSetting` and outside the visible Ignore management surface.
 **Fix:** Generate Project Scan folder Collectors only for folders containing at least one non-Scene collectable asset after ignore/exclusion filtering, keep `.unity` assets as file Collectors, preserve file extensions in long-path Address generation, move active exclusions to `AssetCollectionSetting.ExcludedAssets` with GUID plus cached path, migrate hidden legacy `FYAssetABSettings.ExcludedAssetGUIDs`, and expose Excluded Assets next to Ignore Patterns with object/path-aware rows.
 **Prevention:** Folder-collector generation checks must match the intended ownership shape, not just asset existence. Address-style names kept for serialized compatibility still need current behavior documented and verified. Per-asset collection filters belong beside scan Ignore state in `AssetCollectionSetting`; backend settings may provide migration inputs but must not remain the active UI or build source of truth.
+
+## IP-56: Preview-Only Fix Left Saved Collector Data Invalid
+
+**Symptom:** After a Scene Project Scan fix, existing `CollectorSetting.asset` data still kept `Assets/Scenes` as a Folder Collector, and build/curate scans could still see Scene files through the stale folder entry.
+**Root cause:** The fix only changed Project Scan candidate generation. It did not normalize already saved Collector data, mark the Curate candidate as dirty after normalization, or add a scanner guard for stale Folder Collectors.
+**Fix:** Normalize Scene-only Folder Collectors into Scene File Collectors when entering Curate and before saving, mark the candidate as unsaved when normalization changes it, and make collection scans skip `.unity` files from every Folder Collector.
+**Prevention:** When changing generated configuration shape, cover three paths together: new preview generation, saved-data normalization/persistence, and scanner/build-time defensive behavior for old assets that have not been saved yet.
+
+## IP-57: Disabled ObjectField Looked Like Missing Asset
+
+**Symptom:** Excluded Assets rows showed a grey `None (Object)` field with disabled Select/Ping behavior, leaving only Remove usable even when the cached asset path existed.
+**Root cause:** The row used a disabled `ObjectField` and resolved the asset with a generic path load that could return null for the displayed asset, so the UI became a read-only dead display instead of a resource reference control.
+**Fix:** Resolve excluded assets through GUID/path to `AssetDatabase.LoadMainAssetAtPath` with an all-assets fallback, keep the ObjectField enabled for replacement, and provide explicit Select, Ping, and Remove actions.
+**Prevention:** Inspector rows that represent project assets should be actionable references. If the user needs to identify or navigate the asset, do not disable the reference field; resolve by GUID first, show the cached path, and keep navigation independent from removal.

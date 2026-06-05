@@ -59,7 +59,7 @@ Collector 也不保存资产级排除列表。文件级移除意图由 `AssetCol
 - `AssetGUID`
 - `AssetPath`
 
-`AssetGUID` 是真正生效的排除键；`AssetPath` 是编辑器展示和审计用缓存，会在资产仍可解析时刷新。AssetsCollection 的 Ignore 面板同时管理 Project Scan Ignore Patterns 和 Excluded Assets，排除项可显示资源对象、路径，并支持 Ping/Remove。
+`AssetGUID` 是真正生效的排除键；`AssetPath` 是编辑器展示和审计用缓存，会在资产仍可解析时刷新。AssetsCollection 的 Ignore 面板同时管理 Project Scan Ignore Patterns 和 Excluded Assets，排除项可显示资源对象、路径，并支持 Select、Ping、Replace、Remove。
 
 ---
 
@@ -138,7 +138,7 @@ Inspector、Project 右键菜单、选择器窗口和 AssetsCollection Curate �
 - 被父级 Folder Collector 覆盖的嵌套文件夹在 Inspector 中显示为已覆盖，不再显示成未收集。
 - 每次变更都会通知 AssetsCollection 面板重建 Curate 扫描状态，避免左栏或 Scan Preview 使用旧 Collector 结果。
 
-Scene 的 Project Scan 只生成 `.unity` 文件级 Collector，不生成只有 Scene 资产的根文件夹 Collector。Project Scan 只有在文件夹内存在非 Scene、未忽略、未排除的可采集资源时才生成 Folder Collector；Scene 资源始终以明确文件 Collector 和 Scene Payload 参与 PackSeparately。
+Scene 的 Project Scan 只生成 `.unity` 文件级 Collector，不生成只有 Scene 资产的根文件夹 Collector。Project Scan 只有在文件夹内存在非 Scene、未忽略、未排除的可采集资源时才生成 Folder Collector；旧 Curate 数据中的 Scene-only Folder Collector 会在保存前规范化为 Scene File Collector。扫描器也会跳过所有 Folder Collector 下的 `.unity`，Scene 资源始终以明确文件 Collector 和 Scene Payload 参与 PackSeparately。
 
 ---
 

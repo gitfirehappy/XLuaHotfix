@@ -185,7 +185,7 @@ For `PackSeparately`, `normalizedAddress` is a bundle-key-safe projection of the
 
 Collector therefore retains payload analysis capability, including RawFile recognition.
 
-Scene Project Scan creates file-level `.unity` Collectors with Scene payload and does not create a Scene-only root-folder Collector. Project Scan folder Collectors are generated only for folders that contain at least one non-Scene collectable asset after ignore and exclusion filtering. Folder Collectors that force serialized payload skip `.unity` files so scene assets stay file-owned and PackSeparately.
+Scene Project Scan creates file-level `.unity` Collectors with Scene payload and does not create a Scene-only root-folder Collector. Project Scan folder Collectors are generated only for folders that contain at least one non-Scene collectable asset after ignore and exclusion filtering. Curate normalizes old Scene-only Folder Collectors into Scene File Collectors before save, and collection scans skip `.unity` files from every Folder Collector so scene assets stay file-owned and PackSeparately.
 
 ## Validation
 

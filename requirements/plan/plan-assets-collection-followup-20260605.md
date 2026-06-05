@@ -41,13 +41,14 @@ Fix the acceptance feedback from the AssetsCollection cleanup:
 3. Project Scan
    - Change folder generation so a folder gets a Folder Collector only if it contains at least one non-Scene collectable asset after ignore filtering.
    - Keep `.unity` assets as File Collectors with Scene payload.
+   - Normalize old Scene-only Folder Collectors in Curate before save, and make scanner skip `.unity` from Folder Collectors as a build-time guard.
 4. Address generation
    - Change long-path Address generation to preserve the extension.
    - Rename UI labels/docs from "Long path without extension" wording to long path with extension where applicable, while keeping enum name for serialized compatibility.
 5. Exclusion UI
    - Remove `ExcludedAssetGUIDs` from AB Config.
    - Add an Excluded Assets section next to Ignore Patterns.
-   - Show each exclusion as an object/path-aware row with remove and ping/select behavior when the asset resolves.
+   - Show each exclusion as an object/path-aware row with Select, Ping, Replace, and Remove behavior when the asset resolves.
 6. Verification
    - `dotnet build XLuaHotfix.sln --no-restore`
    - `git diff --check`
