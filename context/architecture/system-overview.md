@@ -1,6 +1,6 @@
 # System Overview
 
-Last reviewed: 2026-06-03
+Last reviewed: 2026-06-05
 
 ## Purpose
 
@@ -135,9 +135,9 @@ This repository contains both the current production-oriented path and an in-pro
 - `AB PIPELINE` contains `AB Config`, `AssetsCollection`, and `Pipeline`.
 - `AssetCollectionSettingInspector` is a UI Toolkit shortcut inspector that opens `BuildPipelineWindow` directly.
 - `AssetsCollectionPanel` is the single UI Toolkit panel for `AssetCollectionSetting`. It preserves the approved Project Scan -> read-only Scan Preview -> Curate workflow: the top toolbar exposes Scan and Curate, Curate keeps the package/group sidebar, and the right details area switches between Details and Scan Preview. Scan Preview renders the collected tree as Package -> Group -> Collector -> Bundle -> Asset, with bundle rows color-marked by bundle bucket.
-- Build settings are split from runtime settings. `FYAssetSettings` keeps runtime/global fields; `SharedBuildSettings` stores shared build paths; `BuildRepositorySettings` stores repository Push targets; `AABuildSettings` and `ABBuildSettings` store backend-specific pipeline config paths, manifest output format, and hotfix size limits.
-- `SettingsPanel` edits `FYAssetSettings` first and `SharedBuildSettings` second. `AAConfigPanel` edits `AABuildSettings` before the Addressables overview. `PipelinePanel` edits `ABBuildSettings` before the AB BuildGraph.
-- `PipelinePanel` is parameterized by config path, default backbone factory, Build Options visibility, and Build controls visibility. The AB sidebar entry uses it with `ABBuildSettings.BuildPipelineConfigPath` and `BuildPipelineBackbone.CreateABTasks()`, exposing Reload, Validate, Build Options, Build Mode, Build controls, and BuildGraph inspection. The AA Build sidebar entry delegates to the same panel with `AABuildSettings.BuildPipelineConfigPath` and `BuildPipelineBackbone.CreateAATasks()`, exposing Reload, Validate, Build Mode, Build controls, and BuildGraph inspection, but not Build Options because AA configuration remains owned by Addressables.
+- Active settings are three Resources assets: `FYAssetSettings` for global project/build settings and Push targets, `FYAssetAASettings` for AA hotfix/build settings, and `FYAssetABSettings` for AB hotfix/build/collection settings. Old `SharedBuildSettings`, `AABuildSettings`, `ABBuildSettings`, and `BuildRepositorySettings` are compatibility/migration leftovers only.
+- `SettingsPanel` edits `FYAssetSettings`. `AAConfigPanel` edits `FYAssetAASettings` before the Addressables overview. `ABConfigPanel` edits `FYAssetABSettings`; the AB Pipeline page owns the BuildGraph.
+- `PipelinePanel` is parameterized by config path, default backbone factory, Build Options visibility, and Build controls visibility. The AB sidebar entry uses it with `FYAssetABSettings.BuildPipelineConfigPath` and `BuildPipelineBackbone.CreateABTasks()`, exposing Reload, Validate, Build Options, Build Mode, Build controls, and BuildGraph inspection. The AA Build sidebar entry delegates to the same panel with `FYAssetAASettings.BuildPipelineConfigPath` and `BuildPipelineBackbone.CreateAATasks()`, exposing Reload, Validate, Build Mode, Build controls, and BuildGraph inspection, but not Build Options because AA configuration remains owned by Addressables.
 - `PipelinePanel` uses a `BuildGraphView` GraphView DAG visualization powered by `BuildGraphLayoutEngine` and `BuildTaskNode`. The graph shows code-level execution edges, SO-level execution edges, and data-flow edges derived from `ReadKeys`/`WriteKeys`. It supports Reload, `DAGScheduler.Validate()`, a right-click optional-task creation menu, node-level source opening for registered Task types, and Pipeline-triggered Full/Hotfix builds through `BuildProjectManager`.
 - `PipelinePanel` keeps top validation status as a short summary and shows full validation details in a hidden-until-needed bottom bar with copy and close controls.
 - Pipeline and CLI Full/Hotfix builds call the public `BuildProjectManager` build entries; `BuildProjectManager` no longer registers legacy `Tools/Build` menu items.

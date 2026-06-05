@@ -35,6 +35,8 @@ AssetCollectionSetting
 
 Collector 不再保存 `AddressRuleName`、`PackRuleName` 或 Collector Labels。
 
+Collector 也不保存资产级排除列表。文件级移除意图由 `FYAssetABSettings.ExcludedAssetGUIDs` 记录，扫描时通过 `CollectionScanOptions.FromABSettings()` 生效。
+
 ---
 
 ## AssetEntry
@@ -112,6 +114,21 @@ flowchart TD
 ```
 
 Collector 仍保留 RawFile/Scene/Serialized 的分析能力。`ForcePayloadKind.Auto` 会把 `.unity` 识别为 Scene，已知 Unity 资产扩展识别为 Serialized，其余文件识别为 RawFile。
+
+---
+
+## 编辑器增删与排除语义
+
+Inspector、Project 右键菜单、选择器窗口和 AssetsCollection Curate 里的资产增删统一走 `CollectorMutationUtility`：
+
+- 添加未收集资产：在目标 Group 下创建 File 或 Folder Collector。
+- 添加已排除资产：移除 `ExcludedAssetGUIDs` 中的 GUID，不创建重复 File Collector。
+- 删除直接 File Collector：移除该 Collector。
+- 删除被 Folder Collector 覆盖的文件：把该文件 GUID 写入 `FYAssetABSettings.ExcludedAssetGUIDs`。
+- 被父级 Folder Collector 覆盖的嵌套文件夹在 Inspector 中显示为已覆盖，不再显示成未收集。
+- 每次变更都会通知 AssetsCollection 面板重建 Curate 扫描状态，避免左栏或 Scan Preview 使用旧 Collector 结果。
+
+Scene 的 Project Scan 只生成 `.unity` 文件级 Collector，不生成 Scene 根文件夹 Collector。这样 Scene 资源始终以明确文件 Collector 和 Scene Payload 参与 PackSeparately。
 
 ---
 

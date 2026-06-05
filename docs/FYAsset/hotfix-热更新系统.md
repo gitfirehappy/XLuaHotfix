@@ -139,6 +139,7 @@ Start
 
 Bundle 下载阶段由 `HotfixManager` 统一管理重试与校验：
 
+- `HotfixUrl`、最大重试次数和基础退避时间来自当前后端设置：AA 读取 `FYAssetAASettings`，AB 读取 `FYAssetABSettings`。
 - 默认最大重试次数为 3，基础退避时间为 1 秒，即失败后按 1s / 2s / 4s 等待重试。
 - 网络下载先写入 `{bundleName}.tmp`，只有下载完成且 CRC 校验通过后才替换目标 Bundle。
 - 本地同 Hash 复用也先复制到 `.tmp`，CRC 通过后再替换目标文件。
@@ -149,7 +150,7 @@ Bundle 下载阶段由 `HotfixManager` 统一管理重试与校验：
 
 ## URL 与本地路径规范
 
-- 远端路径统一通过 `FYAssetPathUtility.JoinUrl(...)` 生成，包括 `PackageIndex.json`、包体根、manifest、`catalog.json` 和 bundle 下载 URL；`HotfixUrl` 带不带尾斜杠都应得到相同的单斜杠 URL。
+- 远端路径统一通过 `FYAssetPathUtility.JoinUrl(...)` 生成，包括 `PackageIndex.json`、包体根、manifest、`catalog.json` 和 bundle 下载 URL；当前后端设置中的 `HotfixUrl` 带不带尾斜杠都应得到相同的单斜杠 URL。
 - 本地热更目录、目标包体目录、bundle 保存路径、manifest 写入路径和本地 `PackageIndex.json` 使用本地文件系统路径规则拼接。
 - Unity `StreamingAssets` 读取路径通过共享路径工具拼接，但 Android `jar:` URI-like 路径保持 `/` 分隔符，不会被规范化成 Windows 本地路径。
 - `bundles`、`catalog.json`、`BuildIndex.json` 等跨模块目录/文件名来自 `FYAssetSettings` 常量，不在热更主链路中重复写字符串字面量。

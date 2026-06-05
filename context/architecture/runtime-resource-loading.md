@@ -1,6 +1,6 @@
 # Runtime Resource Loading
 
-Last reviewed: 2026-06-03
+Last reviewed: 2026-06-05
 
 ## Scope
 
@@ -155,7 +155,7 @@ Hotfix backend locations:
 
 `BundleDownloadItem` carries `BundleName`, `FileHash`, `FileCRC`, and `FileSize` for both AA and AB hotfix backends. `FileHash` remains the content identity used for reuse/download decisions. `FileCRC` is the fast verification checksum. `FileCRC == 0` means CRC metadata is unavailable (following Unity's convention where CRC=0 signals "skip verification"); CRC verification is skipped in that case but a Warning is logged.
 
-`FYAssetSettings` owns the runtime hotfix retry settings: `HotfixMaxRetryCount` and `HotfixRetryBaseDelaySeconds`. The default behavior retries failed bundle downloads and CRC mismatches up to 3 times with exponential backoff from 1 second.
+Backend-specific settings own runtime hotfix network configuration. When `FYAssetSettings.Instance.UseABBackend` is `false`, `HotfixManager` reads `FYAssetAASettings.Instance.HotfixUrl`, `HotfixMaxRetryCount`, and `HotfixRetryBaseDelaySeconds`. When it is `true`, it reads the same fields from `FYAssetABSettings.Instance`. The default behavior retries failed bundle downloads and CRC mismatches up to 3 times with exponential backoff from 1 second.
 
 ## Shared Runtime Support Components
 

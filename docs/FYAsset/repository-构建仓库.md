@@ -186,7 +186,7 @@ HEAD 指针文件路径：`{channelRoot}/HEAD.json`。Object 文件路径由目�
 
 ### 数据模型
 
-**PushTargetConfig** — 持久化在 `BuildRepositorySettings.PushTargets` 中，由仓库面板编辑：
+**PushTargetConfig** — 持久化在 `FYAssetSettings.PushTargets` 中，由仓库面板编辑：
 
 | 字段 | 类型 | JSON | 语义 |
 |------|------|:----:|------|

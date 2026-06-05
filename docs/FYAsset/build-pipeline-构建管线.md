@@ -64,7 +64,7 @@ TaskA (WriteKeys: ["CollectedAssets"])     TaskB (ReadKeys: ["CollectedAssets"],
 **Execute（执行阶段）**：
 - 入度表驱动批循环：入度为 0 的节点形成当前批次
 - 批内按 TaskName 字母序确定执行顺序（确定性）
-- `SequentialMode = true` 时忽略批并发，逐 Task 串行执行
+- 执行运行在 Unity Editor 主线程上，当前实现本身就是确定性串行执行；不存在额外的并行/串行切换开关
 - Fatal 错误立即中止所有后续批次
 - `stopAfterTaskName` 命中后提前停止，已执行 Task 产出的 `BuildContext` 数据可被调用方读取
 - `taskWhitelist` 可限制本次只执行指定 Task 集合，常用于 Diff Preview
@@ -91,7 +91,6 @@ ScriptableObject，存储路径 `Assets/Build/BuildPipelineConfig.asset`。
 BuildPipelineConfig
 ├─ FileNameStyle         (BundleName / HashName / BundleName_HashName)
 ├─ BundleCompression     (LZ4 / LZMA / Uncompressed，默认 LZ4)
-├─ SequentialMode        (Debug 串行模式)
 └─ Tasks[]               (TaskEntry 列表)
      ├─ TaskName         ("TaskPrepareContext")
      ├─ Enabled          (true / false)

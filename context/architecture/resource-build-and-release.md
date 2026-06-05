@@ -1,6 +1,6 @@
 # Resource Build And Release
 
-Last reviewed: 2026-06-03
+Last reviewed: 2026-06-05
 
 ## Scope
 
@@ -111,11 +111,11 @@ The build entry point is now split with the same orchestration pattern already u
 - `DAGScheduler` treats `WriteKeys` as BuildContext write/update declarations, not exclusive write locks. Staged writes to the same key are valid when explicit task dependencies define the order.
 - AB `CollectedAssets` is a staged key: `TaskCollectAssets` creates the list, `TaskCollectBuiltins` appends builtin shader/resources entries, and `TaskAnalyzeDependencies` writes the dependency-augmented list back.
 - Diff Preview uses `DAGScheduler.Execute` with a whitelist and validates only the effective preview task set.
-- Build-time settings are loaded through the Editor-only `FYAssetBuildSettingsProvider`. Missing default assets are created at `Assets/Build/FYAssetSharedBuildSettings.asset`, `Assets/Build/FYAssetAABuildSettings.asset`, `Assets/Build/FYAssetABBuildSettings.asset`, and `Assets/Build/FYAssetBuildRepositorySettings.asset`.
+- Active FYAsset settings are the three runtime-safe Resources assets loaded through `FYAssetSettings`, `FYAssetAASettings`, and `FYAssetABSettings`. The Editor-only `FYAssetBuildSettingsProvider` exposes those three active assets and only reads old `SharedBuildSettings`, `AABuildSettings`, `ABBuildSettings`, and `BuildRepositorySettings` as migration sources when creating missing defaults.
 
 ### AA backend
 
-- `AABuildBackend` is a stateless DAG runner: it receives the shared `BuildPackageRequest`, writes it into `BuildContext`, loads the pipeline config path from `AABuildSettings`, and runs the AA task graph through `DAGScheduler.Execute()`
+- `AABuildBackend` is a stateless DAG runner: it receives the shared `BuildPackageRequest`, writes it into `BuildContext`, loads the pipeline config path from `FYAssetAASettings`, and runs the AA task graph through `DAGScheduler.Execute()`
 - `TaskScanAddressableHotfixDiff` and `TaskMoveAddressableHotfixGroups` are AA graph front tasks. Full builds skip them; hotfix builds continue when the diff is empty and move changed assets before `TaskBuildAddressablesContent`.
 - `TaskBuildAddressablesContent` owns Addressables-specific setup (`BuildRemoteCatalog`, `PackTogetherByLabel`, LuaScripts remote path fix), ServerData cleanup, and `AddressableAssetSettings.BuildPlayerContent`
 - `TaskOrganizeAAOutput` copies ServerData output into the request-owned final package directory and sets `BuildContextKeys.OutputPath` to `BuildPackageRequest.OutputDir`
@@ -132,7 +132,7 @@ The build entry point is now split with the same orchestration pattern already u
 - The AB backbone order is `TaskPrepareContext -> TaskCollectAssets -> TaskCollectBuiltins -> TaskAnalyzeDependencies -> TaskBuildBundles -> TaskGenerateManifest -> TaskVerifyBuildResult -> TaskScanABHotfixDiff -> TaskOrganizeOutput -> TaskWriteABPackageManifest -> TaskWritePackageIndex -> TaskExportLocalBuildData`.
 - `TaskScanABHotfixDiff` is the AB graph diff task between `TaskVerifyBuildResult` and `TaskOrganizeOutput`; standalone AB diff stops after this task so package organization and publication do not run.
 - `TaskOrganizeOutput` consumes the request and writes the final AB package layout directly under `BuildPackageRequest.OutputDir`, copying bundles into `BuildPackageRequest.BundlesDir`
-- `TaskWriteABPackageManifest` publishes `ABManifest.json` and/or `ABManifest.bin` at the final package root according to `ABBuildSettings.ManifestOutputFormat` and applies the AB hotfix size limit from `ABBuildSettings`
+- `TaskWriteABPackageManifest` publishes `ABManifest.json` and/or `ABManifest.bin` at the final package root according to `FYAssetABSettings.ManifestOutputFormat` and applies the AB hotfix size limit from `FYAssetABSettings`
 - `TaskWritePackageIndex` runs after the AB package manifest task and writes the remote latest-package pointer for both Full and Hotfix official builds
 - `TaskExportLocalBuildData` is the AB graph tail task and implementation owner for local startup data export. It writes `BuildIndexData` only for full builds, copies the real final AB package baseline (`ABManifest` files plus `bundles/`) into `StreamingAssets`, cleans stale AA baseline files, and returns success without exporting for hotfix builds
 - `BuildContextKeys.OutputPath` is the request-owned final package directory after AB finalization
@@ -140,37 +140,56 @@ The build entry point is now split with the same orchestration pattern already u
 
 ### Build path helpers
 
-- `BuildPathManager` is the Editor-only source for build output paths. It reads `SharedBuildSettings.BuildOutputRoot` and runtime `FYAssetSettings.BuildPackagesFolderName`; the default layout remains `HotfixOutput/Packages/Build_{yyyyMMddHHmmss}_{version}`.
+- `BuildPathManager` is the Editor-only source for build output paths. It reads `FYAssetSettings.BuildOutputRoot` and `FYAssetSettings.BuildPackagesFolderName`; the default layout remains `HotfixOutput/Packages/Build_{yyyyMMddHHmmss}_{version}`.
 - `FYAssetPathUtility` is the shared helper for URL joining, local file path joining/resolution, Unity asset path normalization, relative file path calculation, and path identity comparison.
 - Remote URL roots and path segments are joined with `FYAssetPathUtility.JoinUrl(...)`; local filesystem paths from settings, CLI arguments, repository publication, package output, temporary build output, and StreamingAssets export are joined or resolved with `JoinFilePath(...)` / `ResolveFilePath(...)`.
 - Unity `AssetDatabase` paths remain `Assets/...` paths with `/` separators and are normalized with `NormalizeAssetPath(...)` / `JoinAssetPath(...)`. URI-like paths such as Android StreamingAssets `jar:` paths are joined with `/` and are not normalized as local OS paths.
 - `AddressablesBuildOutputOrganizer` owns AA `ServerData` cleanup and package output copying rules.
 
-## FYAssetSettings
+## Active FYAsset Settings
 
-`FYAssetSettings` is a `ScriptableObject` (Runtime assembly) that stores runtime/global configuration and compile-time constants.
+`FYAssetSettings`, `FYAssetAASettings`, and `FYAssetABSettings` are runtime-safe `ScriptableObject` assets stored under `Assets/Resources/`.
+
+### `FYAssetSettings`
+
+Stores global project/build configuration and compile-time constants.
 
 - Asset path: `Assets/Resources/FYAssetSettings.asset` (versioned in repo; `LoadOrCreate()` creates it there on the Editor path if missing)
 - Singleton access: `FYAssetSettings.Instance`
 - Editor: `LoadOrCreate()` searches `Assets/Resources/FYAssetSettings.asset`, creates the asset if missing, and saves it through `AssetDatabase`
 - Player: `LoadOrCreate()` loads the asset through `Resources.Load<FYAssetSettings>("FYAssetSettings")`; only if that fails does it fall back to `CreateInstance<FYAssetSettings>()`
-- Instance fields (configurable in Inspector): `ProjectName`, `HotfixUrl`, `UseABBackend`, `BuildPackagesFolderName`, `HotfixMaxRetryCount`, `HotfixRetryBaseDelaySeconds`
-- Build-only fields are not stored on `FYAssetSettings`.
-- Runtime consumers read configuration via `FYAssetSettings.Instance` at use sites; no `static readonly` settings snapshots remain in `RuntimePathManager` / `HotfixManager`
+- Instance fields: `ProjectName`, `UseABBackend`, `BuildOutputRoot`, `BuildPackagesFolderName`, `VersionDataBasePath`, `BuildIndexJsonPath`, and `PushTargets`
+- Runtime consumers read configuration through the current settings `Instance` accessors at use sites; no `static readonly` settings snapshots remain in `RuntimePathManager` / `HotfixManager`
 - Static `const` members: filter/group rule name strings (`RULE_COLLECT_ALL`, `RULE_GROUP_*`), group/label identifiers (`LUA_SCRIPTS_INDEX`, `HOTFIX_GROUP_NAME`, `DEFAULT_XLUA_TYPE_CONFIG_LOAD_LABEL`), file/directory names (`PACKAGE_INDEX_FILE_NAME`, `MANIFEST_FILE_NAME`, `MANIFEST_FILE_NAME_BIN`, `AA_MANIFEST_FILE_NAME`, `AA_MANIFEST_FILE_NAME_BIN`, `BUILD_INDEX_FILENAME`, `BUNDLES_DIRECTORY_NAME`, `ADDRESSABLES_CATALOG_FILE_NAME`), and editor paths (`BUILD_PIPELINE_WINDOW_MENU_PATH`, `BINARY_SERIALIZER_GENERATE_PATH`)
 - `UseABBackend` is the single source of truth for backend selection — `BuildPipelineConfig.DefaultBackendMode` was removed
 - `BackendMode.AA` is the canonical AA enum value; duplicate AA/Addressables mode names are not supported.
 
-## Build Settings Assets
+### `FYAssetAASettings`
 
-- `SharedBuildSettings` stores shared build output and project asset paths: `BuildOutputRoot`, `VersionDataBasePath`, `BuildIndexJsonPath`, and `LuaScriptsIndexPath`.
-- `AABuildSettings` stores AA-specific build settings: `BuildPipelineConfigPath`, `ManifestOutputFormat`, and `MaxHotfixSizeBytes`.
-- `ABBuildSettings` stores AB-specific build settings: `BuildPipelineConfigPath`, `ManifestOutputFormat`, `MaxHotfixSizeBytes`, `AssetCollectionDataFolder`, `AssetCollectionSettingPath`, and `DependencyFilterExtensions`.
-- `BuildRepositorySettings` stores repository Push targets. `PushTargetConfig.Path` is a publish root; an empty path means the current `BuildPathManager.OutputRoot`.
-- `VersionDataBase` remains shared product-version data and is referenced from `SharedBuildSettings.VersionDataBasePath`; there are no AA/AB-specific version database paths.
-- The Settings panel edits `FYAssetSettings` first and `SharedBuildSettings` second. AA Config edits `AABuildSettings` first. AB Config edits `ABBuildSettings`; the AB Pipeline page owns the BuildGraph and build controls. Repository Push target configuration is edited from the repository panel.
+Stores AA backend runtime and build configuration.
+
+- Asset path: `Assets/Resources/FYAssetAASettings.asset`
+- Singleton access: `FYAssetAASettings.Instance`
+- Instance fields: `HotfixUrl`, `HotfixMaxRetryCount`, `HotfixRetryBaseDelaySeconds`, `BuildPipelineConfigPath`, `ManifestOutputFormat`, `MaxHotfixSizeBytes`, and `LuaScriptsIndexPath`
+
+### `FYAssetABSettings`
+
+Stores AB backend runtime, build, and collection configuration.
+
+- Asset path: `Assets/Resources/FYAssetABSettings.asset`
+- Singleton access: `FYAssetABSettings.Instance`
+- Instance fields: `HotfixUrl`, `HotfixMaxRetryCount`, `HotfixRetryBaseDelaySeconds`, `BuildPipelineConfigPath`, `ManifestOutputFormat`, `MaxHotfixSizeBytes`, `AssetCollectionDataFolder`, `AssetCollectionSettingPath`, `DependencyFilterExtensions`, and `ExcludedAssetGUIDs`
+- `ExcludedAssetGUIDs` is the AB collection exclusion source used by `CollectionScanOptions.FromABSettings()`.
+
+## Compatibility Settings Assets
+
+`SharedBuildSettings`, `AABuildSettings`, `ABBuildSettings`, and `BuildRepositorySettings` are compatibility/migration leftovers. Active code should not read them for current behavior. `FYAssetBuildSettingsProvider` may copy values from those old assets only when creating missing `FYAssetSettings`, `FYAssetAASettings`, or `FYAssetABSettings`.
+
+- `PushTargetConfig.Path` is still a publish root; an empty path means the current `BuildPathManager.OutputRoot`.
+- `VersionDataBase` remains shared product-version data and is referenced from `FYAssetSettings.VersionDataBasePath`; there are no AA/AB-specific version database paths.
+- The Settings panel edits `FYAssetSettings`. AA Config edits `FYAssetAASettings`. AB Config edits `FYAssetABSettings`; the AB Pipeline page owns the BuildGraph and build controls. Repository Push target configuration is edited from the repository panel and stored on `FYAssetSettings.PushTargets`.
 - Build settings path fields now use chooser buttons in the Editor UI instead of raw string-only editing.
-- `MaxHotfixSizeBytes` in AA/AB build settings is edited through a byte-unit control that displays the exact byte count alongside a selectable unit.
+- `MaxHotfixSizeBytes` in AA/AB settings is edited through a byte-unit control that displays the exact byte count alongside a selectable unit.
 - `PushTargetConfig.Path` is edited through a chooser-based path field in the repository panel.
 
 ## Build-Time Architectural Decisions
