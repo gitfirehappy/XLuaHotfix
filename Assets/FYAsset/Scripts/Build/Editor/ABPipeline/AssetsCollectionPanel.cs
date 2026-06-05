@@ -58,6 +58,7 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
     private AssetCollectionSetting _curateSetting;
     private ScanResult _curateResult;
     private bool _curatePreviewDirty;
+    private bool _curateHasUnsavedChanges;
     private CuratePanelMode _curatePanelMode = CuratePanelMode.Details;
     private SelectionType _selectionType = SelectionType.None;
     private int _selectedPackageIndex = -1;
@@ -68,6 +69,7 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
     private readonly HashSet<string> _expandedPackages = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _expandedGroups = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
     private bool _draggingCurateSplitter;
+    private bool _suppressExternalCollectorChanged;
     private Vector2 _splitterDragStartMouse;
     private float _splitterDragStartWidth;
 
@@ -76,6 +78,8 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
     public void OnEnable(EditorWindow window)
     {
         _window = window;
+        CollectorMutationUtility.Changed -= OnExternalCollectorChanged;
+        CollectorMutationUtility.Changed += OnExternalCollectorChanged;
         LoadSetting();
     }
 
@@ -95,6 +99,7 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
 
     public void OnDisable()
     {
+        CollectorMutationUtility.Changed -= OnExternalCollectorChanged;
         _root?.Unbind();
         _root = null;
     }
@@ -112,7 +117,7 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         if (HasPackages(_setting))
         {
             AssetCollectionSetting candidate = CloneSetting(_setting);
-            EnterCurate(candidate, false, CollectionScanner.Scan(candidate), !preserveExpansionState);
+            EnterCurate(candidate, false, CollectionScanner.Scan(candidate, CollectionScanOptions.FromABSettings()), !preserveExpansionState);
         }
         else
             EnterScan();
@@ -154,6 +159,7 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         _curateSetting = null;
         _curateResult = null;
         _curatePreviewDirty = false;
+        _curateHasUnsavedChanges = false;
         _curatePanelMode = CuratePanelMode.Details;
         ClearSelection();
     }
@@ -165,6 +171,7 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         _curateSetting = null;
         _curateResult = null;
         _curatePreviewDirty = false;
+        _curateHasUnsavedChanges = false;
         _curatePanelMode = CuratePanelMode.Details;
         ClearSelection();
     }
@@ -179,10 +186,28 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         _curateSetting = candidate;
         _curateResult = initialResult;
         _curatePreviewDirty = initialResult == null;
+        _curateHasUnsavedChanges = false;
         _curatePanelMode = CuratePanelMode.Details;
         if (initializeExpansionState)
             EnsureDefaultExpandedState(candidate);
         EnsureSelection(selectFirst);
+    }
+
+    private void OnExternalCollectorChanged()
+    {
+        if (_root == null)
+            return;
+        if (_suppressExternalCollectorChanged)
+            return;
+
+        if (_stage == WorkflowStage.Curate && _curateSetting != null && _curateHasUnsavedChanges)
+        {
+            RescanCurate(false, _curatePanelMode, false);
+            return;
+        }
+
+        LoadSetting(true);
+        Rebuild();
     }
 
     #endregion
@@ -233,7 +258,7 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         if (HasPackages(_setting))
         {
             AssetCollectionSetting candidate = CloneSetting(_setting);
-            EnterCurate(candidate, false, CollectionScanner.Scan(candidate));
+            EnterCurate(candidate, false, CollectionScanner.Scan(candidate, CollectionScanOptions.FromABSettings()));
         }
         else
             EnterCurate(ScriptableObject.CreateInstance<AssetCollectionSetting>(), false);
@@ -268,7 +293,7 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         var snapshot = new ProjectScanSnapshot
         {
             PreviewSetting = preview,
-            Result = CollectionScanner.Scan(preview)
+            Result = CollectionScanner.Scan(preview, CollectionScanOptions.FromABSettings())
         };
         EnterPreview(snapshot);
         Rebuild();
@@ -354,6 +379,7 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
             return;
 
         EnterCurate(CloneSetting(_projectSnapshot.PreviewSetting), true, CloneScanResult(_projectSnapshot.Result));
+        _curateHasUnsavedChanges = true;
         Rebuild();
     }
 
@@ -500,8 +526,11 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         Button addGroup = new Button(AddGroup) { text = "+ Group" };
         addGroup.SetEnabled(_selectedPackageIndex >= 0);
         buttons.Add(addGroup);
+        Button addAsset = new Button(AddAssetToSelectedGroup) { text = "+ Asset" };
+        addAsset.SetEnabled(GetActiveGroupForAssetOperation() != null);
+        buttons.Add(addAsset);
         Button delete = new Button(DeleteSelection) { text = "Delete" };
-        delete.SetEnabled(_selectionType == SelectionType.Package || _selectionType == SelectionType.Group);
+        delete.SetEnabled(_selectionType == SelectionType.Package || _selectionType == SelectionType.Group || _selectionType == SelectionType.Asset);
         buttons.Add(delete);
         sidebar.Add(buttons);
 
@@ -562,7 +591,7 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
                 if (!groupExpanded)
                     continue;
 
-                List<CollectedAssetInfo> assets = GetAssetsForSourceGroup(_curateResult, group?.GroupName);
+                List<CollectedAssetInfo> assets = GetAssetsForSourceGroup(_curateResult, package?.PackageName, group?.GroupName);
                 assets.Sort((left, right) => string.Compare(GetAssetNavName(left), GetAssetNavName(right), StringComparison.OrdinalIgnoreCase));
                 for (int ai = 0; ai < assets.Count; ai++)
                 {
@@ -695,7 +724,7 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
     private void DrawGroupEditor(VisualElement parent)
     {
         AssetCollectionPackage package = GetSelectedPackage();
-        AssetCollectionGroup group = GetSelectedGroup();
+        AssetCollectionGroup group = GetActiveGroupForAssetOperation();
         if (group == null)
         {
             parent.Add(BuildPipelineUI.SmallText("Selected Group is missing."));
@@ -908,9 +937,7 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         if (_curateSetting == null)
             return;
 
-        _curatePreviewDirty = true;
-        EnsureSelection(false);
-        Rebuild();
+        RescanCurate(false, CuratePanelMode.Details);
     }
 
     private void RefreshCuratePreview()
@@ -918,10 +945,20 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         if (_curateSetting == null)
             return;
 
-        _curateResult = CollectionScanner.Scan(_curateSetting);
+        RescanCurate(false, CuratePanelMode.ScanPreview, false);
+    }
+
+    private void RescanCurate(bool selectFirst, CuratePanelMode mode, bool markUnsaved = true)
+    {
+        if (_curateSetting == null)
+            return;
+
+        _curateResult = CollectionScanner.Scan(_curateSetting, CollectionScanOptions.FromABSettings());
         _curatePreviewDirty = false;
-        _curatePanelMode = CuratePanelMode.ScanPreview;
-        EnsureSelection(false);
+        _curatePanelMode = mode;
+        if (markUnsaved)
+            _curateHasUnsavedChanges = true;
+        EnsureSelection(selectFirst);
         Rebuild();
     }
 
@@ -929,7 +966,7 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
     {
         if (_curateSetting != null && (_curatePreviewDirty || _curateResult == null))
         {
-            _curateResult = CollectionScanner.Scan(_curateSetting);
+            _curateResult = CollectionScanner.Scan(_curateSetting, CollectionScanOptions.FromABSettings());
             _curatePreviewDirty = false;
         }
 
@@ -950,6 +987,7 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         AssetDatabase.ForceReserializeAssets(new List<string> { FYAssetBuildSettingsProvider.AB.AssetCollectionSettingPath });
         AssetDatabase.Refresh();
         CollectorReverseIndex.Instance.MarkDirty();
+        _curateHasUnsavedChanges = false;
         LoadSetting(true);
         Rebuild();
     }
@@ -967,6 +1005,7 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
             EnterCurate(CloneSetting(_setting), false);
         else
             EnterScan();
+        _curateHasUnsavedChanges = false;
         Rebuild();
     }
 
@@ -1004,16 +1043,16 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         if (package?.Groups != null)
         {
             for (int gi = 0; gi < package.Groups.Count; gi++)
-                foldout.Add(CreateGroupPreview(package.Groups[gi], result));
+                foldout.Add(CreateGroupPreview(package, package.Groups[gi], result));
         }
 
         return foldout;
     }
 
-    private VisualElement CreateGroupPreview(AssetCollectionGroup group, ScanResult result)
+    private VisualElement CreateGroupPreview(AssetCollectionPackage package, AssetCollectionGroup group, ScanResult result)
     {
-        int assetCount = CountAssetsForSourceGroup(result, group?.GroupName);
-        int bundleCount = CountBundlesForSourceGroup(result, group?.GroupName);
+        int assetCount = CountAssetsForSourceGroup(result, package?.PackageName, group?.GroupName);
+        int bundleCount = CountBundlesForSourceGroup(result, package?.PackageName, group?.GroupName);
         string disabled = group != null && !group.Enabled ? " [Disabled]" : string.Empty;
         Foldout foldout = new Foldout
         {
@@ -1024,15 +1063,15 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         if (group?.Collectors != null)
         {
             for (int ci = 0; ci < group.Collectors.Count; ci++)
-                foldout.Add(CreateCollectorPreview(group, group.Collectors[ci], result));
+                foldout.Add(CreateCollectorPreview(package, group, group.Collectors[ci], result));
         }
 
         return foldout;
     }
 
-    private VisualElement CreateCollectorPreview(AssetCollectionGroup group, Collector collector, ScanResult result)
+    private VisualElement CreateCollectorPreview(AssetCollectionPackage package, AssetCollectionGroup group, Collector collector, ScanResult result)
     {
-        List<CollectedAssetInfo> assets = GetAssetsForCollector(result, group?.GroupName, collector?.CollectPath);
+        List<CollectedAssetInfo> assets = GetAssetsForCollector(result, package?.PackageName, group?.GroupName, collector?.CollectPath);
         Foldout foldout = new Foldout
         {
             text = $"{(collector?.CollectPathType == ECollectPathType.File ? "[File]" : "[Folder]")} {collector?.CollectPath}  ({assets.Count})",
@@ -1495,7 +1534,7 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
                 string suffix = group != null && !group.Enabled ? " [Disabled]" : string.Empty;
                 maxChars = Mathf.Max(maxChars, GetGroupDisplayName(group).Length + suffix.Length + 6);
 
-                List<CollectedAssetInfo> assets = GetAssetsForSourceGroup(_curateResult, group?.GroupName);
+                List<CollectedAssetInfo> assets = GetAssetsForSourceGroup(_curateResult, package?.PackageName, group?.GroupName);
                 for (int ai = 0; ai < assets.Count; ai++)
                     maxChars = Mathf.Max(maxChars, GetAssetNavName(assets[ai]).Length + 10);
             }
@@ -1630,9 +1669,52 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
                 _curateSetting.Packages.RemoveAt(_selectedPackageIndex);
             EnsureSelection(true);
         }
+        else if (_selectionType == SelectionType.Asset)
+        {
+            CollectedAssetInfo selected = FindPreviewAsset(_selectedAssetGuid);
+            if (selected == null)
+                return;
+
+            RemoveAssetFromCurate(selected);
+            SelectGroup(FindPackageIndex(selected.PackageName), FindGroupIndex(FindPackageIndex(selected.PackageName), selected.SourceGroupName));
+        }
 
         _curatePanelMode = CuratePanelMode.Details;
-        MarkCuratePreviewDirty();
+        RescanCurate(false, CuratePanelMode.Details);
+    }
+
+    private void AddAssetToSelectedGroup()
+    {
+        AssetCollectionGroup group = GetSelectedGroup();
+        if (group == null)
+            return;
+
+        string assetPath = PickCollectPath(true);
+        if (string.IsNullOrEmpty(assetPath) || AssetDatabase.IsValidFolder(assetPath))
+            return;
+
+        string guid = AssetDatabase.AssetPathToGUID(assetPath);
+        if (string.IsNullOrEmpty(guid))
+            return;
+
+        if (CollectorMutationUtility.IsExcludedGuid(guid))
+                _suppressExternalCollectorChanged = true;
+                try
+                {
+                    CollectorMutationUtility.RestoreExcluded(assetPath);
+                }
+                finally
+                {
+                    _suppressExternalCollectorChanged = false;
+                }
+
+        if (!IsCoveredByCurateCollector(assetPath))
+        {
+            group.Collectors ??= new List<Collector>();
+            group.Collectors.Add(CreateFileCollectorForCurate(assetPath));
+        }
+
+        RescanCurate(false, CuratePanelMode.Details);
     }
 
     private static Collector CreateEmptyCollector(ECollectPathType pathType)
@@ -1646,6 +1728,126 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
             FilterRuleName = FYAssetSettings.RULE_COLLECT_ALL,
             GroupRuleName = FYAssetSettings.RULE_GROUP_ALL
         };
+    }
+
+    private void RemoveAssetFromCurate(CollectedAssetInfo asset)
+    {
+        if (asset == null)
+            return;
+
+        if (RemoveDirectFileCollectorFromCurate(asset))
+            return;
+
+        _suppressExternalCollectorChanged = true;
+        try
+        {
+            CollectorMutationUtility.ExcludeAsset(asset.AssetPath);
+        }
+        finally
+        {
+            _suppressExternalCollectorChanged = false;
+        }
+    }
+
+    private bool RemoveDirectFileCollectorFromCurate(CollectedAssetInfo asset)
+    {
+        AssetCollectionGroup group = GetSourceGroup(asset);
+        if (group?.Collectors == null)
+            return false;
+
+        string assetPath = CollectorPathUtility.NormalizePath(asset.AssetPath);
+        for (int i = group.Collectors.Count - 1; i >= 0; i--)
+        {
+            Collector collector = group.Collectors[i];
+            if (collector == null || collector.CollectPathType != ECollectPathType.File)
+                continue;
+
+            if (!string.Equals(CollectorPathUtility.NormalizePath(collector.CollectPath), assetPath, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            group.Collectors.RemoveAt(i);
+            return true;
+        }
+
+        return false;
+    }
+
+    private bool IsCoveredByCurateCollector(string assetPath)
+    {
+        string normalized = CollectorPathUtility.NormalizePath(assetPath);
+        if (_curateSetting?.Packages == null)
+            return false;
+
+        for (int pi = 0; pi < _curateSetting.Packages.Count; pi++)
+        {
+            AssetCollectionPackage package = _curateSetting.Packages[pi];
+            if (package?.Groups == null)
+                continue;
+
+            for (int gi = 0; gi < package.Groups.Count; gi++)
+            {
+                AssetCollectionGroup group = package.Groups[gi];
+                if (group?.Collectors == null || !group.Enabled)
+                    continue;
+
+                for (int ci = 0; ci < group.Collectors.Count; ci++)
+                {
+                    Collector collector = group.Collectors[ci];
+                    string collectPath = CollectorPathUtility.NormalizePath(collector?.CollectPath);
+                    if (string.IsNullOrEmpty(collectPath))
+                        continue;
+
+                    if (collector.CollectPathType == ECollectPathType.File &&
+                        string.Equals(collectPath, normalized, StringComparison.OrdinalIgnoreCase))
+                        return true;
+
+                    if (collector.CollectPathType == ECollectPathType.Folder &&
+                        CollectorPathUtility.IsPathContained(collectPath, normalized))
+                        return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private AssetCollectionGroup GetSourceGroup(CollectedAssetInfo asset)
+    {
+        int packageIndex = FindPackageIndex(asset.PackageName);
+        int groupIndex = FindGroupIndex(packageIndex, asset.SourceGroupName);
+        if (_curateSetting?.Packages == null || packageIndex < 0 || packageIndex >= _curateSetting.Packages.Count)
+            return null;
+
+        AssetCollectionPackage package = _curateSetting.Packages[packageIndex];
+        if (package?.Groups == null || groupIndex < 0 || groupIndex >= package.Groups.Count)
+            return null;
+
+        return package.Groups[groupIndex];
+    }
+
+    private static Collector CreateFileCollectorForCurate(string assetPath)
+    {
+        return new Collector
+        {
+            CollectPath = CollectorPathUtility.NormalizePath(assetPath),
+            CollectPathType = ECollectPathType.File,
+            CollectorType = ECollectorType.Main,
+            ForcePayloadKind = IsSceneAssetPath(assetPath) ? EForcePayloadKind.Scene : EForcePayloadKind.Auto,
+            FilterRuleName = FYAssetSettings.RULE_COLLECT_ALL,
+            GroupRuleName = FYAssetSettings.RULE_GROUP_ALL
+        };
+    }
+
+    private AssetCollectionGroup GetActiveGroupForAssetOperation()
+    {
+        if (_selectionType == SelectionType.Asset)
+        {
+            CollectedAssetInfo selected = FindPreviewAsset(_selectedAssetGuid);
+            if (selected != null)
+                return GetSourceGroup(selected);
+        }
+
+        return GetSelectedGroup();
     }
 
     #endregion
@@ -1672,6 +1874,9 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
             if (package?.Groups == null || _selectedGroupIndex < 0 || _selectedGroupIndex >= package.Groups.Count)
                 SelectPackage(_selectedPackageIndex);
         }
+
+        if (_selectionType == SelectionType.Asset && FindPreviewAsset(_selectedAssetGuid) == null)
+            SelectGroup(_selectedPackageIndex, _selectedGroupIndex);
     }
 
     private void SelectPackage(int packageIndex)
@@ -1885,42 +2090,6 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         return false;
     }
 
-    private static bool IsOwnedByExistingCollector(AssetCollectionPackage package, string assetPath)
-    {
-        if (package?.Groups == null)
-            return false;
-
-        string normalizedAsset = CollectorPathUtility.NormalizePath(assetPath);
-        for (int gi = 0; gi < package.Groups.Count; gi++)
-        {
-            AssetCollectionGroup group = package.Groups[gi];
-            if (group?.Collectors == null)
-                continue;
-
-            for (int ci = 0; ci < group.Collectors.Count; ci++)
-            {
-                Collector collector = group.Collectors[ci];
-                string collectPath = CollectorPathUtility.NormalizePath(collector?.CollectPath);
-                if (string.IsNullOrEmpty(collectPath))
-                    continue;
-
-                if (collector.CollectPathType == ECollectPathType.Folder &&
-                    CollectorPathUtility.IsPathContained(collectPath, normalizedAsset))
-                {
-                    return true;
-                }
-
-                if (collector.CollectPathType == ECollectPathType.File &&
-                    string.Equals(collectPath, normalizedAsset, StringComparison.OrdinalIgnoreCase))
-                {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
-
     private static AssetCollectionGroup FindOrCreateGroup(AssetCollectionPackage package, string groupName)
     {
         for (int i = 0; i < package.Groups.Count; i++)
@@ -1947,7 +2116,7 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
             CollectPath = path,
             CollectPathType = ECollectPathType.Folder,
             CollectorType = ECollectorType.Main,
-            ForcePayloadKind = EForcePayloadKind.Auto,
+            ForcePayloadKind = EForcePayloadKind.Serialized,
             FilterRuleName = FYAssetSettings.RULE_COLLECT_ALL,
             GroupRuleName = FYAssetSettings.RULE_GROUP_ALL
         };
@@ -2085,15 +2254,15 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         return bundles.Count;
     }
 
-    private static int CountAssetsForSourceGroup(ScanResult result, string groupName)
+    private static int CountAssetsForSourceGroup(ScanResult result, string packageName, string groupName)
     {
-        return GetAssetsForSourceGroup(result, groupName).Count;
+        return GetAssetsForSourceGroup(result, packageName, groupName).Count;
     }
 
-    private static int CountBundlesForSourceGroup(ScanResult result, string groupName)
+    private static int CountBundlesForSourceGroup(ScanResult result, string packageName, string groupName)
     {
         HashSet<string> bundles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        List<CollectedAssetInfo> assets = GetAssetsForSourceGroup(result, groupName);
+        List<CollectedAssetInfo> assets = GetAssetsForSourceGroup(result, packageName, groupName);
         for (int i = 0; i < assets.Count; i++)
         {
             if (!string.IsNullOrEmpty(assets[i].BundleName))
@@ -2102,7 +2271,7 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         return bundles.Count;
     }
 
-    private static List<CollectedAssetInfo> GetAssetsForSourceGroup(ScanResult result, string groupName)
+    private static List<CollectedAssetInfo> GetAssetsForSourceGroup(ScanResult result, string packageName, string groupName)
     {
         List<CollectedAssetInfo> assets = new List<CollectedAssetInfo>();
         if (result?.Assets == null)
@@ -2111,13 +2280,19 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         for (int i = 0; i < result.Assets.Count; i++)
         {
             CollectedAssetInfo asset = result.Assets[i];
+            if (!string.IsNullOrEmpty(packageName) &&
+                !string.Equals(asset.PackageName, packageName, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
             if (string.Equals(asset.SourceGroupName, groupName, StringComparison.OrdinalIgnoreCase))
                 assets.Add(asset);
         }
         return assets;
     }
 
-    private static List<CollectedAssetInfo> GetAssetsForCollector(ScanResult result, string groupName, string collectorPath)
+    private static List<CollectedAssetInfo> GetAssetsForCollector(ScanResult result, string packageName, string groupName, string collectorPath)
     {
         List<CollectedAssetInfo> assets = new List<CollectedAssetInfo>();
         if (result?.Assets == null)
@@ -2127,8 +2302,14 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         for (int i = 0; i < result.Assets.Count; i++)
         {
             CollectedAssetInfo asset = result.Assets[i];
-            if (string.Equals(asset.SourceGroupName, groupName, StringComparison.OrdinalIgnoreCase) &&
-                string.Equals(CollectorPathUtility.NormalizePath(asset.SourceCollectorPath), normalizedCollector, StringComparison.OrdinalIgnoreCase))
+            if ((!string.IsNullOrEmpty(packageName) &&
+                 !string.Equals(asset.PackageName, packageName, StringComparison.OrdinalIgnoreCase)) ||
+                !string.Equals(asset.SourceGroupName, groupName, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (string.Equals(CollectorPathUtility.NormalizePath(asset.SourceCollectorPath), normalizedCollector, StringComparison.OrdinalIgnoreCase))
             {
                 assets.Add(asset);
             }
@@ -2263,21 +2444,6 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         return preview == null
             ? string.Empty
             : AssetAddressGenerator.GenerateAddress(preview.AssetPath, preview.PrimaryType, style);
-    }
-
-    private static List<CollectedAssetInfo> GetAssetsForSourceGroup(ScanResult result, string packageName, string groupName)
-    {
-        List<CollectedAssetInfo> assets = GetAssetsForSourceGroup(result, groupName);
-        if (string.IsNullOrEmpty(packageName))
-            return assets;
-
-        for (int i = assets.Count - 1; i >= 0; i--)
-        {
-            if (!string.Equals(assets[i].PackageName, packageName, StringComparison.OrdinalIgnoreCase))
-                assets.RemoveAt(i);
-        }
-
-        return assets;
     }
 
     private static string JoinLabels(List<string> labels)

@@ -30,29 +30,38 @@ public static class CollectorAssetInspectorGUI
 
         bool isFolder = AssetDatabase.IsValidFolder(assetPath);
 
-        CollectorReverseIndex.Instance.TryGetCollector(assetPath, out CollectorReverseIndex.CollectorRef collectorRef);
-        bool isCollected = CollectorReverseIndex.Instance.IsAssetCollected(assetPath);
-        Collector collector = isCollected ? GetCollector(collectorRef) : null;
-        bool canToggleOff = collector != null
-            && ((isFolder && collector.CollectPathType == ECollectPathType.Folder) || (!isFolder && collector.CollectPathType == ECollectPathType.File))
-            && string.Equals(CollectorPathUtility.NormalizePath(collector.CollectPath), assetPath, System.StringComparison.OrdinalIgnoreCase);
+        CollectorMutationUtility.MembershipInfo membership = CollectorMutationUtility.GetMembership(assetPath);
+        bool isCollected = membership.State == CollectorMutationUtility.CollectionState.DirectCollector ||
+                           membership.State == CollectorMutationUtility.CollectionState.CoveredByFolderCollector;
+        bool isExcluded = membership.State == CollectorMutationUtility.CollectionState.Excluded;
+        bool canToggleOff = membership.State == CollectorMutationUtility.CollectionState.DirectCollector ||
+                            (!isFolder && membership.State == CollectorMutationUtility.CollectionState.CoveredByFolderCollector);
 
         GUILayout.Space(4f);
         GUILayout.BeginVertical(EditorStyles.helpBox);
 
         Rect rowRect = EditorGUILayout.GetControlRect(false, 20f);
         EditorGUI.BeginDisabledGroup(isCollected && !canToggleOff);
-        bool newState = EditorGUI.ToggleLeft(rowRect, "Collected", isCollected, EditorStyles.boldLabel);
+        bool newState = EditorGUI.ToggleLeft(rowRect, isExcluded ? "Collected (Excluded)" : "Collected", isCollected, EditorStyles.boldLabel);
         EditorGUI.EndDisabledGroup();
 
         if (isCollected)
         {
-            string packageName = GetPackageName(collectorRef);
-            string groupName = GetGroupName(collectorRef);
+            string packageName = GetPackageName(membership);
+            string groupName = GetGroupName(membership);
             EditorGUILayout.LabelField("Package: " + packageName + "    Group: " + groupName, EditorStyles.miniLabel);
 
-            if (!canToggleOff)
-                EditorGUILayout.LabelField("Collected via a parent Folder collector. Remove it from the collector panel.", EditorStyles.wordWrappedMiniLabel);
+            if (membership.State == CollectorMutationUtility.CollectionState.CoveredByFolderCollector)
+            {
+                string hint = isFolder
+                    ? "Covered by a parent Folder collector."
+                    : "Covered by a parent Folder collector. Toggle off to exclude this asset by GUID.";
+                EditorGUILayout.LabelField(hint, EditorStyles.wordWrappedMiniLabel);
+            }
+        }
+        else if (isExcluded)
+        {
+            EditorGUILayout.LabelField("Excluded from a parent Folder collector. Toggle on to restore collection.", EditorStyles.wordWrappedMiniLabel);
         }
         else
         {
@@ -66,89 +75,34 @@ public static class CollectorAssetInspectorGUI
         {
             if (newState)
             {
-                CollectorTargetPickerWindow.Show(new[] { assetPath }, () =>
+                if (isExcluded)
                 {
-                    CollectorReverseIndex.Instance.MarkDirty();
-                    UnityEditorInternal.InternalEditorUtility.RepaintAllViews();
-                });
+                    CollectorMutationUtility.RestoreExcluded(assetPath);
+                }
+                else
+                {
+                    CollectorTargetPickerWindow.Show(new[] { assetPath }, CollectorMutationUtility.NotifyChanged);
+                }
             }
             else if (canToggleOff)
             {
-                RemoveCollector(collectorRef);
-                CollectorReverseIndex.Instance.MarkDirty();
-                UnityEditorInternal.InternalEditorUtility.RepaintAllViews();
+                CollectorMutationUtility.RemoveOrExclude(assetPath);
             }
         }
 
         GUILayout.EndVertical();
     }
 
-    private static AssetCollectionSetting LoadSetting()
+    private static string GetPackageName(CollectorMutationUtility.MembershipInfo membership)
     {
-        return AssetDatabase.LoadAssetAtPath<AssetCollectionSetting>(FYAssetBuildSettingsProvider.AB.AssetCollectionSettingPath);
-    }
-
-    private static Collector GetCollector(CollectorReverseIndex.CollectorRef collectorRef)
-    {
-        AssetCollectionSetting setting = LoadSetting();
-        if (setting?.Packages == null)
-            return null;
-        if (collectorRef.PackageIndex < 0 || collectorRef.PackageIndex >= setting.Packages.Count)
-            return null;
-
-        AssetCollectionPackage package = setting.Packages[collectorRef.PackageIndex];
-        if (package?.Groups == null || collectorRef.GroupIndex < 0 || collectorRef.GroupIndex >= package.Groups.Count)
-            return null;
-
-        AssetCollectionGroup group = package.Groups[collectorRef.GroupIndex];
-        if (group?.Collectors == null || collectorRef.CollectorIndex < 0 || collectorRef.CollectorIndex >= group.Collectors.Count)
-            return null;
-
-        return group.Collectors[collectorRef.CollectorIndex];
-    }
-
-    private static string GetPackageName(CollectorReverseIndex.CollectorRef collectorRef)
-    {
-        AssetCollectionSetting setting = LoadSetting();
-        if (setting?.Packages == null || collectorRef.PackageIndex < 0 || collectorRef.PackageIndex >= setting.Packages.Count)
-            return "(unknown package)";
-
-        string packageName = setting.Packages[collectorRef.PackageIndex]?.PackageName;
+        string packageName = membership?.Package?.PackageName;
         return string.IsNullOrEmpty(packageName) ? "(unnamed package)" : packageName;
     }
 
-    private static string GetGroupName(CollectorReverseIndex.CollectorRef collectorRef)
+    private static string GetGroupName(CollectorMutationUtility.MembershipInfo membership)
     {
-        AssetCollectionSetting setting = LoadSetting();
-        if (setting?.Packages == null || collectorRef.PackageIndex < 0 || collectorRef.PackageIndex >= setting.Packages.Count)
-            return "(unknown group)";
-
-        AssetCollectionPackage package = setting.Packages[collectorRef.PackageIndex];
-        if (package?.Groups == null || collectorRef.GroupIndex < 0 || collectorRef.GroupIndex >= package.Groups.Count)
-            return "(unknown group)";
-
-        string groupName = package.Groups[collectorRef.GroupIndex]?.GroupName;
+        string groupName = membership?.Group?.GroupName;
         return string.IsNullOrEmpty(groupName) ? "(unnamed group)" : groupName;
-    }
-
-    private static void RemoveCollector(CollectorReverseIndex.CollectorRef collectorRef)
-    {
-        AssetCollectionSetting setting = LoadSetting();
-        if (setting?.Packages == null || collectorRef.PackageIndex < 0 || collectorRef.PackageIndex >= setting.Packages.Count)
-            return;
-
-        AssetCollectionPackage package = setting.Packages[collectorRef.PackageIndex];
-        if (package?.Groups == null || collectorRef.GroupIndex < 0 || collectorRef.GroupIndex >= package.Groups.Count)
-            return;
-
-        AssetCollectionGroup group = package.Groups[collectorRef.GroupIndex];
-        if (group?.Collectors == null || collectorRef.CollectorIndex < 0 || collectorRef.CollectorIndex >= group.Collectors.Count)
-            return;
-
-        Undo.RecordObject(setting, "Remove Asset From Collector Group");
-        group.Collectors.RemoveAt(collectorRef.CollectorIndex);
-        EditorUtility.SetDirty(setting);
-        AssetDatabase.SaveAssets();
     }
 
 }

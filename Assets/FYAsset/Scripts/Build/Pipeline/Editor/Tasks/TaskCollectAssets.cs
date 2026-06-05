@@ -35,7 +35,7 @@ public class TaskCollectAssets : IBuildTask
         }
 
         // 执行全量扫描
-        ScanResult scanResult = CollectionScanner.Scan(setting);
+        ScanResult scanResult = CollectionScanner.Scan(setting, CollectionScanOptions.FromABSettings());
         bool hasError = false;
 
         // 扫描消息分类归档

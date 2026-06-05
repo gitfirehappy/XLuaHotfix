@@ -1,7 +1,5 @@
-using System;
 using System.Collections.Generic;
 using UnityEditor;
-using UnityEngine;
 
 /// <summary>
 /// Project 窗口右键菜单 —— 批量添加/移除 Collector。
@@ -17,8 +15,7 @@ public static class CollectorContextMenu
 
         CollectorTargetPickerWindow.Show(assetPaths, () =>
         {
-            CollectorReverseIndex.Instance.MarkDirty();
-            UnityEditorInternal.InternalEditorUtility.RepaintAllViews();
+            CollectorMutationUtility.NotifyChanged();
         });
     }
 
@@ -35,46 +32,13 @@ public static class CollectorContextMenu
         if (assetPaths.Length == 0)
             return;
 
-        AssetCollectionSetting setting = LoadSetting();
-        if (setting == null)
-            return;
-
-        Undo.RecordObject(setting, "Remove Assets From Collector");
         bool changed = false;
 
         for (int i = 0; i < assetPaths.Length; i++)
-        {
-            if (!CollectorReverseIndex.Instance.TryGetCollector(assetPaths[i], out CollectorReverseIndex.CollectorRef collectorRef))
-                continue;
-
-            Collector collector = GetCollector(setting, collectorRef);
-            if (collector == null)
-                continue;
-
-            bool isFolder = AssetDatabase.IsValidFolder(assetPaths[i]);
-            bool isDirectMatch = isFolder
-                ? collector.CollectPathType == ECollectPathType.Folder
-                : collector.CollectPathType == ECollectPathType.File;
-            if (!isDirectMatch)
-                continue;
-            if (!string.Equals(CollectorPathUtility.NormalizePath(collector.CollectPath), assetPaths[i], StringComparison.OrdinalIgnoreCase))
-                continue;
-
-            AssetCollectionGroup group = GetGroup(setting, collectorRef);
-            if (group?.Collectors == null || collectorRef.CollectorIndex < 0 || collectorRef.CollectorIndex >= group.Collectors.Count)
-                continue;
-
-            group.Collectors.RemoveAt(collectorRef.CollectorIndex);
-            changed = true;
-            CollectorReverseIndex.Instance.MarkDirty();
-        }
+            changed |= CollectorMutationUtility.RemoveOrExclude(assetPaths[i]);
 
         if (changed)
-        {
-            EditorUtility.SetDirty(setting);
-            AssetDatabase.SaveAssets();
-            UnityEditorInternal.InternalEditorUtility.RepaintAllViews();
-        }
+            CollectorMutationUtility.NotifyChanged();
     }
 
     [MenuItem("Assets/FYAsset/Remove from Collector", true)]
@@ -84,24 +48,14 @@ public static class CollectorContextMenu
         if (assetPaths.Length == 0)
             return false;
 
-        AssetCollectionSetting setting = LoadSetting();
         for (int i = 0; i < assetPaths.Length; i++)
         {
-            if (!CollectorReverseIndex.Instance.TryGetCollector(assetPaths[i], out CollectorReverseIndex.CollectorRef collectorRef))
-                return false;
-
-            Collector collector = GetCollector(setting, collectorRef);
-            if (collector == null)
-                return false;
-
-            bool isFolder = AssetDatabase.IsValidFolder(assetPaths[i]);
-            bool isDirectMatch = isFolder
-                ? collector.CollectPathType == ECollectPathType.Folder
-                : collector.CollectPathType == ECollectPathType.File;
-            if (!isDirectMatch)
-                return false;
-            if (!string.Equals(CollectorPathUtility.NormalizePath(collector.CollectPath), assetPaths[i], StringComparison.OrdinalIgnoreCase))
-                return false;
+            CollectorMutationUtility.MembershipInfo membership = CollectorMutationUtility.GetMembership(assetPaths[i]);
+            if (membership.State == CollectorMutationUtility.CollectionState.DirectCollector)
+                continue;
+            if (!membership.IsFolder && membership.State == CollectorMutationUtility.CollectionState.CoveredByFolderCollector)
+                continue;
+            return false;
         }
 
         return true;
@@ -122,32 +76,6 @@ public static class CollectorContextMenu
         }
 
         return result.ToArray();
-    }
-
-    private static AssetCollectionSetting LoadSetting()
-    {
-        return AssetDatabase.LoadAssetAtPath<AssetCollectionSetting>(FYAssetBuildSettingsProvider.AB.AssetCollectionSettingPath);
-    }
-
-    private static Collector GetCollector(AssetCollectionSetting setting, CollectorReverseIndex.CollectorRef collectorRef)
-    {
-        AssetCollectionGroup group = GetGroup(setting, collectorRef);
-        if (group?.Collectors == null || collectorRef.CollectorIndex < 0 || collectorRef.CollectorIndex >= group.Collectors.Count)
-            return null;
-
-        return group.Collectors[collectorRef.CollectorIndex];
-    }
-
-    private static AssetCollectionGroup GetGroup(AssetCollectionSetting setting, CollectorReverseIndex.CollectorRef collectorRef)
-    {
-        if (setting?.Packages == null || collectorRef.PackageIndex < 0 || collectorRef.PackageIndex >= setting.Packages.Count)
-            return null;
-
-        AssetCollectionPackage package = setting.Packages[collectorRef.PackageIndex];
-        if (package?.Groups == null || collectorRef.GroupIndex < 0 || collectorRef.GroupIndex >= package.Groups.Count)
-            return null;
-
-        return package.Groups[collectorRef.GroupIndex];
     }
 
 }

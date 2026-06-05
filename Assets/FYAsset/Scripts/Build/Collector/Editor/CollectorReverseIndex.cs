@@ -95,7 +95,7 @@ public sealed class CollectorReverseIndex
         AssetCollectionSetting actualSetting = setting;
         if (actualSetting == null)
         {
-            actualSetting = AssetDatabase.LoadAssetAtPath<AssetCollectionSetting>(FYAssetBuildSettingsProvider.AB.AssetCollectionSettingPath);
+            actualSetting = LoadSetting();
         }
 
         if (actualSetting != null)
@@ -206,10 +206,19 @@ public sealed class CollectorReverseIndex
         for (int i = 0; i < guids.Length; i++)
         {
             string assetPath = AssetDatabase.GUIDToAssetPath(guids[i]);
-            if (string.IsNullOrEmpty(assetPath) || AssetDatabase.IsValidFolder(assetPath))
+            if (string.IsNullOrEmpty(assetPath))
                 continue;
 
             assetPath = CollectorPathUtility.NormalizePath(assetPath);
+            if (AssetDatabase.IsValidFolder(assetPath))
+            {
+                AddIfMissing(assetPath, collectorRef);
+                continue;
+            }
+
+            if (IsExcludedAsset(assetPath))
+                continue;
+
             if (ShouldSkipAsset(collector, assetPath))
                 continue;
 
@@ -243,6 +252,30 @@ public sealed class CollectorReverseIndex
 
         if (!filterRule.IsCollectable(context))
             return true;
+
+        return false;
+    }
+
+    private static AssetCollectionSetting LoadSetting()
+    {
+        return AssetDatabase.LoadAssetAtPath<AssetCollectionSetting>(FYAssetBuildSettingsProvider.AB.AssetCollectionSettingPath);
+    }
+
+    private static bool IsExcludedAsset(string assetPath)
+    {
+        string guid = AssetDatabase.AssetPathToGUID(assetPath);
+        if (string.IsNullOrEmpty(guid))
+            return false;
+
+        List<string> excluded = FYAssetABSettings.Instance.ExcludedAssetGUIDs;
+        if (excluded == null)
+            return false;
+
+        for (int i = 0; i < excluded.Count; i++)
+        {
+            if (string.Equals(excluded[i], guid, StringComparison.Ordinal))
+                return true;
+        }
 
         return false;
     }

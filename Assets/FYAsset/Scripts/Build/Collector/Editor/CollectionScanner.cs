@@ -15,7 +15,16 @@ public static class CollectionScanner
     /// </summary>
     public static ScanResult Scan(AssetCollectionSetting setting)
     {
+        return Scan(setting, CollectionScanOptions.None);
+    }
+
+    /// <summary>
+    /// 扫描 AssetCollectionSetting 中配置的所有 Package/Group/Collector，返回采集结果。
+    /// </summary>
+    public static ScanResult Scan(AssetCollectionSetting setting, CollectionScanOptions options)
+    {
         ScanResult result = new ScanResult();
+        options ??= CollectionScanOptions.None;
 
         if (setting == null)
         {
@@ -52,7 +61,7 @@ public static class CollectionScanner
                 continue;
             }
 
-            if (!ScanPackage(setting, package, result))
+            if (!ScanPackage(setting, package, options, result))
                 continue;
         }
 
@@ -130,7 +139,7 @@ public static class CollectionScanner
 
     #region 私有方法 —— 逐 Package 扫描
 
-    private static bool ScanPackage(AssetCollectionSetting setting, AssetCollectionPackage package, ScanResult result)
+    private static bool ScanPackage(AssetCollectionSetting setting, AssetCollectionPackage package, CollectionScanOptions options, ScanResult result)
     {
         string packageName = package.PackageName;
 
@@ -183,6 +192,7 @@ public static class CollectionScanner
         {
             var ctx = contexts[ci];
             ctx.Setting = setting;
+            ctx.Options = options;
             if (!ScanCollector(ctx, packageName, groupLookup, result, packageAssets))
                 break;
         }
@@ -385,10 +395,19 @@ public static class CollectionScanner
         if (string.IsNullOrEmpty(guid))
             return true;
 
+        if (ctx.Options != null && ctx.Options.IsExcludedAssetGuid(guid))
+            return true;
+
         if (IsExcludedByOwnership(assetPath, ctx.ExcludedPaths))
             return true;
 
         string extension = System.IO.Path.GetExtension(assetPath);
+        if (collector.ForcePayloadKind == EForcePayloadKind.Serialized &&
+            string.Equals(extension, ".unity", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
         var filterCtx = new FilterRuleContext
         {
             AssetPath = assetPath,
@@ -698,6 +717,7 @@ public static class CollectionScanner
     private class CollectorContext
     {
         public AssetCollectionSetting Setting;
+        public CollectionScanOptions Options;
         public Collector Collector;
         public string ParentGroupName;
         public AssetCollectionGroup ParentGroup;
@@ -705,4 +725,37 @@ public static class CollectionScanner
     }
 
     #endregion
+}
+
+/// <summary>
+/// Optional inputs that affect collection scans without changing AssetCollectionSetting.
+/// </summary>
+public sealed class CollectionScanOptions
+{
+    public static readonly CollectionScanOptions None = new CollectionScanOptions(null);
+
+    private readonly HashSet<string> _excludedAssetGuids;
+
+    public CollectionScanOptions(IReadOnlyCollection<string> excludedAssetGuids)
+    {
+        _excludedAssetGuids = new HashSet<string>(StringComparer.Ordinal);
+        if (excludedAssetGuids == null)
+            return;
+
+        foreach (string guid in excludedAssetGuids)
+        {
+            if (!string.IsNullOrEmpty(guid))
+                _excludedAssetGuids.Add(guid);
+        }
+    }
+
+    public bool IsExcludedAssetGuid(string guid)
+    {
+        return !string.IsNullOrEmpty(guid) && _excludedAssetGuids.Contains(guid);
+    }
+
+    public static CollectionScanOptions FromABSettings()
+    {
+        return new CollectionScanOptions(FYAssetABSettings.Instance.ExcludedAssetGUIDs);
+    }
 }

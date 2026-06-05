@@ -167,33 +167,13 @@ public sealed class CollectorTargetPickerWindow : EditorWindow
         AssetCollectionGroup group = package.Groups[_selectedGroupIndex];
         group.Collectors ??= new List<Collector>();
 
-        Undo.RecordObject(_setting, "Add Asset To Collector Group");
-
         for (int i = 0; i < _assetPaths.Length; i++)
         {
-            string assetPath = CollectorPathUtility.NormalizePath(_assetPaths[i]);
-            if (string.IsNullOrEmpty(assetPath))
-                continue;
-            if (string.IsNullOrEmpty(AssetDatabase.AssetPathToGUID(assetPath)))
-                continue;
-            if (CollectorReverseIndex.Instance.IsAssetCollected(assetPath))
-                continue;
-
-            bool isFolder = AssetDatabase.IsValidFolder(assetPath);
-            group.Collectors.Add(new Collector
-            {
-                CollectPath = assetPath,
-                CollectPathType = isFolder ? ECollectPathType.Folder : ECollectPathType.File,
-                CollectorType = _collectorType,
-                ForcePayloadKind = _forcePayloadKind,
-                FilterRuleName = FYAssetSettings.RULE_COLLECT_ALL,
-                GroupRuleName = FYAssetSettings.RULE_GROUP_ALL
-            });
+            CollectorMutationUtility.AddToGroup(_setting, group, _assetPaths[i], _collectorType, _forcePayloadKind);
         }
 
         EditorUtility.SetDirty(_setting);
         AssetDatabase.SaveAssets();
-        CollectorReverseIndex.Instance.MarkDirty();
         _onApplied?.Invoke();
         Close();
     }
