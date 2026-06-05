@@ -1,9 +1,9 @@
 # Refactor Plan: XLuaHotfix Full Resource Management System Overhaul — Master Plan
 
-> **Status**: In progress (Phase 1-4 completed, Phase 5 E1-1/E1-2/E1-3/E1-4/E2 realized, Phase 6 E4/E5-1/E5-2a/E5-2b/E6/E7/E9/E10/E11 main path realized, Build Repository AA Push signed off and archived, review-fix-20260509 and naming-unification executed)
+> **Status**: In progress (Phase 1-4 completed, Phase 5 E1-1/E1-2/E1-3/E1-4/E2 realized, Phase 6 E4/E5-1/E5-2a/E5-2b/E6/E7/E9/E10/E11 main path realized, Build Repository AA Push signed off and archived, AssetsCollection settings cleanup in progress)
 > **Ultimate Goal**: Fully replace Addressables with custom runtime + build-time resource management system (referencing YooAsset architecture)
 > **Created**: 2026-03-16
-> **Updated**: 2026-06-04 — Build Repository AA Push parity signed off and archived; E7 main path complete, repository hardening remains deferred
+> **Updated**: 2026-06-05 — AssetsCollection settings cleanup approved and in progress; E7 main path complete, repository hardening remains deferred
 
 ---
 
@@ -180,6 +180,13 @@ Phase 4 and Phase 6 must be coordinated (ABManifest runtime consumption + build-
 | plan-comment-debug-coverage-20260524.md | Build/repository/hotfix task comments and direct Debug log coverage improved without behavior changes | Archived |
 | plan-dag-staged-write-order-fix-20260601.md | DAG staged-write and AB task order fix: remove legacy W-W fatal validation for staged `CollectedAssets` updates, reorder AB builtin collection before dependency analysis, and align BuildGraph data-flow display | Archived | DONE / Signed off |
 | plan-build-repository-aa-push-20260603.md | Build Repository AA Push completion: make AA Push a basic build-pipeline capability before E7 closure, reusing existing whole-package `IPushTarget` and `PushHistory` semantics | Archived / Signed off |
+
+### Active Shared Plans
+
+| File | Content | Status |
+|------|---------|--------|
+| plan-address-generation-conflict-policy-20260604.md | Explicit Address generation policy, style-based asset/group operations, and automatic conflict-upgrade removal | Executed / Awaiting sign-off |
+| plan-assets-collection-settings-cleanup-20260605.md | AssetsCollection add/remove/exclude workflow, Scene collector shape cleanup, BuildPipeline Sequential removal, and three-settings ownership cleanup | Approved / In progress |
 
 ### Phase 5: Build-Time - Asset Collection & Indexing
 
