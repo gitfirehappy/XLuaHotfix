@@ -11,7 +11,7 @@ public static class BuildProjectManager
 {
     public static bool LastBuildSuccess { get; private set; } = true;
 
-    private static string versionDataBasePath => FYAssetBuildSettingsProvider.Shared.VersionDataBasePath;
+    private static string versionDataBasePath => FYAssetSettings.Instance.VersionDataBasePath;
     
     /// <summary>
     /// 构建完整包，用于大版本更新

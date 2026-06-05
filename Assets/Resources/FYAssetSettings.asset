@@ -13,8 +13,12 @@ MonoBehaviour:
   m_Name: FYAssetSettings
   m_EditorClassIdentifier: 
   ProjectName: ProjectName1
-  HotfixUrl: https://firehappy-cfy.com/
   UseABBackend: 1
+  BuildOutputRoot: HotfixOutput
   BuildPackagesFolderName: Packages
-  HotfixMaxRetryCount: 10
-  HotfixRetryBaseDelaySeconds: 1
+  VersionDataBasePath: Assets/Build/VersionDataBase.asset
+  BuildIndexJsonPath: Assets/Build/Bootstrap/BuildIndex.json
+  PushTargets:
+  - Id: target1
+    Type: 0
+    Path:

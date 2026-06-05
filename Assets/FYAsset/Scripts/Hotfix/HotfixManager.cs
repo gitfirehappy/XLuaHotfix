@@ -11,7 +11,9 @@ using UnityEngine;
 /// </summary>
 public static class HotfixManager
 {
-    private static string HotfixUrl => FYAssetSettings.Instance.HotfixUrl;
+    private static string HotfixUrl => FYAssetSettings.Instance.UseABBackend
+        ? FYAssetABSettings.Instance.HotfixUrl
+        : FYAssetAASettings.Instance.HotfixUrl;
     private static string PackageIndexUrl => FYAssetPathUtility.JoinUrl(HotfixUrl, FYAssetSettings.PACKAGE_INDEX_FILE_NAME);
 
     /// <summary>
@@ -525,9 +527,15 @@ public static class HotfixManager
         BundleDownloadItem bundleInfo,
         Action onDone)
     {
-        int maxRetries = Mathf.Max(0, FYAssetSettings.Instance.HotfixMaxRetryCount);
+        int configuredRetries = FYAssetSettings.Instance.UseABBackend
+            ? FYAssetABSettings.Instance.HotfixMaxRetryCount
+            : FYAssetAASettings.Instance.HotfixMaxRetryCount;
+        int maxRetries = Mathf.Max(0, configuredRetries);
         int totalAttempts = maxRetries + 1;
-        float baseDelaySeconds = Mathf.Max(0f, FYAssetSettings.Instance.HotfixRetryBaseDelaySeconds);
+        float configuredBaseDelaySeconds = FYAssetSettings.Instance.UseABBackend
+            ? FYAssetABSettings.Instance.HotfixRetryBaseDelaySeconds
+            : FYAssetAASettings.Instance.HotfixRetryBaseDelaySeconds;
+        float baseDelaySeconds = Mathf.Max(0f, configuredBaseDelaySeconds);
         string tempPath = savePath + ".tmp";
 
         for (int attempt = 1; attempt <= totalAttempts; attempt++)

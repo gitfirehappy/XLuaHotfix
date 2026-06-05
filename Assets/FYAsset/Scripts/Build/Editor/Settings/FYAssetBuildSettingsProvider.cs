@@ -8,15 +8,13 @@ using UnityEngine;
 /// </summary>
 public static class FYAssetBuildSettingsProvider
 {
-    private static SharedBuildSettings _shared;
-    private static AABuildSettings _aa;
-    private static ABBuildSettings _ab;
-    private static BuildRepositorySettings _repository;
+    private static FYAssetSettings _global;
+    private static FYAssetAASettings _aa;
+    private static FYAssetABSettings _ab;
 
-    public static SharedBuildSettings Shared => _shared ??= LoadOrCreate(SharedBuildSettings.DEFAULT_ASSET_PATH, CreateDefaultSharedSettings);
-    public static AABuildSettings AA => _aa ??= LoadOrCreate(AABuildSettings.DEFAULT_ASSET_PATH, CreateDefaultAASettings);
-    public static ABBuildSettings AB => _ab ??= LoadOrCreate(ABBuildSettings.DEFAULT_ASSET_PATH, CreateDefaultABSettings);
-    public static BuildRepositorySettings Repository => _repository ??= LoadOrCreate(BuildRepositorySettings.DEFAULT_ASSET_PATH, CreateDefaultRepositorySettings);
+    public static FYAssetSettings Global => _global ??= LoadOrCreate(FYAssetSettings.DEFAULT_ASSET_PATH, CreateDefaultGlobalSettings);
+    public static FYAssetAASettings AA => _aa ??= LoadOrCreate(FYAssetAASettings.DEFAULT_ASSET_PATH, CreateDefaultAASettings);
+    public static FYAssetABSettings AB => _ab ??= LoadOrCreate(FYAssetABSettings.DEFAULT_ASSET_PATH, CreateDefaultABSettings);
 
     public static ScriptableObject CurrentBackend => FYAssetSettings.Instance.UseABBackend ? AB : AA;
 
@@ -43,10 +41,9 @@ public static class FYAssetBuildSettingsProvider
 
     public static void Reload()
     {
-        _shared = null;
+        _global = null;
         _aa = null;
         _ab = null;
-        _repository = null;
     }
 
     private static T LoadOrCreate<T>(string assetPath, System.Func<T> factory) where T : ScriptableObject
@@ -64,31 +61,69 @@ public static class FYAssetBuildSettingsProvider
         return asset;
     }
 
-    private static SharedBuildSettings CreateDefaultSharedSettings()
+    private static FYAssetSettings CreateDefaultGlobalSettings()
     {
-        return ScriptableObject.CreateInstance<SharedBuildSettings>();
-    }
+        FYAssetSettings settings = ScriptableObject.CreateInstance<FYAssetSettings>();
 
-    private static BuildRepositorySettings CreateDefaultRepositorySettings()
-    {
-        var settings = ScriptableObject.CreateInstance<BuildRepositorySettings>();
-        settings.PushTargets.Add(new PushTargetConfig
+        SharedBuildSettings oldShared = AssetDatabase.LoadAssetAtPath<SharedBuildSettings>(SharedBuildSettings.DEFAULT_ASSET_PATH);
+        if (oldShared != null)
         {
-            Id = "local",
-            Type = PushTargetType.LocalDirectory,
-            Path = string.Empty
-        });
+            settings.BuildOutputRoot = oldShared.BuildOutputRoot;
+            settings.VersionDataBasePath = oldShared.VersionDataBasePath;
+            settings.BuildIndexJsonPath = oldShared.BuildIndexJsonPath;
+        }
+
+        BuildRepositorySettings oldRepository = AssetDatabase.LoadAssetAtPath<BuildRepositorySettings>(BuildRepositorySettings.DEFAULT_ASSET_PATH);
+        if (oldRepository?.PushTargets != null && oldRepository.PushTargets.Count > 0)
+            settings.PushTargets = new System.Collections.Generic.List<PushTargetConfig>(oldRepository.PushTargets);
+        else
+            settings.PushTargets.Add(new PushTargetConfig
+            {
+                Id = "local",
+                Type = PushTargetType.LocalDirectory,
+                Path = string.Empty
+            });
+
         return settings;
     }
 
-    private static AABuildSettings CreateDefaultAASettings()
+    private static FYAssetAASettings CreateDefaultAASettings()
     {
-        return ScriptableObject.CreateInstance<AABuildSettings>();
+        FYAssetAASettings settings = ScriptableObject.CreateInstance<FYAssetAASettings>();
+
+        AABuildSettings oldAA = AssetDatabase.LoadAssetAtPath<AABuildSettings>(AABuildSettings.DEFAULT_ASSET_PATH);
+        if (oldAA != null)
+        {
+            settings.BuildPipelineConfigPath = oldAA.BuildPipelineConfigPath;
+            settings.ManifestOutputFormat = oldAA.ManifestOutputFormat;
+            settings.MaxHotfixSizeBytes = oldAA.MaxHotfixSizeBytes;
+        }
+
+        SharedBuildSettings oldShared = AssetDatabase.LoadAssetAtPath<SharedBuildSettings>(SharedBuildSettings.DEFAULT_ASSET_PATH);
+        if (oldShared != null)
+            settings.LuaScriptsIndexPath = oldShared.LuaScriptsIndexPath;
+
+        return settings;
     }
 
-    private static ABBuildSettings CreateDefaultABSettings()
+    private static FYAssetABSettings CreateDefaultABSettings()
     {
-        return ScriptableObject.CreateInstance<ABBuildSettings>();
+        FYAssetABSettings settings = ScriptableObject.CreateInstance<FYAssetABSettings>();
+
+        ABBuildSettings oldAB = AssetDatabase.LoadAssetAtPath<ABBuildSettings>(ABBuildSettings.DEFAULT_ASSET_PATH);
+        if (oldAB != null)
+        {
+            settings.BuildPipelineConfigPath = oldAB.BuildPipelineConfigPath;
+            settings.ManifestOutputFormat = oldAB.ManifestOutputFormat;
+            settings.MaxHotfixSizeBytes = oldAB.MaxHotfixSizeBytes;
+            settings.AssetCollectionDataFolder = oldAB.AssetCollectionDataFolder;
+            settings.AssetCollectionSettingPath = oldAB.AssetCollectionSettingPath;
+            settings.DependencyFilterExtensions = oldAB.DependencyFilterExtensions != null
+                ? new System.Collections.Generic.List<string>(oldAB.DependencyFilterExtensions)
+                : new System.Collections.Generic.List<string>();
+        }
+
+        return settings;
     }
 
     private static void EnsureAssetParentFolder(string assetPath)

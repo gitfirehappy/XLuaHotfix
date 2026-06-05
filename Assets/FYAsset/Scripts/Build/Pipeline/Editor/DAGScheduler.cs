@@ -11,7 +11,6 @@ using System.Linq;
 ///
 /// WriteKeys 表示 Task 会写入或更新 BuildContext Key，不表示独占写锁。
 /// 预留 ValidatePair / ValidateAll 公共 API，供编辑器蓝图连线时实时校验。
-/// SequentialMode 关闭批并发，所有 Task 按拓扑序逐个串行执行。
 /// </summary>
 public static class DAGScheduler
 {
@@ -237,8 +236,7 @@ public static class DAGScheduler
                 break;
             }
 
-            int batchSize = config.SequentialMode ? 1 : ready.Count;
-            for (int i = 0; i < batchSize && !fatalAbort; i++)
+            for (int i = 0; i < ready.Count && !fatalAbort; i++)
             {
                 var taskName = ready[i];
                 indegree[taskName] = -1;

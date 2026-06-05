@@ -11,7 +11,7 @@ public static class BuildPathManager
 {
     public static string ProjectRoot => FYAssetPathUtility.NormalizePath(Directory.GetParent(Application.dataPath).FullName);
 
-    public static string OutputRoot => ResolveProjectRelativePath(FYAssetBuildSettingsProvider.Shared.BuildOutputRoot);
+    public static string OutputRoot => ResolveProjectRelativePath(FYAssetSettings.Instance.BuildOutputRoot);
 
     public static string PackagesDir => FYAssetPathUtility.JoinFilePath(OutputRoot, FYAssetSettings.Instance.BuildPackagesFolderName);
 

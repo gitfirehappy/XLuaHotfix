@@ -200,9 +200,6 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
         compression.style.width = 130f;
         _optionsRow.Add(compression);
 
-        PropertyField sequential = new PropertyField(_serializedConfig.FindProperty(nameof(BuildPipelineConfig.SequentialMode)), "Sequential");
-        sequential.style.width = 140f;
-        _optionsRow.Add(sequential);
         _optionsRow.Add(BuildPipelineUI.Spacer());
         _optionsRow.Bind(_serializedConfig);
         _root.Add(_optionsRow);

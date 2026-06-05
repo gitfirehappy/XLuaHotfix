@@ -301,7 +301,7 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
         header.Add(BuildPipelineUI.ToolbarButton("+ Target", AddPushTarget, 82f));
         box.Add(header);
 
-        BuildRepositorySettings settings = FYAssetBuildSettingsProvider.Repository;
+        FYAssetSettings settings = FYAssetSettings.Instance;
         if (settings.PushTargets == null || settings.PushTargets.Count == 0)
         {
             box.Add(BuildPipelineUI.SmallText("没有 Push Target。"));
@@ -337,15 +337,15 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
         {
             if (config == null)
                 return;
-            Undo.RecordObject(FYAssetBuildSettingsProvider.Repository, "Edit Push Target");
+            Undo.RecordObject(FYAssetSettings.Instance, "Edit Push Target");
             config.Id = (evt.newValue ?? string.Empty).Trim();
             SaveRepositorySettings();
             Rebuild();
         });
         row.Add(idField);
 
-        var pathProperty = new SerializedObject(FYAssetBuildSettingsProvider.Repository)
-            .FindProperty(nameof(BuildRepositorySettings.PushTargets))
+        var pathProperty = new SerializedObject(FYAssetSettings.Instance)
+            .FindProperty(nameof(FYAssetSettings.PushTargets))
             .GetArrayElementAtIndex(index)
             .FindPropertyRelative(nameof(PushTargetConfig.Path));
         VisualElement path = BuildPipelineUI.PathField(pathProperty, "Path", BuildPipelineUI.PathPickerMode.ProjectFolder, 34f);
@@ -361,7 +361,7 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
 
     private void AddPushTarget()
     {
-        BuildRepositorySettings settings = FYAssetBuildSettingsProvider.Repository;
+        FYAssetSettings settings = FYAssetSettings.Instance;
         Undo.RecordObject(settings, "Add Push Target");
         settings.PushTargets ??= new List<PushTargetConfig>();
         int index = settings.PushTargets.Count + 1;
@@ -377,7 +377,7 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
 
     private void RemovePushTarget(int index)
     {
-        BuildRepositorySettings settings = FYAssetBuildSettingsProvider.Repository;
+        FYAssetSettings settings = FYAssetSettings.Instance;
         if (settings.PushTargets == null || index < 0 || index >= settings.PushTargets.Count)
             return;
 
@@ -389,7 +389,7 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
 
     private static void SaveRepositorySettings()
     {
-        EditorUtility.SetDirty(FYAssetBuildSettingsProvider.Repository);
+        EditorUtility.SetDirty(FYAssetSettings.Instance);
         AssetDatabase.SaveAssets();
     }
 
@@ -869,7 +869,7 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
 
     private static BuildPackageRequest CreatePreviewRequest()
     {
-        var versionDB = AssetDatabase.LoadAssetAtPath<VersionDataBase>(FYAssetBuildSettingsProvider.Shared.VersionDataBasePath);
+        var versionDB = AssetDatabase.LoadAssetAtPath<VersionDataBase>(FYAssetSettings.Instance.VersionDataBasePath);
         var version = versionDB != null && versionDB.CurrentVersion != null
             ? versionDB.CurrentVersion
             : new VersionNumber { Major = 0, Minor = 0, Patch = 0 };
@@ -884,7 +884,7 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
 
     private IPushTarget CreatePushTarget()
     {
-        var settings = FYAssetBuildSettingsProvider.Repository;
+        var settings = FYAssetSettings.Instance;
         string targetId = _targetDropdown != null && !string.IsNullOrEmpty(_targetDropdown.value)
             ? _targetDropdown.value
             : (settings.PushTargets != null && settings.PushTargets.Count > 0 ? settings.PushTargets[0].Id : string.Empty);
@@ -900,7 +900,7 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
     private static List<string> GetPushTargetLabels()
     {
         var labels = new List<string>();
-        var settings = FYAssetBuildSettingsProvider.Repository;
+        var settings = FYAssetSettings.Instance;
         for (int i = 0; settings.PushTargets != null && i < settings.PushTargets.Count; i++)
         {
             var config = settings.PushTargets[i];

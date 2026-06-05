@@ -45,9 +45,6 @@ public class BuildPipelineConfig : ScriptableObject
     /// <summary>Bundle 构建压缩模式（默认 LZ4）</summary>
     public BundleCompression BundleCompression = BundleCompression.LZ4;
 
-    /// <summary>Debug 回退模式：true → 忽略批并发，按拓扑序逐个串行执行</summary>
-    public bool SequentialMode;
-
     /// <summary>Task 编排列表，调度器仅执行 Enabled=true 的条目</summary>
     public List<TaskEntry> Tasks = new();
 }

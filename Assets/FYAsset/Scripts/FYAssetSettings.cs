@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
@@ -13,15 +14,20 @@ public class FYAssetSettings : ScriptableObject
 
     [Header("Project")]
     public string ProjectName = "ProjectName";
-    public string HotfixUrl = "https://firehappy-cfy.com/";
 
     [Header("Backend")]
     public bool UseABBackend = false;
 
-    [Header("Hotfix")]
+    [Header("Build")]
+    public string BuildOutputRoot = "HotfixOutput";
     public string BuildPackagesFolderName = "Packages";
-    public int HotfixMaxRetryCount = 3;
-    public float HotfixRetryBaseDelaySeconds = 1f;
+
+    [Header("Version")]
+    public string VersionDataBasePath = "Assets/Build/VersionDataBase.asset";
+    public string BuildIndexJsonPath = "Assets/Build/Bootstrap/BuildIndex.json";
+
+    [Header("Push")]
+    public List<PushTargetConfig> PushTargets = new();
 
     // ═══ 纯编译期常量（static const） ═══
 

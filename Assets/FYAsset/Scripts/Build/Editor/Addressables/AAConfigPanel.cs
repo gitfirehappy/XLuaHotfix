@@ -14,7 +14,7 @@ using UnityEngine.UIElements;
 public sealed class AAConfigPanel : IBuildPipelinePanel
 {
     private VisualElement _root;
-    private AABuildSettings _buildSettings;
+    private FYAssetAASettings _buildSettings;
     private SerializedObject _buildSettingsSo;
 
     public string PanelName => "AA 配置";
@@ -57,7 +57,7 @@ public sealed class AAConfigPanel : IBuildPipelinePanel
             Rebuild();
         }, 60f));
         toolbar.Add(BuildPipelineUI.Spacer());
-        toolbar.Add(BuildPipelineUI.ToolbarLabel(FYAssetBuildSettingsProvider.Shared.VersionDataBasePath));
+        toolbar.Add(BuildPipelineUI.ToolbarLabel(FYAssetAASettings.DEFAULT_ASSET_PATH));
         _root.Add(toolbar);
 
         DrawBuildSettings();
@@ -85,10 +85,14 @@ public sealed class AAConfigPanel : IBuildPipelinePanel
             return;
 
         VisualElement card = BuildPipelineUI.Card();
-        card.Add(BuildPipelineUI.Header("AA Build Settings"));
-        card.Add(BuildPipelineUI.PathField(_buildSettingsSo.FindProperty(nameof(AABuildSettings.BuildPipelineConfigPath)), "Pipeline Config Path", BuildPipelineUI.PathPickerMode.AssetFile));
-        card.Add(new PropertyField(_buildSettingsSo.FindProperty(nameof(AABuildSettings.ManifestOutputFormat))));
-        card.Add(BuildPipelineUI.ByteSizeField(_buildSettingsSo.FindProperty(nameof(AABuildSettings.MaxHotfixSizeBytes)), "Max Hotfix Size"));
+        card.Add(BuildPipelineUI.Header("AA Settings"));
+        card.Add(new PropertyField(_buildSettingsSo.FindProperty(nameof(FYAssetAASettings.HotfixUrl))));
+        card.Add(new PropertyField(_buildSettingsSo.FindProperty(nameof(FYAssetAASettings.HotfixMaxRetryCount))));
+        card.Add(new PropertyField(_buildSettingsSo.FindProperty(nameof(FYAssetAASettings.HotfixRetryBaseDelaySeconds))));
+        card.Add(BuildPipelineUI.PathField(_buildSettingsSo.FindProperty(nameof(FYAssetAASettings.BuildPipelineConfigPath)), "Pipeline Config Path", BuildPipelineUI.PathPickerMode.AssetFile));
+        card.Add(new PropertyField(_buildSettingsSo.FindProperty(nameof(FYAssetAASettings.ManifestOutputFormat))));
+        card.Add(BuildPipelineUI.ByteSizeField(_buildSettingsSo.FindProperty(nameof(FYAssetAASettings.MaxHotfixSizeBytes)), "Max Hotfix Size"));
+        card.Add(BuildPipelineUI.PathField(_buildSettingsSo.FindProperty(nameof(FYAssetAASettings.LuaScriptsIndexPath)), "LuaScriptsIndex Path", BuildPipelineUI.PathPickerMode.AssetFile));
         card.Bind(_buildSettingsSo);
         _root.Add(card);
     }

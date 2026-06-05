@@ -7,7 +7,7 @@ using UnityEngine.UIElements;
 /// </summary>
 public sealed class ABConfigPanel : IBuildPipelinePanel
 {
-    private ABBuildSettings _buildSettings;
+    private FYAssetABSettings _buildSettings;
     private SerializedObject _buildSettingsSo;
     private VisualElement _root;
 
@@ -51,7 +51,7 @@ public sealed class ABConfigPanel : IBuildPipelinePanel
             Rebuild();
         }, 60f));
         toolbar.Add(BuildPipelineUI.Spacer());
-        toolbar.Add(BuildPipelineUI.ToolbarLabel(ABBuildSettings.DEFAULT_ASSET_PATH));
+        toolbar.Add(BuildPipelineUI.ToolbarLabel(FYAssetABSettings.DEFAULT_ASSET_PATH));
         _root.Add(toolbar);
 
         DrawBuildSettings();
@@ -69,13 +69,17 @@ public sealed class ABConfigPanel : IBuildPipelinePanel
             return;
 
         VisualElement card = BuildPipelineUI.Card();
-        card.Add(BuildPipelineUI.Header("AB Build Settings"));
-        card.Add(BuildPipelineUI.PathField(_buildSettingsSo.FindProperty(nameof(ABBuildSettings.BuildPipelineConfigPath)), "Pipeline Config Path", BuildPipelineUI.PathPickerMode.AssetFile));
-        card.Add(new PropertyField(_buildSettingsSo.FindProperty(nameof(ABBuildSettings.ManifestOutputFormat))));
-        card.Add(BuildPipelineUI.ByteSizeField(_buildSettingsSo.FindProperty(nameof(ABBuildSettings.MaxHotfixSizeBytes)), "Max Hotfix Size"));
-        card.Add(BuildPipelineUI.PathField(_buildSettingsSo.FindProperty(nameof(ABBuildSettings.AssetCollectionDataFolder)), "Asset Collection Data Folder", BuildPipelineUI.PathPickerMode.AssetFolder));
-        card.Add(BuildPipelineUI.PathField(_buildSettingsSo.FindProperty(nameof(ABBuildSettings.AssetCollectionSettingPath)), "AssetCollectionSetting Path", BuildPipelineUI.PathPickerMode.AssetFile));
-        card.Add(new PropertyField(_buildSettingsSo.FindProperty(nameof(ABBuildSettings.DependencyFilterExtensions)), "Dependency Filter Extensions"));
+        card.Add(BuildPipelineUI.Header("AB Settings"));
+        card.Add(new PropertyField(_buildSettingsSo.FindProperty(nameof(FYAssetABSettings.HotfixUrl))));
+        card.Add(new PropertyField(_buildSettingsSo.FindProperty(nameof(FYAssetABSettings.HotfixMaxRetryCount))));
+        card.Add(new PropertyField(_buildSettingsSo.FindProperty(nameof(FYAssetABSettings.HotfixRetryBaseDelaySeconds))));
+        card.Add(BuildPipelineUI.PathField(_buildSettingsSo.FindProperty(nameof(FYAssetABSettings.BuildPipelineConfigPath)), "Pipeline Config Path", BuildPipelineUI.PathPickerMode.AssetFile));
+        card.Add(new PropertyField(_buildSettingsSo.FindProperty(nameof(FYAssetABSettings.ManifestOutputFormat))));
+        card.Add(BuildPipelineUI.ByteSizeField(_buildSettingsSo.FindProperty(nameof(FYAssetABSettings.MaxHotfixSizeBytes)), "Max Hotfix Size"));
+        card.Add(BuildPipelineUI.PathField(_buildSettingsSo.FindProperty(nameof(FYAssetABSettings.AssetCollectionDataFolder)), "Asset Collection Data Folder", BuildPipelineUI.PathPickerMode.AssetFolder));
+        card.Add(BuildPipelineUI.PathField(_buildSettingsSo.FindProperty(nameof(FYAssetABSettings.AssetCollectionSettingPath)), "AssetCollectionSetting Path", BuildPipelineUI.PathPickerMode.AssetFile));
+        card.Add(new PropertyField(_buildSettingsSo.FindProperty(nameof(FYAssetABSettings.DependencyFilterExtensions)), "Dependency Filter Extensions"));
+        card.Add(new PropertyField(_buildSettingsSo.FindProperty(nameof(FYAssetABSettings.ExcludedAssetGUIDs)), "Excluded Asset GUIDs"));
         card.Bind(_buildSettingsSo);
         _root.Add(card);
     }

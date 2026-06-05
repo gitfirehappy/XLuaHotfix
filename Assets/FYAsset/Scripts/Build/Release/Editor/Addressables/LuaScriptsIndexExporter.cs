@@ -12,7 +12,7 @@ using UnityEngine;
 /// </summary>
 public class LuaScriptsIndexExporter
 {
-    private static string LuaScriptsIndexAssetPath => FYAssetBuildSettingsProvider.Shared.LuaScriptsIndexPath;
+    private static string LuaScriptsIndexAssetPath => FYAssetAASettings.Instance.LuaScriptsIndexPath;
     
     /// <summary>
     /// 总导出入口

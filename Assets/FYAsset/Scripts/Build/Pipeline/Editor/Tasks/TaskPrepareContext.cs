@@ -25,7 +25,7 @@ public class TaskPrepareContext : IBuildTask
 
         // CLI --version 若为有效 SemVer → 写 SO 再读回（保持 SO 唯一来源）
         var versionData = AssetDatabase.LoadAssetAtPath<VersionDataBase>(
-            FYAssetBuildSettingsProvider.Shared.VersionDataBasePath);
+            FYAssetSettings.Instance.VersionDataBasePath);
         string cliVersion = GetCommandLineArg("--version");
         if (!string.IsNullOrEmpty(cliVersion) && VersionNumber.TryParse(cliVersion, out var cliVer))
         {

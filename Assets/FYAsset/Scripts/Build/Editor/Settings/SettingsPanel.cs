@@ -11,9 +11,7 @@ public class SettingsPanel : IBuildPipelinePanel
 {
     private BuildPipelineWindow _window;
     private FYAssetSettings _settings;
-    private SharedBuildSettings _sharedSettings;
     private SerializedObject _so;
-    private SerializedObject _sharedSo;
     private VisualElement _root;
     private ScrollView _scrollView;
 
@@ -61,7 +59,7 @@ public class SettingsPanel : IBuildPipelinePanel
         toolbar.Add(BuildPipelineUI.ToolbarLabel(FYAssetSettings.DEFAULT_ASSET_PATH));
         _root.Add(toolbar);
 
-        if (_settings == null || _so == null || _sharedSettings == null || _sharedSo == null)
+        if (_settings == null || _so == null)
         {
             DrawNoSettings();
             return;
@@ -70,8 +68,8 @@ public class SettingsPanel : IBuildPipelinePanel
         _scrollView = new ScrollView();
         _scrollView.style.flexGrow = 1f;
 
-        DrawSection(_so, "Global", "ProjectName", "HotfixUrl", "UseABBackend", "BuildPackagesFolderName", "HotfixMaxRetryCount", "HotfixRetryBaseDelaySeconds");
-        DrawSharedBuildSection();
+        DrawSection(_so, "Project", "ProjectName", "UseABBackend");
+        DrawSection(_so, "Build", "BuildOutputRoot", "BuildPackagesFolderName", "VersionDataBasePath", "BuildIndexJsonPath");
 
         SerializedProperty useAb = _so.FindProperty("UseABBackend");
         if (useAb != null)
@@ -108,18 +106,6 @@ public class SettingsPanel : IBuildPipelinePanel
         _scrollView.Add(card);
     }
 
-    private void DrawSharedBuildSection()
-    {
-        VisualElement card = BuildPipelineUI.Card();
-        card.Add(BuildPipelineUI.Header("Shared Build"));
-        card.Add(BuildPipelineUI.PathField(_sharedSo.FindProperty(nameof(SharedBuildSettings.BuildOutputRoot)), "Build Output Root", BuildPipelineUI.PathPickerMode.ProjectFolder));
-        card.Add(BuildPipelineUI.PathField(_sharedSo.FindProperty(nameof(SharedBuildSettings.VersionDataBasePath)), "VersionDataBase Path", BuildPipelineUI.PathPickerMode.AssetFile));
-        card.Add(BuildPipelineUI.PathField(_sharedSo.FindProperty(nameof(SharedBuildSettings.BuildIndexJsonPath)), "BuildIndex Json Path", BuildPipelineUI.PathPickerMode.AssetFile));
-        card.Add(BuildPipelineUI.PathField(_sharedSo.FindProperty(nameof(SharedBuildSettings.LuaScriptsIndexPath)), "LuaScriptsIndex Path", BuildPipelineUI.PathPickerMode.AssetFile));
-        card.Bind(_sharedSo);
-        _scrollView.Add(card);
-    }
-
     /// <summary>
     /// 当 FYAssetSettings 资产不存在时显示创建入口。
     /// </summary>
@@ -146,9 +132,7 @@ public class SettingsPanel : IBuildPipelinePanel
     {
         _settings = AssetDatabase.LoadAssetAtPath<FYAssetSettings>(FYAssetSettings.DEFAULT_ASSET_PATH)
                     ?? Resources.Load<FYAssetSettings>("FYAssetSettings");
-        _sharedSettings = FYAssetBuildSettingsProvider.Shared;
         _so = _settings != null ? new SerializedObject(_settings) : null;
-        _sharedSo = _sharedSettings != null ? new SerializedObject(_sharedSettings) : null;
     }
 
 }

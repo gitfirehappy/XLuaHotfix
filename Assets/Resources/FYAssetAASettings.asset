@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7e95ecfd1d59411eb0bd2bbf9e4585c8, type: 3}
+  m_Name: FYAssetAASettings
+  m_EditorClassIdentifier:
+  HotfixUrl: https://firehappy-cfy.com/
+  HotfixMaxRetryCount: 10
+  HotfixRetryBaseDelaySeconds: 1
+  BuildPipelineConfigPath: Assets/Build/AABuildPipelineConfig.asset
+  ManifestOutputFormat: 1
+  MaxHotfixSizeBytes: 1073741824
+  LuaScriptsIndexPath: Assets/Build/LuaScriptsIndex.asset

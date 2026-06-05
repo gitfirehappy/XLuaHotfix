@@ -9,7 +9,7 @@ using UnityEngine.UIElements;
 /// </summary>
 public class VersionPanel : IBuildPipelinePanel
 {
-    private static string VersionAssetPath => FYAssetBuildSettingsProvider.Shared.VersionDataBasePath;
+    private static string VersionAssetPath => FYAssetSettings.Instance.VersionDataBasePath;
 
     private VersionDataBase _versionDB;
     private SerializedObject _so;
