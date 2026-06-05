@@ -182,11 +182,15 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         ScanResult initialResult = null,
         bool initializeExpansionState = true)
     {
+        bool normalizedSceneCollectors = NormalizeSceneCollectors(candidate);
+        if (normalizedSceneCollectors && initialResult != null)
+            initialResult = CollectionScanner.Scan(candidate, CollectionScanOptions.FromSetting(candidate));
+
         _stage = WorkflowStage.Curate;
         _curateSetting = candidate;
         _curateResult = initialResult;
         _curatePreviewDirty = initialResult == null;
-        _curateHasUnsavedChanges = false;
+        _curateHasUnsavedChanges = normalizedSceneCollectors;
         _curatePanelMode = CuratePanelMode.Details;
         if (initializeExpansionState)
             EnsureDefaultExpandedState(candidate);
@@ -322,6 +326,7 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         }
 
         AddScatteredSceneGroups(setting, package);
+        NormalizeSceneCollectors(setting);
         return setting;
     }
 
@@ -965,6 +970,9 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
 
     private void SaveCollectors()
     {
+        if (NormalizeSceneCollectors(_curateSetting))
+            _curatePreviewDirty = true;
+
         if (_curateSetting != null && (_curatePreviewDirty || _curateResult == null))
         {
             _curateResult = CollectionScanner.Scan(_curateSetting, CollectionScanOptions.FromSetting(_curateSetting));
@@ -1007,7 +1015,6 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
             EnterCurate(CloneSetting(_setting), false);
         else
             EnterScan();
-        _curateHasUnsavedChanges = false;
         Rebuild();
     }
 
@@ -1262,9 +1269,7 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
                 continue;
 
             string assetPath = ResolveExclusionPath(exclusion);
-            UnityEngine.Object assetObject = string.IsNullOrEmpty(assetPath)
-                ? null
-                : AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(assetPath);
+            UnityEngine.Object assetObject = LoadAssetObject(assetPath);
 
             VisualElement row = new VisualElement
             {
@@ -1284,7 +1289,14 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
                 allowSceneObjects = false,
                 value = assetObject
             };
-            objectField.SetEnabled(false);
+            objectField.RegisterValueChangedCallback(evt =>
+            {
+                if (evt.newValue == assetObject)
+                    return;
+
+                if (!ReplaceExcludedAsset(setting, index, evt.newValue))
+                    objectField.SetValueWithoutNotify(assetObject);
+            });
             objectField.style.width = 0f;
             objectField.style.flexGrow = 1f;
             objectField.style.flexShrink = 1f;
@@ -1293,10 +1305,18 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
             objectField.style.marginRight = 4f;
             row.Add(objectField);
 
+            Button select = new Button(() => SelectAsset(assetPath)) { text = "Select" };
+            select.SetEnabled(assetObject != null);
+            select.style.width = 52f;
+            select.style.flexShrink = 0f;
+            select.style.marginRight = 4f;
+            row.Add(select);
+
             Button ping = new Button(() => PingAsset(assetPath)) { text = "Ping" };
             ping.SetEnabled(assetObject != null);
             ping.style.width = 48f;
             ping.style.flexShrink = 0f;
+            ping.style.marginRight = 4f;
             row.Add(ping);
 
             Button remove = new Button(() =>
@@ -2172,6 +2192,60 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         }
     }
 
+    private static bool NormalizeSceneCollectors(AssetCollectionSetting setting)
+    {
+        if (setting?.Packages == null)
+            return false;
+
+        bool changed = false;
+        for (int pi = 0; pi < setting.Packages.Count; pi++)
+        {
+            AssetCollectionPackage package = setting.Packages[pi];
+            if (package?.Groups == null)
+                continue;
+
+            for (int gi = 0; gi < package.Groups.Count; gi++)
+            {
+                AssetCollectionGroup group = package.Groups[gi];
+                if (group?.Collectors == null)
+                    continue;
+
+                for (int ci = group.Collectors.Count - 1; ci >= 0; ci--)
+                {
+                    Collector collector = group.Collectors[ci];
+                    if (collector == null || collector.CollectPathType != ECollectPathType.Folder)
+                        continue;
+
+                    string folder = CollectorPathUtility.NormalizePath(collector.CollectPath);
+                    if (string.IsNullOrEmpty(folder) || !AssetDatabase.IsValidFolder(folder))
+                        continue;
+                    if (HasNonSceneCollectableAssets(folder, setting))
+                        continue;
+
+                    List<string> scenePaths = CollectSceneAssetPaths(folder, setting);
+                    if (scenePaths.Count == 0)
+                        continue;
+
+                    group.Collectors.RemoveAt(ci);
+                    for (int si = 0; si < scenePaths.Count; si++)
+                    {
+                        string scenePath = scenePaths[si];
+                        if (IsOwnedByExistingFileCollector(package, scenePath))
+                            continue;
+
+                        string groupName = CreateProjectScanGroupName(GetSceneGroupName(scenePath));
+                        AssetCollectionGroup sceneGroup = FindOrCreateGroup(package, groupName);
+                        sceneGroup.BundlePackingMode = BundlePackingMode.PackSeparately;
+                        sceneGroup.Collectors.Add(CreateFileCollector(scenePath));
+                    }
+                    changed = true;
+                }
+            }
+        }
+
+        return changed;
+    }
+
     private static bool HasNonSceneCollectableAssets(string folder, AssetCollectionSetting setting)
     {
         List<string> ignorePatterns = setting?.IgnorePatterns;
@@ -2196,6 +2270,36 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         }
 
         return false;
+    }
+
+    private static List<string> CollectSceneAssetPaths(string folder, AssetCollectionSetting setting)
+    {
+        var scenePaths = new List<string>();
+        List<string> ignorePatterns = setting?.IgnorePatterns;
+        if (CollectorPathUtility.MatchesIgnorePattern(folder, "Assets", ignorePatterns))
+            return scenePaths;
+
+        string[] guids = AssetDatabase.FindAssets(string.Empty, new[] { folder });
+        if (guids == null || guids.Length == 0)
+            return scenePaths;
+
+        for (int i = 0; i < guids.Length; i++)
+        {
+            string assetPath = CollectorPathUtility.NormalizePath(AssetDatabase.GUIDToAssetPath(guids[i]));
+            if (string.IsNullOrEmpty(assetPath) || AssetDatabase.IsValidFolder(assetPath))
+                continue;
+            if (!IsSceneAssetPath(assetPath))
+                continue;
+            if (IsExcludedBySetting(setting, assetPath))
+                continue;
+            if (CollectorPathUtility.MatchesIgnorePattern(assetPath, "Assets", ignorePatterns))
+                continue;
+
+            scenePaths.Add(assetPath);
+        }
+
+        scenePaths.Sort(StringComparer.OrdinalIgnoreCase);
+        return scenePaths;
     }
 
     private static bool IsSceneAssetPath(string assetPath)
@@ -2365,12 +2469,81 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         return CollectorPathUtility.NormalizePath(exclusion.AssetPath);
     }
 
-    private static void PingAsset(string assetPath)
+    private bool ReplaceExcludedAsset(AssetCollectionSetting setting, int index, UnityEngine.Object assetObject)
     {
-        if (string.IsNullOrEmpty(assetPath))
+        if (setting?.ExcludedAssets == null || index < 0 || index >= setting.ExcludedAssets.Count || assetObject == null)
+            return false;
+
+        string assetPath = CollectorPathUtility.NormalizePath(AssetDatabase.GetAssetPath(assetObject));
+        string guid = AssetDatabase.AssetPathToGUID(assetPath);
+        if (string.IsNullOrEmpty(guid) || AssetDatabase.IsValidFolder(assetPath))
+            return false;
+
+        Undo.RecordObject(setting, "Replace Excluded Asset");
+        AssetExclusion exclusion = setting.ExcludedAssets[index];
+        if (exclusion == null)
+        {
+            setting.ExcludedAssets[index] = new AssetExclusion
+            {
+                AssetGUID = guid,
+                AssetPath = assetPath
+            };
+        }
+        else
+        {
+            exclusion.AssetGUID = guid;
+            exclusion.AssetPath = assetPath;
+        }
+        RemoveDuplicateExclusions(setting.ExcludedAssets, guid, index);
+
+        SavePersistentSetting();
+        CollectorReverseIndex.Instance.MarkDirty();
+        Rebuild();
+        return true;
+    }
+
+    private static void RemoveDuplicateExclusions(List<AssetExclusion> exclusions, string assetGuid, int keepIndex)
+    {
+        if (exclusions == null || string.IsNullOrEmpty(assetGuid))
             return;
 
-        UnityEngine.Object assetObject = AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(assetPath);
+        for (int i = exclusions.Count - 1; i >= 0; i--)
+        {
+            if (i == keepIndex)
+                continue;
+
+            AssetExclusion exclusion = exclusions[i];
+            if (exclusion != null && string.Equals(exclusion.AssetGUID, assetGuid, StringComparison.Ordinal))
+                exclusions.RemoveAt(i);
+        }
+    }
+
+    private static UnityEngine.Object LoadAssetObject(string assetPath)
+    {
+        if (string.IsNullOrEmpty(assetPath))
+            return null;
+
+        string normalized = CollectorPathUtility.NormalizePath(assetPath);
+        UnityEngine.Object assetObject = AssetDatabase.LoadMainAssetAtPath(normalized);
+        if (assetObject != null)
+            return assetObject;
+
+        UnityEngine.Object[] assets = AssetDatabase.LoadAllAssetsAtPath(normalized);
+        return assets != null && assets.Length > 0 ? assets[0] : null;
+    }
+
+    private static void SelectAsset(string assetPath)
+    {
+        UnityEngine.Object assetObject = LoadAssetObject(assetPath);
+        if (assetObject == null)
+            return;
+
+        Selection.activeObject = assetObject;
+    }
+
+    private static void PingAsset(string assetPath)
+    {
+        UnityEngine.Object assetObject = LoadAssetObject(assetPath);
         if (assetObject == null)
             return;
 

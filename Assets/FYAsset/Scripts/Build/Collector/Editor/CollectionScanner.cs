@@ -402,6 +402,12 @@ public static class CollectionScanner
             return true;
 
         string extension = System.IO.Path.GetExtension(assetPath);
+        if (collector.CollectPathType == ECollectPathType.Folder &&
+            string.Equals(extension, ".unity", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
         if (collector.ForcePayloadKind == EForcePayloadKind.Serialized &&
             string.Equals(extension, ".unity", StringComparison.OrdinalIgnoreCase))
         {
