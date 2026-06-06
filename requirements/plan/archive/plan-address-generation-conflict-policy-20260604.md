@@ -1,6 +1,6 @@
 # Plan: Address Generation Conflict Policy
 
-> **Status**: Executed / Awaiting sign-off
+> **Status**: Signed off / Archived
 > **Date**: 2026-06-04
 > **Scope**: Replace automatic conflict-driven Address rewriting with explicit project and batch Address styles.
 > **Priority**: Execute before AB cumulative hotfix delivery. This plan only changes collector Address generation semantics.

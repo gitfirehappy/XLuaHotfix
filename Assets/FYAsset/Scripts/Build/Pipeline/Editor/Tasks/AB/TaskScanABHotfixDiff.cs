@@ -1,11 +1,14 @@
 #if UNITY_EDITOR
 using System.Collections.Generic;
 using System.IO;
+using System;
 using UnityEngine;
 
 /// <summary>
 /// AB bundle diff Task。
-/// 消费 ABManifest 中的 bundle 输出信息，对比 Repository HEAD，并把 ArtifactDelta 写回 BuildContext。
+/// 消费 ABManifest 中的完整 bundle 输出信息：
+/// 1. 对比 Repository HEAD，写入用于预览的 ArtifactDelta。
+/// 2. 对比同 Major Full baseline，写入 Hotfix delivery bundle 列表。
 /// </summary>
 public class TaskScanABHotfixDiff : IBuildTask
 {
@@ -17,7 +20,12 @@ public class TaskScanABHotfixDiff : IBuildTask
         BuildContextKeys.ABManifest,
         BuildContextKeys.BuildType
     };
-    public string[] WriteKeys => new[] { BuildContextKeys.ArtifactDelta, BuildContextKeys.RepositoryArtifacts };
+    public string[] WriteKeys => new[]
+    {
+        BuildContextKeys.ArtifactDelta,
+        BuildContextKeys.RepositoryArtifacts,
+        BuildContextKeys.ABDeliveryBundles
+    };
 
     public BuildTaskResult Execute(BuildContext ctx)
     {
@@ -30,29 +38,54 @@ public class TaskScanABHotfixDiff : IBuildTask
         if (buildType != BuildType.Hotfix)
         {
             ctx.Set(BuildContextKeys.ArtifactDelta, new ArtifactDelta());
-            Debug.Log($"[{nameof(TaskScanABHotfixDiff)}] Full build 不需要计算 Hotfix diff，已记录当前 Bundle 快照: {current.Count}");
-            return BuildTaskResult.Ok(new List<string> { "[AB DIFF] Full build skipped, current artifacts recorded" });
+            ctx.Set(BuildContextKeys.ABDeliveryBundles, new List<ManifestBundleEntry>());
+            manifest.DeliveryBundles = new List<ManifestBundleEntry>();
+            Debug.Log($"[{nameof(TaskScanABHotfixDiff)}] Full build 不需要计算 Hotfix delivery，已记录当前 Bundle 快照: {current.Count}");
+            return BuildTaskResult.Ok(new List<string> { "[AB DIFF] Full build skipped, current artifacts recorded, delivery empty" });
         }
 
         try
         {
+            string channelKey = BuildRepositoryFacade.GetChannelKey(request);
             Debug.Log($"[{nameof(TaskScanABHotfixDiff)}] 开始 AB diff scan，对比本次 Bundle 输出与 Repository HEAD。Package={request.PackageName}");
-            var head = BuildRepositoryFacade.GetHeadCommit(BuildRepositoryFacade.GetChannelKey(request));
+            var head = TryGetHeadCommit(channelKey);
             var baseline = head != null ? head.Artifacts : new List<ArtifactDigest>();
             var delta = ArtifactDiffer.Diff(baseline, current);
             ctx.Set(BuildContextKeys.ArtifactDelta, delta);
             LogDelta(delta);
 
+            var fullBaseline = FindFullBaseline(channelKey, request.Version);
+            if (fullBaseline == null)
+            {
+                return BuildTaskResult.Fail(BuildErrorCodes.BuildFailed,
+                    $"AB Hotfix 缺少同 Major Full baseline。Channel={channelKey}, Version={request.Version.GetFullVersionString()}。请先重新执行 AB Full build。", true);
+            }
+
+            var deliveryDelta = ArtifactDiffer.Diff(fullBaseline.Artifacts, current);
+            var deliveryBundles = BuildDeliveryBundles(manifest, deliveryDelta);
+            var validationError = ValidateFullBaselineFallback(manifest, deliveryBundles, fullBaseline.Artifacts);
+            if (!string.IsNullOrEmpty(validationError))
+            {
+                return BuildTaskResult.Fail(BuildErrorCodes.VerificationFailed, validationError, true);
+            }
+
+            manifest.DeliveryBundles = deliveryBundles;
+            ctx.Set(BuildContextKeys.ABDeliveryBundles, deliveryBundles);
+            Debug.Log($"[{nameof(TaskScanABHotfixDiff)}] AB delivery 完成: FullBaseline={fullBaseline.Version.GetFullVersionString()}, DeliveryBundles={deliveryBundles.Count}, DeliverySize={SumBundleSize(deliveryBundles)}");
+
             if (delta.IsEmpty)
             {
                 Debug.Log($"[{nameof(TaskScanABHotfixDiff)}] 未发现 Bundle 变化。Current={current.Count}, Baseline={baseline.Count}");
-                return BuildTaskResult.Ok(new List<string> { "[AB DIFF] No changes" });
+                return BuildTaskResult.Ok(new List<string>
+                {
+                    $"[AB DIFF] HEAD no changes, delivery bundles={deliveryBundles.Count}"
+                });
             }
 
             Debug.Log($"[{nameof(TaskScanABHotfixDiff)}] Diff 完成: Added={delta.Added.Count}, Modified={delta.Modified.Count}, Removed={delta.Removed.Count}");
             return BuildTaskResult.Ok(new List<string>
             {
-                $"[AB DIFF] Added={delta.Added.Count}, Modified={delta.Modified.Count}, Removed={delta.Removed.Count}"
+                $"[AB DIFF] Added={delta.Added.Count}, Modified={delta.Modified.Count}, Removed={delta.Removed.Count}, Delivery={deliveryBundles.Count}"
             });
         }
         catch (System.Exception ex)
@@ -60,6 +93,108 @@ public class TaskScanABHotfixDiff : IBuildTask
             Debug.LogError($"[{nameof(TaskScanABHotfixDiff)}] AB diff scan 失败: {ex}");
             return BuildTaskResult.Fail(BuildErrorCodes.BuildFailed, $"AB diff scan failed: {ex.Message}", true);
         }
+    }
+
+    private static RepositoryCommit TryGetHeadCommit(string channelKey)
+    {
+        var status = BuildRepositoryFacade.GetStatus(channelKey);
+        if (status != null && status.HasHeadError)
+            throw new RepositoryHeadException(status.HeadErrorReason);
+        if (status == null || !status.HasHead)
+            return null;
+        return BuildRepositoryFacade.GetHeadCommit(channelKey);
+    }
+
+    public static RepositoryCommit FindFullBaseline(string channelKey, VersionNumber currentVersion)
+    {
+        var commits = BuildRepositoryFacade.ListCommits(channelKey);
+        RepositoryCommit best = null;
+        for (int i = 0; i < commits.Count; i++)
+        {
+            var commit = commits[i];
+            if (commit == null || commit.Version == null)
+                continue;
+            if (!string.Equals(commit.BuildType, BuildType.Full.ToString(), StringComparison.Ordinal))
+                continue;
+            if (currentVersion != null && commit.Version.Major != currentVersion.Major)
+                continue;
+
+            if (best == null || commit.Version.CompareTo(best.Version) > 0)
+                best = commit;
+        }
+
+        return best;
+    }
+
+    public static List<ManifestBundleEntry> BuildDeliveryBundles(ABManifest manifest, ArtifactDelta deliveryDelta)
+    {
+        var deliveryNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        AddArtifactNames(deliveryNames, deliveryDelta?.Added);
+        AddArtifactNames(deliveryNames, deliveryDelta?.Modified);
+
+        var result = new List<ManifestBundleEntry>(deliveryNames.Count);
+        var entries = manifest?.BundleEntries;
+        if (entries == null || deliveryNames.Count == 0)
+            return result;
+
+        for (int i = 0; i < entries.Count; i++)
+        {
+            var entry = entries[i];
+            if (entry == null || string.IsNullOrEmpty(entry.BundleName))
+                continue;
+            if (deliveryNames.Contains(entry.BundleName))
+                result.Add(entry);
+        }
+
+        return result;
+    }
+
+    public static string ValidateFullBaselineFallback(
+        ABManifest manifest,
+        IReadOnlyList<ManifestBundleEntry> deliveryBundles,
+        IReadOnlyList<ArtifactDigest> fullBaselineArtifacts)
+    {
+        var delivered = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (deliveryBundles != null)
+        {
+            for (int i = 0; i < deliveryBundles.Count; i++)
+            {
+                if (!string.IsNullOrEmpty(deliveryBundles[i]?.BundleName))
+                    delivered.Add(deliveryBundles[i].BundleName);
+            }
+        }
+
+        var baselineByName = new Dictionary<string, ArtifactDigest>(StringComparer.OrdinalIgnoreCase);
+        if (fullBaselineArtifacts != null)
+        {
+            for (int i = 0; i < fullBaselineArtifacts.Count; i++)
+            {
+                var artifact = fullBaselineArtifacts[i];
+                if (artifact == null || string.IsNullOrEmpty(artifact.Name))
+                    continue;
+                if (!baselineByName.ContainsKey(artifact.Name))
+                    baselineByName.Add(artifact.Name, artifact);
+            }
+        }
+
+        var entries = manifest?.BundleEntries;
+        if (entries == null)
+            return string.Empty;
+
+        for (int i = 0; i < entries.Count; i++)
+        {
+            var bundle = entries[i];
+            if (bundle == null || string.IsNullOrEmpty(bundle.BundleName))
+                continue;
+            if (delivered.Contains(bundle.BundleName))
+                continue;
+            if (!baselineByName.TryGetValue(bundle.BundleName, out var baseline))
+                return $"AB Hotfix fallback 校验失败：未交付 Bundle 不存在于 Full baseline: {bundle.BundleName}";
+            if (!string.Equals(bundle.FileHash, baseline.Hash, StringComparison.Ordinal))
+                return $"AB Hotfix fallback 校验失败：未交付 Bundle 与 Full baseline Hash 不一致: {bundle.BundleName}";
+        }
+
+        return string.Empty;
     }
 
     private static List<ArtifactDigest> ScanCurrentArtifacts(ABManifest manifest)
@@ -124,6 +259,28 @@ public class TaskScanABHotfixDiff : IBuildTask
             Debug.Log($"[{nameof(TaskScanABHotfixDiff)}] Artifact Modified: {delta.Modified[i].Name}");
         for (int i = 0; i < delta.Removed.Count; i++)
             Debug.Log($"[{nameof(TaskScanABHotfixDiff)}] Artifact Removed: {delta.Removed[i]}");
+    }
+
+    private static void AddArtifactNames(HashSet<string> names, IList<ArtifactDigest> artifacts)
+    {
+        if (names == null || artifacts == null)
+            return;
+        for (int i = 0; i < artifacts.Count; i++)
+        {
+            var artifact = artifacts[i];
+            if (!string.IsNullOrEmpty(artifact?.Name))
+                names.Add(artifact.Name);
+        }
+    }
+
+    private static long SumBundleSize(IList<ManifestBundleEntry> bundles)
+    {
+        long total = 0;
+        if (bundles == null)
+            return total;
+        for (int i = 0; i < bundles.Count; i++)
+            total += bundles[i] != null ? bundles[i].FileSize : 0;
+        return total;
     }
 }
 #endif

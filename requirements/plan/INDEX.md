@@ -22,10 +22,12 @@ Shared executable plans live here while active. `requirements/plan.md` remains t
 | `plan-dag-staged-write-order-fix-20260601.md` | Signed off and archived |
 | `plan-review-hardening-20260602.md` | Signed off and archived |
 | `plan-build-repository-aa-push-20260603.md` | Signed off and archived |
+| `plan-address-generation-conflict-policy-20260604.md` | Signed off and archived |
+| `plan-assets-collection-settings-cleanup-20260605.md` | Signed off and archived |
+| `plan-assets-collection-followup-20260605.md` | Signed off and archived |
+| `plan-ab-cumulative-hotfix-delivery-20260605.md` | AI verified, signed off, and archived |
 
 ## Active
 | File | Status |
 |---|---|
-| `plan-address-generation-conflict-policy-20260604.md` | Executed / Awaiting sign-off |
-| `plan-assets-collection-settings-cleanup-20260605.md` | Executed / Awaiting sign-off |
-| `plan-assets-collection-followup-20260605.md` | Executed / Awaiting sign-off |
+| — | No active shared plan |

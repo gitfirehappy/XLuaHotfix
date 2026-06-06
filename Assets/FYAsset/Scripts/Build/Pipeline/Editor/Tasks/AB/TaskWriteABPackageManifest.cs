@@ -13,7 +13,9 @@ public class TaskWriteABPackageManifest : IBuildTask
     public string[] ReadKeys => new[]
     {
         BuildContextKeys.BuildPackageRequest,
+        BuildContextKeys.BuildType,
         BuildContextKeys.ABManifest,
+        BuildContextKeys.ABDeliveryBundles,
         BuildContextKeys.OutputPath
     };
     public string[] WriteKeys => new string[0];
@@ -21,15 +23,19 @@ public class TaskWriteABPackageManifest : IBuildTask
     public BuildTaskResult Execute(BuildContext ctx)
     {
         var request = ctx.Require<BuildPackageRequest>(BuildContextKeys.BuildPackageRequest);
+        var buildType = ctx.Require<BuildType>(BuildContextKeys.BuildType);
         var manifest = ctx.Require<ABManifest>(BuildContextKeys.ABManifest);
+        var deliveryBundles = buildType == BuildType.Hotfix
+            ? ctx.Require<List<ManifestBundleEntry>>(BuildContextKeys.ABDeliveryBundles)
+            : manifest.BundleEntries;
         string outputPath = ctx.Require<string>(BuildContextKeys.OutputPath);
         if (!string.Equals(outputPath, request.OutputDir, System.StringComparison.Ordinal))
             return BuildTaskResult.Fail(BuildErrorCodes.BuildFailed,
                 $"AB Manifest 输出目录必须来自 BuildPackageRequest。Expected: {request.OutputDir}, Actual: {outputPath}", true);
 
         long totalSize = 0;
-        for (int i = 0; i < manifest.BundleEntries.Count; i++)
-            totalSize += manifest.BundleEntries[i].FileSize;
+        for (int i = 0; i < deliveryBundles.Count; i++)
+            totalSize += deliveryBundles[i].FileSize;
 
         if (!HotfixPackageSizeGuard.ValidateOrAbort(totalSize, request.BackendMode, nameof(TaskWriteABPackageManifest)))
             return BuildTaskResult.Fail(BuildErrorCodes.VerificationFailed,

@@ -130,12 +130,6 @@ MonoBehaviour:
       Labels: []
       BundlePackingMode: 1
       Collectors:
-      - CollectPath: Assets/Scenes
-        CollectPathType: 0
-        CollectorType: 0
-        ForcePayloadKind: 0
-        FilterRuleName: CollectAll
-        GroupRuleName: GroupAll
       - CollectPath: Assets/Scenes/SampleScene.unity
         CollectPathType: 1
         CollectorType: 0
@@ -215,6 +209,17 @@ MonoBehaviour:
         ForcePayloadKind: 0
         FilterRuleName: CollectAll
         GroupRuleName: GroupAll
+    - GroupName: NewGroup17
+      Enabled: 1
+      Labels: []
+      BundlePackingMode: 2
+      Collectors:
+      - CollectPath: Assets/Tools/Scripts
+        CollectPathType: 0
+        CollectorType: 0
+        ForcePayloadKind: 0
+        FilterRuleName: CollectAll
+        GroupRuleName: GroupAll
     SharePolicy:
       MinReferenceCount: 2
       MinAssetSizeBytes: 0
@@ -227,6 +232,7 @@ MonoBehaviour:
   - Assets/StreamingAssets/**
   - Assets/XLua/**
   - Assets/Tools/**
+  ExcludedAssets: []
   AssetEntries:
   - AssetGUID: ff153ba4fa8c8e5419859ecba965187c
     AutoAddress: 1
@@ -1908,3 +1914,19 @@ MonoBehaviour:
     Role: 0
     AutoPayload: 1
     PayloadKind: 1
+  - AssetGUID: afc1c74cba574048ad6044b105b166ac
+    AutoAddress: 1
+    Address: FYAssetAASettings
+    Labels: []
+    AutoRole: 1
+    Role: 0
+    AutoPayload: 1
+    PayloadKind: 0
+  - AssetGUID: 31f2251ef6bf407e83bdab3f54129be4
+    AutoAddress: 1
+    Address: FYAssetABSettings
+    Labels: []
+    AutoRole: 1
+    Role: 0
+    AutoPayload: 1
+    PayloadKind: 0

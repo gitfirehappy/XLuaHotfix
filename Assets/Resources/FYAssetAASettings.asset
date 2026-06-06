@@ -11,9 +11,9 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 7e95ecfd1d59411eb0bd2bbf9e4585c8, type: 3}
   m_Name: FYAssetAASettings
-  m_EditorClassIdentifier:
+  m_EditorClassIdentifier: 
   HotfixUrl: https://firehappy-cfy.com/
-  HotfixMaxRetryCount: 10
+  HotfixMaxRetryCount: 3
   HotfixRetryBaseDelaySeconds: 1
   BuildPipelineConfigPath: Assets/Build/AABuildPipelineConfig.asset
   ManifestOutputFormat: 1

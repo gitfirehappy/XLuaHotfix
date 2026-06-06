@@ -49,9 +49,9 @@ public sealed class BuildPipelineWindow : EditorWindow
     private static readonly SidebarGroup[] Groups =
     {
         new SidebarGroup { Label = "设置", StartIndex = 0, Count = 1, Collapsible = false },
-        new SidebarGroup { Label = "AA", StartIndex = 1, Count = 3, Collapsible = true },
-        new SidebarGroup { Label = "AB", StartIndex = 4, Count = 3, Collapsible = true },
-        new SidebarGroup { Label = "管理", StartIndex = 7, Count = 3, Collapsible = false },
+        new SidebarGroup { Label = "AA", StartIndex = 1, Count = 4, Collapsible = true },
+        new SidebarGroup { Label = "AB", StartIndex = 5, Count = 5, Collapsible = true },
+        new SidebarGroup { Label = "管理", StartIndex = 10, Count = 1, Collapsible = false },
     };
 
     #endregion
@@ -359,12 +359,6 @@ public sealed class BuildPipelineWindow : EditorWindow
             string prefix = group.Collapsible ? (expanded ? "▼ " : "▶ ") : string.Empty;
             _groupHeaders[groupIndex].text = prefix + group.Label;
 
-            bool groupEnabled = true;
-            if (group.Label == "AB" && !useAB)
-                groupEnabled = false;
-            else if (group.Label == "AA" && useAB)
-                groupEnabled = false;
-
             for (int i = group.StartIndex; i < group.StartIndex + group.Count; i++)
             {
                 if (i < 0 || i >= _panelButtons.Length || _panelButtons[i] == null)
@@ -372,11 +366,12 @@ public sealed class BuildPipelineWindow : EditorWindow
 
                 Button button = _panelButtons[i];
                 bool active = i == _activePanelIndex;
-                button.SetEnabled(groupEnabled);
+                bool panelEnabled = !IsPanelDisabledByBackend(i, useAB);
+                button.SetEnabled(panelEnabled);
                 button.style.backgroundColor = active ? BuildPipelineUI.ActiveColor : Color.clear;
                 button.style.color = active ? Color.white : new Color(0.8f, 0.8f, 0.8f);
                 button.style.unityFontStyleAndWeight = active ? FontStyle.Bold : FontStyle.Normal;
-                button.style.opacity = groupEnabled ? 1f : 0.45f;
+                button.style.opacity = panelEnabled ? 1f : 0.45f;
             }
         }
     }
@@ -386,16 +381,13 @@ public sealed class BuildPipelineWindow : EditorWindow
     /// </summary>
     private void RefreshDisabledState()
     {
-        string activeGroup = GetGroupLabelByPanelIndex(_activePanelIndex);
         bool abEnabled = FYAssetSettings.Instance.UseABBackend;
-        bool isAbPanel = activeGroup == "AB";
-        bool isAAPanel = activeGroup == "AA";
-        bool disabled = (isAbPanel && !abEnabled) || (isAAPanel && abEnabled);
+        bool disabled = IsPanelDisabledByBackend(_activePanelIndex, abEnabled);
 
         _disabledHint.style.display = disabled ? DisplayStyle.Flex : DisplayStyle.None;
-        _disabledHintLabel.text = isAbPanel
-            ? "AB 已禁用。请在 Settings 打开 UseABBackend。"
-            : "UseABBackend 开启时，AA 只读。";
+        _disabledHintLabel.text = _activePanelIndex == 7
+            ? "AB 构建已禁用。请在 Settings 打开 UseABBackend。"
+            : "UseABBackend 开启时，AA 构建不可执行。";
 
         if (_activePanelIndex >= 0 && _activePanelIndex < _panelContents.Length)
         {
@@ -420,11 +412,18 @@ public sealed class BuildPipelineWindow : EditorWindow
             new AAConfigPanel(),
             new AABuildPanel(),
             new AAReportPanel(),
+            new RepositoryStatusPanel(BackendMode.AA, "AA 仓库"),
             new ABConfigPanel(),
             new AssetsCollectionPanel(),
-            new PipelinePanel(),
-            new RepositoryStatusPanel(),
-            new BuilderPanel(),
+            new PipelinePanel(
+                "AB 构建",
+                () => FYAssetBuildSettingsProvider.AB.BuildPipelineConfigPath,
+                BuildPipelineBackbone.CreateABTasks,
+                "PipelinePanel",
+                true,
+                true),
+            new ABReportPanel(),
+            new RepositoryStatusPanel(BackendMode.ABManifest, "AB 仓库"),
             new VersionPanel(),
         };
 
@@ -479,6 +478,14 @@ public sealed class BuildPipelineWindow : EditorWindow
         }
 
         return string.Empty;
+    }
+
+    private static bool IsPanelDisabledByBackend(int panelIndex, bool useABBackend)
+    {
+        const int aaBuildPanelIndex = 2;
+        const int abBuildPanelIndex = 7;
+        return (panelIndex == aaBuildPanelIndex && useABBackend) ||
+               (panelIndex == abBuildPanelIndex && !useABBackend);
     }
 
     #endregion

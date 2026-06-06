@@ -14,7 +14,6 @@ Promoted, superseded, or deprecated drafts go to `archive/`.
 
 | File | Status | Description |
 |------|--------|-------------|
-| draft-ab-cumulative-hotfix-delivery-20260604.md | Draft | AB cumulative hotfix package delivery: complete runtime manifest plus delivery bundle list relative to the Full baseline |
 | draft-build-repository-followup-20260524.md | Draft | Build Repository follow-up issues after Plans 1/2/3 shipped: AA Push, repository serialization, orphan-object cleanup, concurrent push coordination, published-state derived view |
 | draft-lua-index-pipeline-independence-20260520.md | Draft | LuaScriptsIndexExporter pipeline-independence open decision |
 | draft-offline-standalone-package-20260513.md | Draft | Offline standalone package design |
@@ -25,12 +24,11 @@ Promoted, superseded, or deprecated drafts go to `archive/`.
 
 | Order | Draft | Why First / Later |
 |-------|-------|-------------------|
-| 1 | `draft-ab-cumulative-hotfix-delivery-20260604.md` | Highest current package-shape decision. It affects AB manifest shape, hotfix delivery size, and runtime download semantics. |
-| 2 | `draft-build-repository-followup-20260524.md` | Residual repository hardening only. Keep it separate from hotfix delivery semantics. |
-| 3 | `draft-offline-standalone-package-20260513.md` | Depends on clear build output ownership and runtime path rules. It should be discussed after hotfix package shape so offline output and hotfix output do not create conflicting truths. |
-| 4 | `plan-playmode-draft.md` | Depends on Collector, manifest generation, and runtime backend boundaries. It should follow build-output discussions because Simulate/Runtime modes reuse those contracts. |
-| 5 | `draft-lua-index-pipeline-independence-20260520.md` | Narrow open decision. Discuss after PlayMode because address-source and index-generation boundaries are easier to decide once backend/play-mode behavior is fixed. |
-| 6 | `draft-debug-panel-20260512.md` | Mostly observational tooling. It is valuable but should follow the core runtime/build contracts so the panel exposes stable concepts instead of chasing moving boundaries. |
+| 1 | `draft-build-repository-followup-20260524.md` | Residual repository hardening only. Keep it separate from hotfix delivery semantics. |
+| 2 | `draft-offline-standalone-package-20260513.md` | Depends on clear build output ownership and runtime path rules. It should be discussed after hotfix package shape so offline output and hotfix output do not create conflicting truths. |
+| 3 | `plan-playmode-draft.md` | Depends on Collector, manifest generation, and runtime backend boundaries. It should follow build-output discussions because Simulate/Runtime modes reuse those contracts. |
+| 4 | `draft-lua-index-pipeline-independence-20260520.md` | Narrow open decision. Discuss after PlayMode because address-source and index-generation boundaries are easier to decide once backend/play-mode behavior is fixed. |
+| 5 | `draft-debug-panel-20260512.md` | Mostly observational tooling. It is valuable but should follow the core runtime/build contracts so the panel exposes stable concepts instead of chasing moving boundaries. |
 
 ## Archive Criteria
 

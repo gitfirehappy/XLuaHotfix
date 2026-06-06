@@ -100,7 +100,7 @@ public class ABHotfixBackend : IHotfixPipeline
             _remoteManifest = SerializationUtility.Deserialize<ABManifest>(_remoteManifestData);
             _remoteManifest.Initialize();
             Debug.Log($"[ABHotfixBackend] 远端版本: {_remoteManifest.PackageVersion?.GetVersionString()}");
-            return ToHotfixVersionInfo(_remoteManifest);
+            return ToHotfixVersionInfo(_remoteManifest, RemoteManifestHasDeliveryList());
         }
         catch (Exception ex)
         {
@@ -151,12 +151,14 @@ public class ABHotfixBackend : IHotfixPipeline
     /// <summary>
     /// 将 ABManifest 数据模型转换为统一热更版本视图。
     /// </summary>
-    private static HotfixVersionInfo ToHotfixVersionInfo(ABManifest manifest)
+    private static HotfixVersionInfo ToHotfixVersionInfo(ABManifest manifest, bool preferDeliveryBundles = false)
     {
         if (manifest == null)
             return null;
 
-        var bundleEntries = manifest.BundleEntries ?? new List<ManifestBundleEntry>(0);
+        var bundleEntries = preferDeliveryBundles && manifest.DeliveryBundles != null
+            ? manifest.DeliveryBundles
+            : manifest.BundleEntries ?? new List<ManifestBundleEntry>(0);
         var bundles = new List<BundleDownloadItem>(bundleEntries.Count);
         long totalSize = 0;
 
@@ -180,6 +182,17 @@ public class ABHotfixBackend : IHotfixPipeline
             TotalSize = totalSize,
             Bundles = bundles
         };
+    }
+
+    private bool RemoteManifestHasDeliveryList()
+    {
+        if (_remoteManifestIsBinary)
+            return true;
+        if (_remoteManifestData == null || _remoteManifestData.Length == 0)
+            return false;
+
+        string json = System.Text.Encoding.UTF8.GetString(_remoteManifestData);
+        return json.IndexOf("\"DeliveryBundles\"", StringComparison.Ordinal) >= 0;
     }
 
     #endregion

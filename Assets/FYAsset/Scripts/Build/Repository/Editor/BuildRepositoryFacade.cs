@@ -78,6 +78,7 @@ public static class BuildRepositoryFacade
             Version = request.Version,
             ChannelKey = GetChannelKey(request),
             BackendMode = backendMode ?? GetBackendSegment(request.BackendMode),
+            BuildType = request.BuildType.ToString(),
             BuildTarget = EditorUserBuildSettings.activeBuildTarget.ToString(),
             PackageName = request.PackageName,
             CreatedAtUtc = request.CreatedAt.ToUniversalTime().ToString("o"),
@@ -87,7 +88,7 @@ public static class BuildRepositoryFacade
             Artifacts = artifacts != null ? new List<ArtifactDigest>(artifacts) : new List<ArtifactDigest>()
         };
 
-        UnityEngine.Debug.Log($"[{nameof(BuildRepositoryFacade)}] 写入 Repository commit: Channel={commit.ChannelKey}, Version={commit.Version.GetFullVersionString()}, Backend={commit.BackendMode}, Artifacts={commit.Artifacts.Count}, Dirty={commit.IsDirty}");
+        UnityEngine.Debug.Log($"[{nameof(BuildRepositoryFacade)}] 写入 Repository commit: Channel={commit.ChannelKey}, Version={commit.Version.GetFullVersionString()}, Backend={commit.BackendMode}, BuildType={commit.BuildType}, Artifacts={commit.Artifacts.Count}, Dirty={commit.IsDirty}");
         Repository.Commit(commit);
     }
 

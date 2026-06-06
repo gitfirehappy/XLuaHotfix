@@ -556,18 +556,19 @@
           <div class="group-title">AA PIPELINE</div>
           <button class="nav-btn" data-panel="aa-config">AA Config</button>
           <button class="nav-btn" data-panel="aa-build">AA Build</button>
-          <button class="nav-btn" data-panel="aa-report">AA Report</button>
+          <button class="nav-btn" data-panel="aa-report">AA Build Result</button>
+          <button class="nav-btn" data-panel="aa-repository">AA Repository</button>
         </div>
         <div class="group" id="abGroup">
           <div class="group-title">AB PIPELINE</div>
           <button class="nav-btn" data-panel="ab-config">AB Config</button>
           <button class="nav-btn" data-panel="assets-collection">AssetsCollection</button>
-          <button class="nav-btn" data-panel="pipeline">Pipeline</button>
+          <button class="nav-btn" data-panel="ab-build">AB Build</button>
+          <button class="nav-btn" data-panel="ab-report">AB Build Result</button>
+          <button class="nav-btn" data-panel="ab-repository">AB Repository</button>
         </div>
         <div class="group">
           <div class="group-title">MANAGE</div>
-          <button class="nav-btn" data-panel="repository">Repository</button>
-          <button class="nav-btn" data-panel="builder">Builder</button>
           <button class="nav-btn" data-panel="version">Version</button>
         </div>
       </div>
@@ -608,14 +609,28 @@
           </div>
         </section>
 
-        <!-- ═══════════════ AA Report Panel ═══════════════ -->
+        <!-- ═══════════════ AA Build Result Panel ═══════════════ -->
         <section class="panel" id="panel-aa-report">
           <div class="unity-toolbar">
             <div class="tb-spacer"></div>
-            <span class="tb-label">AA Build Report</span>
+            <span class="tb-label">AA Build Result</span>
           </div>
           <div class="scroll-body">
-            <div class="box" style="color:#aaa">Build result summary and Addressables report data</div>
+            <div class="box" style="color:#aaa">构建结果报告将在后续专项计划中补充。</div>
+          </div>
+        </section>
+
+        <!-- ═══════════════ AA Repository Panel ═══════════════ -->
+        <section class="panel" id="panel-aa-repository">
+          <div class="unity-toolbar">
+            <button class="tb-btn" data-action="AA Refresh">刷新</button>
+            <button class="tb-btn" data-action="AA Diff">Diff</button>
+            <button class="tb-btn" data-action="AA Push">Push</button>
+            <div class="tb-spacer"></div>
+            <span class="tb-label">AA Repository</span>
+          </div>
+          <div class="scroll-body">
+            <div class="box" style="color:#aaa">固定显示 AA Channel 的 HEAD、Diff Preview、Push 和 Push History。</div>
           </div>
         </section>
 
@@ -740,10 +755,10 @@
           </div>
         </section>
 
-        <!-- ═══════════════ Builder Panel ═══════════════ -->
-        <section class="panel" id="panel-builder">
+        <!-- ═══════════════ AB Build Result Panel ═══════════════ -->
+        <section class="panel" id="panel-ab-report">
           <div class="empty-center">
-            <div class="empty-box" style="color:#aaa">Builder 暂不承载 DAG；构建报告查询将在 E7 输出格式稳定后单独规划。</div>
+            <div class="empty-box" style="color:#aaa">AB 构建结果报告将在后续专项计划中补充。</div>
           </div>
         </section>
 
@@ -898,14 +913,14 @@
           </div>
         </section>
 
-        <!-- ═══════════════ Repository Panel ═══════════════ -->
-        <section class="panel" id="panel-repository">
+        <!-- ═══════════════ AB Repository Panel ═══════════════ -->
+        <section class="panel" id="panel-ab-repository">
           <div class="unity-toolbar">
             <button class="tb-btn" data-action="Refresh">刷新</button>
             <button class="tb-btn" data-action="Diff">Diff</button>
             <button class="tb-btn" data-action="Push">Push</button>
             <div class="tb-spacer"></div>
-            <span class="tb-label" style="font-size:11px">HEAD 1.0.0+5 | MainPackage | 42 项 | LastPush local</span>
+            <span class="tb-label" style="font-size:11px">AB Repository | HEAD 1.0.0+5 | MainPackage | 42 项 | LastPush local</span>
           </div>
           <div class="scroll-body">
             <!-- Push Card -->
@@ -961,28 +976,26 @@ Removed: 1
     settings: document.getElementById('panel-settings'),
     'ab-config': document.getElementById('panel-ab-config'),
     'assets-collection': document.getElementById('panel-assets-collection'),
-    pipeline: document.getElementById('panel-pipeline'),
-    builder: document.getElementById('panel-builder'),
+    'ab-build': document.getElementById('panel-pipeline'),
+    'ab-report': document.getElementById('panel-ab-report'),
     version: document.getElementById('panel-version'),
-    repository: document.getElementById('panel-repository')
+    'aa-repository': document.getElementById('panel-aa-repository'),
+    'ab-repository': document.getElementById('panel-ab-repository')
   };
 
-  // AB PIPELINE panel ids.
-  const abPanelIds = new Set(['ab-config', 'assets-collection', 'pipeline']);
-  const aaPanelIds = new Set(['aa-config', 'aa-build', 'aa-report']);
+  // Only build execution panels are mutually disabled by UseABBackend. Config, build result, and repository remain viewable.
+  const abPanelIds = new Set(['ab-config', 'assets-collection', 'ab-build', 'ab-report', 'ab-repository']);
+  const aaPanelIds = new Set(['aa-config', 'aa-build', 'aa-report', 'aa-repository']);
   let abEnabled = true;
 
   function setActivePanel(panelId) {
     navButtons.forEach(btn => btn.classList.toggle('active', btn.dataset.panel === panelId));
     Object.entries(panels).forEach(([id, el]) => el.classList.toggle('active', id === panelId));
 
-    // AB hint: shown when UseABBackend=false AND current panel is an AB panel
-    const isAbPanel = abPanelIds.has(panelId);
-    abHint.classList.toggle('hidden', !isAbPanel || abEnabled);
+    const disabledBuildPanel = (panelId === 'ab-build' && !abEnabled) || (panelId === 'aa-build' && abEnabled);
+    abHint.classList.toggle('hidden', !disabledBuildPanel);
 
-    // Disable panel content area (dim + no interaction) when AB disabled + AB panel
-    const mainInner = document.getElementById('mainInner');
-    if (isAbPanel && !abEnabled) {
+    if (disabledBuildPanel) {
       panels[panelId].style.opacity = '0.4';
       panels[panelId].style.pointerEvents = 'none';
     } else {
@@ -993,11 +1006,11 @@ Removed: 1
 
   function updateABState() {
     abEnabled = useAB.checked;
-    // AA PIPELINE and AB PIPELINE are mutually enabled
+    // Only AA/AB build execution entries are mutually enabled. Reports and repositories are fixed backend views.
     const aaBtns = aaGroup.querySelectorAll('.nav-btn');
-    aaBtns.forEach(btn => { btn.disabled = abEnabled; });
+    aaBtns.forEach(btn => { btn.disabled = btn.dataset.panel === 'aa-build' && abEnabled; });
     const abBtns = abGroup.querySelectorAll('.nav-btn');
-    abBtns.forEach(btn => { btn.disabled = !abEnabled; });
+    abBtns.forEach(btn => { btn.disabled = btn.dataset.panel === 'ab-build' && !abEnabled; });
 
     // Update AB hint visibility for the active panel
     const activeBtn = navButtons.find(b => b.classList.contains('active'));

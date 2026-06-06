@@ -39,6 +39,11 @@ public static class RepositoryPreviewRunner
 
     public static ArtifactDelta RunABPreview(BuildPackageRequest request)
     {
+        return RunABPreviewDetailed(request).HeadDelta;
+    }
+
+    public static ABRepositoryPreviewResult RunABPreviewDetailed(BuildPackageRequest request)
+    {
         if (request == null)
             throw new ArgumentNullException(nameof(request));
 
@@ -79,8 +84,15 @@ public static class RepositoryPreviewRunner
                 throw new InvalidOperationException("AB diff preview pipeline failed.");
 
             ArtifactDelta delta = RequireDelta(previewContext, "AB");
-            Debug.Log($"[{nameof(RepositoryPreviewRunner)}] AB Diff Preview done: Added={delta.Added.Count}, Modified={delta.Modified.Count}, Removed={delta.Removed.Count}");
-            return delta;
+            var deliveryBundles = previewContext.Get<List<ManifestBundleEntry>>(BuildContextKeys.ABDeliveryBundles)
+                ?? new List<ManifestBundleEntry>();
+            Debug.Log($"[{nameof(RepositoryPreviewRunner)}] AB Diff Preview done: Added={delta.Added.Count}, Modified={delta.Modified.Count}, Removed={delta.Removed.Count}, Delivery={deliveryBundles.Count}");
+            return new ABRepositoryPreviewResult
+            {
+                HeadDelta = delta,
+                DeliveryBundles = deliveryBundles,
+                DeliverySizeBytes = SumDeliverySize(deliveryBundles)
+            };
         }
         finally
         {
@@ -105,6 +117,16 @@ public static class RepositoryPreviewRunner
         if (delta == null)
             throw new InvalidOperationException($"{backendLabel} diff preview did not produce ArtifactDelta.");
         return delta;
+    }
+
+    private static long SumDeliverySize(IReadOnlyList<ManifestBundleEntry> deliveryBundles)
+    {
+        long total = 0;
+        if (deliveryBundles == null)
+            return total;
+        for (int i = 0; i < deliveryBundles.Count; i++)
+            total += deliveryBundles[i] != null ? deliveryBundles[i].FileSize : 0;
+        return total;
     }
 }
 #endif

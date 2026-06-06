@@ -4,7 +4,7 @@ using System.Text;
 
 /// <summary>
 /// 构建输出组织 Task — 按 BuildPackageRequest 输出最终 AB 包目录、拷贝 bundle、生成构建摘要、清理临时产物。
-/// 以 ABManifest.BundleEntries 为拷贝数据源（不依赖文件扩展名）。
+/// Full 以 ABManifest.BundleEntries 为拷贝数据源；Hotfix 只拷贝 ABDeliveryBundles。
 /// 在 TaskScanABHotfixDiff 之后、TaskWriteABPackageManifest 之前执行。
 /// </summary>
 public class TaskOrganizeOutput : IBuildTask
@@ -15,7 +15,9 @@ public class TaskOrganizeOutput : IBuildTask
     {
         BuildContextKeys.BuildConfig,
         BuildContextKeys.BuildPackageRequest,
+        BuildContextKeys.BuildType,
         BuildContextKeys.ABManifest,
+        BuildContextKeys.ABDeliveryBundles,
         BuildContextKeys.BundleBuildResults
     };
     public string[] WriteKeys => new[] { BuildContextKeys.OutputPath };
@@ -24,6 +26,7 @@ public class TaskOrganizeOutput : IBuildTask
     {
         var cfg = ctx.Require<BuildConfig>(BuildContextKeys.BuildConfig);
         var request = ctx.Require<BuildPackageRequest>(BuildContextKeys.BuildPackageRequest);
+        var buildType = ctx.Require<BuildType>(BuildContextKeys.BuildType);
         var manifest = ctx.Require<ABManifest>(BuildContextKeys.ABManifest);
         var buildResults = ctx.Require<List<BundleBuildInfo>>(BuildContextKeys.BundleBuildResults);
         string outputRoot = cfg.OutputRoot;
@@ -41,9 +44,12 @@ public class TaskOrganizeOutput : IBuildTask
         FileHelper.EnsureDirectory(outputDir);
         FileHelper.EnsureDirectory(bundleOutputDir);
 
-        // ② 以 ABManifest.BundleEntries 为源拷贝所有输出文件
+        // ② Full 拷贝全量 Bundle；Hotfix 只拷贝 Full-baseline delivery 列表。
+        var bundlesToCopy = buildType == BuildType.Hotfix
+            ? ctx.Require<List<ManifestBundleEntry>>(BuildContextKeys.ABDeliveryBundles)
+            : manifest.BundleEntries;
         var copiedFiles = new List<string>();
-        foreach (var bundle in manifest.BundleEntries)
+        foreach (var bundle in bundlesToCopy)
         {
             string srcPath = FYAssetPathUtility.JoinFilePath(tempDir, bundle.BundleName);
             string destPath = FYAssetPathUtility.JoinFilePath(bundleOutputDir, bundle.BundleName);
@@ -66,6 +72,7 @@ public class TaskOrganizeOutput : IBuildTask
         summary.AppendLine($"Platform: {platform}");
         summary.AppendLine($"Backend Mode: {backendMode}");
         summary.AppendLine($"Bundles: {manifest.BundleEntries.Count}");
+        summary.AppendLine($"Delivery Bundles: {bundlesToCopy.Count}");
         summary.AppendLine($"Total Size: {totalSize} bytes ({totalSize / 1024.0 / 1024.0:F2} MB)");
         summary.AppendLine($"Assets: {manifest.AssetEntries.Count}");
         summary.AppendLine($"Files Copied: {copiedFiles.Count}");
@@ -101,7 +108,7 @@ public class TaskOrganizeOutput : IBuildTask
 
         return BuildTaskResult.Ok(new List<string>
         {
-            $"[ORGANIZE] {copiedFiles.Count} bundles → {bundleOutputDir}"
+            $"[ORGANIZE] {copiedFiles.Count}/{manifest.BundleEntries.Count} bundles → {bundleOutputDir}"
         });
     }
 }

@@ -78,6 +78,20 @@ public static class ABManifestRoundTripTest
                     Tags = new List<string>(),
                     DependBundleIndices = new int[] { 0 }
                 }
+            },
+            DeliveryBundles = new List<ManifestBundleEntry>
+            {
+                new ManifestBundleEntry
+                {
+                    BundleName = "ui_bundle.bundle",
+                    FileHash = "def789ghi012",
+                    FileCRC = 87654321u,
+                    FileSize = 512000L,
+                    Encrypted = true,
+                    BundleType = "Texture",
+                    Tags = new List<string>(),
+                    DependBundleIndices = new int[] { 0 }
+                }
             }
         };
     }
@@ -117,6 +131,9 @@ public static class ABManifestRoundTripTest
         if (source.BundleEntries.Count != target.BundleEntries.Count)
             throw new InvalidOperationException($"BundleEntries count mismatch: {source.BundleEntries.Count} vs {target.BundleEntries.Count}");
 
+        if (source.DeliveryBundles.Count != target.DeliveryBundles.Count)
+            throw new InvalidOperationException($"DeliveryBundles count mismatch: {source.DeliveryBundles.Count} vs {target.DeliveryBundles.Count}");
+
         for (int i = 0; i < source.AssetEntries.Count; i++)
         {
             var src = source.AssetEntries[i];
@@ -135,6 +152,16 @@ public static class ABManifestRoundTripTest
                 throw new InvalidOperationException($"BundleEntry[{i}] mismatch");
             if (src.DependBundleIndices.Length != tgt.DependBundleIndices.Length)
                 throw new InvalidOperationException($"BundleEntry[{i}] DependBundleIndices length mismatch");
+        }
+
+        for (int i = 0; i < source.DeliveryBundles.Count; i++)
+        {
+            var src = source.DeliveryBundles[i];
+            var tgt = target.DeliveryBundles[i];
+            if (src.BundleName != tgt.BundleName || src.FileHash != tgt.FileHash || src.FileCRC != tgt.FileCRC)
+                throw new InvalidOperationException($"DeliveryBundle[{i}] mismatch");
+            if (src.DependBundleIndices.Length != tgt.DependBundleIndices.Length)
+                throw new InvalidOperationException($"DeliveryBundle[{i}] DependBundleIndices length mismatch");
         }
     }
 }

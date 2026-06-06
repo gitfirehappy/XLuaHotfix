@@ -11,7 +11,7 @@ using UnityEngine;
 /// 3. 通过 TryGetAssets* / GetBundle* 方法查询资源和 Bundle 信息
 /// </summary>
 [Serializable]
-[BinarySerializable(Magic = 0x41424D46, SchemaVersion = 1)]
+[BinarySerializable(Magic = 0x41424D46, SchemaVersion = 2)]
 public class ABManifest
 {
     #region 序列化字段
@@ -35,6 +35,14 @@ public class ABManifest
     /// <summary>所有 Bundle 条目</summary>
     [BinaryField(4)]
     public List<ManifestBundleEntry> BundleEntries = new();
+
+    /// <summary>
+    /// 本次远端包实际交付的 Bundle 条目。
+    /// Full build 保持空列表；Hotfix build 记录相对同 Major Full baseline 的 Added/Modified 物理 Bundle。
+    /// Runtime 查找始终使用 BundleEntries，下载列表优先使用 DeliveryBundles。
+    /// </summary>
+    [BinaryField(5)]
+    public List<ManifestBundleEntry> DeliveryBundles = new();
 
     #endregion
 

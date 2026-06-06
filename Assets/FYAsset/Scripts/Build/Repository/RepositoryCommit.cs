@@ -12,6 +12,7 @@ public sealed class RepositoryCommit
     public VersionNumber Version;
     public string ChannelKey;
     public string BackendMode;
+    public string BuildType;
     public string BuildTarget;
     public string PackageName;
     public string CreatedAtUtc;

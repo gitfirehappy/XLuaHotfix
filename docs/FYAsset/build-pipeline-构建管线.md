@@ -81,6 +81,17 @@ TaskA (WriteKeys: ["CollectedAssets"])     TaskB (ReadKeys: ["CollectedAssets"],
 
 正式 Full/Hotfix 构建由 `FYAssetSettings.Instance.UseABBackend` 控制。Repository CLI 的 `-backend` 只用于选择仓库通道，不覆盖正式构建后端。`BackendMode.AA` 与 `BackendMode.ABManifest` 分别对应两条构建管线，显示名分别为 `AA` / `AB`，各有独立的 `BuildPipelineConfig` 资产。
 
+### Editor Layout
+
+Build Pipeline 窗口当前按 backend 分离入口：
+
+- 设置：全局 `FYAssetSettings`
+- AA：AA 配置、AA 构建、AA 构建结果、AA 仓库
+- AB：AB 配置、AssetsCollection、AB 构建、AB 构建结果、AB 仓库
+- 管理：版本
+
+`UseABBackend` 只控制正式构建执行入口：开启 AB 时 AA 构建不可执行，关闭 AB 时 AB 构建不可执行。AA/AB 配置、构建结果占位和仓库入口始终可查看。构建结果面板当前只是占位，不读取或生成报告数据；具体构建报告数据模型、持久化和展示另行规划。
+
 ---
 
 ## BuildPipelineConfig — 配置资产
@@ -159,12 +170,13 @@ BuildResult
 | 场景 | 机制 | 结果 |
 |------|------|------|
 | AA Diff Preview | DAG whitelist 只允许 `TaskScanAddressableHotfixDiff`，并在该 Task 后 stop-after | 只计算 `ArtifactDelta`，不移动 group、不构建、不写 PackageIndex、不提交 repository |
-| AB Diff Preview | DAG whitelist 允许 AB 构建到 `TaskScanABHotfixDiff`，并在该 Task 后 stop-after | 使用 `Temp/BuildRepositoryPreview/{guid}` 临时输出，finally 清理，不写正式 PackageIndex/HEAD/objects |
+| AB Diff Preview | DAG whitelist 允许 AB 构建到 `TaskScanABHotfixDiff`，并在该 Task 后 stop-after | 使用 `Temp/BuildRepositoryPreview/{guid}` 临时输出，finally 清理，不写正式 PackageIndex/HEAD/objects；展示 HEAD Diff 和 Full-baseline Hotfix Delivery 两组信息 |
 | AA Full Build | `TaskScanAddressableHotfixDiff` 和 `TaskMoveAddressableHotfixGroups` 内按 `BuildType` 返回成功跳过 | Full 不做 hotfix diff/group move，但继续后续构建 |
 | Full Build 本地启动数据 | `TaskExportLocalBuildData` 只在 `BuildType.Full` 执行 | 写 `BuildIndex` 和当前后端 baseline 到 `StreamingAssets`；AB 复制 `ABManifest + bundles`，AA 复制 `AAManifest` 查询索引 |
 | Hotfix Build 本地启动数据 | `TaskExportLocalBuildData` 在 `BuildType.Hotfix` 返回成功跳过 | Hotfix 不覆盖整包启动数据 |
 | AA Hotfix 无差异 | diff Task 写空 `ArtifactDelta`，group move Task no-op 成功 | 继续构建，确认无变更流程仍正确 |
-| AB Hotfix 无差异 | `TaskScanABHotfixDiff` 返回成功并继续 | 后续 organize/manifest/PackageIndex 仍按官方构建执行 |
+| AB Hotfix 无差异 | `TaskScanABHotfixDiff` 写入空 `ABDeliveryBundles` 并返回成功 | 后续 organize/manifest/PackageIndex 仍按官方构建执行，输出 manifest-only Hotfix 包 |
+| AB Hotfix 缺 Full baseline | `TaskScanABHotfixDiff` fatal fail | 缺少同 Channel/Backend/Major 且 `BuildType == Full` 的 baseline 时不进入 package finalization |
 | `PackageIndex` 写入 | `TaskWritePackageIndex` 在官方 Full/Hotfix DAG 中执行 | `PackageIndex` 是远端最新包指针，不是 Full-only 数据；Diff Preview 早停不会执行它 |
 | Fatal Task 失败 | `BuildTaskResult.Fail(..., fatal: true)` | 调度器停止后续 Task，剩余 Task 标记 Skipped |
 | DAG 校验失败 | Validate 阶段阻断 | 不执行任何 Task |
@@ -214,6 +226,7 @@ Execute
 | `BundleDependencyGraph` | `BundleDependencyGraph` | TaskAnalyzeDependencies | TaskBuildBundles, TaskGenerateManifest |
 | `BundleBuildResults` | `List<BundleBuildInfo>` | TaskBuildBundles | TaskGenerateManifest, TaskVerifyBuildResult |
 | `ABManifest` | `ABManifest` | TaskGenerateManifest | TaskVerifyBuildResult, TaskScanABHotfixDiff, TaskOrganizeOutput, TaskWriteABPackageManifest |
+| `ABDeliveryBundles` | `List<ManifestBundleEntry>` | TaskScanABHotfixDiff | TaskOrganizeOutput, TaskWriteABPackageManifest |
 | `BuildVerificationResult` | `BuildVerificationResult` | TaskVerifyBuildResult | TaskOrganizeOutput |
 | `OutputPath` | `string` | TaskOrganizeOutput / TaskOrganizeAAOutput | TaskWrite*Manifest, TaskExportLocalBuildData |
 | `ArtifactDelta` | `ArtifactDelta` | TaskScan*HotfixDiff | TaskMoveAddressableHotfixGroups, BuildProjectManager |
@@ -237,9 +250,9 @@ Execute
 | `TaskBuildBundles` | 按 PayloadKind 分流构建（Serialized → AB, Scene → 独立, RawFile → 拷贝），输出 BundleBuildResults | TaskAnalyzeDependencies |
 | `TaskGenerateManifest` | 生成 ABManifest（AssetEntries + BundleEntries + 依赖索引 + BundleType 推断），调用 Initialize() | TaskBuildBundles |
 | `TaskVerifyBuildResult` | 6 项校验：文件存在性、UnityFS 魔数完整性、孤立文件、Hash 重算、大小异常、计数交叉检查 | TaskGenerateManifest |
-| `TaskScanABHotfixDiff` | 对比 AB Bundle 产物与 Repository HEAD，计算 ArtifactDelta | TaskVerifyBuildResult |
-| `TaskOrganizeOutput` | 拷贝 Bundle 到最终输出目录、生成 build_summary.txt、清理临时目录 | TaskScanABHotfixDiff |
-| `TaskWriteABPackageManifest` | 发布 ABManifest（JSON + Binary），校验热更包体大小 | TaskOrganizeOutput |
+| `TaskScanABHotfixDiff` | 对比 AB Bundle 产物与 Repository HEAD，计算 `ArtifactDelta`；Hotfix 还对比同 Major Full baseline，计算 `ABDeliveryBundles` 并校验 baseline fallback | TaskVerifyBuildResult |
+| `TaskOrganizeOutput` | Full 拷贝全部 `BundleEntries`；Hotfix 只拷贝 `ABDeliveryBundles`；生成 build_summary.txt、清理临时目录 | TaskScanABHotfixDiff |
+| `TaskWriteABPackageManifest` | 发布完整 ABManifest（JSON + Binary）；Full 按全部 bundle、Hotfix 按 delivery bundle 校验热更包体大小 | TaskOrganizeOutput |
 | `TaskWritePackageIndex` | 写入远端包体指针 PackageIndex.json | TaskWriteABPackageManifest |
 | `TaskExportLocalBuildData` | Full Build 时导出 BuildIndexData、ABManifest 和 bundles 到 StreamingAssets；Hotfix 跳过 | TaskWritePackageIndex |
 

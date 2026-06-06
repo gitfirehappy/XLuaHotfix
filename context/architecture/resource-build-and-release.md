@@ -27,7 +27,7 @@ Current source locations:
 | --- | --- |
 | `BuildIndexData` | packaged build identity, version, backend mode, and GUID used for major-version validation |
 | `AAManifest` | version plus bundle hash/CRC/size mapping for AA hotfix comparison and fast bundle verification; also embeds the AA asset index lists; emitted as JSON and binary by default |
-| `ABManifest` | AB asset/bundle manifest; emitted as JSON and binary by default for package output and StreamingAssets bootstrap |
+| `ABManifest` | AB asset/bundle manifest; `BundleEntries` is the complete runtime table and `DeliveryBundles` is the hotfix package delivery list; emitted as JSON and binary by default for package output and StreamingAssets bootstrap |
 | `LuaScriptsIndex` | Lua module name to Addressables key mapping; normal Addressable asset in the `LuaScripts` group; type lives with `XLuaLoader` |
 | `PackageIndex` | remote package pointer written to `PackageIndex.json`; includes backend mode and latest package root |
 
@@ -41,7 +41,7 @@ The hotfix build flow relies on repository HEAD comparison instead of manual gro
 - `FileBuildRepository.GetStatus()` distinguishes empty HEAD from malformed HEAD through `RepositoryStatus.HasHeadError` / `HeadErrorReason`
 - `VersionDataBase` is shared as the product-version source; AA and AB are build backend dimensions, not separate product version streams
 - `RepositoryHeadState` stores only `HeadVersion`; the object path is derived as `objects/{HeadVersion}.json`
-- `RepositoryCommit` stores version, channel key, backend mode, build target, package name, UTC creation time, artifact digests, `GitCommitHash`, `IsDirty`, and `PackageRootDir`
+- `RepositoryCommit` stores version, channel key, backend mode, build type (`Full` or `Hotfix`), build target, package name, UTC creation time, artifact digests, `GitCommitHash`, `IsDirty`, and `PackageRootDir`
 - `ArtifactDigest` stores artifact name, hash, size, and CRC for diffing; it is JSON-serializable and is not binary-serialized
 - `ArtifactDelta` represents Added / Modified / Removed artifact sets
 - `ArtifactDiffer` performs pure name/hash diffing with no Unity API side effects
@@ -53,16 +53,18 @@ The hotfix build flow relies on repository HEAD comparison instead of manual gro
 - AA and AB repository spaces are isolated by the backend segment in the channel key
 - `TaskScanAddressableHotfixDiff` runs before AA hotfix content build, compares current AA source against repository HEAD, and writes `ArtifactDelta` into `BuildContext`
 - `TaskMoveAddressableHotfixGroups` moves Added and Modified AA assets into the Hotfix group, writes `Assets/FYAsset/Editor/Generated/HotfixGroupUndoLog.json`, blocks another move while pending moves exist, and keeps the manual restore path available
-- `TaskScanABHotfixDiff` runs after AB bundle build verification, compares AB bundle output against repository HEAD, and writes `ArtifactDelta` into `BuildContext`
+- `TaskScanABHotfixDiff` runs after AB bundle build verification. It compares current AB bundle output against repository HEAD for `ArtifactDelta`, and for AB Hotfix also compares current output against the same-channel/backend/Major Full baseline to produce `ABDeliveryBundles`.
+- AB Hotfix fails before package finalization when the same-Major Full baseline commit is missing. Old commits without `RepositoryCommit.BuildType == "Full"` are not inferred as baselines.
+- AB Hotfix fallback validation requires every non-delivered manifest bundle to exist in the Full baseline with the same physical bundle name and file hash.
 - `ConfirmReleaseHotfix` is a placeholder wrapper and does not mutate repository HEAD, build artifacts, or push targets
 - `BuildRepositoryCLI` exposes `Status`, `Diff`, `Push`, and `ListCommits`; `Diff` runs the AA or AB DAG to the backend-specific diff task and stops there
 - `FileBuildRepository.Push()` loads the from/to commits for either AA or AB channels, computes the changed artifact count for history display, and delegates publication to the configured `IPushTarget`
 - `LocalDirectoryPushTarget` treats `PushTargetConfig.Path` as a publish root. An empty path resolves to `BuildPathManager.OutputRoot`; publication writes `{PublishRoot}/PackageIndex.json` and `{PublishRoot}/{BuildPackagesFolderName}/{PackageName}/...`
 - Push writes the root `PackageIndex.json` from the target commit's package name, version, and backend mode. It does not reinterpret package-internal catalog or manifest files.
 - `PushHistory.json` is written by the repository at `BuildData/Snapshots/{BuildTarget}[-Channel]/{BackendMode}/PushHistory.json` after a successful push
-- `RepositoryStatusPanel` exposes repository status and read-only Diff Preview in the build pipeline window
-- `RepositoryStatusPanel` is a shared Manage panel entry and is not owned by the AA or AB sidebar groups
-- AB Diff Preview uses `DAGScheduler.Execute` with a stop-after task and whitelist, writes temporary outputs under `Temp/BuildRepositoryPreview/{guid}/`, and deletes that directory in a `finally` path; `TaskPrepareContext` reads the preview output root from `BuildContextKeys.RepositoryPreviewOutput` instead of an environment variable
+- `RepositoryStatusPanel` can be constructed for a fixed backend mode. The build pipeline window exposes separate AA Repository and AB Repository entries instead of one shared repository panel.
+- AA/AB build result panels currently exist as placeholder entries only; the concrete build report data model, persistence, and report rendering remain a separate follow-up plan.
+- AB Diff Preview uses `DAGScheduler.Execute` with a stop-after task and whitelist, writes temporary outputs under `Temp/BuildRepositoryPreview/{guid}/`, and deletes that directory in a `finally` path; `TaskPrepareContext` reads the preview output root from `BuildContextKeys.RepositoryPreviewOutput` instead of an environment variable. The AB preview result separates current-vs-HEAD diff from current-vs-Full-baseline hotfix delivery count/size/list.
 
 ## Release Operations
 
@@ -130,13 +132,14 @@ The build entry point is now split with the same orchestration pattern already u
 
 - `ABBuildBackend` is a stateless DAG runner: it receives the shared `BuildPackageRequest`, writes it into `BuildContext`, and runs the AB task graph through `DAGScheduler.Execute()`
 - The AB backbone order is `TaskPrepareContext -> TaskCollectAssets -> TaskCollectBuiltins -> TaskAnalyzeDependencies -> TaskBuildBundles -> TaskGenerateManifest -> TaskVerifyBuildResult -> TaskScanABHotfixDiff -> TaskOrganizeOutput -> TaskWriteABPackageManifest -> TaskWritePackageIndex -> TaskExportLocalBuildData`.
-- `TaskScanABHotfixDiff` is the AB graph diff task between `TaskVerifyBuildResult` and `TaskOrganizeOutput`; standalone AB diff stops after this task so package organization and publication do not run.
-- `TaskOrganizeOutput` consumes the request and writes the final AB package layout directly under `BuildPackageRequest.OutputDir`, copying bundles into `BuildPackageRequest.BundlesDir`
-- `TaskWriteABPackageManifest` publishes `ABManifest.json` and/or `ABManifest.bin` at the final package root according to `FYAssetABSettings.ManifestOutputFormat` and applies the AB hotfix size limit from `FYAssetABSettings`
+- `TaskScanABHotfixDiff` is the AB graph diff and delivery task between `TaskVerifyBuildResult` and `TaskOrganizeOutput`; standalone AB diff stops after this task so package organization and publication do not run.
+- `TaskOrganizeOutput` consumes the request and writes the final AB package layout directly under `BuildPackageRequest.OutputDir`, copying all manifest bundles for Full builds and only `ABDeliveryBundles` for Hotfix builds.
+- `TaskWriteABPackageManifest` publishes `ABManifest.json` and/or `ABManifest.bin` at the final package root according to `FYAssetABSettings.ManifestOutputFormat` and applies the AB hotfix size limit from `FYAssetABSettings`; for AB Hotfix the size guard uses the delivery bundle list, not the complete runtime bundle table.
 - `TaskWritePackageIndex` runs after the AB package manifest task and writes the remote latest-package pointer for both Full and Hotfix official builds
 - `TaskExportLocalBuildData` is the AB graph tail task and implementation owner for local startup data export. It writes `BuildIndexData` only for full builds, copies the real final AB package baseline (`ABManifest` files plus `bundles/`) into `StreamingAssets`, cleans stale AA baseline files, and returns success without exporting for hotfix builds
 - `BuildContextKeys.OutputPath` is the request-owned final package directory after AB finalization
 - missing manifest-listed bundle files during AB finalization fail the task instead of being silently skipped
+- `ABManifest` binary schema is version 2 after adding `DeliveryBundles`; schema-1 AB binary manifests are not compatible with the current binary reader and require rebuilding the AB Full baseline.
 
 ### Build path helpers
 
@@ -187,7 +190,7 @@ Stores AB backend runtime, build, and collection configuration.
 
 - `PushTargetConfig.Path` is still a publish root; an empty path means the current `BuildPathManager.OutputRoot`.
 - `VersionDataBase` remains shared product-version data and is referenced from `FYAssetSettings.VersionDataBasePath`; there are no AA/AB-specific version database paths.
-- The Settings panel edits `FYAssetSettings`. AA Config edits `FYAssetAASettings`. AB Config edits `FYAssetABSettings`; the AB Pipeline page owns the BuildGraph and build controls. Repository Push target configuration is edited from the repository panel and stored on `FYAssetSettings.PushTargets`.
+- The Settings panel edits `FYAssetSettings`. AA Config edits `FYAssetAASettings`. AB Config edits `FYAssetABSettings`; AA Build and AB Build own backend-specific BuildGraph/build controls. AA Repository and AB Repository are separate fixed-backend repository views. Repository Push target configuration is edited from repository panels and stored on `FYAssetSettings.PushTargets`.
 - Build settings path fields now use chooser buttons in the Editor UI instead of raw string-only editing.
 - `MaxHotfixSizeBytes` in AA/AB settings is edited through a byte-unit control that displays the exact byte count alongside a selectable unit.
 - `PushTargetConfig.Path` is edited through a chooser-based path field in the repository panel.

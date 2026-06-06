@@ -1,9 +1,9 @@
 # Refactor Plan: XLuaHotfix Full Resource Management System Overhaul — Master Plan
 
-> **Status**: In progress (Phase 1-4 completed, Phase 5 E1-1/E1-2/E1-3/E1-4/E2 realized, Phase 6 E4/E5-1/E5-2a/E5-2b/E6/E7/E9/E10/E11 main path realized, Build Repository AA Push signed off and archived, AssetsCollection follow-up fixes in progress)
+> **Status**: In progress (Phase 1-4 completed, Phase 5 E1-1/E1-2/E1-3/E1-4/E2 realized, Phase 6 E4/E5-1/E5-2a/E5-2b/E6/E7/E9/E10/E11 main path realized, Build Repository AA Push signed off and archived, AssetsCollection address/settings/follow-up plans signed off and archived, AB cumulative hotfix delivery signed off and archived, basic pipeline UI layout aligned)
 > **Ultimate Goal**: Fully replace Addressables with custom runtime + build-time resource management system (referencing YooAsset architecture)
 > **Created**: 2026-03-16
-> **Updated**: 2026-06-05 — AssetsCollection follow-up fixes approved and in progress; E7 main path complete, repository hardening remains deferred
+> **Updated**: 2026-06-06 — Basic pipeline closure aligned: AA/AB sidebar entries now each own build result placeholders and fixed-backend repository panels; AB cumulative hotfix delivery AI-verified and archived; concrete build report implementation remains a separate plan
 
 ---
 
@@ -180,14 +180,16 @@ Phase 4 and Phase 6 must be coordinated (ABManifest runtime consumption + build-
 | plan-comment-debug-coverage-20260524.md | Build/repository/hotfix task comments and direct Debug log coverage improved without behavior changes | Archived |
 | plan-dag-staged-write-order-fix-20260601.md | DAG staged-write and AB task order fix: remove legacy W-W fatal validation for staged `CollectedAssets` updates, reorder AB builtin collection before dependency analysis, and align BuildGraph data-flow display | Archived | DONE / Signed off |
 | plan-build-repository-aa-push-20260603.md | Build Repository AA Push completion: make AA Push a basic build-pipeline capability before E7 closure, reusing existing whole-package `IPushTarget` and `PushHistory` semantics | Archived / Signed off |
+| plan-address-generation-conflict-policy-20260604.md | Explicit Address generation policy, style-based asset/group operations, and automatic conflict-upgrade removal | Archived / Signed off |
+| plan-assets-collection-settings-cleanup-20260605.md | AssetsCollection add/remove/exclude workflow, Scene collector shape cleanup, BuildPipeline Sequential removal, and three-settings ownership cleanup | Archived / Signed off |
+| plan-assets-collection-followup-20260605.md | AssetsCollection acceptance follow-up: Scene-only folder scan, long-path Address extension, and setting-owned exclusion UI | Archived / Signed off |
+| plan-ab-cumulative-hotfix-delivery-20260605.md | AB cumulative hotfix package delivery: complete runtime manifest plus delivery bundle list relative to the Full baseline | Archived / Signed off |
 
 ### Active Shared Plans
 
 | File | Content | Status |
 |------|---------|--------|
-| plan-address-generation-conflict-policy-20260604.md | Explicit Address generation policy, style-based asset/group operations, and automatic conflict-upgrade removal | Executed / Awaiting sign-off |
-| plan-assets-collection-settings-cleanup-20260605.md | AssetsCollection add/remove/exclude workflow, Scene collector shape cleanup, BuildPipeline Sequential removal, and three-settings ownership cleanup | Executed / Awaiting sign-off |
-| plan-assets-collection-followup-20260605.md | AssetsCollection acceptance follow-up: Scene-only folder scan, long-path Address extension, and setting-owned exclusion UI | Executed / Awaiting sign-off |
+| — | — | No active shared plan |
 
 ### Phase 5: Build-Time - Asset Collection & Indexing
 
@@ -215,8 +217,8 @@ Phase 4 and Phase 6 must be coordinated (ABManifest runtime consumption + build-
 | E9 | VersionNumber SemVer+Build extension (Major.Minor.Patch + Build + Channel, IComparable, Parse/TryParse, operator overloads). Prerequisite for E7 | **Realized** (plan-E9-version.md) |
 | E10 | BuildProjectManager dual-backend split — `IBuildBackend` + `LegacyAddressableBuildBackend` + `ABBuildBackend` + orchestrator-style `BuildProjectManager`. `BuildCommandLine` kept on the same public API path. AB output layout aligned to `{PackageRoot}/bundles/` to match hotfix/runtime contracts | **Realized** (plan-E10-buildbackend.md) |
 | E11 | FYAssetSettings SO — new `FYAssetSettings` ScriptableObject (Runtime assembly) replaces `FYAssetConstants`; configurable fields become SO instance fields; `static const` members preserved on SO type; `BuildPipelineConfig.DefaultBackendMode` removed; `SettingsPanel` added; `BuildPipelineWindow` sidebar reorganized to SETTINGS → AB PIPELINE → MANAGE; AB PIPELINE grayed-out when `UseABBackend=false`; `FYAssetConstants.cs` deleted. **2026-06-05 correction: active settings are now split into `FYAssetSettings`, `FYAssetAASettings`, and `FYAssetABSettings`; backend hotfix URL/retry fields live on AA/AB settings.** | **Realized** (plan-E11-settings.md) |
-| E12 | PipelinePanel BuildGraph and build execution editor — staged GraphView upgrade for AB pipeline. E12-1 reworked 2026-05-14: read-only DAG visualization moved from Builder to Pipeline, Build options (`FileNameStyle`, `BundleCompression`) moved to Pipeline top bar, right-click optional-task creation excludes backbone tasks, Reload and `DAGScheduler.Validate()` summary remain read-only. E12-2 executed 2026-05-14: Pipeline Build Mode + Build button trigger existing Full/Hotfix flows through `BuildProjectManager`, `DAGScheduler` emits observer/callback-driven task statuses, and unused `BuildGraphToolbar` was removed. Builder/report querying is deferred to a separate post-E7 plan because E7 owns diff snapshot and digest outputs. **2026-06-05 correction: `SequentialMode` removed from UI/config.** | **E12-2 Executed; awaiting sign-off** (plan-E12-buildgraph-editor.md) |
-| E13 | Legacy Pipeline 侧边栏重组 + 面板骨架 — BuildPipelineWindow 侧边栏 4 组（SETTINGS/LEGACY PIPELINE/AB PIPELINE/MANAGE）+ 互斥灰显 + 折叠侧栏组 + LegacyConfigPanel（Addressables summary + open groups window）+ LegacyBuildPanel/LegacyReportPanel 占位。可并行 E7 | **Executed** (plan-E13-legacy-sidebar.md) — T1-T4 代码已落地 2026-05-15，dotnet build 0 errors |
+| E12 | PipelinePanel BuildGraph and build execution editor — staged GraphView upgrade. E12-1/E12-2 landed; DAG visualization and build trigger live in backend-specific build panels. **2026-06-06 correction: active layout removes the historical Builder entry; AA/AB each have a build result placeholder, and concrete build report implementation is deferred to a separate plan.** | **Realized / archived** (plan-E12-buildgraph-editor.md) |
+| E13 | Legacy/sidebar restructuring history. **2026-06-06 supersession: active BuildPipelineWindow structure is Settings; AA(Config/Build/Build Result/Repository); AB(Config/AssetsCollection/Build/Build Result/Repository); Manage(Version).** | **Superseded by current AA/AB split** (plan-E13-legacy-sidebar.md) |
 
 ### Phase 7: Delivery & Download Strategy
 
@@ -225,6 +227,7 @@ Phase 4 and Phase 6 must be coordinated (ABManifest runtime consumption + build-
 | F1 | Offline built-in package (DeliveryMode: Streamed/Builtin/Hybrid) | Ideas (plan-F-ideas.md) |
 | F2 | Background download (BackgroundDownloadManager + Bundle Tags) | Ideas (plan-F-ideas.md) |
 | F3 | A/B test variant download (VariantIndex + ABTestManager) | Ideas (plan-F-ideas.md) |
+| AB cumulative hotfix delivery | Complete AB runtime manifest plus Full-baseline cumulative delivery bundle list | Signed off / Archived (plan-ab-cumulative-hotfix-delivery-20260605.md) |
 
 > **Note**: Original F1 (RawFile Bundle) / F2 (SpriteAtlas) / F3 (Platform compression) absorbed into unified pipeline + 5 extension points (see plan-E-draft.md F-series convergence). RawFile handled via PayloadKind routing + IPackageBackend.LoadRawFile; SpriteAtlas via E4 dependency analysis; compression via IAssetImportRule.
 

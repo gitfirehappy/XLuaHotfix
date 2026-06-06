@@ -1,6 +1,6 @@
 # Plan: Assets Collection And Settings Cleanup
 
-> Status: Executed / Awaiting sign-off
+> Status: Signed off / Archived
 > Date: 2026-06-05
 > Requirement ID: assets-collection-settings-cleanup-20260605
 > Scope: AssetsCollection editor workflow, Collector exclusion semantics, Scene collector shape, BuildPipeline Sequential removal, and FYAsset settings ownership.

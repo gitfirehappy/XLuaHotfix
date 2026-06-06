@@ -75,6 +75,13 @@ public class HotfixVersionInfo
 }
 ```
 
+AB 后端转换规则：
+
+- 新 ABManifest 优先用 `DeliveryBundles` 生成下载列表；
+- Full 包或无差异 Hotfix 的 `DeliveryBundles` 可以为空，表示本次远端包没有需要下载的 bundle；
+- 旧 JSON ABManifest 如果没有 `DeliveryBundles` 字段，则按兼容路径回退使用完整 `BundleEntries`；
+- 运行时资源查找仍使用完整 `BundleEntries`，不是 `DeliveryBundles`。
+
 ---
 
 ## 完整热更流程（11 步）
@@ -163,7 +170,7 @@ Bundle 下载阶段由 `HotfixManager` 统一管理重试与校验：
 |---|---|---|
 | **元数据文件** | 1 个（ABManifest.bin/.json） | 2 个（AAManifest + catalog.json） |
 | **初始化** | 无操作（直接返回 Ok） | Addressables.InitializeAsync |
-| **版本信息源** | ABManifest.BundleEntries | AAManifest.BundleEntries |
+| **版本信息源** | ABManifest.BundleEntries；下载列表优先 ABManifest.DeliveryBundles | AAManifest.BundleEntries |
 | **下载后处理** | 写 ABManifest 到磁盘 | 下载 catalog + 加载外部 Catalog |
 | **格式优先级** | .bin → .json | .bin → .json |
 | **Addressables 依赖** | 无 | 需要 |

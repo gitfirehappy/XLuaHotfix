@@ -49,6 +49,7 @@ This is still the default assumption unless code explicitly selects the AB path.
 When `FYAssetSettings.Instance.UseABBackend` is `true`:
 
 - `ABManifestLoader.LoadAsync()` loads the AB manifest via `FileHelper.ReadAllBytesAsync`, checking `RuntimePathManager.CurrentGUIDRoot` before `Application.streamingAssetsPath`
+- `ABManifest.BundleEntries` is the complete runtime bundle table used by the AB index, bundle loader, and package backend
 - `ABAssetIndex` becomes the active `IAssetIndex`
 - `ABBundleLoader` manages bundle loading and dependency traversal
 - `ABPackageBackend` becomes the active `IPackageBackend`
@@ -146,6 +147,8 @@ Responsibilities:
 - call `AssetPackageManager.Instance.Initialize()` as the final resource bootstrap step
 
 AA hotfix metadata prefers `AAManifest.bin` and falls back to `AAManifest.json`; it still downloads `catalog.json` for resource-location data. The AA full-build baseline copies `AAManifest` into `StreamingAssets` only for query-index fallback; Addressables catalog and built-in bundle placement remain owned by the existing Addressables player build flow.
+
+AB hotfix metadata prefers `ABManifest.bin` and falls back to `ABManifest.json`. A Full AB manifest writes an empty `DeliveryBundles` list because the Full package delivers all bundles. A Hotfix AB manifest keeps `BundleEntries` as the complete runtime table and writes `DeliveryBundles` as the current-vs-Full-baseline delivery list. `ABHotfixBackend` uses `DeliveryBundles` for the remote download list when that field exists; legacy JSON manifests without the field fall back to `BundleEntries`. Runtime loading still resolves assets and dependencies from `BundleEntries`, so unchanged bundles are loaded from the StreamingAssets Full baseline through the normal hotfix-directory-first, StreamingAssets-fallback path.
 
 Hotfix backend locations:
 

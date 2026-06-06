@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: FYAssetSettings
   m_EditorClassIdentifier: 
   ProjectName: ProjectName1
-  UseABBackend: 1
+  UseABBackend: 0
   BuildOutputRoot: HotfixOutput
   BuildPackagesFolderName: Packages
   VersionDataBasePath: Assets/Build/VersionDataBase.asset
@@ -21,4 +21,4 @@ MonoBehaviour:
   PushTargets:
   - Id: target1
     Type: 0
-    Path:
+    Path: 

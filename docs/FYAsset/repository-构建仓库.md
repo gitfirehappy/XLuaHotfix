@@ -17,7 +17,7 @@ Build Repository 是构建产物的版本化存储系统，采用类 git 的 HEA
 - **先写 object 再交换 HEAD**，HEAD 交换失败时 object 作为孤立文件保留，不会丢数据
 - **AA / AB 仓库空间隔离**，通过 ChannelKey 中的 BackendMode 段区分
 - **Push 发布已构建包体**：发布根包含 `PackageIndex.json` 和 `{BuildPackagesFolderName}/{PackageName}`，包体内容由构建 Task 负责
-- **Diff 不直接筛包体**：当前 Diff 负责识别变化、驱动 AA Hotfix Group 和记录 PushHistory；正式包体由 AA/AB 构建 Task 决定
+- **Diff 不筛 Push 文件**：Repository Diff 负责识别变化、驱动 AA Hotfix Group、展示预览和记录 PushHistory；Push 始终发布已构建包体。AB Hotfix 的实际包体交付列表由 AB 构建 Task 按 Full baseline 计算。
 
 ---
 
@@ -67,10 +67,10 @@ Build Repository 是构建产物的版本化存储系统，采用类 git 的 HEA
 
 ### 当前事实
 
-当前没有“按差异筛最终包体文件”的通用机制。
-
 - AA：`TaskScanAddressableHotfixDiff` 在构建前扫描 Addressables source，与 Repository HEAD 比较，并把 Added/Modified 写入 `ArtifactDelta`。`TaskMoveAddressableHotfixGroups` 根据该结果移动资源到 Hotfix Group，然后 Addressables 生成 catalog 和热更 bundles。
-- AB：`TaskScanABHotfixDiff` 在 `TaskVerifyBuildResult` 后执行，从 `ABManifest.BundleEntries` 生成当前 bundle 指纹，与 Repository HEAD 比较，并写入 `ArtifactDelta` / `RepositoryArtifacts`。正式构建随后继续进入 `TaskOrganizeOutput`，当前实现会复制 `ABManifest.BundleEntries` 中的所有 bundle。
+- AB：`TaskScanABHotfixDiff` 在 `TaskVerifyBuildResult` 后执行，从 `ABManifest.BundleEntries` 生成当前 bundle 指纹。它同时计算两类结果：`ArtifactDelta` 是 current-vs-Repository HEAD 的预览/提交差异；`ABDeliveryBundles` 是 current-vs-同 Channel/Backend/Major 的 Full baseline 的 Hotfix 实际交付列表。
+- AB Full：`TaskOrganizeOutput` 复制 `ABManifest.BundleEntries` 中的全部 bundle，`ABManifest.DeliveryBundles` 保持空列表。
+- AB Hotfix：`TaskOrganizeOutput` 只复制 `ABDeliveryBundles`，`TaskWriteABPackageManifest` 发布完整 `ABManifest`，其中 `BundleEntries` 仍是完整运行时索引，`DeliveryBundles` 记录本次远端包实际交付/下载的 bundle。
 - Push：`FileBuildRepository.Push()` 使用 `ArtifactDiffer.Diff(fromCommit.Artifacts, toCommit.Artifacts)` 计算差异数量，仅用于 `PushHistory.DeltaFileCount` 展示。`LocalDirectoryPushTarget` 发布已构建包体目录，不重新解释 catalog、AAManifest 或 ABManifest。
 
 ### AA 机制边界
@@ -83,17 +83,23 @@ AA 受 Addressables 官方 catalog 生成机制约束。为了保证 catalog 指
 - 跳版本客户端无法仅凭最新目录补齐旧热更资源；
 - 当前下载端已有 Hash 复用逻辑，能直接复制本地同 Hash bundle，机制更简单。
 
-### AB 当前机制与待优化方向
+### AB 累积 Hotfix 交付
 
-AB 是自研清单和加载链路，没有 Addressables catalog 限制。当前实现仍是“构建后全量复制当前 manifest bundles”。后续讨论稿 `requirements/plan/drafts/draft-ab-cumulative-hotfix-delivery-20260604.md` 计划把 AB 调整为：
+AB 是自研清单和加载链路，没有 Addressables catalog 限制。当前 AB Hotfix 采用“完整运行时清单 + Full-baseline 累积交付列表”：
 
-- `ABManifest.BundleEntries` 保留完整运行时索引；
-- 新增实际发布/下载列表，例如 `DeliveryBundles`；
-- Full 构建发布全部 bundles；
-- Hotfix 构建只发布相对当前 Major Full baseline 的累积变化 bundles；
+- `ABManifest.BundleEntries` 保留完整运行时索引，运行时查找和依赖解析始终使用它；
+- `ABManifest.DeliveryBundles` 记录远端 Hotfix 包实际发布/下载的 bundle；
+- Full 构建发布全部 bundles，`DeliveryBundles` 为空；
+- Hotfix 构建只发布相对当前 Major Full baseline 的 Added/Modified 物理 bundle；
 - 运行时仍按“热更目录优先，StreamingAssets 回退”加载未变更的整包 baseline bundles。
 
-该方向尚未进入可执行 plan。
+约束：
+
+- AB Hotfix 缺少同 Channel/Backend/Major 的 Full baseline commit 时直接失败，要求重新执行 AB Full build；
+- 旧 commit 没有 `BuildType == "Full"` 时不会被推断为 Full baseline；
+- 未交付的每个 bundle 必须在 Full baseline 中存在同名且同 Hash 的文件，否则 fallback 校验失败；
+- Removed bundle 不会被发布，也不会在运行时删除；新的完整 `BundleEntries` 停止引用它即可；
+- 交付列表不额外包含依赖闭包，依赖 bundle 若未变化则从 StreamingAssets baseline 加载，若自身 Hash 变化则会进入 `DeliveryBundles`。
 
 ---
 
@@ -148,6 +154,7 @@ BuildData/Snapshots/
 | `Version` | VersionNumber | ✓ | 构建版本号 |
 | `ChannelKey` | string | ✓ | 仓库 Channel 标识，包含 BuildTarget、可选 Channel、BackendMode |
 | `BackendMode` | string | ✓ | 构建后端类型，值为 `"AA"` 或 `"AB"` |
+| `BuildType` | string | ✓ | 构建类型，值为 `"Full"` 或 `"Hotfix"`；AB Hotfix 用它查找同 Major Full baseline |
 | `BuildTarget` | string | ✓ | Unity BuildTarget（如 `"StandaloneWindows64"`） |
 | `PackageName` | string | ✓ | 包体名称（如 `"Build_20250101123045_1.0.0"`） |
 | `CreatedAtUtc` | string | ✓ | Commit 创建时间，UTC ISO-8601 字符串 |
@@ -301,7 +308,7 @@ GetChannelKey(channel, backendMode)
 - Stop-after：`TaskScanABHotfixDiff`
 - 使用 `Temp/BuildRepositoryPreview/{guid}/` 临时输出目录
 - `finally` 块清理临时目录
-- 对比当前构建产物指纹与 Repository HEAD
+- 同时展示两组信息：HEAD Diff 是 current-vs-Repository HEAD；Hotfix Delivery 是 current-vs-Full baseline 的交付 bundle 数量、大小和列表
 
 Diff Preview 是只读诊断能力。它不会提交 HEAD、不会写 `PackageIndex.json`，也不会替代正式构建中的打包输出规则。
 
@@ -311,7 +318,9 @@ Diff Preview 是只读诊断能力。它不会提交 HEAD、不会写 `PackageIn
 
 ### RepositoryStatusPanel
 
-位于 Build Pipeline 窗口的 MANAGE 分组中。功能：
+Build Pipeline 窗口中不再使用一个总仓库入口；AA 和 AB 各有独立仓库块。`RepositoryStatusPanel` 通过固定 `BackendMode` 构造，AA 仓库始终查看 AA Channel，AB 仓库始终查看 AB Channel，不跟随当前 `UseABBackend` 切换。
+
+功能：
 
 - **状态栏**：显示当前 HEAD 版本、包名、产物数量、最近 Push 信息
 - **Diff 按钮**：触发 AA 或 AB Diff Preview，结果以 Added/Modified/Removed 列表展示
@@ -356,8 +365,8 @@ BuildFullPackage / BuildHotfix
 ## 注意事项
 
 - **AA/AB Push 同级**：当前 Push 发布根部 `PackageIndex.json` 和已构建 package 目录，并记录 PushHistory；不重新解释 catalog、AAManifest 或 ABManifest
-- **Diff 不筛 Push 文件**：Push 中的差异只用于 PushHistory 数量统计，不用于 delta-copy bundle
-- **AB Delivery 优化未落地**：AB 相对 Full baseline 的累积热更包仍是 draft，不是当前代码行为
+- **Diff 不筛 Push 文件**：Push 中的差异只用于 PushHistory 数量统计，不用于 delta-copy bundle；AB Hotfix 的交付筛选发生在构建 Task 内，不发生在 Push 阶段
+- **AB Hotfix 依赖 Full baseline**：AB Hotfix 必须能找到同 Channel/Backend/Major 且 `BuildType == "Full"` 的 commit，否则失败
 - **HEAD 损坏保护**：`GetStatus()` 区分"无 HEAD"和"HEAD 损坏"，损坏原因在 `HeadErrorReason` 字段
 - **ChannelKey 不可跨后端混用**：AA 和 AB 的 Repository 空间完全隔离
 - **Git 元数据非必需**：git 不可用时 Commit 仍正常进行，`GitCommitHash` 为空

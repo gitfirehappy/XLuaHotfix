@@ -34,12 +34,20 @@ public static class BuildRepositoryCLI
             var version = LoadCurrentVersion();
             var backend = GetBackend(args);
             var request = BuildPackageRequest.Create(version, BuildType.Hotfix, backend);
-            var delta = backend == BackendMode.ABManifest
-                ? RepositoryPreviewRunner.RunABPreview(request)
-                : RepositoryPreviewRunner.RunAAPreview(request);
-            WriteDelta(delta);
-            if (args.TryGetValue("-json", out string jsonPath) && !string.IsNullOrEmpty(jsonPath))
-                FileHelper.WriteAllTextAtomic(jsonPath, SerializationUtility.SerializeToJson(delta, true));
+            if (backend == BackendMode.ABManifest)
+            {
+                var preview = RepositoryPreviewRunner.RunABPreviewDetailed(request);
+                WriteABPreview(preview);
+                if (args.TryGetValue("-json", out string jsonPath) && !string.IsNullOrEmpty(jsonPath))
+                    FileHelper.WriteAllTextAtomic(jsonPath, SerializationUtility.SerializeToJson(preview, true));
+            }
+            else
+            {
+                var delta = RepositoryPreviewRunner.RunAAPreview(request);
+                WriteDelta(delta);
+                if (args.TryGetValue("-json", out string jsonPath) && !string.IsNullOrEmpty(jsonPath))
+                    FileHelper.WriteAllTextAtomic(jsonPath, SerializationUtility.SerializeToJson(delta, true));
+            }
             EditorApplication.Exit(0);
         }
         catch (Exception ex)
@@ -68,7 +76,7 @@ public static class BuildRepositoryCLI
         for (int i = 0; i < commits.Count; i++)
         {
             var commit = commits[i];
-            WriteLine($"{commit.Version?.GetFullVersionString()} | {commit.CreatedAtUtc} | {commit.PackageName}");
+            WriteLine($"{commit.Version?.GetFullVersionString()} | {commit.BuildType} | {commit.CreatedAtUtc} | {commit.PackageName}");
         }
         EditorApplication.Exit(0);
     }
@@ -144,6 +152,34 @@ public static class BuildRepositoryCLI
     private static void WriteDelta(ArtifactDelta delta)
     {
         var builder = new StringBuilder();
+        AppendDelta(builder, delta);
+        WriteLine(builder.ToString());
+    }
+
+    private static void WriteABPreview(ABRepositoryPreviewResult preview)
+    {
+        preview ??= new ABRepositoryPreviewResult();
+        var builder = new StringBuilder();
+        builder.AppendLine("HEAD Diff (current vs Repository HEAD)");
+        AppendDelta(builder, preview.HeadDelta ?? new ArtifactDelta());
+        builder.AppendLine("Hotfix Delivery (current vs Full baseline)");
+        builder.AppendLine($"DeliveryBundles: {(preview.DeliveryBundles != null ? preview.DeliveryBundles.Count : 0)}");
+        builder.AppendLine($"DeliverySizeBytes: {preview.DeliverySizeBytes}");
+        if (preview.DeliveryBundles != null)
+        {
+            for (int i = 0; i < preview.DeliveryBundles.Count; i++)
+            {
+                var bundle = preview.DeliveryBundles[i];
+                if (bundle != null)
+                    builder.AppendLine($"{bundle.BundleName} | {bundle.FileSize}");
+            }
+        }
+        WriteLine(builder.ToString());
+    }
+
+    private static void AppendDelta(StringBuilder builder, ArtifactDelta delta)
+    {
+        delta ??= new ArtifactDelta();
         builder.AppendLine($"Added: {delta.Added.Count}");
         for (int i = 0; i < delta.Added.Count; i++)
             builder.AppendLine(delta.Added[i].Name);
@@ -153,7 +189,6 @@ public static class BuildRepositoryCLI
         builder.AppendLine($"Removed: {delta.Removed.Count}");
         for (int i = 0; i < delta.Removed.Count; i++)
             builder.AppendLine(delta.Removed[i]);
-        WriteLine(builder.ToString());
     }
 
     private static void WriteLine(string text)

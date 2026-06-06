@@ -24,7 +24,7 @@ public static class BinarySerializerInitializer
         var codec = SerializationUtility.GetBinaryCodec();
         codec.Register<ABManifest>(
             ABManifestMagic,
-            1,
+            2,
             (writer, obj) => ABManifest_BinarySerializer.WriteWithHeader(writer, obj),
             reader => (ABManifest)ABManifest_BinarySerializer.ReadWithHeader(reader));
 

@@ -13,6 +13,8 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
 {
     #region Fields
 
+    private readonly BackendMode _backendMode;
+    private readonly string _panelName;
     private VisualElement _root;
     private VisualElement _commitPane;
     private VisualElement _detailPane;
@@ -53,7 +55,18 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
 
     #region IBuildPipelinePanel
 
-    public string PanelName => "仓库";
+    public RepositoryStatusPanel()
+        : this(FYAssetSettings.Instance.UseABBackend ? BackendMode.ABManifest : BackendMode.AA, "仓库")
+    {
+    }
+
+    public RepositoryStatusPanel(BackendMode backendMode, string panelName)
+    {
+        _backendMode = backendMode;
+        _panelName = string.IsNullOrEmpty(panelName) ? "仓库" : panelName;
+    }
+
+    public string PanelName => _panelName;
 
     public void OnEnable(EditorWindow window)
     {
@@ -493,7 +506,7 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
         if (_status == null)
             return;
 
-        _channelLabel.text = $"Channel: {_channelKey}    Backend: {(_request.BackendMode == BackendMode.ABManifest ? "AB" : "AA")}";
+        _channelLabel.text = $"Channel: {_channelKey}    Backend: {GetBackendDisplayName(_request.BackendMode)}";
         _headLabel.text = _status.HasHead ? SafeText(_status.HeadVersion) : "-";
         _packageLabel.text = _status.HasHead ? SafeText(_status.PackageName) : "-";
         _artifactLabel.text = _status.HasHead ? _status.ArtifactCount.ToString(CultureInfo.InvariantCulture) : "0";
@@ -576,13 +589,22 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
         try
         {
             _messageLabel.text = "正在运行 Diff 预览...";
-            ArtifactDelta delta = FYAssetSettings.Instance.UseABBackend
-                ? RepositoryPreviewRunner.RunABPreview(_request)
-                : RepositoryPreviewRunner.RunAAPreview(_request);
-            RenderDelta(delta);
-            _messageLabel.text = delta != null && delta.IsEmpty
-                ? "Diff 完成，未检测到变化。"
-                : "Diff 完成。";
+            if (_backendMode == BackendMode.ABManifest)
+            {
+                var preview = RepositoryPreviewRunner.RunABPreviewDetailed(_request);
+                RenderABPreview(preview);
+                _messageLabel.text = preview.HeadDelta != null && preview.HeadDelta.IsEmpty
+                    ? "AB Preview 完成，HEAD 未检测到变化。"
+                    : "AB Preview 完成。";
+            }
+            else
+            {
+                ArtifactDelta delta = RepositoryPreviewRunner.RunAAPreview(_request);
+                RenderDelta(delta);
+                _messageLabel.text = delta != null && delta.IsEmpty
+                    ? "Diff 完成，未检测到变化。"
+                    : "Diff 完成。";
+            }
         }
         catch (Exception ex)
         {
@@ -648,7 +670,7 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
         row.Add(title);
 
         row.Add(BuildPipelineUI.SmallText($"{FormatUtc(commit?.CreatedAtUtc)}  |  {SafeText(commit?.PackageName)}"));
-        row.Add(BuildPipelineUI.SmallText($"Git {ShortHash(commit?.GitCommitHash)}  |  Artifacts {CountArtifacts(commit)}{(commit != null && commit.IsDirty ? "  |  Dirty" : string.Empty)}"));
+        row.Add(BuildPipelineUI.SmallText($"Git {ShortHash(commit?.GitCommitHash)}  |  Type {SafeText(commit?.BuildType)}  |  Artifacts {CountArtifacts(commit)}{(commit != null && commit.IsDirty ? "  |  Dirty" : string.Empty)}"));
 
         row.RegisterCallback<PointerDownEvent>(evt =>
         {
@@ -699,6 +721,46 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
         AddArtifactSection("新增", "+", delta.Added, new Color(0.20f, 0.55f, 0.30f));
         AddArtifactSection("修改", "*", delta.Modified, new Color(0.70f, 0.48f, 0.16f));
         AddRemovedSection(delta.Removed);
+    }
+
+    private void RenderABPreview(ABRepositoryPreviewResult preview)
+    {
+        preview ??= new ABRepositoryPreviewResult();
+        var delta = preview.HeadDelta ?? new ArtifactDelta();
+
+        _diffSummary.Clear();
+        AddDiffStat("HEAD 新增", delta.Added.Count, new Color(0.20f, 0.55f, 0.30f));
+        AddDiffStat("HEAD 修改", delta.Modified.Count, new Color(0.70f, 0.48f, 0.16f));
+        AddDiffStat("HEAD 删除", delta.Removed.Count, new Color(0.65f, 0.20f, 0.16f));
+        AddDiffStat("Delivery", preview.DeliveryBundles != null ? preview.DeliveryBundles.Count : 0, new Color(0.17f, 0.36f, 0.53f));
+
+        _diffList.Clear();
+        _diffList.Add(CreateSectionHeader("HEAD Diff (current vs Repository HEAD)", new Color(0.17f, 0.36f, 0.53f)));
+        if (delta.IsEmpty)
+        {
+            _diffList.Add(CreateEmptyState("HEAD 没有产物变化。"));
+        }
+        else
+        {
+            AddArtifactSection("新增", "+", delta.Added, new Color(0.20f, 0.55f, 0.30f));
+            AddArtifactSection("修改", "*", delta.Modified, new Color(0.70f, 0.48f, 0.16f));
+            AddRemovedSection(delta.Removed);
+        }
+
+        _diffList.Add(CreateSectionHeader(
+            $"Hotfix Delivery (current vs Full baseline) - {FormatBytes(preview.DeliverySizeBytes)}",
+            new Color(0.17f, 0.36f, 0.53f)));
+        if (preview.DeliveryBundles == null || preview.DeliveryBundles.Count == 0)
+        {
+            _diffList.Add(CreateEmptyState("Delivery bundle 为空；Hotfix 将只发布完整 ABManifest。"));
+            return;
+        }
+
+        for (int i = 0; i < preview.DeliveryBundles.Count; i++)
+        {
+            var bundle = preview.DeliveryBundles[i];
+            _diffList.Add(CreateDiffRow("D", bundle != null ? bundle.BundleName : string.Empty, bundle != null ? FormatBytes(bundle.FileSize) : string.Empty, new Color(0.17f, 0.36f, 0.53f)));
+        }
     }
 
     private void AddArtifactSection(string title, string marker, List<ArtifactDigest> items, Color color)
@@ -867,14 +929,13 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
 
     #region Data Helpers
 
-    private static BuildPackageRequest CreatePreviewRequest()
+    private BuildPackageRequest CreatePreviewRequest()
     {
         var versionDB = AssetDatabase.LoadAssetAtPath<VersionDataBase>(FYAssetSettings.Instance.VersionDataBasePath);
         var version = versionDB != null && versionDB.CurrentVersion != null
             ? versionDB.CurrentVersion
             : new VersionNumber { Major = 0, Minor = 0, Patch = 0 };
-        var backendMode = FYAssetSettings.Instance.UseABBackend ? BackendMode.ABManifest : BackendMode.AA;
-        return BuildPackageRequest.Create(version, BuildType.Full, backendMode);
+        return BuildPackageRequest.Create(version, BuildType.Full, _backendMode);
     }
 
     private static VersionNumber ParseVersion(string value)
@@ -959,6 +1020,11 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
     private static string SafeText(string value)
     {
         return string.IsNullOrEmpty(value) ? "-" : value;
+    }
+
+    private static string GetBackendDisplayName(BackendMode backendMode)
+    {
+        return backendMode == BackendMode.ABManifest ? "AB" : "AA";
     }
 
     #endregion
