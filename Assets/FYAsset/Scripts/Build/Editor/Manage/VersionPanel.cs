@@ -15,7 +15,7 @@ public class VersionPanel : IBuildPipelinePanel
     private SerializedObject _so;
     private VisualElement _root;
 
-    public string PanelName => "版本";
+    public string PanelName => "Version";
 
     public void OnEnable(EditorWindow window)
     {
@@ -49,7 +49,7 @@ public class VersionPanel : IBuildPipelinePanel
         _root.Unbind();
 
         VisualElement toolbar = BuildPipelineUI.Toolbar();
-        toolbar.Add(BuildPipelineUI.ToolbarButton("刷新", () =>
+        toolbar.Add(BuildPipelineUI.ToolbarButton("Refresh", () =>
         {
             LoadVersionDB();
             Rebuild();
@@ -90,7 +90,7 @@ public class VersionPanel : IBuildPipelinePanel
         panel.Add(BuildPipelineUIToolkitPanel.CreateBody("未找到 VersionDataBase: " + VersionAssetPath));
         panel.Add(new Button(CreateVersionDB)
         {
-            text = "创建"
+            text = "Create"
         });
     }
 

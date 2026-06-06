@@ -10,21 +10,53 @@ public class BuildBackendResult
     public bool Success { get; }
     public BuildMessage Error { get; }
     public List<ArtifactDigest> Artifacts { get; }
+    public BuildResult PipelineResult { get; }
+    public BuildPackageRequest Request { get; }
+    public string ReportPath { get; }
 
-    private BuildBackendResult(bool success, BuildMessage error, List<ArtifactDigest> artifacts)
+    private BuildBackendResult(
+        bool success,
+        BuildMessage error,
+        List<ArtifactDigest> artifacts,
+        BuildResult pipelineResult,
+        BuildPackageRequest request,
+        string reportPath)
     {
         Success = success;
         Error = error;
         Artifacts = artifacts ?? new List<ArtifactDigest>();
+        PipelineResult = pipelineResult;
+        Request = request;
+        ReportPath = reportPath ?? string.Empty;
     }
 
     public static BuildBackendResult Ok()
-        => new BuildBackendResult(true, null, new List<ArtifactDigest>());
+        => new BuildBackendResult(true, null, new List<ArtifactDigest>(), null, null, string.Empty);
 
     public static BuildBackendResult Ok(IReadOnlyList<ArtifactDigest> artifacts)
-        => new BuildBackendResult(true, null, artifacts != null ? new List<ArtifactDigest>(artifacts) : new List<ArtifactDigest>());
+        => Ok(artifacts, null, null, string.Empty);
+
+    public static BuildBackendResult Ok(
+        IReadOnlyList<ArtifactDigest> artifacts,
+        BuildResult pipelineResult,
+        BuildPackageRequest request,
+        string reportPath)
+        => new BuildBackendResult(
+            true,
+            null,
+            artifacts != null ? new List<ArtifactDigest>(artifacts) : new List<ArtifactDigest>(),
+            pipelineResult,
+            request,
+            reportPath);
 
     public static BuildBackendResult Fail(BuildMessage error)
-        => new BuildBackendResult(false, error, new List<ArtifactDigest>());
+        => Fail(error, null, null, string.Empty);
+
+    public static BuildBackendResult Fail(
+        BuildMessage error,
+        BuildResult pipelineResult,
+        BuildPackageRequest request,
+        string reportPath)
+        => new BuildBackendResult(false, error, new List<ArtifactDigest>(), pipelineResult, request, reportPath);
 }
 #endif

@@ -15,7 +15,7 @@ public class SettingsPanel : IBuildPipelinePanel
     private VisualElement _root;
     private ScrollView _scrollView;
 
-    public string PanelName => "设置";
+    public string PanelName => "Settings";
 
     public void OnEnable(EditorWindow window)
     {
@@ -50,7 +50,7 @@ public class SettingsPanel : IBuildPipelinePanel
         _root.Unbind();
 
         VisualElement toolbar = BuildPipelineUI.Toolbar();
-        toolbar.Add(BuildPipelineUI.ToolbarButton("刷新", () =>
+        toolbar.Add(BuildPipelineUI.ToolbarButton("Refresh", () =>
         {
             LoadSettings();
             Rebuild();
@@ -121,7 +121,7 @@ public class SettingsPanel : IBuildPipelinePanel
             Rebuild();
         })
         {
-            text = "创建"
+            text = "Create"
         });
     }
 

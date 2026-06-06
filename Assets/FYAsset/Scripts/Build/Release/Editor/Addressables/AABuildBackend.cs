@@ -37,7 +37,7 @@ public class AABuildBackend : IBuildBackend
 
             var artifacts = context.Get<List<ArtifactDigest>>(BuildContextKeys.RepositoryArtifacts);
             Debug.Log($"[{nameof(AABuildBackend)}] AA DAG 完成。Completed={result.CompletedTasks}/{result.TotalTasks}, RepositoryArtifacts={(artifacts != null ? artifacts.Count : 0)}");
-            return Task.FromResult(BuildBackendResult.Ok(artifacts));
+            return Task.FromResult(BuildBackendResult.Ok(artifacts, result, request, string.Empty));
         }
         catch (Exception ex)
         {

@@ -17,7 +17,7 @@ public sealed class AAConfigPanel : IBuildPipelinePanel
     private FYAssetAASettings _buildSettings;
     private SerializedObject _buildSettingsSo;
 
-    public string PanelName => "AA 配置";
+    public string PanelName => "AA Config";
 
     public void OnEnable(EditorWindow window)
     {
@@ -51,7 +51,7 @@ public sealed class AAConfigPanel : IBuildPipelinePanel
 
         VisualElement toolbar = BuildPipelineUI.Toolbar();
         toolbar.Add(BuildPipelineUI.ToolbarLabel("AA"));
-        toolbar.Add(BuildPipelineUI.ToolbarButton("刷新", () =>
+        toolbar.Add(BuildPipelineUI.ToolbarButton("Refresh", () =>
         {
             LoadBuildSettings();
             Rebuild();

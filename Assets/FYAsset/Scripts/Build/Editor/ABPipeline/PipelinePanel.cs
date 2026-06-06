@@ -134,12 +134,12 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
     private void DrawTopBar()
     {
         VisualElement toolbar = BuildPipelineUI.Toolbar();
-        toolbar.Add(BuildPipelineUI.ToolbarButton("刷新", () =>
+        toolbar.Add(BuildPipelineUI.ToolbarButton("Refresh", () =>
         {
             LoadConfig();
             Rebuild();
         }, 60f));
-        toolbar.Add(BuildPipelineUI.ToolbarButton("校验", HandleValidate, 54f));
+        toolbar.Add(BuildPipelineUI.ToolbarButton("Validate", HandleValidate, 70f));
 
         if (_showBuildControls)
         {
@@ -150,7 +150,7 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
             _buildModeField.RegisterValueChangedCallback(evt => _buildMode = (BuildType)evt.newValue);
             toolbar.Add(_buildModeField);
 
-            toolbar.Add(BuildPipelineUI.ToolbarButton("构建", HandleBuild, 56f));
+            toolbar.Add(BuildPipelineUI.ToolbarButton("Build", HandleBuild, 56f));
         }
         else
         {
@@ -243,13 +243,13 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
         _validationDetailPane.style.backgroundColor = BuildPipelineUI.CardBackgroundColor;
 
         VisualElement toolbar = BuildPipelineUI.Toolbar();
-        toolbar.Add(BuildPipelineUI.ToolbarLabel("校验详情"));
+        toolbar.Add(BuildPipelineUI.ToolbarLabel("Validation Details"));
         toolbar.Add(BuildPipelineUI.Spacer());
-        toolbar.Add(BuildPipelineUI.ToolbarButton("复制", () =>
+        toolbar.Add(BuildPipelineUI.ToolbarButton("Copy", () =>
         {
             EditorGUIUtility.systemCopyBuffer = _validationDetail ?? string.Empty;
         }, 48f));
-        toolbar.Add(BuildPipelineUI.ToolbarButton("关闭", () =>
+        toolbar.Add(BuildPipelineUI.ToolbarButton("Close", () =>
         {
             _validationDetailVisible = false;
             Rebuild();
@@ -524,7 +524,7 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
         panel.Add(BuildPipelineUIToolkitPanel.CreateBody("未找到 BuildPipelineConfig: " + GetConfigPath()));
         panel.Add(new Button(CreateConfig)
         {
-            text = "创建"
+            text = "Create"
         });
     }
 

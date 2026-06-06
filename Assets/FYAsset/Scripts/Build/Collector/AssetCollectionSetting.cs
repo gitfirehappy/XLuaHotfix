@@ -265,7 +265,7 @@ public class Collector
     /// <summary>采集根路径（相对于 Assets/，可指向目录或单个文件）</summary>
     public string CollectPath;
 
-    /// <summary>采集路径类型；默认 Folder 以兼容旧序列化数据</summary>
+    /// <summary>采集路径类型；默认 Folder 表示目录采集器</summary>
     public ECollectPathType CollectPathType = ECollectPathType.Folder;
 
     /// <summary>采集器类型，决定资产的语义角色</summary>

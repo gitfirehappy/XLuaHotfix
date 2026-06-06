@@ -103,6 +103,7 @@ crashlytics-build.properties
 
 # Hotfix build output
 /HotfixOutput/
+/BuildData/Reports/
 
 # AI tool state and private assistant data
 opencode.jsonc

@@ -1,6 +1,6 @@
 # Resource Build And Release
 
-Last reviewed: 2026-06-05
+Last reviewed: 2026-06-06
 
 ## Scope
 
@@ -21,7 +21,7 @@ Current source locations:
 - Artifact diff model: `Assets/FYAsset/Scripts/Build/Snapshots/`
 - Build repository model and filesystem implementation: `Assets/FYAsset/Scripts/Build/Repository/`
 - Version data: `Assets/FYAsset/Scripts/Build/Versioning/`
-- Build settings data: `Assets/FYAsset/Scripts/Build/Settings/`
+- Build settings types: `Assets/FYAsset/Scripts/FYAssetSettings.cs`, `Assets/FYAsset/Scripts/FYAssetAASettings.cs`, and `Assets/FYAsset/Scripts/FYAssetABSettings.cs`
 
 | Data | Role |
 | --- | --- |
@@ -63,7 +63,7 @@ The hotfix build flow relies on repository HEAD comparison instead of manual gro
 - Push writes the root `PackageIndex.json` from the target commit's package name, version, and backend mode. It does not reinterpret package-internal catalog or manifest files.
 - `PushHistory.json` is written by the repository at `BuildData/Snapshots/{BuildTarget}[-Channel]/{BackendMode}/PushHistory.json` after a successful push
 - `RepositoryStatusPanel` can be constructed for a fixed backend mode. The build pipeline window exposes separate AA Repository and AB Repository entries instead of one shared repository panel.
-- AA/AB build result panels currently exist as placeholder entries only; the concrete build report data model, persistence, and report rendering remain a separate follow-up plan.
+- AB Build Result reads editor-only JSON reports from project-root `BuildData/Reports/AB/`; these reports are ignored by git and are not copied into package output or runtime startup data. AA Build Result remains a placeholder for Unity Addressables-owned reporting.
 - AB Diff Preview uses `DAGScheduler.Execute` with a stop-after task and whitelist, writes temporary outputs under `Temp/BuildRepositoryPreview/{guid}/`, and deletes that directory in a `finally` path; `TaskPrepareContext` reads the preview output root from `BuildContextKeys.RepositoryPreviewOutput` instead of an environment variable. The AB preview result separates current-vs-HEAD diff from current-vs-Full-baseline hotfix delivery count/size/list.
 
 ## Release Operations
@@ -113,7 +113,7 @@ The build entry point is now split with the same orchestration pattern already u
 - `DAGScheduler` treats `WriteKeys` as BuildContext write/update declarations, not exclusive write locks. Staged writes to the same key are valid when explicit task dependencies define the order.
 - AB `CollectedAssets` is a staged key: `TaskCollectAssets` creates the list, `TaskCollectBuiltins` appends builtin shader/resources entries, and `TaskAnalyzeDependencies` writes the dependency-augmented list back.
 - Diff Preview uses `DAGScheduler.Execute` with a whitelist and validates only the effective preview task set.
-- Active FYAsset settings are the three runtime-safe Resources assets loaded through `FYAssetSettings`, `FYAssetAASettings`, and `FYAssetABSettings`. The Editor-only `FYAssetBuildSettingsProvider` exposes those three active assets and only reads old `SharedBuildSettings`, `AABuildSettings`, `ABBuildSettings`, and `BuildRepositorySettings` as migration sources when creating missing defaults.
+- Active FYAsset settings are the three runtime-safe Resources assets loaded through `FYAssetSettings`, `FYAssetAASettings`, and `FYAssetABSettings`. The Editor-only `FYAssetBuildSettingsProvider` exposes and creates only those three active assets.
 
 ### AA backend
 
@@ -131,6 +131,7 @@ The build entry point is now split with the same orchestration pattern already u
 ### AB backend
 
 - `ABBuildBackend` is a stateless DAG runner: it receives the shared `BuildPackageRequest`, writes it into `BuildContext`, and runs the AB task graph through `DAGScheduler.Execute()`
+- After official AB build execution, `ABBuildBackend` best-effort writes an `ABBuildReport` JSON file through `ABBuildReportBuilder` and `ABBuildReportStore`. Report write failures log warnings but do not replace the original build success or failure result.
 - The AB backbone order is `TaskPrepareContext -> TaskCollectAssets -> TaskCollectBuiltins -> TaskAnalyzeDependencies -> TaskBuildBundles -> TaskGenerateManifest -> TaskVerifyBuildResult -> TaskScanABHotfixDiff -> TaskOrganizeOutput -> TaskWriteABPackageManifest -> TaskWritePackageIndex -> TaskExportLocalBuildData`.
 - `TaskScanABHotfixDiff` is the AB graph diff and delivery task between `TaskVerifyBuildResult` and `TaskOrganizeOutput`; standalone AB diff stops after this task so package organization and publication do not run.
 - `TaskOrganizeOutput` consumes the request and writes the final AB package layout directly under `BuildPackageRequest.OutputDir`, copying all manifest bundles for Full builds and only `ABDeliveryBundles` for Hotfix builds.
@@ -182,12 +183,6 @@ Stores AB backend runtime, build, and collection configuration.
 - Asset path: `Assets/Resources/FYAssetABSettings.asset`
 - Singleton access: `FYAssetABSettings.Instance`
 - Instance fields: `HotfixUrl`, `HotfixMaxRetryCount`, `HotfixRetryBaseDelaySeconds`, `BuildPipelineConfigPath`, `ManifestOutputFormat`, `MaxHotfixSizeBytes`, `AssetCollectionDataFolder`, `AssetCollectionSettingPath`, and `DependencyFilterExtensions`
-- Hidden legacy field: `ExcludedAssetGUIDs`; current editor code treats it only as a migration input into `AssetCollectionSetting.ExcludedAssets`.
-
-## Compatibility Settings Assets
-
-`SharedBuildSettings`, `AABuildSettings`, `ABBuildSettings`, and `BuildRepositorySettings` are compatibility/migration leftovers. Active code should not read them for current behavior. `FYAssetBuildSettingsProvider` may copy values from those old assets only when creating missing `FYAssetSettings`, `FYAssetAASettings`, or `FYAssetABSettings`.
-
 - `PushTargetConfig.Path` is still a publish root; an empty path means the current `BuildPathManager.OutputRoot`.
 - `VersionDataBase` remains shared product-version data and is referenced from `FYAssetSettings.VersionDataBasePath`; there are no AA/AB-specific version database paths.
 - The Settings panel edits `FYAssetSettings`. AA Config edits `FYAssetAASettings`. AB Config edits `FYAssetABSettings`; AA Build and AB Build own backend-specific BuildGraph/build controls. AA Repository and AB Repository are separate fixed-backend repository views. Repository Push target configuration is edited from repository panels and stored on `FYAssetSettings.PushTargets`.

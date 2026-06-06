@@ -134,7 +134,7 @@ The scanner does not rewrite Address values because of short-name conflicts. Add
 
 `CollectionScanOptions.FromSetting(setting)` reads `AssetCollectionSetting.ExcludedAssets`. AB build tasks and editor previews use that option so excluded folder-owned assets are omitted consistently from Project Scan, Curate, Scan Preview, and build collection.
 
-`FYAssetABSettings.ExcludedAssetGUIDs` is a hidden legacy migration field only. Editor loading migrates those GUID strings into `AssetCollectionSetting.ExcludedAssets` with cached paths, then clears the legacy list.
+`AssetCollectionSetting.ExcludedAssets` is the only current owner for file-level Collector exclusions. `CollectorMutationUtility.LoadSetting()` refreshes cached exclusion paths when assets can still be resolved.
 
 ## Collector Membership Mutations
 

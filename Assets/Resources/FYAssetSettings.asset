@@ -18,7 +18,4 @@ MonoBehaviour:
   BuildPackagesFolderName: Packages
   VersionDataBasePath: Assets/Build/VersionDataBase.asset
   BuildIndexJsonPath: Assets/Build/Bootstrap/BuildIndex.json
-  PushTargets:
-  - Id: target1
-    Type: 0
-    Path: 
+  PushTargets: []

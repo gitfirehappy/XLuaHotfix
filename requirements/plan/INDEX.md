@@ -30,4 +30,4 @@ Shared executable plans live here while active. `requirements/plan.md` remains t
 ## Active
 | File | Status |
 |---|---|
-| — | No active shared plan |
+| `plan-ab-build-report-panel-20260606.md` | Implemented, awaiting sign-off |

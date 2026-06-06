@@ -10,7 +10,6 @@ using System.Linq;
 ///   Execute — 入度表驱动批循环，批内字母序确定性执行（单线程串行），Fatal 中止传播
 ///
 /// WriteKeys 表示 Task 会写入或更新 BuildContext Key，不表示独占写锁。
-/// 预留 ValidatePair / ValidateAll 公共 API，供编辑器蓝图连线时实时校验。
 /// </summary>
 public static class DAGScheduler
 {
@@ -52,20 +51,6 @@ public static class DAGScheduler
     {
         if (config == null) throw new ArgumentNullException(nameof(config));
         return ValidateInternal(config);
-    }
-
-    /// <summary>编辑器连线兼容入口。共享 WriteKeys 属于合法 staged write，不再返回冲突。</summary>
-    /// <returns>保留兼容的空数组</returns>
-    public static string[] ValidatePair(string taskNameA, string taskNameB)
-    {
-        return Array.Empty<string>();
-    }
-
-    /// <summary>全图校验的便捷方法，返回 true 表示通过</summary>
-    public static bool ValidateAll(BuildPipelineConfig config)
-    {
-        if (config == null) return false;
-        return ValidateInternal(config).Success;
     }
 
     #endregion

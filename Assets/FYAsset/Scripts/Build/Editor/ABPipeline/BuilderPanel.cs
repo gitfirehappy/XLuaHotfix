@@ -5,7 +5,7 @@ using UnityEngine.UIElements;
 /// </summary>
 public class BuilderPanel : BuildPipelineUIToolkitPanel
 {
-    public override string PanelName => "构建";
+    public override string PanelName => "Build";
 
     protected override void BuildContent(VisualElement root)
     {

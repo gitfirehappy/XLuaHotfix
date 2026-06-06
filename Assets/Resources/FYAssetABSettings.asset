@@ -21,4 +21,3 @@ MonoBehaviour:
   AssetCollectionDataFolder: Assets/FYAsset/CollectorData
   AssetCollectionSettingPath: Assets/FYAsset/CollectorData/CollectorSetting.asset
   DependencyFilterExtensions: []
-  ExcludedAssetGUIDs: []

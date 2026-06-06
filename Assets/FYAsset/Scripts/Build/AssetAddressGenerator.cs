@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.IO;
 
 /// <summary>
@@ -16,12 +15,12 @@ public static class AssetAddressGenerator
     /// 类型后缀分隔符。
     /// 显式 NameType 格式：{Filename}#{Type}，从后向前解析最后一段为类型后缀。
     /// </summary>
-    public const char TypeSuffixSeparator = '#';
+    private const char TypeSuffixSeparator = '#';
 
     /// <summary>
     /// 从资源路径生成默认短名（文件名去扩展）。
     /// </summary>
-    public static string GenerateShortName(string assetPath)
+    private static string GenerateShortName(string assetPath)
     {
         if (string.IsNullOrEmpty(assetPath))
             throw new ArgumentException("Asset path 不能为 null 或空。", nameof(assetPath));
@@ -34,7 +33,7 @@ public static class AssetAddressGenerator
     /// 格式：{shortName}_{primaryType}
     /// 示例：player-idle -> player-idle_Sprite
     /// </summary>
-    public static string GenerateTypeSuffixAddress(string shortName, string primaryType)
+    private static string GenerateTypeSuffixAddress(string shortName, string primaryType)
     {
         if (string.IsNullOrEmpty(shortName))
             throw new ArgumentException("Short name 不能为 null 或空。", nameof(shortName));
@@ -64,7 +63,7 @@ public static class AssetAddressGenerator
     /// <summary>
     /// 生成 Unity 资产路径形式的 Address，保留 Assets/... 前缀和文件扩展名。
     /// </summary>
-    public static string GenerateLongAssetPath(string assetPath)
+    private static string GenerateLongAssetPath(string assetPath)
     {
         string normalized = FYAssetPathUtility.NormalizeAssetPath(assetPath);
         if (string.IsNullOrEmpty(normalized))
@@ -76,58 +75,9 @@ public static class AssetAddressGenerator
     /// <summary>
     /// 生成显式 Name#Type Address。
     /// </summary>
-    public static string GenerateNameTypeAddress(string assetPath, string primaryType)
+    private static string GenerateNameTypeAddress(string assetPath, string primaryType)
     {
         return GenerateTypeSuffixAddress(GenerateShortName(assetPath), primaryType);
     }
 
-    /// <summary>
-    /// 生成单个资源的默认 Address。
-    /// 兼容旧调用：false 表示 ShortName，true 表示显式 Name#Type。
-    /// </summary>
-    public static string GenerateShortAddress(string assetPath, string primaryType, bool useTypeSuffix = false)
-    {
-        return useTypeSuffix
-            ? GenerateNameTypeAddress(assetPath, primaryType)
-            : GenerateShortName(assetPath);
-    }
-
-    /// <summary>
-    /// 从升级后的 Address 中解析出原始短名和类型后缀。
-    /// 返回 (shortName, typeSuffix)；如果没有后缀，typeSuffix 为 null。
-    /// </summary>
-    public static (string shortName, string typeSuffix) ParseTypeSuffixAddress(string address)
-    {
-        if (string.IsNullOrEmpty(address))
-            return (address, null);
-
-        int lastSep = address.LastIndexOf(TypeSuffixSeparator);
-        if (lastSep <= 0 || lastSep >= address.Length - 1)
-            return (address, null);
-
-        return (address.Substring(0, lastSep), address.Substring(lastSep + 1));
-    }
-
-    /// <summary>
-    /// 为一组条目批量生成自动 Address。
-    /// 仅修改 AutoAddress = true 的条目；手动覆写项保持不变，不做冲突驱动重写。
-    /// </summary>
-    public static void GenerateAddresses(IList<RuntimeAssetEntry> entries, AssetAddressStyle style)
-    {
-        foreach (var entry in entries)
-        {
-            if (!entry.AutoAddress)
-                continue;
-
-            entry.Address = GenerateAddress(entry.SourcePath, entry.PrimaryType, style);
-        }
-    }
-
-    /// <summary>
-    /// 兼容旧批量入口；默认使用短名。
-    /// </summary>
-    public static void GenerateAddresses(IList<RuntimeAssetEntry> entries)
-    {
-        GenerateAddresses(entries, AssetAddressStyle.ShortName);
-    }
 }

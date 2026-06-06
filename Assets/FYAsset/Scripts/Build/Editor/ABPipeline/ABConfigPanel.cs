@@ -11,7 +11,7 @@ public sealed class ABConfigPanel : IBuildPipelinePanel
     private SerializedObject _buildSettingsSo;
     private VisualElement _root;
 
-    public string PanelName => "AB 配置";
+    public string PanelName => "AB Config";
 
     public void OnEnable(EditorWindow window)
     {
@@ -45,7 +45,7 @@ public sealed class ABConfigPanel : IBuildPipelinePanel
 
         VisualElement toolbar = BuildPipelineUI.Toolbar();
         toolbar.Add(BuildPipelineUI.ToolbarLabel("AB"));
-        toolbar.Add(BuildPipelineUI.ToolbarButton("刷新", () =>
+        toolbar.Add(BuildPipelineUI.ToolbarButton("Refresh", () =>
         {
             LoadBuildSettings();
             Rebuild();

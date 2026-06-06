@@ -26,7 +26,7 @@ public sealed class CollectorTargetPickerWindow : EditorWindow
     public static void Show(string[] assetPaths, Action onApplied)
     {
         CollectorTargetPickerWindow window = CreateInstance<CollectorTargetPickerWindow>();
-        window.titleContent = new GUIContent("加入 Group");
+        window.titleContent = new GUIContent("Add to Group");
         window.minSize = new Vector2(320f, 220f);
         window._assetPaths = assetPaths ?? Array.Empty<string>();
         window._onApplied = onApplied;
@@ -50,7 +50,7 @@ public sealed class CollectorTargetPickerWindow : EditorWindow
         rootVisualElement.style.paddingTop = 8f;
         rootVisualElement.style.paddingBottom = 8f;
 
-        rootVisualElement.Add(BuildPipelineUI.Header("加入 Group"));
+        rootVisualElement.Add(BuildPipelineUI.Header("Add to Group"));
 
         if (_setting == null || _setting.Packages == null || _setting.Packages.Count == 0)
         {
@@ -101,8 +101,8 @@ public sealed class CollectorTargetPickerWindow : EditorWindow
         footer.style.flexDirection = FlexDirection.Row;
         footer.style.justifyContent = Justify.FlexEnd;
         footer.style.marginTop = 8f;
-        footer.Add(new Button(Close) { text = "取消" });
-        footer.Add(new Button(ApplySelection) { text = "加" });
+        footer.Add(new Button(Close) { text = "Cancel" });
+        footer.Add(new Button(ApplySelection) { text = "Add" });
         rootVisualElement.Add(footer);
     }
 

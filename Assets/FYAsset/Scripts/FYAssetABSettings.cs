@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.Serialization;
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
@@ -21,16 +20,10 @@ public sealed class FYAssetABSettings : ScriptableObject
     public long MaxHotfixSizeBytes = 1L * 1024 * 1024 * 1024;
 
     [Header("Collector")]
-    [FormerlySerializedAs("CollectorDataFolder")]
     public string AssetCollectionDataFolder = "Assets/FYAsset/CollectorData";
-
-    [FormerlySerializedAs("CollectorSettingPath")]
     public string AssetCollectionSettingPath = "Assets/FYAsset/CollectorData/CollectorSetting.asset";
 
     public List<string> DependencyFilterExtensions = new();
-
-    [HideInInspector]
-    public List<string> ExcludedAssetGUIDs = new();
 
     private static FYAssetABSettings _instance;
     public static FYAssetABSettings Instance => _instance ??= LoadOrCreate();

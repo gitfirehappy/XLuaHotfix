@@ -6,7 +6,7 @@ using UnityEngine.UIElements;
 /// </summary>
 public sealed class AAReportPanel : BuildPipelineUIToolkitPanel
 {
-    public override string PanelName => "AA 构建结果";
+    public override string PanelName => "AA Build Results";
 
     protected override void BuildContent(VisualElement root)
     {

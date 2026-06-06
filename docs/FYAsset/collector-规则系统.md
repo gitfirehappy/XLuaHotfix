@@ -36,7 +36,7 @@ AssetCollectionSetting
 
 Collector 不再保存 `AddressRuleName`、`PackRuleName` 或 Collector Labels。
 
-Collector 也不保存资产级排除列表。文件级移除意图由 `AssetCollectionSetting.ExcludedAssets` 记录，扫描时通过 `CollectionScanOptions.FromSetting(setting)` 生效。旧的 `FYAssetABSettings.ExcludedAssetGUIDs` 只作为隐藏迁移输入保留。
+Collector 也不保存资产级排除列表。文件级移除意图由 `AssetCollectionSetting.ExcludedAssets` 记录，扫描时通过 `CollectionScanOptions.FromSetting(setting)` 生效。
 
 ---
 

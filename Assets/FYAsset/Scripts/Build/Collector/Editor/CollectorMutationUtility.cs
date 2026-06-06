@@ -33,7 +33,8 @@ public static class CollectorMutationUtility
     public static AssetCollectionSetting LoadSetting()
     {
         AssetCollectionSetting setting = AssetDatabase.LoadAssetAtPath<AssetCollectionSetting>(FYAssetBuildSettingsProvider.AB.AssetCollectionSettingPath);
-        MigrateLegacyExcludedAssets(setting);
+        if (setting != null && setting.RefreshExcludedAssetPaths())
+            SaveSetting(setting);
         return setting;
     }
 
@@ -273,33 +274,4 @@ public static class CollectorMutationUtility
         AssetDatabase.SaveAssets();
     }
 
-    private static void MigrateLegacyExcludedAssets(AssetCollectionSetting setting)
-    {
-        if (setting == null)
-            return;
-
-        FYAssetABSettings legacySettings = FYAssetABSettings.Instance;
-        List<string> legacyGuids = legacySettings.ExcludedAssetGUIDs;
-        bool settingChanged = setting.RefreshExcludedAssetPaths();
-        if (legacyGuids == null || legacyGuids.Count == 0)
-        {
-            if (settingChanged)
-                SaveSetting(setting);
-            return;
-        }
-
-        Undo.RecordObjects(new UnityEngine.Object[] { setting, legacySettings }, "Migrate Collector Exclusions");
-        for (int i = 0; i < legacyGuids.Count; i++)
-        {
-            string guid = legacyGuids[i];
-            if (!string.IsNullOrEmpty(guid))
-                settingChanged |= setting.AddExcludedAssetByGuid(guid);
-        }
-
-        legacyGuids.Clear();
-        EditorUtility.SetDirty(legacySettings);
-        if (settingChanged)
-            EditorUtility.SetDirty(setting);
-        AssetDatabase.SaveAssets();
-    }
 }

@@ -48,10 +48,10 @@ public sealed class BuildPipelineWindow : EditorWindow
 
     private static readonly SidebarGroup[] Groups =
     {
-        new SidebarGroup { Label = "设置", StartIndex = 0, Count = 1, Collapsible = false },
+        new SidebarGroup { Label = "Settings", StartIndex = 0, Count = 1, Collapsible = false },
         new SidebarGroup { Label = "AA", StartIndex = 1, Count = 4, Collapsible = true },
         new SidebarGroup { Label = "AB", StartIndex = 5, Count = 5, Collapsible = true },
-        new SidebarGroup { Label = "管理", StartIndex = 10, Count = 1, Collapsible = false },
+        new SidebarGroup { Label = "Manage", StartIndex = 10, Count = 1, Collapsible = false },
     };
 
     #endregion
@@ -62,7 +62,7 @@ public sealed class BuildPipelineWindow : EditorWindow
     private static void Open()
     {
         BuildPipelineWindow window = GetWindow<BuildPipelineWindow>();
-        window.titleContent = new GUIContent("构建面板");
+        window.titleContent = new GUIContent("Build Panel");
         window.minSize = new Vector2(800, 500);
         window.Show();
     }
@@ -412,18 +412,18 @@ public sealed class BuildPipelineWindow : EditorWindow
             new AAConfigPanel(),
             new AABuildPanel(),
             new AAReportPanel(),
-            new RepositoryStatusPanel(BackendMode.AA, "AA 仓库"),
+            new RepositoryStatusPanel(BackendMode.AA, "AA Repository"),
             new ABConfigPanel(),
             new AssetsCollectionPanel(),
             new PipelinePanel(
-                "AB 构建",
+                "AB Build",
                 () => FYAssetBuildSettingsProvider.AB.BuildPipelineConfigPath,
                 BuildPipelineBackbone.CreateABTasks,
                 "PipelinePanel",
                 true,
                 true),
             new ABReportPanel(),
-            new RepositoryStatusPanel(BackendMode.ABManifest, "AB 仓库"),
+            new RepositoryStatusPanel(BackendMode.ABManifest, "AB Repository"),
             new VersionPanel(),
         };
 

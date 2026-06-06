@@ -70,17 +70,6 @@
 - `ScriptObjectDataBase`
 - `ScriptObjectContainer`
 
-## 兼容迁移资产
-
-以下旧配置类型不再作为活跃配置入口。缺少新的 Resources 配置资产时，`FYAssetBuildSettingsProvider` 可以从这些旧资产迁移已有值：
-
-- `SharedBuildSettings`
-- `AABuildSettings`
-- `ABBuildSettings`
-- `BuildRepositorySettings`
-
----
-
 ## 使用建议
 
 - 找到对应 Editor 面板，再创建资产。

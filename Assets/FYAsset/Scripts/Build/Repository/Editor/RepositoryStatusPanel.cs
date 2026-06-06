@@ -56,14 +56,14 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
     #region IBuildPipelinePanel
 
     public RepositoryStatusPanel()
-        : this(FYAssetSettings.Instance.UseABBackend ? BackendMode.ABManifest : BackendMode.AA, "仓库")
+        : this(FYAssetSettings.Instance.UseABBackend ? BackendMode.ABManifest : BackendMode.AA, "Repository")
     {
     }
 
     public RepositoryStatusPanel(BackendMode backendMode, string panelName)
     {
         _backendMode = backendMode;
-        _panelName = string.IsNullOrEmpty(panelName) ? "仓库" : panelName;
+        _panelName = string.IsNullOrEmpty(panelName) ? "Repository" : panelName;
     }
 
     public string PanelName => _panelName;
@@ -159,7 +159,7 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
         titleBox.Add(_channelLabel);
         top.Add(titleBox);
 
-        top.Add(BuildPipelineUI.ToolbarButton("刷新", Rebuild, 60f));
+        top.Add(BuildPipelineUI.ToolbarButton("Refresh", Rebuild, 60f));
         top.Add(BuildPipelineUI.ToolbarButton("Diff", RunDiff, 60f));
         top.Add(BuildPipelineUI.ToolbarButton("Push", RunPush, 60f));
         header.Add(top);
@@ -366,7 +366,7 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
         path.style.minWidth = 0f;
         row.Add(path);
 
-        Button remove = BuildPipelineUI.ToolbarButton("移除", () => RemovePushTarget(index), 54f);
+        Button remove = BuildPipelineUI.ToolbarButton("Remove", () => RemovePushTarget(index), 64f);
         remove.style.marginLeft = 6f;
         row.Add(remove);
         return row;
