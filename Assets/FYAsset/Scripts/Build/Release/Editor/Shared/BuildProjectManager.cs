@@ -26,12 +26,16 @@ public static class BuildProjectManager
             return;
         }
         
-        // 大版本更新，增加Major版本
-        versionData.IncrementVersion(true);
-        AssetDatabase.SaveAssets();
-        AssetDatabase.Refresh();
+        // 大版本更新，先暂存版本号，构建和 Repository commit 成功后才写回 VersionDataBase。
+        VersionNumber nextVersion = versionData.BuildNextVersion(true);
 
-        LastBuildSuccess = RunBuild(versionData.CurrentVersion, BuildType.Full, options);
+        LastBuildSuccess = RunBuild(nextVersion, BuildType.Full, options);
+        if (LastBuildSuccess)
+        {
+            versionData.ApplyVersion(nextVersion);
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+        }
 
         if (!Application.isBatchMode)
         {
@@ -53,12 +57,16 @@ public static class BuildProjectManager
             return;
         }
         
-        // 小版本更新，增加Patch版本
-        versionData.IncrementVersion();
-        AssetDatabase.SaveAssets();
-        AssetDatabase.Refresh();
+        // 小版本更新，先暂存版本号，构建和 Repository commit 成功后才写回 VersionDataBase。
+        VersionNumber nextVersion = versionData.BuildNextVersion();
 
-        LastBuildSuccess = RunBuild(versionData.CurrentVersion, BuildType.Hotfix, options);
+        LastBuildSuccess = RunBuild(nextVersion, BuildType.Hotfix, options);
+        if (LastBuildSuccess)
+        {
+            versionData.ApplyVersion(nextVersion);
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+        }
     }
     
     /// <summary>

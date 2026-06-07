@@ -308,7 +308,7 @@ GetChannelKey(channel, backendMode)
 
 ## Diff Preview / Staging（预览差异）
 
-`RepositoryPreviewRunner` 提供只读 staging diff，不修改 HEAD、objects 或 PackageIndex。它只在 Repository 面板 `Changes` 视图点击 `Refresh Staging`，或 CLI `Diff` 命令中执行。
+`RepositoryPreviewRunner` 提供只读 staging diff，不修改 HEAD、objects 或 PackageIndex。它只在 Repository 面板 `Changes` 视图点击 `Refresh Changes`，或 CLI `Diff` 命令中执行。
 
 ### AA Diff Preview
 
@@ -339,7 +339,7 @@ Build Pipeline 窗口中不再使用一个总仓库入口；AA 和 AB 各有独�
 
 - **状态栏**：显示当前 HEAD 版本、包名、产物数量、最近 Push 信息
 - **History**：显示 commit 列表，选择 commit 后展示该 commit 持久化的 `CommitDelta`；不会执行 `RepositoryPreviewRunner`
-- **Changes**：显示 staging diff，只有点击 `Refresh Staging` 才执行 AA/AB preview DAG
+- **Changes**：显示 staging diff，只有点击 `Refresh Changes` 才执行 AA/AB preview DAG
 - **Artifact Detail**：展示 Added/Modified/Removed 的 `ArtifactDigest` 元数据；Modified 优先显示 old/new hash、CRC、size
 - **Push 按钮**：选择 Push Target 后发布当前 Repository HEAD；面板不再提供可编辑 From/To 版本号
 - **Push History**：展示该 Channel 的推送历史

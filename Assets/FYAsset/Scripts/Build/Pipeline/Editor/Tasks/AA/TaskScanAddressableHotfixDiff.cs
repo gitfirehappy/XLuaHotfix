@@ -23,6 +23,7 @@ public class TaskScanAddressableHotfixDiff : IBuildTask
     {
         var request = ctx.Require<BuildPackageRequest>(BuildContextKeys.BuildPackageRequest);
         var buildType = ctx.Require<BuildType>(BuildContextKeys.BuildType);
+        bool repositoryPreviewMode = ctx.Get<bool>(BuildContextKeys.RepositoryPreviewMode);
 
         if (buildType != BuildType.Hotfix)
         {
@@ -39,7 +40,7 @@ public class TaskScanAddressableHotfixDiff : IBuildTask
             var current = ScanCurrentArtifacts();
             ctx.Set(BuildContextKeys.RepositoryArtifacts, current);
 
-            ArtifactDelta delta = ScanDiff(request, current);
+            ArtifactDelta delta = ScanDiff(request, current, repositoryPreviewMode);
             ctx.Set(BuildContextKeys.ArtifactDelta, delta ?? new ArtifactDelta());
 
             if (delta == null || delta.IsEmpty)
@@ -69,16 +70,26 @@ public class TaskScanAddressableHotfixDiff : IBuildTask
         return ScanAddressableSource(settings);
     }
 
-    private static ArtifactDelta ScanDiff(BuildPackageRequest request, List<ArtifactDigest> current)
+    private static ArtifactDelta ScanDiff(BuildPackageRequest request, List<ArtifactDigest> current, bool repositoryPreviewMode)
     {
-        var delta = ArtifactDiffer.Diff(GetBaselineArtifacts(request), current);
+        var delta = ArtifactDiffer.Diff(GetBaselineArtifacts(request, repositoryPreviewMode), current);
         LogDelta(delta);
         return delta;
     }
 
-    private static List<ArtifactDigest> GetBaselineArtifacts(BuildPackageRequest request)
+    private static List<ArtifactDigest> GetBaselineArtifacts(BuildPackageRequest request, bool repositoryPreviewMode)
     {
-        var head = BuildRepositoryFacade.GetHeadCommit(BuildRepositoryFacade.GetChannelKey(request));
+        var channelKey = BuildRepositoryFacade.GetChannelKey(request);
+        if (repositoryPreviewMode)
+        {
+            var status = BuildRepositoryFacade.GetStatus(channelKey);
+            if (status != null && status.HasHeadError)
+                throw new RepositoryHeadException(status.HeadErrorReason);
+            if (status == null || !status.HasHead)
+                return new List<ArtifactDigest>();
+        }
+
+        var head = BuildRepositoryFacade.GetHeadCommit(channelKey);
         return head != null ? head.Artifacts : new List<ArtifactDigest>();
     }
 

@@ -51,7 +51,7 @@ Push `From/To` is intentionally left out of this plan except for removing the ed
      - bottom/right compact Push target editor area with no editable From/To fields
    - `History` default selection is HEAD when available
    - selecting a commit displays `commit.CommitDelta`
-   - `Changes` displays staging diff only after `Refresh Staging` runs the existing preview DAG
+   - `Changes` displays staging diff only after `Refresh Changes` runs the existing preview DAG
    - `Changes` result is in-memory only and is cleared/rebuilt on panel rebuild or refresh
 5. Add UI helpers inside `RepositoryStatusPanel` only unless extraction is clearly necessary:
    - `RepositoryViewMode` enum: `Changes`, `History`
@@ -92,7 +92,7 @@ Push `From/To` is intentionally left out of this plan except for removing the ed
 ### Changes
 
 - `Changes` is staging diff, not a Repository commit.
-- `Refresh Staging` runs:
+- `Refresh Changes` runs:
   - AB: `RepositoryPreviewRunner.RunABPreviewDetailed(_request)`
   - AA: `RepositoryPreviewRunner.RunAAPreview(_request)`
 - Staging diff compares current preview output against Repository HEAD through the existing preview task path.
@@ -110,7 +110,7 @@ Push `From/To` is intentionally left out of this plan except for removing the ed
 - First Repository commit JSON contains empty `ParentVersion` and `CommitDelta.Added.Count == Artifacts.Count`.
 - Second Repository commit JSON contains `ParentVersion` equal to the previous HEAD version and a persisted `CommitDelta` matching parent/current artifact diff.
 - Repository History displays persisted commit diff without executing `RepositoryPreviewRunner`.
-- Repository Changes executes preview only when the user clicks `Refresh Staging`.
+- Repository Changes executes preview only when the user clicks `Refresh Changes`.
 - Repository panel has no editable `From` or `To` version fields.
 - Push from the panel targets current HEAD and still publishes whole package output through existing `LocalDirectoryPushTarget`.
 - AB Hotfix delivery package behavior remains unchanged and still uses Full baseline -> current output.

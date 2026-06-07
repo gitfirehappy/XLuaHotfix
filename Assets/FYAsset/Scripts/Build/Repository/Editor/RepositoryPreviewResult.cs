@@ -12,5 +12,7 @@ public sealed class ABRepositoryPreviewResult
     public ArtifactDelta HeadDelta = new ArtifactDelta();
     public List<ManifestBundleEntry> DeliveryBundles = new();
     public long DeliverySizeBytes;
+    public bool DeliveryAvailable;
+    public string DeliveryMessage;
 }
 #endif

@@ -9,6 +9,20 @@
 
 No code was changed.
 
+## Remediation Status 2026-06-07
+
+Package-side remediation has been implemented under `requirements/plan/plan-review-build-chain-blockers-20260607.md`.
+
+- `Packages/manifest.json` now directly pins `com.unity.collections` to `2.6.6`.
+- Unity batchmode package resolution exited 0, modified `Packages/packages-lock.json`, and registered `com.unity.collections@2.6.6`.
+- The regenerated lockfile also resolves `com.unity.test-framework@1.4.6` and `com.unity.test-framework.performance@3.0.3` as dependencies of Collections 2.6.6.
+- Repository preview failure formatting now includes the failing task and error details when the DAG reports them.
+
+Still requires Unity workflow sign-off:
+
+- Confirm the original `NativeList.cs` / `NativeArray<T>.ReadOnly` compiler error no longer appears in the Unity Console after the package graph refresh.
+- Re-run AB Repository Changes and, separately, AB Preview Delivery after the relevant baseline state is prepared.
+
 The copied stack trace is from the AB Repository staging preview path. The failure is not caused by repository snapshot comparison itself. AB staging preview executes `TaskBuildBundles`, which calls `BuildPipeline.BuildAssetBundles`; Unity then compiles scripts for that build context and fails inside `com.unity.collections@1.2.4`.
 
 The direct compiler error is:

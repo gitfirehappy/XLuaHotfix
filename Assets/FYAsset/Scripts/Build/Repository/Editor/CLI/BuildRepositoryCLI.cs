@@ -163,6 +163,9 @@ public static class BuildRepositoryCLI
         builder.AppendLine("HEAD Diff (current vs Repository HEAD)");
         AppendDelta(builder, preview.HeadDelta ?? new ArtifactDelta());
         builder.AppendLine("Hotfix Delivery (current vs Full baseline)");
+        builder.AppendLine($"DeliveryAvailable: {preview.DeliveryAvailable}");
+        if (!string.IsNullOrEmpty(preview.DeliveryMessage))
+            builder.AppendLine($"DeliveryMessage: {preview.DeliveryMessage}");
         builder.AppendLine($"DeliveryBundles: {(preview.DeliveryBundles != null ? preview.DeliveryBundles.Count : 0)}");
         builder.AppendLine($"DeliverySizeBytes: {preview.DeliverySizeBytes}");
         if (preview.DeliveryBundles != null)

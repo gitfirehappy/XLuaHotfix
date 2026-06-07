@@ -409,3 +409,24 @@ Verified historical errors and prevention rules.
 **Root cause:** The asset file existed, but its main object referenced `m_Script` GUID `8804d7e5753b2164ba51f8a66736d5f5`; a previous helper-directory refactor recreated `ScriptObjectContainer.cs.meta` with GUID `b31ac084c03fc4a4e83105057cd4ebec`, so Unity could not bind the serialized ScriptableObject script and returned no usable main asset object.
 **Fix:** Restore `Assets/FYAsset/Scripts/Helpers/ScriptObjectContainer.cs.meta` to the historical GUID `8804d7e5753b2164ba51f8a66736d5f5` instead of rewriting the serialized `.asset` files or masking the failure in the inspector UI.
 **Prevention:** Unity script moves and directory refactors must preserve `.meta` files. When an asset path exists but `AssetDatabase.LoadMainAssetAtPath` returns null or an inspector ObjectField shows `None`, inspect the YAML `m_Script` GUID, search current `.meta` files, and check git history before changing UI code or asset data.
+
+## IP-59: Payload Auto Classification Drifted From Unity Importers
+
+**Symptom:** Review reasoning treated `.csv`, `.json`, and project `.lua` files as RawFile candidates because the classifier used a serialized-extension whitelist.
+**Root cause:** The classifier guessed payload kind from file suffix instead of asking Unity's importer pipeline whether the path had a usable main asset.
+**Fix:** Make `AssetClassifier.Auto` importer-first: `.unity` stays `Scene`; a usable non-`DefaultAsset` main asset from `AssetDatabase.GetMainAssetTypeAtPath` / `LoadMainAssetAtPath` is `Serialized`; otherwise fallback to `RawFile`.
+**Prevention:** Do not decide serialized-vs-raw from an extension list. If Unity or a ScriptedImporter can produce a usable main asset, Collector Auto must treat it as serialized unless the user explicitly forces another payload kind.
+
+## IP-60: Repository Preview Mixed Changes With Delivery Semantics
+
+**Symptom:** AB Repository Changes could be blocked by a missing same-Major Full baseline even though a git-style current-vs-HEAD diff should still be available.
+**Root cause:** The preview path used one Hotfix branch for two different questions: current changes against repository HEAD and hotfix delivery against the Full baseline.
+**Fix:** Split Repository `Refresh Changes` from AB `Preview Delivery`. Changes uses current-vs-HEAD and treats a missing HEAD as an empty baseline; Delivery uses current-vs-Full-baseline and remains unavailable/failing when the Full baseline is missing.
+**Prevention:** Keep status/diff preview questions separate from package delivery questions. Missing HEAD can mean empty baseline for preview; malformed HEAD is corruption; missing Full baseline is an AB delivery constraint, not a generic Changes constraint.
+
+## IP-61: Version Advanced Before Build Success
+
+**Symptom:** Failed builds could consume product versions without producing matching package output or repository commits.
+**Root cause:** `VersionDataBase` was incremented and saved before the backend build and repository commit had both succeeded.
+**Fix:** Stage the next `VersionNumber` in memory, build and commit with that staged request version, then apply and save `VersionDataBase` only after the full chain succeeds.
+**Prevention:** Product version advancement must be transactional with the artifact/repository state it names. Never persist the next version before the operation that creates that version's package and repository commit has succeeded.

@@ -1,6 +1,6 @@
 # Collector Framework
 
-Last reviewed: 2026-06-05
+Last reviewed: 2026-06-07
 
 ## Scope
 
@@ -181,9 +181,9 @@ For `PackSeparately`, `normalizedAddress` is a bundle-key-safe projection of the
 - `Serialized` forces serialized payload.
 - `RawFile` forces raw-file payload.
 - `Scene` forces scene payload.
-- `Auto` infers `.unity` as `Scene`, known Unity asset extensions as `Serialized`, and other files as `RawFile`.
+- `Auto` is importer-first: `.unity` is `Scene`; otherwise `AssetDatabase.GetMainAssetTypeAtPath(assetPath)` plus `AssetDatabase.LoadMainAssetAtPath(assetPath)` must produce a usable non-`DefaultAsset` main asset for `Serialized`; files without a usable imported main asset fall back to `RawFile`.
 
-Collector therefore retains payload analysis capability, including RawFile recognition.
+Collector therefore follows Unity's importer pipeline for serialized payload detection. Unity-recognized text formats such as `.csv`, `.json`, and `.txt`, and project-defined importers such as the `.lua` ScriptedImporter when it produces a `TextAsset`, are `Serialized` under `Auto`. `RawFile` is used when Unity has no usable imported main asset or when the user explicitly forces `RawFile`; it is not inferred from an extension blacklist.
 
 Scene Project Scan creates file-level `.unity` Collectors with Scene payload and does not create a Scene-only root-folder Collector. Project Scan folder Collectors are generated only for folders that contain at least one non-Scene collectable asset after ignore and exclusion filtering. Curate normalizes old Scene-only Folder Collectors into Scene File Collectors before save, and collection scans skip `.unity` files from every Folder Collector so scene assets stay file-owned and PackSeparately.
 

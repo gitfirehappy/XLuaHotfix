@@ -15,46 +15,69 @@ public class VersionDataBase : ScriptableObject
     
     [Header("当日构建次数")]
     public int DailyBuildCount;
-    
+
     public void IncrementVersion(bool isMajor = false, bool isMinor = false, string channel = "")
+    {
+        ApplyVersion(BuildNextVersion(isMajor, isMinor, channel));
+    }
+
+    public VersionNumber BuildNextVersion(bool isMajor = false, bool isMinor = false, string channel = "")
     {
         // 日期处理
         string today = DateTime.Now.ToString("yyyy-MM-dd");
+        int nextDailyBuildCount;
         if (!string.IsNullOrEmpty(LastBuildTime) && LastBuildTime.StartsWith(today))
         {
-            DailyBuildCount++;
+            nextDailyBuildCount = DailyBuildCount + 1;
         }
         else
         {
-            DailyBuildCount = 1;
+            nextDailyBuildCount = 1;
         }
-        LastBuildTime = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
 
         // 版本号处理
+        var next = new VersionNumber
+        {
+            Major = CurrentVersion != null ? CurrentVersion.Major : 1,
+            Minor = CurrentVersion != null ? CurrentVersion.Minor : 0,
+            Patch = CurrentVersion != null ? CurrentVersion.Patch : 0,
+            Channel = CurrentVersion != null ? CurrentVersion.Channel : string.Empty
+        };
         if (isMajor)
         {
-            CurrentVersion.Major++;
-            CurrentVersion.Minor = 0;
-            CurrentVersion.Patch = 0;
+            next.Major++;
+            next.Minor = 0;
+            next.Patch = 0;
         }
         else if (isMinor)
         {
-            CurrentVersion.Minor++;
-            CurrentVersion.Patch = 0;
+            next.Minor++;
+            next.Patch = 0;
         }
         else
         {
-            CurrentVersion.Patch++;
+            next.Patch++;
         }
 
-        CurrentVersion.Build = DailyBuildCount;
+        next.Build = nextDailyBuildCount;
         if (!string.IsNullOrEmpty(channel) &&
             channel != "alpha" && channel != "beta" && channel != "rc")
         {
             Debug.LogError($"[VersionDataBase] Invalid channel '{channel}'. Fallback to \"\".");
             channel = "";
         }
-        CurrentVersion.Channel = channel ?? "";
+        next.Channel = channel ?? "";
+        return next;
+    }
+
+    public void ApplyVersion(VersionNumber version)
+    {
+        if (version == null)
+            throw new ArgumentNullException(nameof(version));
+
+        LastBuildTime = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+        DailyBuildCount = version.Build;
+        CurrentVersion = version;
 
 #if UNITY_EDITOR
         EditorUtility.SetDirty(this);

@@ -124,6 +124,9 @@ public class TaskVerifyBuildResult : IBuildTask
             foreach (var filePath in Directory.GetFiles(tempDir))
             {
                 string fileName = Path.GetFileName(filePath);
+                if (IsUnitySidecarFile(fileName, tempDir))
+                    continue;
+
                 if (!knownFiles.Contains(fileName))
                 {
                     AddIssue(issues, "ORPHAN_CHECK", IssueLevel.Warning, fileName,
@@ -135,7 +138,7 @@ public class TaskVerifyBuildResult : IBuildTask
         // ⑥ COUNT CROSS-CHECK — 以 manifest 文件数为基准与实际文件数比对
         int manifestCount = manifest.BundleEntries.Count;
         int actualCount = Directory.Exists(tempDir)
-            ? Directory.GetFiles(tempDir).Length
+            ? CountDeployableFiles(tempDir)
             : 0;
 
         if (actualCount != manifestCount || manifest.BundleEntries.Count != buildResults.Count)
@@ -172,6 +175,30 @@ public class TaskVerifyBuildResult : IBuildTask
         if (payloadKindByBundle.TryGetValue(bundleName, out var pk))
             return pk != EPayloadKind.RawFile;
         return true; // 未知 → 默认检查
+    }
+
+    private static int CountDeployableFiles(string tempDir)
+    {
+        int count = 0;
+        foreach (var filePath in Directory.GetFiles(tempDir))
+        {
+            string fileName = Path.GetFileName(filePath);
+            if (!IsUnitySidecarFile(fileName, tempDir))
+                count++;
+        }
+        return count;
+    }
+
+    private static bool IsUnitySidecarFile(string fileName, string tempDir)
+    {
+        if (string.IsNullOrEmpty(fileName))
+            return false;
+
+        if (fileName.EndsWith(".manifest", StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        string rootManifestName = Path.GetFileName(tempDir);
+        return string.Equals(fileName, rootManifestName, StringComparison.OrdinalIgnoreCase);
     }
 
     private static void AddIssue(List<VerificationIssue> issues, string checkName, IssueLevel level,

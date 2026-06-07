@@ -20,4 +20,6 @@ public static class BuildContextKeys
     public const string RepositoryArtifacts = "RepositoryArtifacts";
     public const string ABDeliveryBundles = "ABDeliveryBundles";
     public const string RepositoryPreviewOutput = "RepositoryPreviewOutput";
+    public const string RepositoryPreviewMode = "RepositoryPreviewMode";
+    public const string ABDeliveryPreviewMode = "ABDeliveryPreviewMode";
 }

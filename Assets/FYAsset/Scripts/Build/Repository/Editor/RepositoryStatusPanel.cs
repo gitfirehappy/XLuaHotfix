@@ -182,7 +182,9 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
         top.Add(titleBox);
 
         top.Add(BuildPipelineUI.ToolbarButton("Refresh", Rebuild, 70f));
-        top.Add(BuildPipelineUI.ToolbarButton("Refresh Staging", RunRefreshStaging, 118f));
+        top.Add(BuildPipelineUI.ToolbarButton("Refresh Changes", RunRefreshStaging, 118f));
+        if (_backendMode == BackendMode.ABManifest)
+            top.Add(BuildPipelineUI.ToolbarButton("Preview Delivery", RunPreviewDelivery, 118f));
         top.Add(BuildPipelineUI.ToolbarButton("Push", RunPush, 64f));
         header.Add(top);
 
@@ -552,7 +554,7 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
     {
         if (!_hasStagingDelta)
         {
-            _leftList.Add(CreateEmptyState("Click Refresh Staging to compare current preview output with Repository HEAD."));
+            _leftList.Add(CreateEmptyState("Click Refresh Changes to compare current preview output with Repository HEAD."));
             return;
         }
 
@@ -666,7 +668,7 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
         if (!_hasStagingDelta)
         {
             AddDiffStats(null);
-            _artifactList.Add(CreateEmptyState("Click Refresh Staging to run current preview output vs Repository HEAD."));
+            _artifactList.Add(CreateEmptyState("Click Refresh Changes to run current preview output vs Repository HEAD."));
             RenderEmptyDetail("Staging diff is not loaded.");
             return;
         }
@@ -768,7 +770,7 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
         {
             _viewMode = RepositoryViewMode.Changes;
             _selectedArtifactKey = null;
-            _messageLabel.text = "Running staging preview...";
+            _messageLabel.text = "Running Changes preview...";
 
             if (_backendMode == BackendMode.ABManifest)
             {
@@ -782,17 +784,54 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
             }
 
             _hasStagingDelta = true;
-            SetBadge("Staging Ready", new Color(0.18f, 0.48f, 0.28f));
-            _messageLabel.text = IsDeltaEmpty(_stagingDelta) ? "Staging preview completed with no HEAD changes." : "Staging preview completed.";
+            SetBadge("Changes Ready", new Color(0.18f, 0.48f, 0.28f));
+            _messageLabel.text = IsDeltaEmpty(_stagingDelta) ? "Changes preview completed with no HEAD changes." : "Changes preview completed.";
             RenderNavigation();
             RenderDiffContent();
         }
         catch (Exception ex)
         {
-            Debug.LogError($"[RepositoryStatusPanel] Refresh Staging failed: {ex}");
+            Debug.LogError($"[RepositoryStatusPanel] Refresh Changes failed: {ex}");
             ClearStagingState();
             _viewMode = RepositoryViewMode.Changes;
-            SetBadge("Staging Failed", new Color(0.65f, 0.20f, 0.16f));
+            SetBadge("Changes Failed", new Color(0.65f, 0.20f, 0.16f));
+            _messageLabel.text = ex.Message;
+            RenderNavigation();
+            RenderDiffContent();
+        }
+    }
+
+    private void RunPreviewDelivery()
+    {
+        if (_backendMode != BackendMode.ABManifest)
+            return;
+
+        try
+        {
+            _viewMode = RepositoryViewMode.Changes;
+            _selectedArtifactKey = null;
+            _messageLabel.text = "Running AB delivery preview...";
+
+            _stagingABPreview = RepositoryPreviewRunner.RunABDeliveryPreview(_request);
+            _stagingDelta = _stagingABPreview != null ? _stagingABPreview.HeadDelta : new ArtifactDelta();
+            _hasStagingDelta = true;
+
+            SetBadge("Delivery Ready", new Color(0.18f, 0.48f, 0.28f));
+            _messageLabel.text = "AB delivery preview completed.";
+            RenderNavigation();
+            RenderDiffContent();
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"[RepositoryStatusPanel] Preview Delivery failed: {ex}");
+            _viewMode = RepositoryViewMode.Changes;
+            _stagingABPreview = new ABRepositoryPreviewResult
+            {
+                HeadDelta = _stagingDelta ?? new ArtifactDelta(),
+                DeliveryAvailable = false,
+                DeliveryMessage = ex.Message
+            };
+            SetBadge("Delivery Failed", new Color(0.65f, 0.20f, 0.16f));
             _messageLabel.text = ex.Message;
             RenderNavigation();
             RenderDiffContent();
@@ -1115,6 +1154,15 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
             return;
 
         int count = _stagingABPreview.DeliveryBundles != null ? _stagingABPreview.DeliveryBundles.Count : 0;
+        if (!_stagingABPreview.DeliveryAvailable)
+        {
+            _deliverySummary.Add(CreateBadge("Hotfix Delivery Unavailable", new Color(0.42f, 0.42f, 0.42f)));
+            _deliverySummary.Add(BuildPipelineUI.SmallText(string.IsNullOrEmpty(_stagingABPreview.DeliveryMessage)
+                ? "Use Preview Delivery to calculate current output vs Full baseline."
+                : _stagingABPreview.DeliveryMessage));
+            return;
+        }
+
         _deliverySummary.Add(CreateBadge($"Hotfix Delivery {count}", new Color(0.17f, 0.36f, 0.53f)));
         _deliverySummary.Add(BuildPipelineUI.SmallText($"Full baseline -> current output, {FormatBytes(_stagingABPreview.DeliverySizeBytes)}"));
     }

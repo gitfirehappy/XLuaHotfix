@@ -7,6 +7,9 @@ using System.Collections.Generic;
 /// </summary>
 public class BuildTaskResult
 {
+    /// <summary>Task 名称；由调度器填充，用于上层诊断显示。</summary>
+    public string TaskName;
+
     /// <summary>Task 是否成功执行</summary>
     public bool Success;
 

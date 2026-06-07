@@ -32,6 +32,8 @@ public class TaskScanABHotfixDiff : IBuildTask
         var request = ctx.Require<BuildPackageRequest>(BuildContextKeys.BuildPackageRequest);
         var manifest = ctx.Require<ABManifest>(BuildContextKeys.ABManifest);
         var buildType = ctx.Require<BuildType>(BuildContextKeys.BuildType);
+        bool repositoryPreviewMode = ctx.Get<bool>(BuildContextKeys.RepositoryPreviewMode);
+        bool deliveryPreviewMode = ctx.Get<bool>(BuildContextKeys.ABDeliveryPreviewMode);
 
         var current = ScanCurrentArtifacts(manifest);
         ctx.Set(BuildContextKeys.RepositoryArtifacts, current);
@@ -48,11 +50,17 @@ public class TaskScanABHotfixDiff : IBuildTask
         {
             string channelKey = BuildRepositoryFacade.GetChannelKey(request);
             Debug.Log($"[{nameof(TaskScanABHotfixDiff)}] 开始 AB diff scan，对比本次 Bundle 输出与 Repository HEAD。Package={request.PackageName}");
-            var head = TryGetHeadCommit(channelKey);
+            var head = TryGetHeadCommit(channelKey, repositoryPreviewMode);
             var baseline = head != null ? head.Artifacts : new List<ArtifactDigest>();
             var delta = ArtifactDiffer.Diff(baseline, current);
             ctx.Set(BuildContextKeys.ArtifactDelta, delta);
             LogDelta(delta);
+
+            if (repositoryPreviewMode && !deliveryPreviewMode)
+            {
+                ctx.Set(BuildContextKeys.ABDeliveryBundles, new List<ManifestBundleEntry>());
+                return BuildHeadDeltaResult(delta, 0);
+            }
 
             var fullBaseline = FindFullBaseline(channelKey, request.Version);
             if (fullBaseline == null)
@@ -95,14 +103,34 @@ public class TaskScanABHotfixDiff : IBuildTask
         }
     }
 
-    private static RepositoryCommit TryGetHeadCommit(string channelKey)
+    private static RepositoryCommit TryGetHeadCommit(string channelKey, bool allowEmptyHead)
     {
         var status = BuildRepositoryFacade.GetStatus(channelKey);
         if (status != null && status.HasHeadError)
             throw new RepositoryHeadException(status.HeadErrorReason);
         if (status == null || !status.HasHead)
+        {
+            if (allowEmptyHead)
+                return null;
             return null;
+        }
         return BuildRepositoryFacade.GetHeadCommit(channelKey);
+    }
+
+    private static BuildTaskResult BuildHeadDeltaResult(ArtifactDelta delta, int deliveryCount)
+    {
+        if (delta == null || delta.IsEmpty)
+        {
+            return BuildTaskResult.Ok(new List<string>
+            {
+                $"[AB DIFF] HEAD no changes, delivery preview skipped, delivery bundles={deliveryCount}"
+            });
+        }
+
+        return BuildTaskResult.Ok(new List<string>
+        {
+            $"[AB DIFF] Added={delta.Added.Count}, Modified={delta.Modified.Count}, Removed={delta.Removed.Count}, delivery preview skipped"
+        });
     }
 
     public static RepositoryCommit FindFullBaseline(string channelKey, VersionNumber currentVersion)

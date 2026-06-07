@@ -1,6 +1,6 @@
 # Resource Build And Release
 
-Last reviewed: 2026-06-06
+Last reviewed: 2026-06-07
 
 ## Scope
 
@@ -49,14 +49,14 @@ The hotfix build flow relies on repository HEAD comparison instead of manual gro
 - `ArtifactDiffer` performs pure name/hash diffing with no Unity API side effects
 - `TaskScanAddressableHotfixDiff` scans AA source assets before build at asset GUID granularity, computes shallow composite content identity from the main asset file plus its `.meta` file, and publishes `RepositoryArtifacts` for commit
 - `TaskScanABHotfixDiff` scans AB bundle outputs after build at bundle-name granularity; when fed from `ABManifest.BundleEntries`, it reuses manifest hash/CRC/size and also publishes `RepositoryArtifacts`
-- `BuildProjectManager` commits AA source digests or AB output bundle digests after a successful build
+- `BuildProjectManager` commits AA source digests or AB output bundle digests after a successful build, and applies `VersionDataBase` version advancement only after both backend build execution and repository commit succeed
 - `TaskWritePackageIndex` writes `PackageIndex.BackendMode` as `AA` or `AB` in official Full and Hotfix DAG runs
 - `TaskExportLocalBuildData` writes `BuildIndexData.BackendMode` as `AA` or `AB`
 - AA and AB repository spaces are isolated by the backend segment in the channel key
-- `TaskScanAddressableHotfixDiff` runs before AA hotfix content build, compares current AA source against repository HEAD, and writes `ArtifactDelta` into `BuildContext`
+- `TaskScanAddressableHotfixDiff` runs before AA hotfix content build, compares current AA source against repository HEAD, and writes `ArtifactDelta` into `BuildContext`. Repository Changes preview treats a missing HEAD as an empty baseline so the first preview reports all current artifacts as Added; malformed HEAD remains an error.
 - `TaskMoveAddressableHotfixGroups` moves Added and Modified AA assets into the Hotfix group, writes `Assets/FYAsset/Editor/Generated/HotfixGroupUndoLog.json`, blocks another move while pending moves exist, and keeps the manual restore path available
-- `TaskScanABHotfixDiff` runs after AB bundle build verification. It compares current AB bundle output against repository HEAD for `ArtifactDelta`, and for AB Hotfix also compares current output against the same-channel/backend/Major Full baseline to produce `ABDeliveryBundles`.
-- AB Hotfix fails before package finalization when the same-Major Full baseline commit is missing. Old commits without `RepositoryCommit.BuildType == "Full"` are not inferred as baselines.
+- `TaskScanABHotfixDiff` runs after AB bundle build verification. It compares current AB bundle output against repository HEAD for `ArtifactDelta`, and for official AB Hotfix or AB Delivery preview also compares current output against the same-channel/backend/Major Full baseline to produce `ABDeliveryBundles`. Repository Changes preview does not require the Full baseline and treats a missing HEAD as an empty baseline; malformed HEAD remains an error.
+- AB Hotfix and AB Delivery preview fail before package finalization when the same-Major Full baseline commit is missing. Repository Changes preview remains available without that baseline. Old commits without `RepositoryCommit.BuildType == "Full"` are not inferred as baselines.
 - AB Hotfix fallback validation requires every non-delivered manifest bundle to exist in the Full baseline with the same physical bundle name and file hash.
 - `ConfirmReleaseHotfix` is a placeholder wrapper and does not mutate repository HEAD, build artifacts, or push targets
 - `BuildRepositoryCLI` exposes `Status`, `Diff`, `Push`, and `ListCommits`; `Diff` runs the AA or AB DAG to the backend-specific diff task and stops there, and CLI `Push` keeps its explicit from/to argument contract
@@ -66,9 +66,11 @@ The hotfix build flow relies on repository HEAD comparison instead of manual gro
 - Push writes the root `PackageIndex.json` from the target commit's package name, version, and backend mode. It does not reinterpret package-internal catalog or manifest files.
 - `PushHistory.json` is written by the repository at `BuildData/Snapshots/{BuildTarget}[-Channel]/{BackendMode}/PushHistory.json` after a successful push
 - `RepositoryStatusPanel` can be constructed for a fixed backend mode. The build pipeline window exposes separate AA Repository and AB Repository entries instead of one shared repository panel.
-- `RepositoryStatusPanel` uses separate `History` and `Changes` views. `History` reads persisted commit diffs from `RepositoryCommit.CommitDelta` without running preview; `Changes` runs staging preview only when `Refresh Staging` is clicked.
+- `RepositoryStatusPanel` uses separate `History` and `Changes` views. `History` reads persisted commit diffs from `RepositoryCommit.CommitDelta` without running preview; `Changes` runs current-vs-HEAD preview only when `Refresh Changes` is clicked.
 - AB Build Result reads editor-only JSON reports from project-root `BuildData/Reports/AB/`; these reports are ignored by git and are not copied into package output or runtime startup data. AA Build Result remains a placeholder for Unity Addressables-owned reporting.
-- AB staging preview uses `DAGScheduler.Execute` with a stop-after task and whitelist, writes temporary outputs under `Temp/BuildRepositoryPreview/{guid}/`, and deletes that directory in a `finally` path; `TaskPrepareContext` reads the preview output root from `BuildContextKeys.RepositoryPreviewOutput` instead of an environment variable. The AB preview result separates current-vs-HEAD diff from current-vs-Full-baseline hotfix delivery count/size/list.
+- AB Changes preview uses `DAGScheduler.Execute` with a stop-after task and whitelist, writes temporary outputs under `Temp/BuildRepositoryPreview/{guid}/`, and deletes that directory in a `finally` path; `TaskPrepareContext` reads the preview output root from `BuildContextKeys.RepositoryPreviewOutput` instead of an environment variable. The AB preview result reports current-vs-HEAD diff only and marks Hotfix Delivery as unavailable until the separate `Preview Delivery` action is run.
+- AB Delivery preview is a separate repository UI/runner path. It uses `BuildContextKeys.ABDeliveryPreviewMode`, compares current AB output against the same-Major Full baseline, and returns delivery count/size/list without changing repository HEAD or package publication state.
+- Repository preview failures include the backend label, first failed task name, error code, message, fatal flag, and skipped task count when that information exists in `BuildResult.TaskResults`.
 
 ## Release Operations
 
@@ -76,7 +78,7 @@ The hotfix build flow relies on repository HEAD comparison instead of manual gro
 
 ### `BuildFullPackage`
 
-- increments the major version
+- stages the next major version in memory and writes it to `VersionDataBase` only after backend build execution and repository commit both succeed
 - requires hotfix groups to be reset to original grouping first
 - represents a packaged baseline refresh
 - always goes through `BuildProjectManager.CreateBackend()`
@@ -84,7 +86,7 @@ The hotfix build flow relies on repository HEAD comparison instead of manual gro
 
 ### `BuildHotfix`
 
-- increments the patch version
+- stages the next patch version in memory and writes it to `VersionDataBase` only after backend build execution and repository commit both succeed
 - relies on the AA DAG diff/move tasks to detect changed assets automatically in AA mode
 - produces incremental content for hotfix distribution
 - routes actual package generation through the backend selected by `FYAssetSettings.Instance.UseABBackend`
@@ -106,7 +108,7 @@ The build entry point is now split with the same orchestration pattern already u
 
 ### Shared orchestrator
 
-- `BuildProjectManager` owns version increment, Lua index export, `BuildPackageRequest` creation, package naming, backend routing, and repository commit
+- `BuildProjectManager` owns version staging/application, Lua index export, `BuildPackageRequest` creation, package naming, backend routing, and repository commit
 - `BuildPackageRequest` is created before backend execution and carries version, build type, backend mode, package name, final package output directory, bundles directory, and `PackageIndex` path
 - Runtime hotfix rejects a remote `PackageIndex` if its backend mode is missing, invalid, or different from the current `FYAssetSettings.UseABBackend` mode
 - `BuildContextKeys.BuildType` is written by each backend before DAG execution so shared tail tasks can preserve full-build-only behavior without reading global state
@@ -137,13 +139,14 @@ The build entry point is now split with the same orchestration pattern already u
 - `ABBuildBackend` is a stateless DAG runner: it receives the shared `BuildPackageRequest`, writes it into `BuildContext`, and runs the AB task graph through `DAGScheduler.Execute()`
 - After official AB build execution, `ABBuildBackend` best-effort writes an `ABBuildReport` JSON file through `ABBuildReportBuilder` and `ABBuildReportStore`. Report write failures log warnings but do not replace the original build success or failure result.
 - The AB backbone order is `TaskPrepareContext -> TaskCollectAssets -> TaskCollectBuiltins -> TaskAnalyzeDependencies -> TaskBuildBundles -> TaskGenerateManifest -> TaskVerifyBuildResult -> TaskScanABHotfixDiff -> TaskOrganizeOutput -> TaskWriteABPackageManifest -> TaskWritePackageIndex -> TaskExportLocalBuildData`.
-- `TaskScanABHotfixDiff` is the AB graph diff and delivery task between `TaskVerifyBuildResult` and `TaskOrganizeOutput`; standalone AB diff stops after this task so package organization and publication do not run.
+- `TaskScanABHotfixDiff` is the AB graph diff and delivery task between `TaskVerifyBuildResult` and `TaskOrganizeOutput`; standalone AB Changes preview stops after this task after computing current-vs-HEAD diff only, while AB Delivery preview enables the Full-baseline delivery branch explicitly.
 - `TaskOrganizeOutput` consumes the request and writes the final AB package layout directly under `BuildPackageRequest.OutputDir`, copying all manifest bundles for Full builds and only `ABDeliveryBundles` for Hotfix builds.
 - `TaskWriteABPackageManifest` publishes `ABManifest.json` and/or `ABManifest.bin` at the final package root according to `FYAssetABSettings.ManifestOutputFormat` and applies the AB hotfix size limit from `FYAssetABSettings`; for AB Hotfix the size guard uses the delivery bundle list, not the complete runtime bundle table.
 - `TaskWritePackageIndex` runs after the AB package manifest task and writes the remote latest-package pointer for both Full and Hotfix official builds
 - `TaskExportLocalBuildData` is the AB graph tail task and implementation owner for local startup data export. It writes `BuildIndexData` only for full builds, copies the real final AB package baseline (`ABManifest` files plus `bundles/`) into `StreamingAssets`, cleans stale AA baseline files, and returns success without exporting for hotfix builds
 - `BuildContextKeys.OutputPath` is the request-owned final package directory after AB finalization
 - missing manifest-listed bundle files during AB finalization fail the task instead of being silently skipped
+- `TaskVerifyBuildResult` ignores Unity-generated `.manifest` sidecars and the root manifest file in orphan/count checks, so deployable bundle counts are compared against `ABManifest.BundleEntries` and `BundleBuildInfo` only.
 - `ABManifest` binary schema is version 2 after adding `DeliveryBundles`; schema-1 AB binary manifests are not compatible with the current binary reader and require rebuilding the AB Full baseline.
 
 ### Build path helpers

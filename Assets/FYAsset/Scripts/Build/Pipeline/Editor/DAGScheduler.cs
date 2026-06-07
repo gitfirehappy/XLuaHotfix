@@ -74,10 +74,10 @@ public static class DAGScheduler
             List<string> missingBackboneTasks = BuildPipelineBackbone.GetMissingRequiredTasks(config);
             if (missingBackboneTasks.Count > 0)
             {
-                errors.Add(BuildTaskResult.Fail(
+                errors.Add(WithTaskName(BuildTaskResult.Fail(
                     "MISSING_BACKBONE_TASK",
                     $"管线配置缺少必需主干 Task: {string.Join(", ", missingBackboneTasks)}。请更新 BuildPipelineConfig asset。",
-                    true));
+                    true), "BuildPipelineConfig"));
                 return ErrorResult(config, errors);
             }
         }
@@ -89,9 +89,9 @@ public static class DAGScheduler
         {
             if (!BuildTaskResolver.Exists(entry.TaskName))
             {
-                errors.Add(BuildTaskResult.Fail(
+                errors.Add(WithTaskName(BuildTaskResult.Fail(
                     "TASK_NOT_FOUND",
-                    $"'{entry.TaskName}' — 未找到对应的 IBuildTask 实现。", true));
+                    $"'{entry.TaskName}' — 未找到对应的 IBuildTask 实现。", true), entry.TaskName));
                 continue;
             }
             instances[entry.TaskName] = BuildTaskResolver.CreateTask(entry.TaskName);
@@ -111,9 +111,9 @@ public static class DAGScheduler
                     string reason = config.Tasks.Any(e => e.TaskName == dep && !e.Enabled)
                         ? $"'{dep}' 已禁用 — 请启用该 Task 或更新 '{instance.TaskName}' 的依赖。"
                         : $"'{dep}' — 不在 Task 列表中。";
-                    errors.Add(BuildTaskResult.Fail(
+                    errors.Add(WithTaskName(BuildTaskResult.Fail(
                         "MISSING_DEPENDENCY",
-                        $"'{instance.TaskName}' depends on '{dep}': {reason}", true));
+                        $"'{instance.TaskName}' depends on '{dep}': {reason}", true), instance.TaskName));
                 }
             }
         }
@@ -127,8 +127,8 @@ public static class DAGScheduler
         if (sorted.Count < instances.Count)
         {
             var cyclic = instances.Keys.Except(sorted).ToList();
-            errors.Add(BuildTaskResult.Fail("CIRCULAR_TASK_DEPENDENCY",
-                $"检测到循环依赖: {string.Join(", ", cyclic)}。", true));
+            errors.Add(WithTaskName(BuildTaskResult.Fail("CIRCULAR_TASK_DEPENDENCY",
+                $"检测到循环依赖: {string.Join(", ", cyclic)}。", true), "BuildPipelineConfig"));
             return ErrorResult(config, errors);
         }
 
@@ -144,8 +144,8 @@ public static class DAGScheduler
                     bool selfProduce = instance.WriteKeys != null && instance.WriteKeys.Contains(key);
                     if (!selfProduce && !produced.Contains(key))
                     {
-                        warnings.Add(BuildTaskResult.Fail("UNSATISFIED_READ_KEY",
-                            $"'{taskName}' 读取 '{key}'，但没有前置 Task 产出该 Key。", false));
+                        warnings.Add(WithTaskName(BuildTaskResult.Fail("UNSATISFIED_READ_KEY",
+                            $"'{taskName}' 读取 '{key}'，但没有前置 Task 产出该 Key。", false), taskName));
                     }
                 }
             }
@@ -242,6 +242,7 @@ public static class DAGScheduler
                         $"'{taskName}' 执行异常 — {ex.GetType().Name}: {ex.Message}。", true);
                 }
 
+                taskResult.TaskName = taskName;
                 results.Add(taskResult);
                 options?.Report(
                     taskName,
@@ -350,6 +351,13 @@ public static class DAGScheduler
             TotalTasks = config.Tasks.Count(e => e.Enabled),
             TaskResults = errors
         };
+    }
+
+    private static BuildTaskResult WithTaskName(BuildTaskResult result, string taskName)
+    {
+        if (result != null)
+            result.TaskName = taskName;
+        return result;
     }
 
     #endregion

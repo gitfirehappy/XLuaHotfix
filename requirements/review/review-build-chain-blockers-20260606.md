@@ -9,6 +9,26 @@
 
 No runtime or build code was changed.
 
+## Remediation Status 2026-06-07
+
+Code-side remediation has been implemented under `requirements/plan/plan-review-build-chain-blockers-20260607.md`.
+
+Resolved in the working tree:
+
+- `Packages/manifest.json` pins `com.unity.collections` to `2.6.6`, and Unity Package Manager regenerated `Packages/packages-lock.json` with `com.unity.collections@2.6.6`.
+- AA and AB Repository Changes now compare current artifacts against Repository HEAD and treat a missing HEAD as an empty baseline; malformed HEAD remains fatal.
+- AB Hotfix Delivery preview is a separate action from Changes and still requires a same-Major Full baseline.
+- `AssetClassifier.Auto` no longer uses a serialized extension whitelist; it asks Unity importers for a usable main asset, so Unity/importer-backed TextAsset files are Serialized.
+- AB verification ignores Unity `.manifest` sidecars and the root manifest in deployable bundle count/orphan checks.
+- `VersionDataBase` advancement is staged and saved only after backend build and repository commit success.
+- Repository preview failure messages include task/error details when available.
+
+Still requires Unity workflow sign-off:
+
+- AA Repository Changes on an empty repository and after a HEAD exists.
+- AB Repository Changes, AB Preview Delivery, and official AB Full/Hotfix build smoke paths.
+- Push remains dependent on a configured `PushTarget`; this plan intentionally did not create a default target.
+
 The copied Console error is a real first blocker, but it is not the only blocker in the chain. The current project state has several independent failures that can stop staging diff or official builds even after the Collections compiler error is fixed.
 
 Current confirmed blockers:

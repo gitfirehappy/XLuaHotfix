@@ -19,23 +19,21 @@ public class TaskPrepareContext : IBuildTask
         // 读取 SO 配置；正式 Full/Hotfix 构建不允许 Task 内部再覆盖后端。
         BackendMode mode = FYAssetSettings.Instance.UseABBackend ? BackendMode.ABManifest : BackendMode.AA;
 
+        var request = ctx.Get<BuildPackageRequest>(BuildContextKeys.BuildPackageRequest);
+
         // BuildVersionString: CLI --version > 时间戳（用于构建摘要；正式包目录名由 BuildPackageRequest 决定）
         string buildVersionString = GetCommandLineArg("--version")
             ?? DateTime.UtcNow.ToString("yyyyMMdd-HHmmss");
 
-        // CLI --version 若为有效 SemVer → 写 SO 再读回（保持 SO 唯一来源）
+        // CLI --version 只在没有 BuildPackageRequest 的旧/诊断路径中覆盖本次 BuildConfig，不提前写回 VersionDataBase。
         var versionData = AssetDatabase.LoadAssetAtPath<VersionDataBase>(
             FYAssetSettings.Instance.VersionDataBasePath);
         string cliVersion = GetCommandLineArg("--version");
-        if (!string.IsNullOrEmpty(cliVersion) && VersionNumber.TryParse(cliVersion, out var cliVer))
-        {
-            if (versionData != null)
-            {
-                versionData.CurrentVersion = cliVer;
-                EditorUtility.SetDirty(versionData);
-                AssetDatabase.SaveAssets();
-            }
-        }
+        VersionNumber cliParsedVersion = request == null
+            && !string.IsNullOrEmpty(cliVersion)
+            && VersionNumber.TryParse(cliVersion, out var cliVer)
+            ? cliVer
+            : null;
 
         // TargetPlatform: CLI --platform > Editor 当前设置
         BuildTarget platform;
@@ -56,7 +54,11 @@ public class TaskPrepareContext : IBuildTask
             ?? ctx.Get<string>(BuildContextKeys.RepositoryPreviewOutput)
             ?? FYAssetPathUtility.JoinFilePath(BuildPathManager.ProjectRoot, "Build", platform.ToString());
 
-        var version = versionData != null
+        var version = request != null && request.Version != null
+            ? request.Version
+            : cliParsedVersion != null
+            ? cliParsedVersion
+            : versionData != null
             ? versionData.CurrentVersion
             : new VersionNumber { Major = 1, Minor = 0, Patch = 0 };
 
