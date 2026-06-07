@@ -31,3 +31,4 @@ Shared executable plans live here while active. `requirements/plan.md` remains t
 | File | Status |
 |---|---|
 | `plan-ab-build-report-panel-20260606.md` | Implemented, awaiting sign-off |
+| `plan-repository-git-style-diff-20260606.md` | Implemented, awaiting sign-off |

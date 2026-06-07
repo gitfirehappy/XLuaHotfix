@@ -623,14 +623,14 @@
         <!-- ═══════════════ AA Repository Panel ═══════════════ -->
         <section class="panel" id="panel-aa-repository">
           <div class="unity-toolbar">
-            <button class="tb-btn" data-action="AA Refresh">刷新</button>
-            <button class="tb-btn" data-action="AA Diff">Diff</button>
+            <button class="tb-btn" data-action="AA Refresh">Refresh</button>
+            <button class="tb-btn" data-action="AA Refresh Staging">Refresh Staging</button>
             <button class="tb-btn" data-action="AA Push">Push</button>
             <div class="tb-spacer"></div>
             <span class="tb-label">AA Repository</span>
           </div>
           <div class="scroll-body">
-            <div class="box" style="color:#aaa">固定显示 AA Channel 的 HEAD、Diff Preview、Push 和 Push History。</div>
+            <div class="box" style="color:#aaa">固定显示 AA Channel 的 HEAD、Changes、History、Push 和 Push History。</div>
           </div>
         </section>
 
@@ -916,36 +916,31 @@
         <!-- ═══════════════ AB Repository Panel ═══════════════ -->
         <section class="panel" id="panel-ab-repository">
           <div class="unity-toolbar">
-            <button class="tb-btn" data-action="Refresh">刷新</button>
-            <button class="tb-btn" data-action="Diff">Diff</button>
+            <button class="tb-btn" data-action="Refresh">Refresh</button>
+            <button class="tb-btn" data-action="Refresh Staging">Refresh Staging</button>
             <button class="tb-btn" data-action="Push">Push</button>
             <div class="tb-spacer"></div>
             <span class="tb-label" style="font-size:11px">AB Repository | HEAD 1.0.0+5 | MainPackage | 42 项 | LastPush local</span>
           </div>
           <div class="scroll-body">
-            <!-- Push Card -->
-            <div class="section-header">Push</div>
+            <!-- Repository views -->
+            <div class="section-header">Changes / History</div>
             <div class="box">
               <div style="display:flex;flex-direction:column;gap:6px">
                 <div style="display:flex;align-items:center;gap:8px">
-                  <span style="width:36px;color:#999;font-size:11px">Target</span>
-                  <select style="flex:1;background:#3a3a3a;color:#d0d0d0;border:1px solid #4a4a4a;padding:2px 6px;font-size:11px">
-                    <option>local</option>
-                  </select>
+                  <button class="tb-btn">Changes</button>
+                  <button class="tb-btn">History</button>
+                  <span style="color:#aaa;font-size:11px">History shows persisted CommitDelta; Changes runs only after Refresh Staging.</span>
                 </div>
                 <div style="display:flex;align-items:center;gap:8px">
-                  <span style="width:36px;color:#999;font-size:11px">From</span>
-                  <input type="text" placeholder="1.0.0+1" style="flex:1;background:#2a2a2a;color:#d0d0d0;border:1px solid #4a4a4a;padding:2px 6px;font-size:11px">
-                </div>
-                <div style="display:flex;align-items:center;gap:8px">
-                  <span style="width:36px;color:#999;font-size:11px">To</span>
-                  <input type="text" placeholder="1.0.0+5" style="flex:1;background:#2a2a2a;color:#d0d0d0;border:1px solid #4a4a4a;padding:2px 6px;font-size:11px">
+                  <span style="width:54px;color:#999;font-size:11px">Selected</span>
+                  <span style="color:#d0d0d0;font-size:11px">HEAD 1.0.0+5 | Commit Diff +3 ~1 -1</span>
                 </div>
               </div>
             </div>
 
             <!-- Diff Result -->
-            <div class="section-header">Diff Preview</div>
+            <div class="section-header">Commit Diff</div>
             <textarea readonly style="width:100%;height:120px;background:#2a2a2a;color:#d0d0d0;border:1px solid #4a4a4a;resize:vertical;font-family:Consolas,monospace;font-size:11px;padding:6px">Added: 3
 + characters_assets_all_abc123.bundle
 + ui_assets_all_def456.bundle
@@ -954,6 +949,18 @@ Modified: 1
 * audio_assets_all_jkl012.bundle
 Removed: 1
 - old_scene_assets.bundle</textarea>
+
+            <!-- Push Card -->
+            <div class="section-header">Push</div>
+            <div class="box">
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="width:54px;color:#999;font-size:11px">Target</span>
+                <select style="flex:1;background:#3a3a3a;color:#d0d0d0;border:1px solid #4a4a4a;padding:2px 6px;font-size:11px">
+                  <option>local</option>
+                </select>
+                <span style="color:#aaa;font-size:11px">Push publishes current HEAD.</span>
+              </div>
+            </div>
 
             <!-- Push History -->
             <div class="section-header">Push History</div>

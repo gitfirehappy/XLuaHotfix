@@ -7,23 +7,44 @@ using UnityEngine;
 using UnityEngine.UIElements;
 
 /// <summary>
-/// Build Repository 状态、Diff Preview 与 Push 面板。
+/// Build Repository status, git-style commit diff, staging diff, and push panel.
 /// </summary>
 public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
 {
-    #region Fields
+    private enum RepositoryViewMode
+    {
+        Changes,
+        History
+    }
+
+    private enum RepositoryDiffKind
+    {
+        Added,
+        Modified,
+        Removed
+    }
+
+    private sealed class RepositoryDiffItem
+    {
+        public RepositoryDiffKind Kind;
+        public string Name;
+        public ArtifactDigest OldArtifact;
+        public ArtifactDigest NewArtifact;
+    }
 
     private readonly BackendMode _backendMode;
     private readonly string _panelName;
+
     private VisualElement _root;
-    private VisualElement _commitPane;
-    private VisualElement _detailPane;
-    private VisualElement _diffPanel;
-    private VisualElement _pushPanel;
-    private VisualElement _commitList;
-    private VisualElement _diffSummary;
-    private VisualElement _diffList;
+    private VisualElement _tabs;
+    private VisualElement _leftList;
+    private VisualElement _summaryRow;
+    private VisualElement _deliverySummary;
+    private VisualElement _artifactList;
+    private VisualElement _detailContent;
     private VisualElement _pushHistoryList;
+    private Label _artifactTitle;
+    private Label _detailTitle;
     private Label _statusBadge;
     private Label _channelLabel;
     private Label _headLabel;
@@ -32,28 +53,23 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
     private Label _lastPushLabel;
     private Label _messageLabel;
     private DropdownField _targetDropdown;
-    private TextField _fromVersionField;
-    private TextField _toVersionField;
 
     private RepositoryStatus _status;
     private RepositoryCommit _headCommit;
+    private RepositoryCommit _selectedCommit;
     private BuildPackageRequest _request;
     private string _channelKey;
-    private bool _isDraggingCommitSplitter;
-    private bool _isDraggingPushSplitter;
-    private Vector2 _dragStartMouse;
-    private float _dragStartSize;
-    private float _commitPaneWidth = 300f;
-    private float _pushPanelHeight = 300f;
+    private string _selectedArtifactKey;
+    private RepositoryViewMode _viewMode = RepositoryViewMode.History;
+    private ArtifactDelta _stagingDelta;
+    private ABRepositoryPreviewResult _stagingABPreview;
+    private bool _hasStagingDelta;
+    private readonly List<RepositoryCommit> _commits = new();
+    private readonly List<RepositoryDiffItem> _currentDiffItems = new();
 
-    private const float MinCommitPaneWidth = 220f;
-    private const float MinDetailPaneWidth = 320f;
-    private const float MinDiffPanelHeight = 180f;
-    private const float MinPushPanelHeight = 220f;
-
-    #endregion
-
-    #region IBuildPipelinePanel
+    private const float LeftPaneWidth = 310f;
+    private const float MiddlePaneWidth = 360f;
+    private const float RightPaneMinWidth = 360f;
 
     public RepositoryStatusPanel()
         : this(FYAssetSettings.Instance.UseABBackend ? BackendMode.ABManifest : BackendMode.AA, "Repository")
@@ -84,14 +100,15 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
     public void OnDisable()
     {
         _root = null;
-        _commitPane = null;
-        _detailPane = null;
-        _diffPanel = null;
-        _pushPanel = null;
-        _commitList = null;
-        _diffSummary = null;
-        _diffList = null;
+        _tabs = null;
+        _leftList = null;
+        _summaryRow = null;
+        _deliverySummary = null;
+        _artifactList = null;
+        _detailContent = null;
         _pushHistoryList = null;
+        _artifactTitle = null;
+        _detailTitle = null;
         _statusBadge = null;
         _channelLabel = null;
         _headLabel = null;
@@ -100,12 +117,15 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
         _lastPushLabel = null;
         _messageLabel = null;
         _targetDropdown = null;
-        _fromVersionField = null;
-        _toVersionField = null;
         _status = null;
         _headCommit = null;
+        _selectedCommit = null;
         _request = null;
         _channelKey = null;
+        _selectedArtifactKey = null;
+        _commits.Clear();
+        _currentDiffItems.Clear();
+        ClearStagingState();
     }
 
     public void SetVisible(bool visible)
@@ -114,16 +134,13 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
             RefreshRepositoryState();
     }
 
-    #endregion
-
-    #region Build UI
-
     private void Rebuild()
     {
         if (_root == null)
             return;
 
         _root.Clear();
+        ClearStagingState();
 
         _request = CreatePreviewRequest();
         _channelKey = BuildRepositoryFacade.GetChannelKey(_request);
@@ -132,7 +149,6 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
         _root.Add(CreateBody());
 
         RefreshRepositoryState();
-        RefreshDiffEmptyState();
     }
 
     private VisualElement CreateHeader()
@@ -147,9 +163,15 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
         header.style.backgroundColor = BuildPipelineUI.CardBackgroundColor;
         ApplyBorder(header);
 
-        var top = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center } };
-        var titleBox = new VisualElement { style = { flexGrow = 1f, minWidth = 0f } };
-        var title = new Label("Build Repository 仓库");
+        var top = new VisualElement();
+        top.style.flexDirection = FlexDirection.Row;
+        top.style.alignItems = Align.Center;
+
+        var titleBox = new VisualElement();
+        titleBox.style.flexGrow = 1f;
+        titleBox.style.minWidth = 0f;
+
+        var title = new Label("Build Repository");
         title.style.unityFontStyleAndWeight = FontStyle.Bold;
         title.style.fontSize = 15f;
         titleBox.Add(title);
@@ -159,12 +181,16 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
         titleBox.Add(_channelLabel);
         top.Add(titleBox);
 
-        top.Add(BuildPipelineUI.ToolbarButton("Refresh", Rebuild, 60f));
-        top.Add(BuildPipelineUI.ToolbarButton("Diff", RunDiff, 60f));
-        top.Add(BuildPipelineUI.ToolbarButton("Push", RunPush, 60f));
+        top.Add(BuildPipelineUI.ToolbarButton("Refresh", Rebuild, 70f));
+        top.Add(BuildPipelineUI.ToolbarButton("Refresh Staging", RunRefreshStaging, 118f));
+        top.Add(BuildPipelineUI.ToolbarButton("Push", RunPush, 64f));
         header.Add(top);
 
-        var statusRow = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center, marginTop = 8f } };
+        var statusRow = new VisualElement();
+        statusRow.style.flexDirection = FlexDirection.Row;
+        statusRow.style.alignItems = Align.Center;
+        statusRow.style.marginTop = 8f;
+
         _statusBadge = CreateBadge("No HEAD", new Color(0.42f, 0.42f, 0.42f));
         statusRow.Add(_statusBadge);
         _messageLabel = BuildPipelineUI.SmallText(string.Empty);
@@ -173,7 +199,9 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
         statusRow.Add(_messageLabel);
         header.Add(statusRow);
 
-        var stats = new VisualElement { style = { flexDirection = FlexDirection.Row, marginTop = 8f } };
+        var stats = new VisualElement();
+        stats.style.flexDirection = FlexDirection.Row;
+        stats.style.marginTop = 8f;
         _headLabel = AddStat(stats, "HEAD", "-");
         _packageLabel = AddStat(stats, "Package", "-");
         _artifactLabel = AddStat(stats, "Artifacts", "-");
@@ -190,109 +218,138 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
         body.style.flexDirection = FlexDirection.Row;
         body.style.minHeight = 0f;
 
-        _commitPane = BuildPipelineUI.Card();
-        _commitPane.style.width = _commitPaneWidth;
-        _commitPane.style.minWidth = MinCommitPaneWidth;
-        _commitPane.style.marginBottom = 0f;
-        _commitPane.style.flexShrink = 0f;
-        _commitPane.Add(BuildPipelineUI.Header("提交记录"));
-        _commitPane.Add(BuildPipelineUI.SmallText("当前 Channel 下的 Repository objects。"));
-        var commitScroll = new ScrollView();
-        commitScroll.style.marginTop = 8f;
-        commitScroll.style.flexGrow = 1f;
-        commitScroll.style.minHeight = 0f;
-        _commitList = new VisualElement();
-        commitScroll.Add(_commitList);
-        _commitPane.Add(commitScroll);
-        body.Add(_commitPane);
-
-        body.Add(CreateCommitSplitter(body));
-
-        _detailPane = new VisualElement { style = { flexGrow = 1f, flexDirection = FlexDirection.Column, minWidth = MinDetailPaneWidth } };
-        _detailPane.Add(CreateDiffPanel());
-        _detailPane.Add(CreatePushSplitter(_detailPane));
-        _detailPane.Add(CreatePushPanel());
-        body.Add(_detailPane);
-
+        body.Add(CreateLeftPane());
+        body.Add(CreateMiddlePane());
+        body.Add(CreateRightPane());
         return body;
     }
 
-    private VisualElement CreateDiffPanel()
+    private VisualElement CreateLeftPane()
     {
-        _diffPanel = BuildPipelineUI.Card();
-        _diffPanel.style.flexGrow = 1f;
-        _diffPanel.style.minHeight = MinDiffPanelHeight;
-        _diffPanel.Add(BuildPipelineUI.Header("Diff 预览"));
+        var pane = BuildPipelineUI.Card();
+        pane.style.width = LeftPaneWidth;
+        pane.style.minWidth = LeftPaneWidth;
+        pane.style.marginRight = 8f;
+        pane.style.marginBottom = 0f;
+        pane.style.flexShrink = 0f;
 
-        _diffSummary = new VisualElement { style = { flexDirection = FlexDirection.Row, marginBottom = 8f } };
-        _diffPanel.Add(_diffSummary);
+        _tabs = new VisualElement();
+        _tabs.style.flexDirection = FlexDirection.Row;
+        _tabs.style.marginBottom = 8f;
+        pane.Add(_tabs);
 
         var scroll = new ScrollView();
         scroll.style.flexGrow = 1f;
         scroll.style.minHeight = 0f;
-        _diffList = new VisualElement();
-        scroll.Add(_diffList);
-        _diffPanel.Add(scroll);
-        return _diffPanel;
+        _leftList = new VisualElement();
+        scroll.Add(_leftList);
+        pane.Add(scroll);
+        return pane;
+    }
+
+    private VisualElement CreateMiddlePane()
+    {
+        var pane = BuildPipelineUI.Card();
+        pane.style.width = MiddlePaneWidth;
+        pane.style.minWidth = 300f;
+        pane.style.marginRight = 8f;
+        pane.style.marginBottom = 0f;
+        pane.style.flexShrink = 0f;
+
+        _artifactTitle = BuildPipelineUI.Header("Commit Diff");
+        pane.Add(_artifactTitle);
+
+        _summaryRow = new VisualElement();
+        _summaryRow.style.flexDirection = FlexDirection.Row;
+        _summaryRow.style.flexWrap = Wrap.Wrap;
+        _summaryRow.style.marginBottom = 6f;
+        pane.Add(_summaryRow);
+
+        _deliverySummary = new VisualElement();
+        _deliverySummary.style.marginBottom = 6f;
+        pane.Add(_deliverySummary);
+
+        var scroll = new ScrollView();
+        scroll.style.flexGrow = 1f;
+        scroll.style.minHeight = 0f;
+        _artifactList = new VisualElement();
+        scroll.Add(_artifactList);
+        pane.Add(scroll);
+        return pane;
+    }
+
+    private VisualElement CreateRightPane()
+    {
+        var pane = new VisualElement();
+        pane.style.flexGrow = 1f;
+        pane.style.minWidth = RightPaneMinWidth;
+        pane.style.flexDirection = FlexDirection.Column;
+
+        var detail = BuildPipelineUI.Card();
+        detail.style.flexGrow = 1f;
+        detail.style.minHeight = 220f;
+        _detailTitle = BuildPipelineUI.Header("Artifact Detail");
+        detail.Add(_detailTitle);
+        _detailContent = new VisualElement();
+        detail.Add(_detailContent);
+        pane.Add(detail);
+
+        pane.Add(CreatePushPanel());
+        return pane;
     }
 
     private VisualElement CreatePushPanel()
     {
-        _pushPanel = BuildPipelineUI.Card();
-        _pushPanel.style.height = _pushPanelHeight;
-        _pushPanel.style.minHeight = MinPushPanelHeight;
-        _pushPanel.style.marginBottom = 0f;
-        _pushPanel.style.flexShrink = 0f;
-        _pushPanel.Add(BuildPipelineUI.Header("Push"));
+        var panel = BuildPipelineUI.Card();
+        panel.style.marginBottom = 0f;
+        panel.style.flexShrink = 0f;
+        panel.style.maxHeight = 360f;
 
-        var row = new VisualElement { style = { flexDirection = FlexDirection.Row, flexWrap = Wrap.Wrap, alignItems = Align.Center } };
+        var header = new VisualElement();
+        header.style.flexDirection = FlexDirection.Row;
+        header.style.alignItems = Align.Center;
+        header.style.minWidth = 0f;
+        var title = BuildPipelineUI.Header("Push");
+        title.style.flexGrow = 1f;
+        title.style.minWidth = 0f;
+        header.Add(title);
+        header.Add(BuildPipelineUI.ToolbarButton("+ Target", AddPushTarget, 86f));
+        panel.Add(header);
+
+        var row = new VisualElement();
+        row.style.flexDirection = FlexDirection.Row;
+        row.style.alignItems = Align.Center;
+        row.style.marginBottom = 6f;
+        row.style.width = Length.Percent(100f);
         row.style.minWidth = 0f;
+
         _targetDropdown = new DropdownField("Target", GetPushTargetLabels(), 0);
-        _targetDropdown.style.width = 220f;
-        _targetDropdown.style.maxWidth = 240f;
-        _targetDropdown.style.minWidth = 140f;
+        _targetDropdown.style.width = 0f;
+        _targetDropdown.style.flexGrow = 1f;
         _targetDropdown.style.flexShrink = 1f;
-        _targetDropdown.style.marginRight = 6f;
-        _targetDropdown.style.marginBottom = 4f;
+        _targetDropdown.style.flexBasis = 0f;
+        _targetDropdown.style.minWidth = 0f;
+        _targetDropdown.style.maxWidth = Length.Percent(100f);
+        SetCompactFieldLabel(_targetDropdown, 48f);
         row.Add(_targetDropdown);
+        panel.Add(row);
 
-        _fromVersionField = new TextField("From");
-        _fromVersionField.style.width = 230f;
-        _fromVersionField.style.minWidth = 190f;
-        _fromVersionField.style.flexShrink = 1f;
-        _fromVersionField.style.marginRight = 6f;
-        _fromVersionField.style.marginBottom = 4f;
-        SetCompactFieldLabel(_fromVersionField, 38f);
-        row.Add(_fromVersionField);
+        panel.Add(BuildPipelineUI.SmallText("Push publishes the current Repository HEAD to the selected Target."));
+        panel.Add(CreatePushTargetEditor());
 
-        _toVersionField = new TextField("To")
-        {
-            value = _request != null && _request.Version != null ? _request.Version.GetFullVersionString() : string.Empty
-        };
-        _toVersionField.style.width = 230f;
-        _toVersionField.style.minWidth = 190f;
-        _toVersionField.style.flexShrink = 1f;
-        _toVersionField.style.marginBottom = 4f;
-        SetCompactFieldLabel(_toVersionField, 24f);
-        row.Add(_toVersionField);
-        _pushPanel.Add(row);
-
-        _pushPanel.Add(BuildPipelineUI.SmallText("Push 使用现有仓库版本范围。点击左侧提交记录可填充 To，也可以手动编辑版本号。"));
-        _pushPanel.Add(CreatePushTargetEditor());
-
-        var historyTitle = new Label("历史记录");
+        var historyTitle = new Label("Push History");
         historyTitle.style.marginTop = 8f;
         historyTitle.style.marginBottom = 4f;
         historyTitle.style.unityFontStyleAndWeight = FontStyle.Bold;
-        _pushPanel.Add(historyTitle);
+        panel.Add(historyTitle);
 
         var scroll = new ScrollView();
         scroll.style.flexGrow = 1f;
-        scroll.style.minHeight = 0f;
+        scroll.style.minHeight = 80f;
         _pushHistoryList = new VisualElement();
         scroll.Add(_pushHistoryList);
-        _pushPanel.Add(scroll);
-        return _pushPanel;
+        panel.Add(scroll);
+        return panel;
     }
 
     private VisualElement CreatePushTargetEditor()
@@ -300,40 +357,31 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
         var box = new VisualElement();
         box.style.marginTop = 8f;
         box.style.marginBottom = 4f;
-        ApplyBorder(box);
         box.style.paddingLeft = 6f;
         box.style.paddingRight = 6f;
         box.style.paddingTop = 6f;
         box.style.paddingBottom = 6f;
-
-        var header = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center } };
-        var title = new Label("Target 配置");
-        title.style.unityFontStyleAndWeight = FontStyle.Bold;
-        title.style.flexGrow = 1f;
-        header.Add(title);
-        header.Add(BuildPipelineUI.ToolbarButton("+ Target", AddPushTarget, 82f));
-        box.Add(header);
+        ApplyBorder(box);
 
         FYAssetSettings settings = FYAssetSettings.Instance;
         if (settings.PushTargets == null || settings.PushTargets.Count == 0)
         {
-            box.Add(BuildPipelineUI.SmallText("没有 Push Target。"));
+            box.Add(BuildPipelineUI.SmallText("No Push Target configured."));
             return box;
         }
 
         for (int i = 0; i < settings.PushTargets.Count; i++)
-        {
-            PushTargetConfig config = settings.PushTargets[i];
-            box.Add(CreatePushTargetRow(config, i));
-        }
-
+            box.Add(CreatePushTargetRow(settings.PushTargets[i], i));
         return box;
     }
 
     private VisualElement CreatePushTargetRow(PushTargetConfig config, int index)
     {
-        var row = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center } };
+        var row = new VisualElement();
+        row.style.flexDirection = FlexDirection.Row;
+        row.style.alignItems = Align.Center;
         row.style.marginTop = 4f;
+        row.style.width = Length.Percent(100f);
         row.style.minWidth = 0f;
 
         var idField = new TextField("Id")
@@ -341,8 +389,8 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
             value = config != null ? config.Id : string.Empty,
             isDelayed = true
         };
-        idField.style.width = 160f;
-        idField.style.minWidth = 110f;
+        idField.style.width = 104f;
+        idField.style.minWidth = 72f;
         idField.style.flexShrink = 1f;
         idField.style.marginRight = 6f;
         SetCompactFieldLabel(idField, 22f);
@@ -350,6 +398,7 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
         {
             if (config == null)
                 return;
+
             Undo.RecordObject(FYAssetSettings.Instance, "Edit Push Target");
             config.Id = (evt.newValue ?? string.Empty).Trim();
             SaveRepositorySettings();
@@ -357,18 +406,467 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
         });
         row.Add(idField);
 
-        var pathProperty = new SerializedObject(FYAssetSettings.Instance)
+        SerializedProperty pathProperty = new SerializedObject(FYAssetSettings.Instance)
             .FindProperty(nameof(FYAssetSettings.PushTargets))
             .GetArrayElementAtIndex(index)
             .FindPropertyRelative(nameof(PushTargetConfig.Path));
         VisualElement path = BuildPipelineUI.PathField(pathProperty, "Path", BuildPipelineUI.PathPickerMode.ProjectFolder, 34f);
         path.style.flexGrow = 1f;
+        path.style.flexShrink = 1f;
+        path.style.flexBasis = 0f;
         path.style.minWidth = 0f;
+        path.style.maxWidth = Length.Percent(100f);
         row.Add(path);
 
         Button remove = BuildPipelineUI.ToolbarButton("Remove", () => RemovePushTarget(index), 64f);
         remove.style.marginLeft = 6f;
+        remove.style.flexShrink = 0f;
         row.Add(remove);
+        return row;
+    }
+
+    private void RefreshRepositoryState()
+    {
+        if (_root == null)
+            return;
+
+        _request = CreatePreviewRequest();
+        _channelKey = BuildRepositoryFacade.GetChannelKey(_request);
+        _status = BuildRepositoryFacade.GetStatus(_request);
+        _headCommit = _status != null && _status.HasHead ? BuildRepositoryFacade.GetHeadCommit(_channelKey) : null;
+        _commits.Clear();
+        _commits.AddRange(BuildRepositoryFacade.ListCommits(_channelKey));
+        EnsureHistorySelection();
+
+        RefreshHeader();
+        RenderNavigation();
+        RenderDiffContent();
+        RefreshPushHistory();
+    }
+
+    private void RefreshHeader()
+    {
+        if (_status == null)
+            return;
+
+        _channelLabel.text = $"Channel: {_channelKey}    Backend: {GetBackendDisplayName(_request.BackendMode)}";
+        _headLabel.text = _status.HasHead ? SafeText(_status.HeadVersion) : "-";
+        _packageLabel.text = _status.HasHead ? SafeText(_status.PackageName) : "-";
+        _artifactLabel.text = _status.HasHead ? _status.ArtifactCount.ToString(CultureInfo.InvariantCulture) : "0";
+        _lastPushLabel.text = string.IsNullOrEmpty(_status.LastPushAtUtc)
+            ? "-"
+            : $"{SafeText(_status.LastPushTargetId)} {FormatUtc(_status.LastPushAtUtc)}";
+
+        if (_status.HasHeadError)
+        {
+            SetBadge("HEAD Error", new Color(0.65f, 0.20f, 0.16f));
+            _messageLabel.text = _status.HeadErrorReason;
+            return;
+        }
+
+        if (!_status.HasHead)
+        {
+            SetBadge("No HEAD", new Color(0.42f, 0.42f, 0.42f));
+            _messageLabel.text = "Build a package first to create Repository HEAD.";
+            return;
+        }
+
+        string currentVersion = _request != null && _request.Version != null ? _request.Version.GetFullVersionString() : string.Empty;
+        if (!string.IsNullOrEmpty(currentVersion) && !string.Equals(currentVersion, _status.HeadVersion, StringComparison.Ordinal))
+        {
+            SetBadge("Version Warning", new Color(0.70f, 0.46f, 0.12f));
+            _messageLabel.text = $"VersionDataBase.CurrentVersion is {currentVersion}, Repository HEAD is {_status.HeadVersion}. Push still uses HEAD.";
+            return;
+        }
+
+        if (_headCommit != null && _headCommit.IsDirty)
+        {
+            SetBadge("Dirty Git Source", new Color(0.70f, 0.46f, 0.12f));
+            _messageLabel.text = $"HEAD was created from a dirty Git worktree. Git {ShortHash(_headCommit.GitCommitHash)}";
+            return;
+        }
+
+        SetBadge("HEAD OK", new Color(0.18f, 0.48f, 0.28f));
+        _messageLabel.text = _headCommit != null && !string.IsNullOrEmpty(_headCommit.GitCommitHash)
+            ? $"Git {ShortHash(_headCommit.GitCommitHash)}"
+            : "Repository HEAD has no Git metadata.";
+    }
+
+    private void RenderNavigation()
+    {
+        if (_tabs == null || _leftList == null)
+            return;
+
+        RenderTabs();
+        _leftList.Clear();
+        if (_viewMode == RepositoryViewMode.History)
+            RenderCommitNavigation();
+        else
+            RenderChangesNavigation();
+    }
+
+    private void RenderTabs()
+    {
+        _tabs.Clear();
+        _tabs.Add(CreateTabButton("Changes", RepositoryViewMode.Changes));
+        _tabs.Add(CreateTabButton("History", RepositoryViewMode.History));
+    }
+
+    private Button CreateTabButton(string text, RepositoryViewMode mode)
+    {
+        bool active = _viewMode == mode;
+        var button = new Button(() =>
+        {
+            _viewMode = mode;
+            _selectedArtifactKey = null;
+            EnsureHistorySelection();
+            RenderNavigation();
+            RenderDiffContent();
+        })
+        {
+            text = text
+        };
+        button.style.flexGrow = 1f;
+        button.style.height = 24f;
+        button.style.backgroundColor = active ? BuildPipelineUI.ActiveColor : new Color(0f, 0f, 0f, 0.08f);
+        button.style.color = active ? Color.white : BuildPipelineUI.SecondaryTextColor;
+        return button;
+    }
+
+    private void RenderCommitNavigation()
+    {
+        if (_commits.Count == 0)
+        {
+            _leftList.Add(CreateEmptyState("No Repository commits."));
+            return;
+        }
+
+        for (int i = _commits.Count - 1; i >= 0; i--)
+        {
+            RepositoryCommit commit = _commits[i];
+            _leftList.Add(CreateCommitRow(commit));
+        }
+    }
+
+    private void RenderChangesNavigation()
+    {
+        if (!_hasStagingDelta)
+        {
+            _leftList.Add(CreateEmptyState("Click Refresh Staging to compare current preview output with Repository HEAD."));
+            return;
+        }
+
+        List<RepositoryDiffItem> items = BuildDiffItems(_stagingDelta, _headCommit != null ? _headCommit.Artifacts : null, null);
+        if (items.Count == 0)
+        {
+            _leftList.Add(CreateEmptyState("No staging changes."));
+            return;
+        }
+
+        for (int i = 0; i < items.Count; i++)
+            _leftList.Add(CreateCompactArtifactRow(items[i]));
+    }
+
+    private VisualElement CreateCommitRow(RepositoryCommit commit)
+    {
+        bool selected = IsSelectedCommit(commit);
+        bool isHead = IsHeadCommit(commit);
+        var row = CreateClickableRow(selected, () =>
+        {
+            _viewMode = RepositoryViewMode.History;
+            _selectedCommit = commit;
+            _selectedArtifactKey = null;
+            RenderNavigation();
+            RenderDiffContent();
+        });
+
+        string version = commit != null && commit.Version != null ? commit.Version.GetFullVersionString() : "(unknown)";
+        string titleText = isHead ? $"HEAD  {version}" : version;
+        var title = new Label(titleText);
+        title.style.unityFontStyleAndWeight = FontStyle.Bold;
+        title.style.whiteSpace = WhiteSpace.Normal;
+        row.Add(title);
+
+        row.Add(BuildPipelineUI.SmallText($"{SafeText(commit?.BuildType)}  |  {FormatUtc(commit?.CreatedAtUtc)}"));
+        row.Add(BuildPipelineUI.SmallText($"{GetCommitDeltaSummary(commit)}  |  Artifacts {CountArtifacts(commit)}"));
+        return row;
+    }
+
+    private VisualElement CreateCompactArtifactRow(RepositoryDiffItem item)
+    {
+        bool selected = IsSelectedArtifact(item);
+        var row = CreateClickableRow(selected, () => SelectArtifact(item));
+        row.style.paddingTop = 5f;
+        row.style.paddingBottom = 5f;
+
+        var line = new VisualElement();
+        line.style.flexDirection = FlexDirection.Row;
+        line.style.alignItems = Align.Center;
+        line.Add(CreateMarkerLabel(item.Kind));
+
+        var name = new Label(SafeText(item.Name));
+        name.style.flexGrow = 1f;
+        name.style.minWidth = 0f;
+        name.style.whiteSpace = WhiteSpace.Normal;
+        line.Add(name);
+        row.Add(line);
+        return row;
+    }
+
+    private void RenderDiffContent()
+    {
+        if (_summaryRow == null || _artifactList == null || _detailContent == null)
+            return;
+
+        _summaryRow.Clear();
+        _deliverySummary.Clear();
+        _artifactList.Clear();
+        _detailContent.Clear();
+        _currentDiffItems.Clear();
+
+        if (_viewMode == RepositoryViewMode.History)
+            RenderHistoryDiff();
+        else
+            RenderStagingDiff();
+    }
+
+    private void RenderHistoryDiff()
+    {
+        _artifactTitle.text = "Commit Diff";
+
+        if (_selectedCommit == null)
+        {
+            AddDiffStats(null);
+            _artifactList.Add(CreateEmptyState("Select a commit."));
+            RenderEmptyDetail("Select an artifact to inspect metadata.");
+            return;
+        }
+
+        if (_selectedCommit.CommitDelta == null)
+        {
+            AddDiffStats(null);
+            _artifactList.Add(CreateEmptyState("No persisted diff in this commit."));
+            RenderEmptyDetail("This commit was created before CommitDelta was persisted.");
+            return;
+        }
+
+        RepositoryCommit parent = FindCommitByVersion(_selectedCommit.ParentVersion);
+        _currentDiffItems.AddRange(BuildDiffItems(
+            _selectedCommit.CommitDelta,
+            parent != null ? parent.Artifacts : null,
+            _selectedCommit.Artifacts));
+        AddDiffStats(_selectedCommit.CommitDelta);
+        RenderArtifactList("No artifact changes in this commit.");
+    }
+
+    private void RenderStagingDiff()
+    {
+        _artifactTitle.text = "Staging Diff";
+
+        if (!_hasStagingDelta)
+        {
+            AddDiffStats(null);
+            _artifactList.Add(CreateEmptyState("Click Refresh Staging to run current preview output vs Repository HEAD."));
+            RenderEmptyDetail("Staging diff is not loaded.");
+            return;
+        }
+
+        _currentDiffItems.AddRange(BuildDiffItems(_stagingDelta, _headCommit != null ? _headCommit.Artifacts : null, null));
+        AddDiffStats(_stagingDelta);
+        RenderDeliverySummary();
+        RenderArtifactList("No staging changes.");
+    }
+
+    private void RenderArtifactList(string emptyText)
+    {
+        if (_currentDiffItems.Count == 0)
+        {
+            _artifactList.Add(CreateEmptyState(emptyText));
+            RenderEmptyDetail("No artifact selected.");
+            return;
+        }
+
+        EnsureArtifactSelection();
+        RepositoryDiffItem selected = FindCurrentSelectedArtifact();
+        for (int i = 0; i < _currentDiffItems.Count; i++)
+            _artifactList.Add(CreateArtifactRow(_currentDiffItems[i]));
+        RenderArtifactDetail(selected);
+    }
+
+    private VisualElement CreateArtifactRow(RepositoryDiffItem item)
+    {
+        bool selected = IsSelectedArtifact(item);
+        var row = CreateClickableRow(selected, () => SelectArtifact(item));
+        row.style.flexDirection = FlexDirection.Row;
+        row.style.alignItems = Align.Center;
+        row.style.paddingTop = 6f;
+        row.style.paddingBottom = 6f;
+
+        row.Add(CreateMarkerLabel(item.Kind));
+
+        var text = new VisualElement();
+        text.style.flexGrow = 1f;
+        text.style.minWidth = 0f;
+
+        var name = new Label(SafeText(item.Name));
+        name.style.whiteSpace = WhiteSpace.Normal;
+        text.Add(name);
+
+        ArtifactDigest meta = item.NewArtifact ?? item.OldArtifact;
+        text.Add(BuildPipelineUI.SmallText(meta != null ? $"{FormatBytes(meta.Size)}  |  {ShortHash(meta.Hash)}" : "metadata unavailable"));
+        row.Add(text);
+        return row;
+    }
+
+    private void RenderArtifactDetail(RepositoryDiffItem item)
+    {
+        _detailContent.Clear();
+        if (item == null)
+        {
+            RenderEmptyDetail("No artifact selected.");
+            return;
+        }
+
+        _detailTitle.text = "Artifact Detail";
+        _detailContent.Add(CreateDetailLine("Status", GetKindText(item.Kind)));
+        _detailContent.Add(CreateDetailLine("Name", SafeText(item.Name)));
+
+        if (item.Kind == RepositoryDiffKind.Modified)
+        {
+            _detailContent.Add(CreateSectionLabel("Old"));
+            AddArtifactMetadata(_detailContent, item.OldArtifact);
+            _detailContent.Add(CreateSectionLabel("New"));
+            AddArtifactMetadata(_detailContent, item.NewArtifact);
+            if (item.OldArtifact == null)
+                _detailContent.Add(CreateWarning("Old metadata is unavailable because the parent artifact could not be found."));
+            return;
+        }
+
+        if (item.Kind == RepositoryDiffKind.Added)
+        {
+            _detailContent.Add(CreateSectionLabel("New"));
+            AddArtifactMetadata(_detailContent, item.NewArtifact);
+            return;
+        }
+
+        _detailContent.Add(CreateSectionLabel("Old"));
+        AddArtifactMetadata(_detailContent, item.OldArtifact);
+        if (item.OldArtifact == null)
+            _detailContent.Add(CreateWarning("Removed artifact metadata is unavailable; only the name was persisted in the delta."));
+    }
+
+    private void RenderEmptyDetail(string message)
+    {
+        _detailTitle.text = "Artifact Detail";
+        _detailContent.Clear();
+        _detailContent.Add(CreateEmptyState(message));
+    }
+
+    private void RunRefreshStaging()
+    {
+        try
+        {
+            _viewMode = RepositoryViewMode.Changes;
+            _selectedArtifactKey = null;
+            _messageLabel.text = "Running staging preview...";
+
+            if (_backendMode == BackendMode.ABManifest)
+            {
+                _stagingABPreview = RepositoryPreviewRunner.RunABPreviewDetailed(_request);
+                _stagingDelta = _stagingABPreview != null ? _stagingABPreview.HeadDelta : new ArtifactDelta();
+            }
+            else
+            {
+                _stagingABPreview = null;
+                _stagingDelta = RepositoryPreviewRunner.RunAAPreview(_request);
+            }
+
+            _hasStagingDelta = true;
+            SetBadge("Staging Ready", new Color(0.18f, 0.48f, 0.28f));
+            _messageLabel.text = IsDeltaEmpty(_stagingDelta) ? "Staging preview completed with no HEAD changes." : "Staging preview completed.";
+            RenderNavigation();
+            RenderDiffContent();
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"[RepositoryStatusPanel] Refresh Staging failed: {ex}");
+            ClearStagingState();
+            _viewMode = RepositoryViewMode.Changes;
+            SetBadge("Staging Failed", new Color(0.65f, 0.20f, 0.16f));
+            _messageLabel.text = ex.Message;
+            RenderNavigation();
+            RenderDiffContent();
+        }
+    }
+
+    private void RunPush()
+    {
+        try
+        {
+            if (_headCommit == null)
+            {
+                SetBadge("Push Failed", new Color(0.65f, 0.20f, 0.16f));
+                _messageLabel.text = "Repository has no HEAD to push.";
+                return;
+            }
+
+            IPushTarget target = CreatePushTarget();
+            PushReceipt receipt = BuildRepositoryFacade.PushHead(_channelKey, target);
+            RefreshRepositoryState();
+
+            if (receipt != null && receipt.Success)
+            {
+                SetBadge("Push OK", new Color(0.18f, 0.48f, 0.28f));
+                _messageLabel.text = $"Push succeeded: {receipt.TargetId} -> {receipt.TargetLocation}";
+            }
+            else
+            {
+                SetBadge("Push Failed", new Color(0.65f, 0.20f, 0.16f));
+                _messageLabel.text = receipt != null ? receipt.FailureReason : "Push returned null receipt.";
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"[RepositoryStatusPanel] Push failed: {ex}");
+            SetBadge("Push Failed", new Color(0.65f, 0.20f, 0.16f));
+            _messageLabel.text = ex.Message;
+        }
+    }
+
+    private void RefreshPushHistory()
+    {
+        if (_pushHistoryList == null)
+            return;
+
+        _pushHistoryList.Clear();
+        List<PushHistoryEntry> history = BuildRepositoryFacade.ListPushHistory(_channelKey);
+        if (history.Count == 0)
+        {
+            _pushHistoryList.Add(CreateEmptyState("No Push history."));
+            return;
+        }
+
+        for (int i = history.Count - 1; i >= 0; i--)
+            _pushHistoryList.Add(CreatePushHistoryRow(history[i]));
+    }
+
+    private VisualElement CreatePushHistoryRow(PushHistoryEntry item)
+    {
+        var row = new VisualElement();
+        row.style.paddingLeft = 8f;
+        row.style.paddingRight = 8f;
+        row.style.paddingTop = 5f;
+        row.style.paddingBottom = 5f;
+        row.style.marginBottom = 4f;
+        row.style.backgroundColor = new Color(0f, 0f, 0f, 0.08f);
+        ApplyBorder(row);
+
+        string from = string.IsNullOrEmpty(item.FromVersion) ? "None" : item.FromVersion;
+        var title = new Label($"{from} -> {SafeText(item.ToVersion)}");
+        title.style.unityFontStyleAndWeight = FontStyle.Bold;
+        row.Add(title);
+        row.Add(BuildPipelineUI.SmallText($"{SafeText(item.TargetId)}  |  {FormatUtc(item.PushedAtUtc)}  |  {item.DeltaFileCount} files"));
+        row.Add(BuildPipelineUI.SmallText(SafeText(item.TargetLocation)));
         return row;
     }
 
@@ -406,253 +904,230 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
         AssetDatabase.SaveAssets();
     }
 
-    private VisualElement CreateCommitSplitter(VisualElement body)
+    private BuildPackageRequest CreatePreviewRequest()
     {
-        var splitter = BuildPipelineUI.Splitter(true);
-        splitter.style.marginLeft = 4f;
-        splitter.style.marginRight = 4f;
-        splitter.RegisterCallback<PointerDownEvent>(evt =>
-        {
-            if (evt.button != 0)
-                return;
-
-            _isDraggingCommitSplitter = true;
-            _dragStartMouse = evt.position;
-            _dragStartSize = _commitPaneWidth;
-            splitter.CapturePointer(evt.pointerId);
-            evt.StopPropagation();
-        });
-        splitter.RegisterCallback<PointerMoveEvent>(evt =>
-        {
-            if (!_isDraggingCommitSplitter)
-                return;
-
-            float maxWidth = Mathf.Max(MinCommitPaneWidth, body.resolvedStyle.width - MinDetailPaneWidth - 18f);
-            _commitPaneWidth = Mathf.Clamp(_dragStartSize + evt.position.x - _dragStartMouse.x, MinCommitPaneWidth, maxWidth);
-            _commitPane.style.width = _commitPaneWidth;
-            evt.StopPropagation();
-        });
-        splitter.RegisterCallback<PointerUpEvent>(evt =>
-        {
-            if (!_isDraggingCommitSplitter)
-                return;
-
-            _isDraggingCommitSplitter = false;
-            splitter.ReleasePointer(evt.pointerId);
-            evt.StopPropagation();
-        });
-        return splitter;
+        VersionDataBase versionDB = AssetDatabase.LoadAssetAtPath<VersionDataBase>(FYAssetSettings.Instance.VersionDataBasePath);
+        VersionNumber version = versionDB != null && versionDB.CurrentVersion != null
+            ? versionDB.CurrentVersion
+            : new VersionNumber { Major = 0, Minor = 0, Patch = 0 };
+        return BuildPackageRequest.Create(version, BuildType.Full, _backendMode);
     }
 
-    private VisualElement CreatePushSplitter(VisualElement detailPane)
+    private IPushTarget CreatePushTarget()
     {
-        var splitter = BuildPipelineUI.Splitter(false);
-        splitter.style.marginTop = 4f;
-        splitter.style.marginBottom = 4f;
-        splitter.RegisterCallback<PointerDownEvent>(evt =>
+        FYAssetSettings settings = FYAssetSettings.Instance;
+        string targetId = _targetDropdown != null && !string.IsNullOrEmpty(_targetDropdown.value)
+            ? _targetDropdown.value
+            : (settings.PushTargets != null && settings.PushTargets.Count > 0 ? settings.PushTargets[0].Id : string.Empty);
+        for (int i = 0; settings.PushTargets != null && i < settings.PushTargets.Count; i++)
         {
-            if (evt.button != 0)
-                return;
-
-            _isDraggingPushSplitter = true;
-            _dragStartMouse = evt.position;
-            _dragStartSize = _pushPanelHeight;
-            splitter.CapturePointer(evt.pointerId);
-            evt.StopPropagation();
-        });
-        splitter.RegisterCallback<PointerMoveEvent>(evt =>
-        {
-            if (!_isDraggingPushSplitter)
-                return;
-
-            float maxHeight = Mathf.Max(MinPushPanelHeight, detailPane.resolvedStyle.height - MinDiffPanelHeight - 18f);
-            _pushPanelHeight = Mathf.Clamp(_dragStartSize - (evt.position.y - _dragStartMouse.y), MinPushPanelHeight, maxHeight);
-            _pushPanel.style.height = _pushPanelHeight;
-            evt.StopPropagation();
-        });
-        splitter.RegisterCallback<PointerUpEvent>(evt =>
-        {
-            if (!_isDraggingPushSplitter)
-                return;
-
-            _isDraggingPushSplitter = false;
-            splitter.ReleasePointer(evt.pointerId);
-            evt.StopPropagation();
-        });
-        return splitter;
+            PushTargetConfig config = settings.PushTargets[i];
+            if (config != null && string.Equals(config.Id, targetId, StringComparison.OrdinalIgnoreCase))
+                return new LocalDirectoryPushTarget(config);
+        }
+        throw new InvalidOperationException("No push target configured.");
     }
 
-    #endregion
-
-    #region Refresh
-
-    private void RefreshRepositoryState()
+    private static List<string> GetPushTargetLabels()
     {
-        if (_root == null)
+        var labels = new List<string>();
+        FYAssetSettings settings = FYAssetSettings.Instance;
+        for (int i = 0; settings.PushTargets != null && i < settings.PushTargets.Count; i++)
+        {
+            PushTargetConfig config = settings.PushTargets[i];
+            if (config != null && !string.IsNullOrEmpty(config.Id))
+                labels.Add(config.Id);
+        }
+        if (labels.Count == 0)
+            labels.Add("(none)");
+        return labels;
+    }
+
+    private void EnsureHistorySelection()
+    {
+        if (_viewMode != RepositoryViewMode.History)
             return;
 
-        _request = CreatePreviewRequest();
-        _channelKey = BuildRepositoryFacade.GetChannelKey(_request);
-        _status = BuildRepositoryFacade.GetStatus(_request);
-        _headCommit = _status != null && _status.HasHead ? BuildRepositoryFacade.GetHeadCommit(_channelKey) : null;
-
-        RefreshHeader();
-        RefreshCommits();
-        RefreshPushHistory();
-    }
-
-    private void RefreshHeader()
-    {
-        if (_status == null)
+        if (_selectedCommit != null && FindCommitByVersion(GetCommitVersion(_selectedCommit)) != null)
             return;
 
-        _channelLabel.text = $"Channel: {_channelKey}    Backend: {GetBackendDisplayName(_request.BackendMode)}";
-        _headLabel.text = _status.HasHead ? SafeText(_status.HeadVersion) : "-";
-        _packageLabel.text = _status.HasHead ? SafeText(_status.PackageName) : "-";
-        _artifactLabel.text = _status.HasHead ? _status.ArtifactCount.ToString(CultureInfo.InvariantCulture) : "0";
-        _lastPushLabel.text = string.IsNullOrEmpty(_status.LastPushAtUtc)
-            ? "-"
-            : $"{SafeText(_status.LastPushTargetId)} {FormatUtc(_status.LastPushAtUtc)}";
-
-        if (_status.HasHeadError)
-        {
-            SetBadge("HEAD Error", new Color(0.65f, 0.20f, 0.16f));
-            _messageLabel.text = _status.HeadErrorReason;
-        }
-        else if (!_status.HasHead)
-        {
-            SetBadge("No HEAD", new Color(0.42f, 0.42f, 0.42f));
-            _messageLabel.text = "先构建一个包以创建 Repository HEAD。";
-        }
-        else if (_headCommit != null && _headCommit.IsDirty)
-        {
-            SetBadge("Dirty Git Source", new Color(0.70f, 0.46f, 0.12f));
-            _messageLabel.text = $"HEAD 创建时 Git 工作区未清理。Git {ShortHash(_headCommit.GitCommitHash)}";
-        }
-        else
-        {
-            SetBadge("HEAD OK", new Color(0.18f, 0.48f, 0.28f));
-            _messageLabel.text = _headCommit != null && !string.IsNullOrEmpty(_headCommit.GitCommitHash)
-                ? $"Git {ShortHash(_headCommit.GitCommitHash)}"
-                : "当前 HEAD 没有可用的 Git metadata。";
-        }
+        _selectedCommit = _headCommit != null
+            ? FindCommitByVersion(GetCommitVersion(_headCommit)) ?? _headCommit
+            : (_commits.Count > 0 ? _commits[_commits.Count - 1] : null);
     }
 
-    private void RefreshCommits()
+    private void EnsureArtifactSelection()
     {
-        _commitList.Clear();
-        var commits = BuildRepositoryFacade.ListCommits(_channelKey);
-        if (commits.Count == 0)
+        if (_currentDiffItems.Count == 0)
         {
-            _commitList.Add(CreateEmptyState("当前 Channel 没有提交记录。"));
+            _selectedArtifactKey = null;
             return;
         }
 
-        for (int i = commits.Count - 1; i >= 0; i--)
-        {
-            var commit = commits[i];
-            _commitList.Add(CreateCommitRow(commit, IsHeadCommit(commit)));
-        }
-    }
-
-    private void RefreshDiffEmptyState()
-    {
-        _diffSummary.Clear();
-        AddDiffStat("新增", 0, new Color(0.20f, 0.55f, 0.30f));
-        AddDiffStat("修改", 0, new Color(0.70f, 0.48f, 0.16f));
-        AddDiffStat("删除", 0, new Color(0.65f, 0.20f, 0.16f));
-
-        _diffList.Clear();
-        _diffList.Add(CreateEmptyState("点击 Diff 预览当前产物相对 Repository HEAD 的变化。"));
-    }
-
-    private void RefreshPushHistory()
-    {
-        _pushHistoryList.Clear();
-        var history = BuildRepositoryFacade.ListPushHistory(_channelKey);
-        if (history.Count == 0)
-        {
-            _pushHistoryList.Add(CreateEmptyState("当前 Channel 没有 Push 历史。"));
+        if (FindCurrentSelectedArtifact() != null)
             return;
-        }
 
-        for (int i = history.Count - 1; i >= 0; i--)
-            _pushHistoryList.Add(CreatePushHistoryRow(history[i]));
+        _selectedArtifactKey = MakeArtifactKey(_currentDiffItems[0]);
     }
 
-    #endregion
-
-    #region Commands
-
-    private void RunDiff()
+    private void SelectArtifact(RepositoryDiffItem item)
     {
-        try
-        {
-            _messageLabel.text = "正在运行 Diff 预览...";
-            if (_backendMode == BackendMode.ABManifest)
-            {
-                var preview = RepositoryPreviewRunner.RunABPreviewDetailed(_request);
-                RenderABPreview(preview);
-                _messageLabel.text = preview.HeadDelta != null && preview.HeadDelta.IsEmpty
-                    ? "AB Preview 完成，HEAD 未检测到变化。"
-                    : "AB Preview 完成。";
-            }
-            else
-            {
-                ArtifactDelta delta = RepositoryPreviewRunner.RunAAPreview(_request);
-                RenderDelta(delta);
-                _messageLabel.text = delta != null && delta.IsEmpty
-                    ? "Diff 完成，未检测到变化。"
-                    : "Diff 完成。";
-            }
-        }
-        catch (Exception ex)
-        {
-            Debug.LogError($"[RepositoryStatusPanel] Diff 失败: {ex}");
-            _diffSummary.Clear();
-            _diffList.Clear();
-            _diffList.Add(CreateEmptyState(ex.Message));
-            SetBadge("Diff Failed", new Color(0.65f, 0.20f, 0.16f));
-            _messageLabel.text = ex.Message;
-        }
+        _selectedArtifactKey = MakeArtifactKey(item);
+        RenderNavigation();
+        RenderDiffContent();
     }
 
-    private void RunPush()
+    private RepositoryDiffItem FindCurrentSelectedArtifact()
     {
-        try
-        {
-            var target = CreatePushTarget();
-            var fromVersion = ParseVersion(_fromVersionField != null ? _fromVersionField.value : string.Empty);
-            var toVersion = ParseVersion(_toVersionField != null && !string.IsNullOrEmpty(_toVersionField.value)
-                ? _toVersionField.value
-                : _request.Version.GetFullVersionString());
-            var receipt = BuildRepositoryFacade.Push(_channelKey, fromVersion, toVersion, target);
-            RefreshRepositoryState();
+        if (string.IsNullOrEmpty(_selectedArtifactKey))
+            return null;
 
-            if (receipt != null && receipt.Success)
+        for (int i = 0; i < _currentDiffItems.Count; i++)
+        {
+            RepositoryDiffItem item = _currentDiffItems[i];
+            if (string.Equals(MakeArtifactKey(item), _selectedArtifactKey, StringComparison.Ordinal))
+                return item;
+        }
+        return null;
+    }
+
+    private RepositoryCommit FindCommitByVersion(string version)
+    {
+        if (string.IsNullOrEmpty(version))
+            return null;
+
+        for (int i = 0; i < _commits.Count; i++)
+        {
+            RepositoryCommit commit = _commits[i];
+            if (string.Equals(GetCommitVersion(commit), version, StringComparison.Ordinal))
+                return commit;
+        }
+        return null;
+    }
+
+    private bool IsSelectedCommit(RepositoryCommit commit)
+    {
+        return commit != null
+            && _selectedCommit != null
+            && string.Equals(GetCommitVersion(commit), GetCommitVersion(_selectedCommit), StringComparison.Ordinal);
+    }
+
+    private bool IsHeadCommit(RepositoryCommit commit)
+    {
+        return commit != null
+            && _status != null
+            && string.Equals(GetCommitVersion(commit), _status.HeadVersion, StringComparison.Ordinal);
+    }
+
+    private bool IsSelectedArtifact(RepositoryDiffItem item)
+    {
+        return item != null && string.Equals(MakeArtifactKey(item), _selectedArtifactKey, StringComparison.Ordinal);
+    }
+
+    private List<RepositoryDiffItem> BuildDiffItems(
+        ArtifactDelta delta,
+        IReadOnlyList<ArtifactDigest> oldArtifacts,
+        IReadOnlyList<ArtifactDigest> newArtifacts)
+    {
+        var items = new List<RepositoryDiffItem>();
+        if (delta == null)
+            return items;
+
+        Dictionary<string, ArtifactDigest> oldByName = BuildArtifactMap(oldArtifacts);
+        Dictionary<string, ArtifactDigest> newByName = BuildArtifactMap(newArtifacts);
+
+        AddArtifactItems(items, RepositoryDiffKind.Added, delta.Added, oldByName, newByName);
+        AddArtifactItems(items, RepositoryDiffKind.Modified, delta.Modified, oldByName, newByName);
+        if (delta.Removed != null)
+        {
+            for (int i = 0; i < delta.Removed.Count; i++)
             {
-                SetBadge("Push OK", new Color(0.18f, 0.48f, 0.28f));
-                _messageLabel.text = $"Push 成功: {receipt.TargetId} -> {receipt.TargetLocation}";
-            }
-            else
-            {
-                SetBadge("Push Failed", new Color(0.65f, 0.20f, 0.16f));
-                _messageLabel.text = receipt != null ? receipt.FailureReason : "Push 返回了空 receipt。";
+                string name = delta.Removed[i];
+                oldByName.TryGetValue(name ?? string.Empty, out ArtifactDigest oldArtifact);
+                items.Add(new RepositoryDiffItem
+                {
+                    Kind = RepositoryDiffKind.Removed,
+                    Name = name,
+                    OldArtifact = oldArtifact,
+                    NewArtifact = null
+                });
             }
         }
-        catch (Exception ex)
+
+        return items;
+    }
+
+    private static void AddArtifactItems(
+        List<RepositoryDiffItem> items,
+        RepositoryDiffKind kind,
+        List<ArtifactDigest> artifacts,
+        Dictionary<string, ArtifactDigest> oldByName,
+        Dictionary<string, ArtifactDigest> newByName)
+    {
+        if (artifacts == null)
+            return;
+
+        for (int i = 0; i < artifacts.Count; i++)
         {
-            Debug.LogError($"[RepositoryStatusPanel] Push 失败: {ex}");
-            SetBadge("Push Failed", new Color(0.65f, 0.20f, 0.16f));
-            _messageLabel.text = ex.Message;
+            ArtifactDigest artifact = artifacts[i];
+            string name = artifact != null ? artifact.Name : string.Empty;
+            oldByName.TryGetValue(name ?? string.Empty, out ArtifactDigest oldArtifact);
+            newByName.TryGetValue(name ?? string.Empty, out ArtifactDigest newArtifact);
+            items.Add(new RepositoryDiffItem
+            {
+                Kind = kind,
+                Name = name,
+                OldArtifact = oldArtifact,
+                NewArtifact = artifact ?? newArtifact
+            });
         }
     }
 
-    #endregion
+    private static Dictionary<string, ArtifactDigest> BuildArtifactMap(IReadOnlyList<ArtifactDigest> artifacts)
+    {
+        var map = new Dictionary<string, ArtifactDigest>(StringComparer.Ordinal);
+        if (artifacts == null)
+            return map;
 
-    #region Render Helpers
+        for (int i = 0; i < artifacts.Count; i++)
+        {
+            ArtifactDigest artifact = artifacts[i];
+            if (artifact == null || string.IsNullOrEmpty(artifact.Name))
+                continue;
+            if (!map.ContainsKey(artifact.Name))
+                map.Add(artifact.Name, artifact);
+        }
+        return map;
+    }
 
-    private VisualElement CreateCommitRow(RepositoryCommit commit, bool isHead)
+    private void AddDiffStats(ArtifactDelta delta)
+    {
+        _summaryRow.Clear();
+        AddDiffStat("Added", CountAdded(delta), new Color(0.20f, 0.55f, 0.30f));
+        AddDiffStat("Modified", CountModified(delta), new Color(0.70f, 0.48f, 0.16f));
+        AddDiffStat("Removed", CountRemoved(delta), new Color(0.65f, 0.20f, 0.16f));
+    }
+
+    private void RenderDeliverySummary()
+    {
+        _deliverySummary.Clear();
+        if (_backendMode != BackendMode.ABManifest || _stagingABPreview == null)
+            return;
+
+        int count = _stagingABPreview.DeliveryBundles != null ? _stagingABPreview.DeliveryBundles.Count : 0;
+        _deliverySummary.Add(CreateBadge($"Hotfix Delivery {count}", new Color(0.17f, 0.36f, 0.53f)));
+        _deliverySummary.Add(BuildPipelineUI.SmallText($"Full baseline -> current output, {FormatBytes(_stagingABPreview.DeliverySizeBytes)}"));
+    }
+
+    private void AddDiffStat(string title, int count, Color color)
+    {
+        Label stat = CreateBadge($"{title} {count}", color);
+        stat.style.marginRight = 6f;
+        stat.style.marginBottom = 4f;
+        _summaryRow.Add(stat);
+    }
+
+    private VisualElement CreateClickableRow(bool selected, Action clicked)
     {
         var row = new VisualElement();
         row.style.paddingLeft = 8f;
@@ -660,204 +1135,77 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
         row.style.paddingTop = 7f;
         row.style.paddingBottom = 7f;
         row.style.marginBottom = 5f;
-        row.style.backgroundColor = isHead ? new Color(0.17f, 0.36f, 0.53f, 0.55f) : new Color(0f, 0f, 0f, 0.08f);
+        row.style.backgroundColor = selected ? new Color(0.17f, 0.36f, 0.53f, 0.55f) : new Color(0f, 0f, 0f, 0.08f);
         ApplyBorder(row);
-
-        var version = commit != null && commit.Version != null ? commit.Version.GetFullVersionString() : "(unknown)";
-        var title = new Label(isHead ? $"HEAD  {version}" : version);
-        title.style.unityFontStyleAndWeight = FontStyle.Bold;
-        title.style.whiteSpace = WhiteSpace.Normal;
-        row.Add(title);
-
-        row.Add(BuildPipelineUI.SmallText($"{FormatUtc(commit?.CreatedAtUtc)}  |  {SafeText(commit?.PackageName)}"));
-        row.Add(BuildPipelineUI.SmallText($"Git {ShortHash(commit?.GitCommitHash)}  |  Type {SafeText(commit?.BuildType)}  |  Artifacts {CountArtifacts(commit)}{(commit != null && commit.IsDirty ? "  |  Dirty" : string.Empty)}"));
-
         row.RegisterCallback<PointerDownEvent>(evt =>
         {
-            if (evt.button != 0 || commit == null || commit.Version == null)
+            if (evt.button != 0)
                 return;
 
-            _toVersionField.value = commit.Version.GetFullVersionString();
-            _messageLabel.text = $"已选择 {commit.Version.GetFullVersionString()} 作为 Push To。";
+            clicked?.Invoke();
             evt.StopPropagation();
         });
         return row;
     }
 
-    private VisualElement CreatePushHistoryRow(PushHistoryEntry item)
+    private Label CreateMarkerLabel(RepositoryDiffKind kind)
     {
-        var row = new VisualElement();
-        row.style.paddingLeft = 8f;
-        row.style.paddingRight = 8f;
-        row.style.paddingTop = 5f;
-        row.style.paddingBottom = 5f;
-        row.style.marginBottom = 4f;
-        row.style.backgroundColor = new Color(0f, 0f, 0f, 0.08f);
-        ApplyBorder(row);
-
-        var title = new Label($"{SafeText(item.FromVersion)} -> {SafeText(item.ToVersion)}");
-        title.style.unityFontStyleAndWeight = FontStyle.Bold;
-        row.Add(title);
-        row.Add(BuildPipelineUI.SmallText($"{SafeText(item.TargetId)}  |  {FormatUtc(item.PushedAtUtc)}  |  {item.DeltaFileCount} files"));
-        row.Add(BuildPipelineUI.SmallText(SafeText(item.TargetLocation)));
-        return row;
+        var mark = new Label(GetKindMarker(kind));
+        mark.style.width = 24f;
+        mark.style.minWidth = 24f;
+        mark.style.unityTextAlign = TextAnchor.MiddleCenter;
+        mark.style.unityFontStyleAndWeight = FontStyle.Bold;
+        mark.style.color = GetKindColor(kind);
+        return mark;
     }
 
-    private void RenderDelta(ArtifactDelta delta)
-    {
-        delta ??= new ArtifactDelta();
-        _diffSummary.Clear();
-        AddDiffStat("新增", delta.Added.Count, new Color(0.20f, 0.55f, 0.30f));
-        AddDiffStat("修改", delta.Modified.Count, new Color(0.70f, 0.48f, 0.16f));
-        AddDiffStat("删除", delta.Removed.Count, new Color(0.65f, 0.20f, 0.16f));
-
-        _diffList.Clear();
-        if (delta.IsEmpty)
-        {
-            _diffList.Add(CreateEmptyState("没有产物变化。"));
-            return;
-        }
-
-        AddArtifactSection("新增", "+", delta.Added, new Color(0.20f, 0.55f, 0.30f));
-        AddArtifactSection("修改", "*", delta.Modified, new Color(0.70f, 0.48f, 0.16f));
-        AddRemovedSection(delta.Removed);
-    }
-
-    private void RenderABPreview(ABRepositoryPreviewResult preview)
-    {
-        preview ??= new ABRepositoryPreviewResult();
-        var delta = preview.HeadDelta ?? new ArtifactDelta();
-
-        _diffSummary.Clear();
-        AddDiffStat("HEAD 新增", delta.Added.Count, new Color(0.20f, 0.55f, 0.30f));
-        AddDiffStat("HEAD 修改", delta.Modified.Count, new Color(0.70f, 0.48f, 0.16f));
-        AddDiffStat("HEAD 删除", delta.Removed.Count, new Color(0.65f, 0.20f, 0.16f));
-        AddDiffStat("Delivery", preview.DeliveryBundles != null ? preview.DeliveryBundles.Count : 0, new Color(0.17f, 0.36f, 0.53f));
-
-        _diffList.Clear();
-        _diffList.Add(CreateSectionHeader("HEAD Diff (current vs Repository HEAD)", new Color(0.17f, 0.36f, 0.53f)));
-        if (delta.IsEmpty)
-        {
-            _diffList.Add(CreateEmptyState("HEAD 没有产物变化。"));
-        }
-        else
-        {
-            AddArtifactSection("新增", "+", delta.Added, new Color(0.20f, 0.55f, 0.30f));
-            AddArtifactSection("修改", "*", delta.Modified, new Color(0.70f, 0.48f, 0.16f));
-            AddRemovedSection(delta.Removed);
-        }
-
-        _diffList.Add(CreateSectionHeader(
-            $"Hotfix Delivery (current vs Full baseline) - {FormatBytes(preview.DeliverySizeBytes)}",
-            new Color(0.17f, 0.36f, 0.53f)));
-        if (preview.DeliveryBundles == null || preview.DeliveryBundles.Count == 0)
-        {
-            _diffList.Add(CreateEmptyState("Delivery bundle 为空；Hotfix 将只发布完整 ABManifest。"));
-            return;
-        }
-
-        for (int i = 0; i < preview.DeliveryBundles.Count; i++)
-        {
-            var bundle = preview.DeliveryBundles[i];
-            _diffList.Add(CreateDiffRow("D", bundle != null ? bundle.BundleName : string.Empty, bundle != null ? FormatBytes(bundle.FileSize) : string.Empty, new Color(0.17f, 0.36f, 0.53f)));
-        }
-    }
-
-    private void AddArtifactSection(string title, string marker, List<ArtifactDigest> items, Color color)
-    {
-        if (items == null || items.Count == 0)
-            return;
-
-        _diffList.Add(CreateSectionHeader(title, color));
-        for (int i = 0; i < items.Count; i++)
-        {
-            var item = items[i];
-            _diffList.Add(CreateDiffRow(marker, item != null ? item.Name : string.Empty, item != null ? FormatBytes(item.Size) : string.Empty, color));
-        }
-    }
-
-    private void AddRemovedSection(List<string> items)
-    {
-        if (items == null || items.Count == 0)
-            return;
-
-        var color = new Color(0.65f, 0.20f, 0.16f);
-        _diffList.Add(CreateSectionHeader("删除", color));
-        for (int i = 0; i < items.Count; i++)
-            _diffList.Add(CreateDiffRow("-", items[i], string.Empty, color));
-    }
-
-    private Label CreateSectionHeader(string text, Color color)
-    {
-        var label = new Label(text);
-        label.style.unityFontStyleAndWeight = FontStyle.Bold;
-        label.style.color = color;
-        label.style.marginTop = 6f;
-        label.style.marginBottom = 4f;
-        return label;
-    }
-
-    private VisualElement CreateDiffRow(string marker, string name, string meta, Color color)
+    private VisualElement CreateDetailLine(string label, string value)
     {
         var row = new VisualElement();
         row.style.flexDirection = FlexDirection.Row;
-        row.style.alignItems = Align.Center;
-        row.style.paddingTop = 4f;
-        row.style.paddingBottom = 4f;
-        row.style.borderBottomWidth = 1f;
-        row.style.borderBottomColor = new Color(BuildPipelineUI.BorderColor.r, BuildPipelineUI.BorderColor.g, BuildPipelineUI.BorderColor.b, 0.45f);
+        row.style.marginBottom = 4f;
 
-        var mark = new Label(marker);
-        mark.style.width = 22f;
-        mark.style.unityTextAlign = TextAnchor.MiddleCenter;
-        mark.style.color = color;
-        mark.style.unityFontStyleAndWeight = FontStyle.Bold;
-        row.Add(mark);
+        Label key = BuildPipelineUI.SmallText(label);
+        key.style.width = 84f;
+        key.style.flexShrink = 0f;
+        row.Add(key);
 
-        var label = new Label(SafeText(name));
-        label.style.flexGrow = 1f;
-        label.style.minWidth = 0f;
-        label.style.whiteSpace = WhiteSpace.Normal;
-        row.Add(label);
-
-        if (!string.IsNullOrEmpty(meta))
-        {
-            var metaLabel = BuildPipelineUI.SmallText(meta);
-            metaLabel.style.marginLeft = 8f;
-            row.Add(metaLabel);
-        }
-
+        var val = new Label(value ?? string.Empty);
+        val.style.flexGrow = 1f;
+        val.style.minWidth = 0f;
+        val.style.whiteSpace = WhiteSpace.Normal;
+        row.Add(val);
         return row;
     }
 
-    private Label AddStat(VisualElement parent, string title, string value)
+    private Label CreateSectionLabel(string text)
     {
-        var box = new VisualElement();
-        box.style.flexGrow = 1f;
-        box.style.minWidth = 0f;
-        box.style.marginRight = 6f;
-        box.style.paddingLeft = 8f;
-        box.style.paddingRight = 8f;
-        box.style.paddingTop = 6f;
-        box.style.paddingBottom = 6f;
-        box.style.backgroundColor = new Color(0f, 0f, 0f, 0.10f);
-        ApplyBorder(box);
-
-        var titleLabel = BuildPipelineUI.SmallText(title);
-        box.Add(titleLabel);
-        var valueLabel = new Label(value);
-        valueLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
-        valueLabel.style.whiteSpace = WhiteSpace.Normal;
-        box.Add(valueLabel);
-        parent.Add(box);
-        return valueLabel;
+        var label = new Label(text);
+        label.style.marginTop = 8f;
+        label.style.marginBottom = 4f;
+        label.style.unityFontStyleAndWeight = FontStyle.Bold;
+        return label;
     }
 
-    private void AddDiffStat(string title, int count, Color color)
+    private Label CreateWarning(string text)
     {
-        var stat = CreateBadge($"{title} {count}", color);
-        stat.style.marginRight = 6f;
-        _diffSummary.Add(stat);
+        Label label = BuildPipelineUI.SmallText(text);
+        label.style.marginTop = 6f;
+        label.style.color = new Color(0.90f, 0.62f, 0.20f);
+        return label;
+    }
+
+    private void AddArtifactMetadata(VisualElement parent, ArtifactDigest artifact)
+    {
+        if (artifact == null)
+        {
+            parent.Add(CreateEmptyState("Metadata unavailable."));
+            return;
+        }
+
+        parent.Add(CreateDetailLine("Hash", SafeText(artifact.Hash)));
+        parent.Add(CreateDetailLine("CRC", FormatCrc(artifact.CRC)));
+        parent.Add(CreateDetailLine("Size", FormatBytes(artifact.Size)));
     }
 
     private static Label CreateBadge(string text, Color color)
@@ -879,7 +1227,7 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
 
     private static Label CreateEmptyState(string text)
     {
-        var label = BuildPipelineUI.SmallText(text);
+        Label label = BuildPipelineUI.SmallText(text);
         label.style.paddingLeft = 8f;
         label.style.paddingRight = 8f;
         label.style.paddingTop = 8f;
@@ -888,10 +1236,43 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
         return label;
     }
 
+    private Label AddStat(VisualElement parent, string title, string value)
+    {
+        var box = new VisualElement();
+        box.style.flexGrow = 1f;
+        box.style.minWidth = 0f;
+        box.style.marginRight = 6f;
+        box.style.paddingLeft = 8f;
+        box.style.paddingRight = 8f;
+        box.style.paddingTop = 6f;
+        box.style.paddingBottom = 6f;
+        box.style.backgroundColor = new Color(0f, 0f, 0f, 0.10f);
+        ApplyBorder(box);
+
+        Label titleLabel = BuildPipelineUI.SmallText(title);
+        box.Add(titleLabel);
+        var valueLabel = new Label(value);
+        valueLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
+        valueLabel.style.whiteSpace = WhiteSpace.Normal;
+        box.Add(valueLabel);
+        parent.Add(box);
+        return valueLabel;
+    }
+
     private void SetBadge(string text, Color color)
     {
+        if (_statusBadge == null)
+            return;
+
         _statusBadge.text = text;
         _statusBadge.style.backgroundColor = color;
+    }
+
+    private void ClearStagingState()
+    {
+        _stagingDelta = null;
+        _stagingABPreview = null;
+        _hasStagingDelta = false;
     }
 
     private static void ApplyBorder(VisualElement element)
@@ -915,7 +1296,7 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
         if (field == null)
             return;
 
-        var label = field.Q<Label>();
+        Label label = field.Q<Label>();
         if (label == null)
             return;
 
@@ -923,61 +1304,27 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
         label.style.width = labelWidth;
         label.style.marginRight = 4f;
         label.style.flexShrink = 0f;
+
+        var input = field.Q(className: "unity-base-field__input");
+        if (input == null)
+            return;
+
+        input.style.minWidth = 0f;
+        input.style.flexShrink = 1f;
     }
 
-    #endregion
-
-    #region Data Helpers
-
-    private BuildPackageRequest CreatePreviewRequest()
+    private static string GetCommitVersion(RepositoryCommit commit)
     {
-        var versionDB = AssetDatabase.LoadAssetAtPath<VersionDataBase>(FYAssetSettings.Instance.VersionDataBasePath);
-        var version = versionDB != null && versionDB.CurrentVersion != null
-            ? versionDB.CurrentVersion
-            : new VersionNumber { Major = 0, Minor = 0, Patch = 0 };
-        return BuildPackageRequest.Create(version, BuildType.Full, _backendMode);
+        return commit != null && commit.Version != null ? commit.Version.GetFullVersionString() : string.Empty;
     }
 
-    private static VersionNumber ParseVersion(string value)
+    private static string GetCommitDeltaSummary(RepositoryCommit commit)
     {
-        return string.IsNullOrWhiteSpace(value) ? null : VersionNumber.Parse(value);
-    }
-
-    private IPushTarget CreatePushTarget()
-    {
-        var settings = FYAssetSettings.Instance;
-        string targetId = _targetDropdown != null && !string.IsNullOrEmpty(_targetDropdown.value)
-            ? _targetDropdown.value
-            : (settings.PushTargets != null && settings.PushTargets.Count > 0 ? settings.PushTargets[0].Id : string.Empty);
-        for (int i = 0; settings.PushTargets != null && i < settings.PushTargets.Count; i++)
-        {
-            var config = settings.PushTargets[i];
-            if (config != null && string.Equals(config.Id, targetId, StringComparison.OrdinalIgnoreCase))
-                return new LocalDirectoryPushTarget(config);
-        }
-        throw new InvalidOperationException("No push target configured.");
-    }
-
-    private static List<string> GetPushTargetLabels()
-    {
-        var labels = new List<string>();
-        var settings = FYAssetSettings.Instance;
-        for (int i = 0; settings.PushTargets != null && i < settings.PushTargets.Count; i++)
-        {
-            var config = settings.PushTargets[i];
-            if (config != null && !string.IsNullOrEmpty(config.Id))
-                labels.Add(config.Id);
-        }
-        if (labels.Count == 0)
-            labels.Add("(none)");
-        return labels;
-    }
-
-    private bool IsHeadCommit(RepositoryCommit commit)
-    {
-        if (commit == null || commit.Version == null || _status == null)
-            return false;
-        return string.Equals(commit.Version.GetFullVersionString(), _status.HeadVersion, StringComparison.Ordinal);
+        if (commit == null)
+            return "+0 ~0 -0";
+        if (commit.CommitDelta == null)
+            return "No persisted diff";
+        return $"+{CountAdded(commit.CommitDelta)} ~{CountModified(commit.CommitDelta)} -{CountRemoved(commit.CommitDelta)}";
     }
 
     private static int CountArtifacts(RepositoryCommit commit)
@@ -985,14 +1332,71 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
         return commit != null && commit.Artifacts != null ? commit.Artifacts.Count : 0;
     }
 
+    private static int CountAdded(ArtifactDelta delta)
+    {
+        return delta != null && delta.Added != null ? delta.Added.Count : 0;
+    }
+
+    private static int CountModified(ArtifactDelta delta)
+    {
+        return delta != null && delta.Modified != null ? delta.Modified.Count : 0;
+    }
+
+    private static int CountRemoved(ArtifactDelta delta)
+    {
+        return delta != null && delta.Removed != null ? delta.Removed.Count : 0;
+    }
+
+    private static bool IsDeltaEmpty(ArtifactDelta delta)
+    {
+        return CountAdded(delta) == 0 && CountModified(delta) == 0 && CountRemoved(delta) == 0;
+    }
+
+    private static string MakeArtifactKey(RepositoryDiffItem item)
+    {
+        return item == null ? string.Empty : $"{item.Kind}:{item.Name}";
+    }
+
+    private static string GetKindMarker(RepositoryDiffKind kind)
+    {
+        return kind switch
+        {
+            RepositoryDiffKind.Added => "+",
+            RepositoryDiffKind.Modified => "~",
+            RepositoryDiffKind.Removed => "-",
+            _ => "?"
+        };
+    }
+
+    private static string GetKindText(RepositoryDiffKind kind)
+    {
+        return kind switch
+        {
+            RepositoryDiffKind.Added => "Added",
+            RepositoryDiffKind.Modified => "Modified",
+            RepositoryDiffKind.Removed => "Removed",
+            _ => "Unknown"
+        };
+    }
+
+    private static Color GetKindColor(RepositoryDiffKind kind)
+    {
+        return kind switch
+        {
+            RepositoryDiffKind.Added => new Color(0.20f, 0.55f, 0.30f),
+            RepositoryDiffKind.Modified => new Color(0.70f, 0.48f, 0.16f),
+            RepositoryDiffKind.Removed => new Color(0.65f, 0.20f, 0.16f),
+            _ => Color.gray
+        };
+    }
+
     private static string FormatUtc(string value)
     {
         if (string.IsNullOrEmpty(value))
             return "-";
 
-        if (DateTime.TryParse(value, null, DateTimeStyles.RoundtripKind, out var date))
+        if (DateTime.TryParse(value, null, DateTimeStyles.RoundtripKind, out DateTime date))
             return date.ToLocalTime().ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture);
-
         return value;
     }
 
@@ -1008,6 +1412,11 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
             return value.ToString("N1", CultureInfo.InvariantCulture) + " MB";
         value /= 1024d;
         return value.ToString("N1", CultureInfo.InvariantCulture) + " GB";
+    }
+
+    private static string FormatCrc(uint crc)
+    {
+        return "0x" + crc.ToString("X8", CultureInfo.InvariantCulture);
     }
 
     private static string ShortHash(string hash)
@@ -1026,8 +1435,5 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
     {
         return backendMode == BackendMode.ABManifest ? "AB" : "AA";
     }
-
-    #endregion
 }
 #endif
-

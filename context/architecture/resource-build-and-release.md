@@ -41,7 +41,9 @@ The hotfix build flow relies on repository HEAD comparison instead of manual gro
 - `FileBuildRepository.GetStatus()` distinguishes empty HEAD from malformed HEAD through `RepositoryStatus.HasHeadError` / `HeadErrorReason`
 - `VersionDataBase` is shared as the product-version source; AA and AB are build backend dimensions, not separate product version streams
 - `RepositoryHeadState` stores only `HeadVersion`; the object path is derived as `objects/{HeadVersion}.json`
-- `RepositoryCommit` stores version, channel key, backend mode, build type (`Full` or `Hotfix`), build target, package name, UTC creation time, artifact digests, `GitCommitHash`, `IsDirty`, and `PackageRootDir`
+- `RepositoryCommit` stores version, channel key, backend mode, build type (`Full` or `Hotfix`), build target, package name, UTC creation time, artifact digests, `GitCommitHash`, `IsDirty`, `PackageRootDir`, `ParentVersion`, and persisted `CommitDelta`
+- `FileBuildRepository.Commit()` computes `ParentVersion` and `CommitDelta` before writing the commit object. The parent is the previous same-channel/backend HEAD at commit time; the first commit has an empty parent and a full Added delta from an empty artifact set.
+- Old commit JSON without `CommitDelta` is tolerated as legacy data. The repository UI displays it as having no persisted diff and does not rewrite old objects on load.
 - `ArtifactDigest` stores artifact name, hash, size, and CRC for diffing; it is JSON-serializable and is not binary-serialized
 - `ArtifactDelta` represents Added / Modified / Removed artifact sets
 - `ArtifactDiffer` performs pure name/hash diffing with no Unity API side effects
@@ -57,14 +59,16 @@ The hotfix build flow relies on repository HEAD comparison instead of manual gro
 - AB Hotfix fails before package finalization when the same-Major Full baseline commit is missing. Old commits without `RepositoryCommit.BuildType == "Full"` are not inferred as baselines.
 - AB Hotfix fallback validation requires every non-delivered manifest bundle to exist in the Full baseline with the same physical bundle name and file hash.
 - `ConfirmReleaseHotfix` is a placeholder wrapper and does not mutate repository HEAD, build artifacts, or push targets
-- `BuildRepositoryCLI` exposes `Status`, `Diff`, `Push`, and `ListCommits`; `Diff` runs the AA or AB DAG to the backend-specific diff task and stops there
-- `FileBuildRepository.Push()` loads the from/to commits for either AA or AB channels, computes the changed artifact count for history display, and delegates publication to the configured `IPushTarget`
+- `BuildRepositoryCLI` exposes `Status`, `Diff`, `Push`, and `ListCommits`; `Diff` runs the AA or AB DAG to the backend-specific diff task and stops there, and CLI `Push` keeps its explicit from/to argument contract
+- `FileBuildRepository.Push()` loads explicit from/to commits for either AA or AB channels, computes the changed artifact count for history display, and delegates publication to the configured `IPushTarget`
+- `FileBuildRepository.PushHead()` publishes the current Repository HEAD for editor UI use. It derives the parent from the HEAD commit `ParentVersion`; an empty parent represents the first push.
 - `LocalDirectoryPushTarget` treats `PushTargetConfig.Path` as a publish root. An empty path resolves to `BuildPathManager.OutputRoot`; publication writes `{PublishRoot}/PackageIndex.json` and `{PublishRoot}/{BuildPackagesFolderName}/{PackageName}/...`
 - Push writes the root `PackageIndex.json` from the target commit's package name, version, and backend mode. It does not reinterpret package-internal catalog or manifest files.
 - `PushHistory.json` is written by the repository at `BuildData/Snapshots/{BuildTarget}[-Channel]/{BackendMode}/PushHistory.json` after a successful push
 - `RepositoryStatusPanel` can be constructed for a fixed backend mode. The build pipeline window exposes separate AA Repository and AB Repository entries instead of one shared repository panel.
+- `RepositoryStatusPanel` uses separate `History` and `Changes` views. `History` reads persisted commit diffs from `RepositoryCommit.CommitDelta` without running preview; `Changes` runs staging preview only when `Refresh Staging` is clicked.
 - AB Build Result reads editor-only JSON reports from project-root `BuildData/Reports/AB/`; these reports are ignored by git and are not copied into package output or runtime startup data. AA Build Result remains a placeholder for Unity Addressables-owned reporting.
-- AB Diff Preview uses `DAGScheduler.Execute` with a stop-after task and whitelist, writes temporary outputs under `Temp/BuildRepositoryPreview/{guid}/`, and deletes that directory in a `finally` path; `TaskPrepareContext` reads the preview output root from `BuildContextKeys.RepositoryPreviewOutput` instead of an environment variable. The AB preview result separates current-vs-HEAD diff from current-vs-Full-baseline hotfix delivery count/size/list.
+- AB staging preview uses `DAGScheduler.Execute` with a stop-after task and whitelist, writes temporary outputs under `Temp/BuildRepositoryPreview/{guid}/`, and deletes that directory in a `finally` path; `TaskPrepareContext` reads the preview output root from `BuildContextKeys.RepositoryPreviewOutput` instead of an environment variable. The AB preview result separates current-vs-HEAD diff from current-vs-Full-baseline hotfix delivery count/size/list.
 
 ## Release Operations
 

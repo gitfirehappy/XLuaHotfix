@@ -3,7 +3,7 @@
 > **Status**: In progress (Phase 1-4 completed, Phase 5 E1-1/E1-2/E1-3/E1-4/E2 realized, Phase 6 E4/E5-1/E5-2a/E5-2b/E6/E7/E9/E10/E11 main path realized, Build Repository AA Push signed off and archived, AssetsCollection address/settings/follow-up plans signed off and archived, AB cumulative hotfix delivery signed off and archived, basic pipeline UI layout aligned)
 > **Ultimate Goal**: Fully replace Addressables with custom runtime + build-time resource management system (referencing YooAsset architecture)
 > **Created**: 2026-03-16
-> **Updated**: 2026-06-06 — AB Build Result now has an editor-only report pipeline and Addressables-style report viewer awaiting developer sign-off; AA remains on Unity Addressables reporting
+> **Updated**: 2026-06-06 — Repository git-style commit diff and Changes/History panel redesign implemented and awaiting developer sign-off; AB Build Result report panel also awaits sign-off
 
 ---
 
@@ -190,6 +190,7 @@ Phase 4 and Phase 6 must be coordinated (ABManifest runtime consumption + build-
 | File | Content | Status |
 |------|---------|--------|
 | plan-ab-build-report-panel-20260606.md | AB Build Result report panel: editor-only AB report JSON under `BuildData/Reports/AB/`, Addressables-style Summary/Explore/Potential Issues UI, AB-only scope with AA left on Unity Addressables Report | Implemented / Awaiting sign-off |
+| plan-repository-git-style-diff-20260606.md | Repository git-style commit diff and GitHub Desktop-style Changes/History layout: persist per-commit parent delta, keep staging diff as current preview output vs HEAD, and remove editable Push From/To from the Repository panel | Implemented / Awaiting sign-off |
 
 ### Phase 5: Build-Time - Asset Collection & Indexing
 

@@ -19,6 +19,8 @@ public sealed class RepositoryCommit
     public string GitCommitHash;
     public bool IsDirty;
     public string PackageRootDir;
+    public string ParentVersion;
+    public ArtifactDelta CommitDelta;
     public List<ArtifactDigest> Artifacts = new();
 }
 

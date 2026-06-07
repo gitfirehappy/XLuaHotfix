@@ -16,8 +16,9 @@ Build Repository 是构建产物的版本化存储系统，采用类 git 的 HEA
 - **JSON 唯一持久化格式**，所有写入通过 `FileHelper` 原子写保证一致性
 - **先写 object 再交换 HEAD**，HEAD 交换失败时 object 作为孤立文件保留，不会丢数据
 - **AA / AB 仓库空间隔离**，通过 ChannelKey 中的 BackendMode 段区分
+- **提交级 CommitDiff 固化**：每个 commit 写入时记录它相对上一个同 Channel/Backend HEAD 的 `CommitDelta`，首个 commit 的 diff 是从空集合到当前产物的全量 Added
 - **Push 发布已构建包体**：发布根包含 `PackageIndex.json` 和 `{BuildPackagesFolderName}/{PackageName}`，包体内容由构建 Task 负责
-- **Diff 不筛 Push 文件**：Repository Diff 负责识别变化、驱动 AA Hotfix Group、展示预览和记录 PushHistory；Push 始终发布已构建包体。AB Hotfix 的实际包体交付列表由 AB 构建 Task 按 Full baseline 计算。
+- **Diff 不筛 Push 文件**：Repository Diff 负责识别变化、驱动 AA Hotfix Group、展示提交/预览和记录 PushHistory；Push 始终发布已构建包体。AB Hotfix 的实际包体交付列表由 AB 构建 Task 按 Full baseline 计算。
 
 ---
 
@@ -60,6 +61,16 @@ Build Repository 是构建产物的版本化存储系统，采用类 git 的 HEA
 - 调用方必须保证 `from` 和 `to` 处于同一命名域。
 - AA 命名域是 Asset GUID；AB 命名域是 BundleName。
 - Hash 比较使用 Ordinal 字符串比较。
+
+### CommitDelta（提交差异）
+
+`RepositoryCommit.CommitDelta` 是提交对象持久化的一部分，语义仿照 Git 的“一个提交相对它的父提交的变动”：
+
+- `ParentVersion` 指向提交写入前的同 Channel/Backend HEAD；
+- 首个提交没有父提交，`ParentVersion` 为空字符串；
+- 首个提交的 `CommitDelta.Added.Count == Artifacts.Count`，表示空仓库到当前产物的全量新增；
+- 后续提交的 `CommitDelta` 固定为 `ArtifactDiffer.Diff(parent.Artifacts, current.Artifacts)`；
+- 旧 object JSON 没有 `CommitDelta` 时只在 UI 中显示“无持久化 diff”，不会加载后自动重写旧文件。
 
 ---
 
@@ -161,6 +172,8 @@ BuildData/Snapshots/
 | `GitCommitHash` | string | ✓ | 当前 git HEAD 的 commit hash，git 不可用时为空字符串 |
 | `IsDirty` | bool | ✓ | 工作区是否有未提交的变更（`git status --porcelain` 非空） |
 | `PackageRootDir` | string | ✓ | 最终包体输出目录的绝对路径，Push 时用于定位产物文件 |
+| `ParentVersion` | string | ✓ | 父提交版本；首个提交为空 |
+| `CommitDelta` | ArtifactDelta | ✓ | 当前提交相对父提交的固定差异；首个提交为全量 Added |
 | `Artifacts` | List\<ArtifactDigest\> | ✓ | 本次构建的产物指纹列表（AA 为源资产 GUID，AB 为 Bundle 文件） |
 
 ### RepositoryHeadState（HEAD 指针）
@@ -244,13 +257,15 @@ public interface IPushTarget
 
 ### Push 流程
 
-1. `FileBuildRepository.Push()` 加载 `fromCommit` 和 `toCommit`
-2. 调用 `ArtifactDiffer.Diff(fromCommit.Artifacts, toCommit.Artifacts)` 计算差异
-3. 组装 `PushPayload` 并调用 `target.Push(payload)`
-4. `LocalDirectoryPushTarget` 将 `PushTargetConfig.Path` 作为发布根；空路径解析为当前 `BuildPathManager.OutputRoot`
-5. 发布 `{PublishRoot}/PackageIndex.json` 和 `{PublishRoot}/{BuildPackagesFolderName}/{PackageName}/...`
-6. Push 成功后追加 `PushHistoryEntry` 并写入 `PushHistory.json`
-7. **当前状态**：AA/AB Push 均走同一发布根语义，Push 成功后记录对应 Channel 的 `PushHistory.json`。
+1. 编辑器面板调用 `BuildRepositoryFacade.PushHead()` 发布当前 Repository HEAD，不提供可编辑 From/To。
+2. `BuildRepositoryFacade.PushHead()` 走文件仓库实现的 UI 专用入口，不改变 `IBuildRepository.Push(...)` 和 CLI 的显式 from/to 契约。
+3. `FileBuildRepository.PushHead()` 读取 HEAD commit，并从 `ParentVersion` 推导 `FromCommit`；首个提交的 From 为空。
+4. CLI 仍调用 `FileBuildRepository.Push(channelKey, fromVersion, toVersion, target)`，保留显式 `-from` / `-to` 参数契约。
+5. Repository 组装 `PushPayload` 并调用 `target.Push(payload)`；差异数量只用于 `PushHistory.DeltaFileCount`。
+6. `LocalDirectoryPushTarget` 将 `PushTargetConfig.Path` 作为发布根；空路径解析为当前 `BuildPathManager.OutputRoot`
+7. 发布 `{PublishRoot}/PackageIndex.json` 和 `{PublishRoot}/{BuildPackagesFolderName}/{PackageName}/...`
+8. Push 成功后追加 `PushHistoryEntry` 并写入 `PushHistory.json`
+9. **当前状态**：AA/AB Push 均走同一发布根语义，Push 成功后记录对应 Channel 的 `PushHistory.json`。
 
 ### LocalDirectoryPushTarget
 
@@ -291,9 +306,9 @@ GetChannelKey(channel, backendMode)
 
 ---
 
-## Diff Preview（差异预览）
+## Diff Preview / Staging（预览差异）
 
-`RepositoryPreviewRunner` 提供只读差异预览，不修改 HEAD、objects 或 PackageIndex。
+`RepositoryPreviewRunner` 提供只读 staging diff，不修改 HEAD、objects 或 PackageIndex。它只在 Repository 面板 `Changes` 视图点击 `Refresh Staging`，或 CLI `Diff` 命令中执行。
 
 ### AA Diff Preview
 
@@ -310,7 +325,7 @@ GetChannelKey(channel, backendMode)
 - `finally` 块清理临时目录
 - 同时展示两组信息：HEAD Diff 是 current-vs-Repository HEAD；Hotfix Delivery 是 current-vs-Full baseline 的交付 bundle 数量、大小和列表
 
-Diff Preview 是只读诊断能力。它不会提交 HEAD、不会写 `PackageIndex.json`，也不会替代正式构建中的打包输出规则。
+Staging diff 是只读诊断能力。它不会提交 HEAD、不会写 `PackageIndex.json`，也不会替代正式构建中的打包输出规则。
 
 ---
 
@@ -323,8 +338,10 @@ Build Pipeline 窗口中不再使用一个总仓库入口；AA 和 AB 各有独�
 功能：
 
 - **状态栏**：显示当前 HEAD 版本、包名、产物数量、最近 Push 信息
-- **Diff 按钮**：触发 AA 或 AB Diff Preview，结果以 Added/Modified/Removed 列表展示
-- **Push 按钮**：选择 Push Target、填写 From/To 版本号，执行 Push
+- **History**：显示 commit 列表，选择 commit 后展示该 commit 持久化的 `CommitDelta`；不会执行 `RepositoryPreviewRunner`
+- **Changes**：显示 staging diff，只有点击 `Refresh Staging` 才执行 AA/AB preview DAG
+- **Artifact Detail**：展示 Added/Modified/Removed 的 `ArtifactDigest` 元数据；Modified 优先显示 old/new hash、CRC、size
+- **Push 按钮**：选择 Push Target 后发布当前 Repository HEAD；面板不再提供可编辑 From/To 版本号
 - **Push History**：展示该 Channel 的推送历史
 
 ---
@@ -355,6 +372,8 @@ BuildFullPackage / BuildHotfix
        │    ├─ 采集 git metadata
        │    ├─ 组装 RepositoryCommit
        │    └─ FileBuildRepository.Commit()
+       │         ├─ 读取旧 HEAD 作为 parent
+       │         ├─ 写入 ParentVersion 和 CommitDelta
        │         ├─ 写入 objects/{Version}.json（原子写）
        │         └─ 交换 HEAD.json（原子写）
        └─ Push 由 Repository CLI/UI 触发；ConfirmRelease wrapper 当前不负责 Push
@@ -366,6 +385,8 @@ BuildFullPackage / BuildHotfix
 
 - **AA/AB Push 同级**：当前 Push 发布根部 `PackageIndex.json` 和已构建 package 目录，并记录 PushHistory；不重新解释 catalog、AAManifest 或 ABManifest
 - **Diff 不筛 Push 文件**：Push 中的差异只用于 PushHistory 数量统计，不用于 delta-copy bundle；AB Hotfix 的交付筛选发生在构建 Task 内，不发生在 Push 阶段
+- **提交 diff 与 staging diff 分离**：History 展示已持久化的 `CommitDelta`；Changes/CLI Diff 才运行当前 preview output vs HEAD 的主动预览
+- **编辑器 Push 只发布 HEAD**：Target 是发布位置；From/To 在 UI 中不再作为人工输入。CLI Push 继续保留显式 from/to 参数。
 - **AB Hotfix 依赖 Full baseline**：AB Hotfix 必须能找到同 Channel/Backend/Major 且 `BuildType == "Full"` 的 commit，否则失败
 - **HEAD 损坏保护**：`GetStatus()` 区分"无 HEAD"和"HEAD 损坏"，损坏原因在 `HeadErrorReason` 字段
 - **ChannelKey 不可跨后端混用**：AA 和 AB 的 Repository 空间完全隔离

@@ -23,6 +23,8 @@ Reports missing Date or Reviewer will be rejected before content review.
 
 | File | Status | Scope |
 |------|--------|-------|
+| `review-build-chain-blockers-20260606.md` | Active; build-chain blockers pending | AA/AB staging diff, official builds, repository commit, and push chain |
+| `review-staging-diff-collections-20260606.md` | Active; package resolution pending | AA/AB Repository staging diff compile failure |
 | `review-collector-20260521.md` | P0/P1 remediated; P2 deferred | Collector subsystem and direct build-pipeline consumers |
 
 ## Archive Criteria

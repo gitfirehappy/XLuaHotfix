@@ -12,6 +12,7 @@ using UnityEngine;
 public static class BuildRepositoryFacade
 {
     private static readonly IBuildRepository Repository = new FileBuildRepository();
+    private static readonly FileBuildRepository FileRepository = Repository as FileBuildRepository;
 
     public static string GetChannelKey(VersionNumber version, BackendMode backendMode)
     {
@@ -100,6 +101,13 @@ public static class BuildRepositoryFacade
     public static PushReceipt Push(string channelKey, VersionNumber fromVersion, VersionNumber toVersion, IPushTarget target)
     {
         return Repository.Push(channelKey, fromVersion, toVersion, target);
+    }
+
+    public static PushReceipt PushHead(string channelKey, IPushTarget target)
+    {
+        if (FileRepository == null)
+            throw new InvalidOperationException("Repository implementation does not support PushHead.");
+        return FileRepository.PushHead(channelKey, target);
     }
 
     public static List<PushHistoryEntry> ListPushHistory(string channelKey)

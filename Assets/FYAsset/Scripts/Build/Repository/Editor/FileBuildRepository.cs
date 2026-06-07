@@ -93,6 +93,13 @@ public sealed class FileBuildRepository : IBuildRepository
         string objectPath = FYAssetPathUtility.JoinFilePath(objectsDir, GetSnapshotFileName(commit.Version));
         string headPath = FYAssetPathUtility.JoinFilePath(channelRoot, "HEAD.json");
 
+        var parent = TryLoadHead(commit.ChannelKey);
+        if (TryGetLastHeadError(commit.ChannelKey, out string headError))
+            throw new RepositoryHeadException(headError);
+
+        commit.ParentVersion = parent != null && parent.Version != null ? parent.Version.GetFullVersionString() : string.Empty;
+        commit.CommitDelta = ArtifactDiffer.Diff(parent != null ? parent.Artifacts : null, commit.Artifacts);
+
         FileHelper.EnsureDirectory(objectsDir);
         FileHelper.WriteAllTextAtomic(objectPath, SerializationUtility.SerializeToJson(commit, true));
 
@@ -109,6 +116,23 @@ public sealed class FileBuildRepository : IBuildRepository
             Debug.LogWarning($"[FileBuildRepository] HEAD swap failed; object remains as orphan: {objectPath}, reason: {ex.Message}");
             throw;
         }
+    }
+
+    public PushReceipt PushHead(string channelKey, IPushTarget target)
+    {
+        if (string.IsNullOrEmpty(channelKey))
+            throw new ArgumentException("channelKey 不能为空。", nameof(channelKey));
+        if (target == null)
+            throw new ArgumentNullException(nameof(target));
+
+        var toCommit = GetHeadCommit(channelKey);
+        VersionNumber fromVersion = string.IsNullOrEmpty(toCommit.ParentVersion) ? null : VersionNumber.Parse(toCommit.ParentVersion);
+        var fromCommit = fromVersion != null ? TryLoadCommit(channelKey, fromVersion) : null;
+        if (fromVersion != null && fromCommit == null)
+            return FailPush(target, $"Parent commit missing: {toCommit.ParentVersion}");
+
+        ArtifactDelta delta = toCommit.CommitDelta ?? ArtifactDiffer.Diff(fromCommit != null ? fromCommit.Artifacts : null, toCommit.Artifacts);
+        return PushResolved(channelKey, fromCommit, toCommit, target, delta);
     }
 
     public PushReceipt Push(string channelKey, VersionNumber fromVersion, VersionNumber toVersion, IPushTarget target)
@@ -132,30 +156,7 @@ public sealed class FileBuildRepository : IBuildRepository
         if (fromCommit == null)
             return FailPush(target, $"Baseline commit missing: {fromVersion.GetFullVersionString()}");
 
-        var delta = ArtifactDiffer.Diff(fromCommit.Artifacts, toCommit.Artifacts);
-        var payload = new PushPayload
-        {
-            FromCommit = fromCommit,
-            ToCommit = toCommit,
-        };
-        payload.ChangedArtifactCount = delta.Added.Count + delta.Modified.Count + delta.Removed.Count;
-
-        var receipt = target.Push(payload);
-        if (receipt == null || !receipt.Success)
-            return receipt ?? FailPush(target, "Push target returned null receipt.");
-
-        var history = TryLoadPushHistory(channelKey);
-        history.Add(new PushHistoryEntry
-        {
-            FromVersion = fromVersion.GetFullVersionString(),
-            ToVersion = toVersion.GetFullVersionString(),
-            TargetId = receipt.TargetId,
-            TargetLocation = receipt.TargetLocation,
-            PushedAtUtc = receipt.PushedAtUtc,
-            DeltaFileCount = payload.ChangedArtifactCount
-        });
-        WritePushHistory(channelKey, history);
-        return receipt;
+        return PushResolved(channelKey, fromCommit, toCommit, target, ArtifactDiffer.Diff(fromCommit.Artifacts, toCommit.Artifacts));
     }
 
     public List<PushHistoryEntry> ListPushHistory(string channelKey)
@@ -316,6 +317,48 @@ public sealed class FileBuildRepository : IBuildRepository
             PushedAtUtc = DateTime.UtcNow.ToString("o"),
             FailureReason = reason
         };
+    }
+
+    private static PushReceipt PushResolved(string channelKey, RepositoryCommit fromCommit, RepositoryCommit toCommit, IPushTarget target, ArtifactDelta delta)
+    {
+        if (toCommit == null)
+            return FailPush(target, "Target commit is null.");
+        if (string.IsNullOrEmpty(toCommit.PackageRootDir))
+            return FailPush(target, "Target commit PackageRootDir is empty.");
+
+        var payload = new PushPayload
+        {
+            FromCommit = fromCommit,
+            ToCommit = toCommit,
+            ChangedArtifactCount = CountDelta(delta)
+        };
+
+        var receipt = target.Push(payload);
+        if (receipt == null || !receipt.Success)
+            return receipt ?? FailPush(target, "Push target returned null receipt.");
+
+        var history = TryLoadPushHistory(channelKey);
+        history.Add(new PushHistoryEntry
+        {
+            FromVersion = fromCommit != null && fromCommit.Version != null ? fromCommit.Version.GetFullVersionString() : string.Empty,
+            ToVersion = toCommit.Version != null ? toCommit.Version.GetFullVersionString() : string.Empty,
+            TargetId = receipt.TargetId,
+            TargetLocation = receipt.TargetLocation,
+            PushedAtUtc = receipt.PushedAtUtc,
+            DeltaFileCount = payload.ChangedArtifactCount
+        });
+        WritePushHistory(channelKey, history);
+        return receipt;
+    }
+
+    private static int CountDelta(ArtifactDelta delta)
+    {
+        if (delta == null)
+            return 0;
+        int added = delta.Added != null ? delta.Added.Count : 0;
+        int modified = delta.Modified != null ? delta.Modified.Count : 0;
+        int removed = delta.Removed != null ? delta.Removed.Count : 0;
+        return added + modified + removed;
     }
 
     private static string SanitizePathSegment(string value)
