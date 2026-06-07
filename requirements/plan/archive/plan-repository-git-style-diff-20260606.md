@@ -1,6 +1,7 @@
 # Repository Git-Style Diff Plan
 
-Status: Implemented / Awaiting sign-off
+> **Status**: Signed off and archived
+> **Archived**: 2026-06-07
 
 ## Summary
 

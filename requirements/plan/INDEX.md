@@ -27,9 +27,10 @@ Shared executable plans live here while active. `requirements/plan.md` remains t
 | `plan-assets-collection-followup-20260605.md` | Signed off and archived |
 | `plan-ab-cumulative-hotfix-delivery-20260605.md` | AI verified, signed off, and archived |
 | `plan-review-build-chain-blockers-20260607.md` | Signed off and archived |
+| `plan-ab-build-report-panel-20260606.md` | Signed off and archived |
+| `plan-repository-git-style-diff-20260606.md` | Signed off and archived |
 
 ## Active
 | File | Status |
 |---|---|
-| `plan-ab-build-report-panel-20260606.md` | Implemented, awaiting sign-off |
-| `plan-repository-git-style-diff-20260606.md` | Implemented, awaiting sign-off |
+| _None_ | No active shared plan is currently awaiting execution/sign-off. |

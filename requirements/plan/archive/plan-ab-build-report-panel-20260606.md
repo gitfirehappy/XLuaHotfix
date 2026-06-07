@@ -1,5 +1,8 @@
 # AB Build Report Panel Plan
 
+> **Status**: Signed off and archived
+> **Archived**: 2026-06-07
+
 ## Summary
 
 Implement the first concrete AB build result report while leaving AA on Unity Addressables Report. AB writes an editor-only JSON report during official AB builds and the existing AB Build Result sidebar entry reads that report.
