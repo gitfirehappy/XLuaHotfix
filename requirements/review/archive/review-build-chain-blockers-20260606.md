@@ -11,7 +11,9 @@ No runtime or build code was changed.
 
 ## Remediation Status 2026-06-07
 
-Code-side remediation has been implemented under `requirements/plan/plan-review-build-chain-blockers-20260607.md`.
+Code-side remediation has been implemented under `requirements/plan/archive/plan-review-build-chain-blockers-20260607.md`.
+
+Archived on 2026-06-07 after developer sign-off.
 
 Resolved in the working tree:
 

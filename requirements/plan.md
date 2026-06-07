@@ -1,9 +1,9 @@
 # Refactor Plan: XLuaHotfix Full Resource Management System Overhaul — Master Plan
 
-> **Status**: In progress (Phase 1-4 completed, Phase 5 E1-1/E1-2/E1-3/E1-4/E2 realized, Phase 6 E4/E5-1/E5-2a/E5-2b/E6/E7/E9/E10/E11 main path realized, Build Repository AA Push signed off and archived, AssetsCollection address/settings/follow-up plans signed off and archived, AB cumulative hotfix delivery signed off and archived, basic pipeline UI layout aligned, review build-chain blocker fixes implemented and awaiting sign-off)
+> **Status**: In progress (Phase 1-4 completed, Phase 5 E1-1/E1-2/E1-3/E1-4/E2 realized, Phase 6 E4/E5-1/E5-2a/E5-2b/E6/E7/E9/E10/E11 main path realized, Build Repository AA Push signed off and archived, AssetsCollection address/settings/follow-up plans signed off and archived, AB cumulative hotfix delivery signed off and archived, review build-chain blocker fixes signed off and archived, basic pipeline UI layout aligned)
 > **Ultimate Goal**: Fully replace Addressables with custom runtime + build-time resource management system (referencing YooAsset architecture)
 > **Created**: 2026-03-16
-> **Updated**: 2026-06-07 — Review build-chain blocker fixes implemented and awaiting developer sign-off; Repository git-style commit diff and AB Build Result report panel also await sign-off
+> **Updated**: 2026-06-07 — Review build-chain blocker fixes signed off and archived; Repository git-style commit diff and AB Build Result report panel still await sign-off
 
 ---
 
@@ -184,6 +184,7 @@ Phase 4 and Phase 6 must be coordinated (ABManifest runtime consumption + build-
 | plan-assets-collection-settings-cleanup-20260605.md | AssetsCollection add/remove/exclude workflow, Scene collector shape cleanup, BuildPipeline Sequential removal, and three-settings ownership cleanup | Archived / Signed off |
 | plan-assets-collection-followup-20260605.md | AssetsCollection acceptance follow-up: Scene-only folder scan, long-path Address extension, and setting-owned exclusion UI | Archived / Signed off |
 | plan-ab-cumulative-hotfix-delivery-20260605.md | AB cumulative hotfix package delivery: complete runtime manifest plus delivery bundle list relative to the Full baseline | Archived / Signed off |
+| plan-review-build-chain-blockers-20260607.md | Review build-chain blockers: Collections package pin, git-style empty-baseline Changes, separate AB Delivery preview, importer-first payload Auto, AB sidecar verification, transactional version increment, and preview diagnostics | Archived / Signed off |
 
 ### Active Shared Plans
 
@@ -191,7 +192,6 @@ Phase 4 and Phase 6 must be coordinated (ABManifest runtime consumption + build-
 |------|---------|--------|
 | plan-ab-build-report-panel-20260606.md | AB Build Result report panel: editor-only AB report JSON under `BuildData/Reports/AB/`, Addressables-style Summary/Explore/Potential Issues UI, AB-only scope with AA left on Unity Addressables Report | Implemented / Awaiting sign-off |
 | plan-repository-git-style-diff-20260606.md | Repository git-style commit diff and GitHub Desktop-style Changes/History layout: persist per-commit parent delta, keep staging diff as current preview output vs HEAD, and remove editable Push From/To from the Repository panel | Implemented / Awaiting sign-off |
-| plan-review-build-chain-blockers-20260607.md | Review build-chain blockers: Collections package pin, git-style empty-baseline Changes, separate AB Delivery preview, importer-first payload Auto, AB sidecar verification, transactional version increment, and preview diagnostics | Implemented / Awaiting sign-off |
 
 ### Phase 5: Build-Time - Asset Collection & Indexing
 

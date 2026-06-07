@@ -11,7 +11,9 @@ No code was changed.
 
 ## Remediation Status 2026-06-07
 
-Package-side remediation has been implemented under `requirements/plan/plan-review-build-chain-blockers-20260607.md`.
+Package-side remediation has been implemented under `requirements/plan/archive/plan-review-build-chain-blockers-20260607.md`.
+
+Archived on 2026-06-07 after developer sign-off.
 
 - `Packages/manifest.json` now directly pins `com.unity.collections` to `2.6.6`.
 - Unity batchmode package resolution exited 0, modified `Packages/packages-lock.json`, and registered `com.unity.collections@2.6.6`.

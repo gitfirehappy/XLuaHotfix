@@ -23,9 +23,14 @@ Reports missing Date or Reviewer will be rejected before content review.
 
 | File | Status | Scope |
 |------|--------|-------|
-| `review-build-chain-blockers-20260606.md` | Remediated in code; Unity sign-off pending | AA/AB staging diff, official builds, repository commit, and push chain |
-| `review-staging-diff-collections-20260606.md` | Remediated in package files; Unity sign-off pending | AA/AB Repository staging diff compile failure |
 | `review-collector-20260521.md` | P0/P1 remediated; P2 deferred | Collector subsystem and direct build-pipeline consumers |
+
+## Recently Archived
+
+| File | Status | Scope |
+|------|--------|-------|
+| `review-build-chain-blockers-20260606.md` | Remediated, signed off, and archived | AA/AB staging diff, official builds, repository commit, and push chain |
+| `review-staging-diff-collections-20260606.md` | Remediated, signed off, and archived | AA/AB Repository staging diff compile failure |
 
 ## Archive Criteria
 

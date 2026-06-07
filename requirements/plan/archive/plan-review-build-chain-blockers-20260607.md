@@ -1,8 +1,9 @@
 # Review Build Chain Blockers Plan 2026-06-07
 
-> **Status**: Implemented; awaiting developer sign-off and Unity staging/build verification
-> **Origin**: `requirements/review/review-build-chain-blockers-20260606.md` and `requirements/review/review-staging-diff-collections-20260606.md`
+> **Status**: Signed off and archived
+> **Origin**: `requirements/review/archive/review-build-chain-blockers-20260606.md` and `requirements/review/archive/review-staging-diff-collections-20260606.md`
 > **Approval**: Developer requested direct execution after precise plan capture.
+> **Archived**: 2026-06-07
 
 ## Summary
 
