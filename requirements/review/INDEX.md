@@ -23,6 +23,9 @@ Reports missing Date or Reviewer will be rejected before content review.
 
 | File | Status | Scope |
 |------|--------|-------|
+| `review-fyasset-repository-flow-20260705.md` | Open | FYAsset repository commit, package publication, push, and status UI flow |
+| `review-fyasset-ponytail-audit-20260621.md` | Pending | FYAsset over-engineering and simplification audit |
+| `review-fyasset-mistake-decision-alignment-20260608.md` | Open; partial extraction applied | FYAsset mistake recurrence and decision-alignment review |
 | `review-collector-20260521.md` | P0/P1 remediated; P2 deferred | Collector subsystem and direct build-pipeline consumers |
 
 ## Recently Archived

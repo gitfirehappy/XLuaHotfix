@@ -3,7 +3,7 @@
 > **Status**: In progress (Phase 1-4 completed, Phase 5 E1-1/E1-2/E1-3/E1-4/E2 realized, Phase 6 E4/E5-1/E5-2a/E5-2b/E6/E7/E9/E10/E11 main path realized, Build Repository AA Push signed off and archived, AssetsCollection address/settings/follow-up plans signed off and archived, AB cumulative hotfix delivery signed off and archived, AB Build Result panel signed off and archived, Repository git-style diff signed off and archived, review build-chain blocker fixes signed off and archived, basic pipeline UI layout aligned)
 > **Ultimate Goal**: Fully replace Addressables with custom runtime + build-time resource management system (referencing YooAsset architecture)
 > **Created**: 2026-03-16
-> **Updated**: 2026-06-07 — AB Build Result panel, Repository git-style diff, and review build-chain blocker fixes signed off and archived
+> **Updated**: 2026-06-11 — Active plan captured for FYAsset bundle payload/type identity, RawFile first-class runtime loading, and manifest physical-membership mapping
 
 ---
 
@@ -192,7 +192,7 @@ Phase 4 and Phase 6 must be coordinated (ABManifest runtime consumption + build-
 
 | File | Content | Status |
 |------|---------|--------|
-| _None_ | No active shared plan is currently awaiting execution/sign-off. | - |
+| plan-fyasset-bundle-identity-rawfile-root-fix-20260611.md | FYAsset bundle identity + RawFile root fix: payload/type-separated bundle buckets, scanner RawFile PackSeparately normalization, manifest membership from `BundleBuildInfo.AssetPaths`, ABManifest schema v3, and direct RawFile bytes/text API | Active / Executed, awaiting developer sign-off |
 
 ### Phase 5: Build-Time - Asset Collection & Indexing
 

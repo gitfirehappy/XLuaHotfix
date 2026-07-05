@@ -12,7 +12,8 @@ It is an editor/build-time framework. It is not the runtime loading backend and 
 
 `AssetsCollectionPanel` uses a Scan / Preview / Curate workflow.
 
-- Project Scan builds a read-only preview from project assets plus `AssetCollectionSetting.IgnorePatterns` / `ExcludedAssets`. It does not mutate saved Packages or the current Curate candidate.
+- Project Scan builds a read-only preview from project assets plus effective `AssetCollectionSetting.IgnorePatterns` / `ExcludedAssets`. It does not mutate saved Packages or the current Curate candidate.
+- Effective ignore patterns always include build/tooling-only exclusions that must not enter runtime bundles, including `Assets/AddressableAssetsData/**` and unsupported serialized bundle-entry suffixes such as shader include files.
 - `Confirm To Curate` is the explicit boundary that copies the current scan preview into editable Curate data.
 - Returning to Curate from Scan or Preview without confirmation reloads the saved/current `AssetCollectionSetting` and runs `CollectionScanner.Scan` only to populate navigation and details.
 - Save persists Curate data including setting-owned exclusions, reloads it, rebuilds the scan result used by the sidebar/details view, and preserves existing sidebar expansion state.
@@ -34,7 +35,7 @@ The collection model is a four-level hierarchy plus a GUID-keyed asset metadata 
 - ScriptableObject root.
 - Stores all configured packages.
 - Stores project-level `AddressStyle` for automatic Address generation.
-- Stores project-level `IgnorePatterns` for Project Scan folder generation.
+- Stores project-level `IgnorePatterns` for Project Scan folder generation and build-time collection filtering.
 - Stores `ExcludedAssets`, keyed by asset GUID with a cached asset path for readable editor display.
 - Stores `AssetEntries`, keyed by `AssetGUID`.
 - Default build settings path is `Assets/FYAsset/CollectorData/CollectorSetting.asset`.
@@ -115,22 +116,23 @@ The scanner does not rewrite Address values because of short-name conflicts. Add
 
 1. Collector path ownership.
 2. `CollectionScanOptions` GUID exclusion check from `AssetCollectionSetting.ExcludedAssets`.
-3. `IFilterRule` collectability.
-4. Collector `AssetClassifier` analysis for role and payload defaults.
-5. `IGroupRule` target Group routing.
-6. AssetEntry lookup or creation by GUID.
-7. Address resolution:
+3. Effective `AssetCollectionSetting.IgnorePatterns` filtering.
+4. `IFilterRule` collectability.
+5. Collector `AssetClassifier` analysis for role and payload defaults.
+6. `IGroupRule` target Group routing.
+7. AssetEntry lookup or creation by GUID.
+8. Address resolution:
    - `AutoAddress=true`: generated address.
    - `AutoAddress=false`: manual `Address`.
-8. Classification resolution:
+9. Classification resolution:
    - `AutoRole=true`: Collector-analyzed role.
    - `AutoRole=false`: manual `Role`.
    - `AutoPayload=true`: Collector-analyzed payload.
    - `AutoPayload=false`: manual `PayloadKind`.
-9. Label resolution:
+10. Label resolution:
    - `FinalLabels = Group.Labels + AssetEntry.Labels`.
    - Group Labels cannot be removed by AssetEntry.
-10. Bundle name generation from Group `BundlePackingMode`.
+11. Bundle name generation from Group `BundlePackingMode`.
 
 `CollectionScanOptions.FromSetting(setting)` reads `AssetCollectionSetting.ExcludedAssets`. AB build tasks and editor previews use that option so excluded folder-owned assets are omitted consistently from Project Scan, Curate, Scan Preview, and build collection.
 
@@ -184,6 +186,8 @@ For `PackSeparately`, `normalizedAddress` is a bundle-key-safe projection of the
 - `Auto` is importer-first: `.unity` is `Scene`; otherwise `AssetDatabase.GetMainAssetTypeAtPath(assetPath)` plus `AssetDatabase.LoadMainAssetAtPath(assetPath)` must produce a usable non-`DefaultAsset` main asset for `Serialized`; files without a usable imported main asset fall back to `RawFile`.
 
 Collector therefore follows Unity's importer pipeline for serialized payload detection. Unity-recognized text formats such as `.csv`, `.json`, and `.txt`, and project-defined importers such as the `.lua` ScriptedImporter when it produces a `TextAsset`, are `Serialized` under `Auto`. `RawFile` is used when Unity has no usable imported main asset or when the user explicitly forces `RawFile`; it is not inferred from an extension blacklist.
+
+Shader include files imported by Unity as `ShaderInclude` are not valid AssetBundle entry assets. Effective ignore patterns include `*.cginc`, `*.hlsl`, `*.hlslinc`, and `*.pdf`; Project Scan and `CollectionScanner.Scan` use those patterns without requiring existing settings assets to be rewritten. If an unsupported entry still reaches scanning by importer type, the scanner skips it with a warning. If an asset's final payload resolves to `Serialized`, the scanner verifies that Unity exposes a usable non-`DefaultAsset` main object before adding it to collected assets. Dependency analysis filters shader include assets from implicit dependency candidates, and `TaskBuildBundles` validates serialized entries before calling `BuildPipeline.BuildAssetBundles`.
 
 Scene Project Scan creates file-level `.unity` Collectors with Scene payload and does not create a Scene-only root-folder Collector. Project Scan folder Collectors are generated only for folders that contain at least one non-Scene collectable asset after ignore and exclusion filtering. Curate normalizes old Scene-only Folder Collectors into Scene File Collectors before save, and collection scans skip `.unity` files from every Folder Collector so scene assets stay file-owned and PackSeparately.
 

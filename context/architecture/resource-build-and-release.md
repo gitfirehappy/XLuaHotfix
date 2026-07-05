@@ -41,17 +41,21 @@ The hotfix build flow relies on repository HEAD comparison instead of manual gro
 - `FileBuildRepository.GetStatus()` distinguishes empty HEAD from malformed HEAD through `RepositoryStatus.HasHeadError` / `HeadErrorReason`
 - `VersionDataBase` is shared as the product-version source; AA and AB are build backend dimensions, not separate product version streams
 - `RepositoryHeadState` stores only `HeadVersion`; the object path is derived as `objects/{HeadVersion}.json`
+- Repository version strings use `Major.Minor.Patch[-Channel]`. Stale object files or HEAD values containing `+Build` are ignored and must be replaced by a fresh build.
 - `RepositoryCommit` stores version, channel key, backend mode, build type (`Full` or `Hotfix`), build target, package name, UTC creation time, artifact digests, `GitCommitHash`, `IsDirty`, `PackageRootDir`, `ParentVersion`, and persisted `CommitDelta`
 - `FileBuildRepository.Commit()` computes `ParentVersion` and `CommitDelta` before writing the commit object. The parent is the previous same-channel/backend HEAD at commit time; the first commit has an empty parent and a full Added delta from an empty artifact set.
+- Official Full build commits discard malformed or stale same-channel HEAD state and rebuild the repository from an empty parent. Hotfix commits and repository preview/status paths still treat malformed HEAD as invalid baseline data.
 - Old commit JSON without `CommitDelta` is tolerated as legacy data. The repository UI displays it as having no persisted diff and does not rewrite old objects on load.
 - `ArtifactDigest` stores artifact name, hash, size, and CRC for diffing; it is JSON-serializable and is not binary-serialized
 - `ArtifactDelta` represents Added / Modified / Removed artifact sets
 - `ArtifactDiffer` performs pure name/hash diffing with no Unity API side effects
 - `TaskScanAddressableHotfixDiff` scans AA source assets before build at asset GUID granularity, computes shallow composite content identity from the main asset file plus its `.meta` file, and publishes `RepositoryArtifacts` for commit
 - `TaskScanABHotfixDiff` scans AB bundle outputs after build at bundle-name granularity; when fed from `ABManifest.BundleEntries`, it reuses manifest hash/CRC/size and also publishes `RepositoryArtifacts`
-- `BuildProjectManager` commits AA source digests or AB output bundle digests after a successful build, and applies `VersionDataBase` version advancement only after both backend build execution and repository commit succeed
-- `TaskWritePackageIndex` writes `PackageIndex.BackendMode` as `AA` or `AB` in official Full and Hotfix DAG runs
-- `TaskExportLocalBuildData` writes `BuildIndexData.BackendMode` as `AA` or `AB`
+- `BuildProjectManager` commits AA source digests or AB output bundle digests after a successful package build, publishes `PackageIndex` / local Full-build bootstrap data only after repository commit succeeds, and applies `VersionDataBase` version advancement only after backend execution, repository commit, and publication succeed.
+- Official backend DAG runs set `BuildContextKeys.DeferPackagePublication`; `TaskWritePackageIndex` and `TaskExportLocalBuildData` validate their DAG position but defer side-effectful publication to `BuildProjectManager`.
+- `TaskWritePackageIndex` writes `PackageIndex.BackendMode` as `AA` or `AB` during post-commit publication for official Full and Hotfix builds.
+- `TaskExportLocalBuildData` writes `BuildIndexData.BackendMode` as `AA` or `AB` during post-commit publication for official Full builds.
+- A failed official build deletes the current package output directory when it is safely under the generated packages root. If deletion fails, it writes `FAILED_BUILD.json` in that package directory. If publication fails after repository commit, the repository HEAD is rolled back to the commit parent or removed for a first commit.
 - AA and AB repository spaces are isolated by the backend segment in the channel key
 - `TaskScanAddressableHotfixDiff` runs before AA hotfix content build, compares current AA source against repository HEAD, and writes `ArtifactDelta` into `BuildContext`. Repository Changes preview treats a missing HEAD as an empty baseline so the first preview reports all current artifacts as Added; malformed HEAD remains an error.
 - `TaskMoveAddressableHotfixGroups` moves Added and Modified AA assets into the Hotfix group, writes `Assets/FYAsset/Editor/Generated/HotfixGroupUndoLog.json`, blocks another move while pending moves exist, and keeps the manual restore path available
@@ -108,7 +112,7 @@ The build entry point is now split with the same orchestration pattern already u
 
 ### Shared orchestrator
 
-- `BuildProjectManager` owns version staging/application, Lua index export, `BuildPackageRequest` creation, package naming, backend routing, and repository commit
+- `BuildProjectManager` owns version staging/application, Lua index export, `BuildPackageRequest` creation, package naming, backend routing, repository commit, post-commit publication, and failed-package cleanup
 - `BuildPackageRequest` is created before backend execution and carries version, build type, backend mode, package name, final package output directory, bundles directory, and `PackageIndex` path
 - Runtime hotfix rejects a remote `PackageIndex` if its backend mode is missing, invalid, or different from the current `FYAssetSettings.UseABBackend` mode
 - `BuildContextKeys.BuildType` is written by each backend before DAG execution so shared tail tasks can preserve full-build-only behavior without reading global state
@@ -128,8 +132,8 @@ The build entry point is now split with the same orchestration pattern already u
 - `TaskBuildAddressablesContent` owns Addressables-specific setup (`BuildRemoteCatalog`, `PackTogetherByLabel`, LuaScripts remote path fix), ServerData cleanup, and `AddressableAssetSettings.BuildPlayerContent`
 - `TaskOrganizeAAOutput` copies ServerData output into the request-owned final package directory and sets `BuildContextKeys.OutputPath` to `BuildPackageRequest.OutputDir`
 - `TaskWriteAAPackageManifest` exports `AAManifest.json` and `AAManifest.bin` by default by scanning `{PackageRoot}/bundles/*.bundle`
-- `TaskWritePackageIndex` runs after the AA package manifest task and writes the remote latest-package pointer for both Full and Hotfix official builds
-- `TaskExportLocalBuildData` is the AA graph tail task and implementation owner for local startup data export. It writes `BuildIndexData` only for full builds, copies the final `AAManifest` files into `StreamingAssets` as the AA query-index baseline, cleans stale AB baseline manifests, and returns success without exporting for hotfix builds. AA catalog and bundle placement remain handled by the existing Addressables player build flow.
+- `TaskWritePackageIndex` runs after the AA package manifest task, but official builds defer the actual remote latest-package pointer write until `BuildProjectManager` finishes repository commit.
+- `TaskExportLocalBuildData` is the AA graph tail validation task and implementation owner for local startup data export. Official builds defer actual export until repository commit succeeds. It writes `BuildIndexData` only for full builds, copies the final `AAManifest` files into `StreamingAssets` as the AA query-index baseline, cleans stale AB baseline manifests, and returns success without exporting for hotfix builds. AA catalog and bundle placement remain handled by the existing Addressables player build flow.
 - each exported `BundleInfo` stores `FileHash` (MD5 content identity), `FileCRC` (CRC32 fast verification), and `FileSize`
 - `AAManifest` also stores `AssetEntries`, `KeysByType`, and `KeysByLabel`
 - `AAAssetIndexBuilder` is the single Editor-only source for those AA index lists and writes them into `AAManifest`
@@ -142,8 +146,8 @@ The build entry point is now split with the same orchestration pattern already u
 - `TaskScanABHotfixDiff` is the AB graph diff and delivery task between `TaskVerifyBuildResult` and `TaskOrganizeOutput`; standalone AB Changes preview stops after this task after computing current-vs-HEAD diff only, while AB Delivery preview enables the Full-baseline delivery branch explicitly.
 - `TaskOrganizeOutput` consumes the request and writes the final AB package layout directly under `BuildPackageRequest.OutputDir`, copying all manifest bundles for Full builds and only `ABDeliveryBundles` for Hotfix builds.
 - `TaskWriteABPackageManifest` publishes `ABManifest.json` and/or `ABManifest.bin` at the final package root according to `FYAssetABSettings.ManifestOutputFormat` and applies the AB hotfix size limit from `FYAssetABSettings`; for AB Hotfix the size guard uses the delivery bundle list, not the complete runtime bundle table.
-- `TaskWritePackageIndex` runs after the AB package manifest task and writes the remote latest-package pointer for both Full and Hotfix official builds
-- `TaskExportLocalBuildData` is the AB graph tail task and implementation owner for local startup data export. It writes `BuildIndexData` only for full builds, copies the real final AB package baseline (`ABManifest` files plus `bundles/`) into `StreamingAssets`, cleans stale AA baseline files, and returns success without exporting for hotfix builds
+- `TaskWritePackageIndex` runs after the AB package manifest task, but official builds defer the actual remote latest-package pointer write until `BuildProjectManager` finishes repository commit.
+- `TaskExportLocalBuildData` is the AB graph tail validation task and implementation owner for local startup data export. Official builds defer actual export until repository commit succeeds. It writes `BuildIndexData` only for full builds, copies the real final AB package baseline (`ABManifest` files plus `bundles/`) into `StreamingAssets`, cleans stale AA baseline files, and returns success without exporting for hotfix builds.
 - `BuildContextKeys.OutputPath` is the request-owned final package directory after AB finalization
 - missing manifest-listed bundle files during AB finalization fail the task instead of being silently skipped
 - `TaskVerifyBuildResult` ignores Unity-generated `.manifest` sidecars and the root manifest file in orphan/count checks, so deployable bundle counts are compared against `ABManifest.BundleEntries` and `BundleBuildInfo` only.

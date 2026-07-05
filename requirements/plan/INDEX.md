@@ -33,4 +33,4 @@ Shared executable plans live here while active. `requirements/plan.md` remains t
 ## Active
 | File | Status |
 |---|---|
-| _None_ | No active shared plan is currently awaiting execution/sign-off. |
+| `plan-fyasset-bundle-identity-rawfile-root-fix-20260611.md` | Active / Executed, awaiting developer sign-off |

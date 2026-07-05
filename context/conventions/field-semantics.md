@@ -28,6 +28,8 @@ Package (PackageName)
 Fields: Major, Minor, Patch, Build, Channel.
 - CompareTo order: Major → Minor → Patch → ChannelRank (alpha=0 < beta=1 < rc=2 < ""=3).
 - Build is metadata only — excluded from equality and comparison.
+- `GetReleaseVersionString()` (`Major.Minor.Patch[-Channel]`) is the only version string format for build names, reports, logs, repository object names, HEAD, parent versions, and push history.
+- Build is stored and logged only as a separate numeric field. Strings with `+Build` are invalid and should be discarded by rebuilding affected artifacts.
 
 ## Enum Quick Reference
 

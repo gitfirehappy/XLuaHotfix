@@ -430,3 +430,17 @@ Verified historical errors and prevention rules.
 **Root cause:** `VersionDataBase` was incremented and saved before the backend build and repository commit had both succeeded.
 **Fix:** Stage the next `VersionNumber` in memory, build and commit with that staged request version, then apply and save `VersionDataBase` only after the full chain succeeds.
 **Prevention:** Product version advancement must be transactional with the artifact/repository state it names. Never persist the next version before the operation that creates that version's package and repository commit has succeeded.
+
+## IP-62: Package Pointer Published Before Repository Commit
+
+**Symptom:** A build that later failed during repository commit still left `PackageIndex.json`, `StreamingAssets/BuildIndex.json`, and copied baseline assets pointing at the failed package.
+**Root cause:** `TaskWritePackageIndex` and `TaskExportLocalBuildData` performed publication inside the DAG before the repository commit succeeded, so later repository failure could not prevent already-visible package pointers.
+**Fix:** Official backend DAG runs defer package publication through `BuildContextKeys.DeferPackagePublication`; `BuildProjectManager` commits the repository first, then publishes `StreamingAssets` / `PackageIndex`, and deletes the current package directory or writes `FAILED_BUILD.json` when the build fails.
+**Prevention:** Generated package content may be staged before commit, but any visible pointer or startup baseline must be published only after the repository state that names it is committed. If post-commit publication fails, roll repository HEAD back to the parent or remove it for the first commit.
+
+## IP-63: Build Metadata Leaked Into Repository Identity
+
+**Symptom:** Repository HEAD, object files, package names, and status UI could use version strings such as `2.0.0+1`, while the product build counter was also stored as a numeric field.
+**Root cause:** `Build` metadata was appended to release identity strings, so one concept acted as both product version and build counter. Old `+Build` strings then became invalid repository object names after the version contract was corrected.
+**Fix:** Use `GetReleaseVersionString()` (`Major.Minor.Patch[-Channel]`) for package names, repository object names, HEAD, parent versions, push history, logs, and status UI. Store `Build` only as a separate numeric field, reject `+Build` in parsing, and rebuild/delete stale `+Build` repository data.
+**Prevention:** Artifact identity strings must not include volatile counters unless the format is explicitly part of the release contract. If a persisted identity format is wrong, rebuild or quarantine it instead of silently maintaining compatibility.
