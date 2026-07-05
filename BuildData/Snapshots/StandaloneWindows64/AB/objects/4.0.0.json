@@ -1,0 +1,519 @@
+﻿{
+    "Version": {
+        "Major": 4,
+        "Minor": 0,
+        "Patch": 0,
+        "Build": 3,
+        "Channel": ""
+    },
+    "ChannelKey": "StandaloneWindows64/AB",
+    "BackendMode": "AB",
+    "BuildType": "Full",
+    "BuildTarget": "StandaloneWindows64",
+    "PackageName": "Build_20260705075745_4.0.0",
+    "CreatedAtUtc": "2026-07-05T07:57:45.9656993Z",
+    "GitCommitHash": "87b3e47785b6cd1345a880f88b7a310812f28c77",
+    "IsDirty": true,
+    "PackageRootDir": "E:\\unity\\project\\XLuaHotfix\\HotfixOutput\\Packages\\Build_20260705075745_4.0.0",
+    "ParentVersion": "",
+    "CommitDelta": {
+        "Added": [
+            {
+                "Name": "projectname1_$shared_serialized_shader_shaders",
+                "Hash": "8ffd8e1bd1507309109b53f00b8f5dd4",
+                "Size": 24007,
+                "CRC": 1175160445
+            },
+            {
+                "Name": "projectname1_animation_serialized_animationclip_labels_$unlabeled",
+                "Hash": "12db5f9fe299895f05d7a775a60004ca",
+                "Size": 6918,
+                "CRC": 2131922145
+            },
+            {
+                "Name": "projectname1_animation_serialized_animatorcontroller_labels_$unlabeled",
+                "Hash": "2beb2dbb3aa447c40c6166f14b7ff1d1",
+                "Size": 4937,
+                "CRC": 3544706322
+            },
+            {
+                "Name": "projectname1_art_serialized_texture2d_labels_$unlabeled",
+                "Hash": "c2cc42c8d4ae3fcbc0ecbff8ec2a4f99",
+                "Size": 861928,
+                "CRC": 3443957455
+            },
+            {
+                "Name": "projectname1_dialogue_serialized_textasset_labels_$unlabeled",
+                "Hash": "be3c0817cc3541e9d3711bc473dac163",
+                "Size": 11235,
+                "CRC": 2062918140
+            },
+            {
+                "Name": "projectname1_inputsystem_serialized_inputactionasset_labels_$unlabeled",
+                "Hash": "d5cec5e72f76a87bedddb10cc58e581e",
+                "Size": 3701,
+                "CRC": 3397074074
+            },
+            {
+                "Name": "projectname1_plugins_serialized_textasset_labels_$unlabeled",
+                "Hash": "f2c183e057b31cb5faa46ea312f6617d",
+                "Size": 33016,
+                "CRC": 4270420586
+            },
+            {
+                "Name": "projectname1_prefab_serialized_gameobject_labels_$unlabeled",
+                "Hash": "a39872678741d8d634f2f2ad0d0522e3",
+                "Size": 20418,
+                "CRC": 2468758877
+            },
+            {
+                "Name": "projectname1_resources_serialized_dotweensettings_labels_$unlabeled",
+                "Hash": "2a8fa904b5542d2f259be1e627ce1622",
+                "Size": 2703,
+                "CRC": 3547456821
+            },
+            {
+                "Name": "projectname1_resources_serialized_fyassetaasettings_labels_$unlabeled",
+                "Hash": "049b7b859203c5c975e2fb56d9bc5cac",
+                "Size": 2118,
+                "CRC": 3122953545
+            },
+            {
+                "Name": "projectname1_resources_serialized_fyassetabsettings_labels_$unlabeled",
+                "Hash": "09f9ec92770837202b8f990908835b20",
+                "Size": 2220,
+                "CRC": 3780638861
+            },
+            {
+                "Name": "projectname1_resources_serialized_fyassetsettings_labels_$unlabeled",
+                "Hash": "6bee93f98649971f6a072f6ee55b8385",
+                "Size": 2206,
+                "CRC": 127860130
+            },
+            {
+                "Name": "projectname1_scenes_scene_sceneasset_asset_samplescene~2cda990e_scene_0",
+                "Hash": "0db5451ce55383f9dbb98e6d6ee1cb18",
+                "Size": 6063,
+                "CRC": 1685645422
+            },
+            {
+                "Name": "projectname1_scenes_scene_sceneasset_asset_testdialogue~a75a703a_scene_0",
+                "Hash": "c8daa15f142f72dd2273b035d9f68b3d",
+                "Size": 31151,
+                "CRC": 953833493
+            },
+            {
+                "Name": "projectname1_scenes_scene_sceneasset_asset_test~df477986_scene_0",
+                "Hash": "51e19ef20c13e8a6b84a05cc400d1a9c",
+                "Size": 7575,
+                "CRC": 3372860859
+            },
+            {
+                "Name": "projectname1_scenes_scene_sceneasset_asset_xlua~ff153ba4_scene_0",
+                "Hash": "19575ad60a26c5d7d8328e1a21e5977b",
+                "Size": 6048,
+                "CRC": 271062701
+            },
+            {
+                "Name": "projectname1_so_serialized_characterconfig_labels_$unlabeled",
+                "Hash": "d7046a226a2676f3af503b681e3a545b",
+                "Size": 2173,
+                "CRC": 3110290663
+            },
+            {
+                "Name": "projectname1_so_serialized_configconvertchannel_labels_$unlabeled",
+                "Hash": "00500907cb88b6360ad1d4dd575453e2",
+                "Size": 2351,
+                "CRC": 1960559610
+            },
+            {
+                "Name": "projectname1_so_serialized_configconvertsettings_labels_$unlabeled",
+                "Hash": "d933c1276d2df106ddcb229a73463ad3",
+                "Size": 2042,
+                "CRC": 2207500822
+            },
+            {
+                "Name": "projectname1_so_serialized_luaautosyncconfig_labels_$unlabeled",
+                "Hash": "605b2033291551e2734d89c5edfcc081",
+                "Size": 2154,
+                "CRC": 1463645213
+            },
+            {
+                "Name": "projectname1_so_serialized_luabehaviourconfigso_labels_$unlabeled",
+                "Hash": "5ddad82494b1336c1103d9dc8f672605",
+                "Size": 2025,
+                "CRC": 2526799167
+            },
+            {
+                "Name": "projectname1_so_serialized_luadatabase_labels_$unlabeled",
+                "Hash": "7b0126484c4ee773b9e69f02ebf7579a",
+                "Size": 2008,
+                "CRC": 4179141552
+            },
+            {
+                "Name": "projectname1_so_serialized_luascriptcontainer_labels_$unlabeled",
+                "Hash": "87aac713956ae92de64d0ec87557aaf1",
+                "Size": 2855,
+                "CRC": 848494958
+            },
+            {
+                "Name": "projectname1_so_serialized_playercontrollerso_labels_$unlabeled",
+                "Hash": "c18316a2ad05d9f078854bb4350397a5",
+                "Size": 1967,
+                "CRC": 741562759
+            },
+            {
+                "Name": "projectname1_so_serialized_scriptobjectbridgeconfig_labels_$unlabeled",
+                "Hash": "f4c0fb0f8e6e1d3bb032d6001f0337f2",
+                "Size": 1961,
+                "CRC": 2556965142
+            },
+            {
+                "Name": "projectname1_so_serialized_scriptobjectcontainer_labels_$unlabeled",
+                "Hash": "e138a42d6355b458524c8b99e957840c",
+                "Size": 2846,
+                "CRC": 2866242834
+            },
+            {
+                "Name": "projectname1_so_serialized_stateanimationconfigso_labels_$unlabeled",
+                "Hash": "aeb6fd1780b2cf84dc03a50de59ba67c",
+                "Size": 2215,
+                "CRC": 1264858343
+            },
+            {
+                "Name": "projectname1_so_serialized_typememberlistso_labels_$unlabeled",
+                "Hash": "6b875bdee460cc1e56b4e7a737260912",
+                "Size": 2494,
+                "CRC": 233286362
+            },
+            {
+                "Name": "projectname1_so_serialized_uiformconfigso_labels_$unlabeled",
+                "Hash": "11a3f61f97e652e433443ab2127d43c6",
+                "Size": 2008,
+                "CRC": 3059413693
+            },
+            {
+                "Name": "projectname1_so_serialized_uiresourceconfigso_labels_$unlabeled",
+                "Hash": "570df56866b6b04cbcde30593ed5c571",
+                "Size": 2249,
+                "CRC": 2567840786
+            },
+            {
+                "Name": "projectname1_test_serialized_textasset_labels_$unlabeled",
+                "Hash": "d21ddb4467002d58424f5e48b0ac86ca",
+                "Size": 7310,
+                "CRC": 2590807605
+            },
+            {
+                "Name": "projectname1_textmeshpro_serialized_font_labels_$unlabeled",
+                "Hash": "89361fd96ec2a8f0df459a61f6f9d540",
+                "Size": 2039771,
+                "CRC": 1288967402
+            },
+            {
+                "Name": "projectname1_textmeshpro_serialized_material_labels_$unlabeled",
+                "Hash": "4f2152b0a36956c90a875edfc32a50ed",
+                "Size": 3308,
+                "CRC": 21601078
+            },
+            {
+                "Name": "projectname1_textmeshpro_serialized_shader_labels_$unlabeled",
+                "Hash": "d004d50b0dd4f72d4868d87d286b85ea",
+                "Size": 56994,
+                "CRC": 333303079
+            },
+            {
+                "Name": "projectname1_textmeshpro_serialized_textasset_labels_$unlabeled",
+                "Hash": "75cc3e441a7e9c4d55cb267f9966b7b6",
+                "Size": 5219,
+                "CRC": 3161388551
+            },
+            {
+                "Name": "projectname1_textmeshpro_serialized_texture2d_labels_$unlabeled",
+                "Hash": "022ef5100a07fcce7552e7d112367ff7",
+                "Size": 68095,
+                "CRC": 1499268802
+            },
+            {
+                "Name": "projectname1_textmeshpro_serialized_tmp_fontasset_labels_$unlabeled",
+                "Hash": "f78a26fc9f0b6fb803f3ec464c0a3d8f",
+                "Size": 967371,
+                "CRC": 2522546992
+            },
+            {
+                "Name": "projectname1_textmeshpro_serialized_tmp_settings_labels_$unlabeled",
+                "Hash": "f1d92460a776cbc477705ce20b0be9b0",
+                "Size": 3157,
+                "CRC": 3579003260
+            },
+            {
+                "Name": "projectname1_textmeshpro_serialized_tmp_spriteasset_labels_$unlabeled",
+                "Hash": "204fabb1f1a8a2d82fc9943447588f91",
+                "Size": 5335,
+                "CRC": 2150124813
+            },
+            {
+                "Name": "projectname1_textmeshpro_serialized_tmp_stylesheet_labels_$unlabeled",
+                "Hash": "345dac307a23a61bcbd09265712cb7a9",
+                "Size": 2986,
+                "CRC": 3227704397
+            },
+            {
+                "Name": "projectname1_xluaframework_serialized_textasset_labels_$unlabeled",
+                "Hash": "ec129057a0a38546bbc5e5b8ed76bb6d",
+                "Size": 12230,
+                "CRC": 3033492221
+            }
+        ],
+        "Modified": [],
+        "Removed": []
+    },
+    "Artifacts": [
+        {
+            "Name": "projectname1_$shared_serialized_shader_shaders",
+            "Hash": "8ffd8e1bd1507309109b53f00b8f5dd4",
+            "Size": 24007,
+            "CRC": 1175160445
+        },
+        {
+            "Name": "projectname1_animation_serialized_animationclip_labels_$unlabeled",
+            "Hash": "12db5f9fe299895f05d7a775a60004ca",
+            "Size": 6918,
+            "CRC": 2131922145
+        },
+        {
+            "Name": "projectname1_animation_serialized_animatorcontroller_labels_$unlabeled",
+            "Hash": "2beb2dbb3aa447c40c6166f14b7ff1d1",
+            "Size": 4937,
+            "CRC": 3544706322
+        },
+        {
+            "Name": "projectname1_art_serialized_texture2d_labels_$unlabeled",
+            "Hash": "c2cc42c8d4ae3fcbc0ecbff8ec2a4f99",
+            "Size": 861928,
+            "CRC": 3443957455
+        },
+        {
+            "Name": "projectname1_dialogue_serialized_textasset_labels_$unlabeled",
+            "Hash": "be3c0817cc3541e9d3711bc473dac163",
+            "Size": 11235,
+            "CRC": 2062918140
+        },
+        {
+            "Name": "projectname1_inputsystem_serialized_inputactionasset_labels_$unlabeled",
+            "Hash": "d5cec5e72f76a87bedddb10cc58e581e",
+            "Size": 3701,
+            "CRC": 3397074074
+        },
+        {
+            "Name": "projectname1_plugins_serialized_textasset_labels_$unlabeled",
+            "Hash": "f2c183e057b31cb5faa46ea312f6617d",
+            "Size": 33016,
+            "CRC": 4270420586
+        },
+        {
+            "Name": "projectname1_prefab_serialized_gameobject_labels_$unlabeled",
+            "Hash": "a39872678741d8d634f2f2ad0d0522e3",
+            "Size": 20418,
+            "CRC": 2468758877
+        },
+        {
+            "Name": "projectname1_resources_serialized_dotweensettings_labels_$unlabeled",
+            "Hash": "2a8fa904b5542d2f259be1e627ce1622",
+            "Size": 2703,
+            "CRC": 3547456821
+        },
+        {
+            "Name": "projectname1_resources_serialized_fyassetaasettings_labels_$unlabeled",
+            "Hash": "049b7b859203c5c975e2fb56d9bc5cac",
+            "Size": 2118,
+            "CRC": 3122953545
+        },
+        {
+            "Name": "projectname1_resources_serialized_fyassetabsettings_labels_$unlabeled",
+            "Hash": "09f9ec92770837202b8f990908835b20",
+            "Size": 2220,
+            "CRC": 3780638861
+        },
+        {
+            "Name": "projectname1_resources_serialized_fyassetsettings_labels_$unlabeled",
+            "Hash": "6bee93f98649971f6a072f6ee55b8385",
+            "Size": 2206,
+            "CRC": 127860130
+        },
+        {
+            "Name": "projectname1_scenes_scene_sceneasset_asset_samplescene~2cda990e_scene_0",
+            "Hash": "0db5451ce55383f9dbb98e6d6ee1cb18",
+            "Size": 6063,
+            "CRC": 1685645422
+        },
+        {
+            "Name": "projectname1_scenes_scene_sceneasset_asset_testdialogue~a75a703a_scene_0",
+            "Hash": "c8daa15f142f72dd2273b035d9f68b3d",
+            "Size": 31151,
+            "CRC": 953833493
+        },
+        {
+            "Name": "projectname1_scenes_scene_sceneasset_asset_test~df477986_scene_0",
+            "Hash": "51e19ef20c13e8a6b84a05cc400d1a9c",
+            "Size": 7575,
+            "CRC": 3372860859
+        },
+        {
+            "Name": "projectname1_scenes_scene_sceneasset_asset_xlua~ff153ba4_scene_0",
+            "Hash": "19575ad60a26c5d7d8328e1a21e5977b",
+            "Size": 6048,
+            "CRC": 271062701
+        },
+        {
+            "Name": "projectname1_so_serialized_characterconfig_labels_$unlabeled",
+            "Hash": "d7046a226a2676f3af503b681e3a545b",
+            "Size": 2173,
+            "CRC": 3110290663
+        },
+        {
+            "Name": "projectname1_so_serialized_configconvertchannel_labels_$unlabeled",
+            "Hash": "00500907cb88b6360ad1d4dd575453e2",
+            "Size": 2351,
+            "CRC": 1960559610
+        },
+        {
+            "Name": "projectname1_so_serialized_configconvertsettings_labels_$unlabeled",
+            "Hash": "d933c1276d2df106ddcb229a73463ad3",
+            "Size": 2042,
+            "CRC": 2207500822
+        },
+        {
+            "Name": "projectname1_so_serialized_luaautosyncconfig_labels_$unlabeled",
+            "Hash": "605b2033291551e2734d89c5edfcc081",
+            "Size": 2154,
+            "CRC": 1463645213
+        },
+        {
+            "Name": "projectname1_so_serialized_luabehaviourconfigso_labels_$unlabeled",
+            "Hash": "5ddad82494b1336c1103d9dc8f672605",
+            "Size": 2025,
+            "CRC": 2526799167
+        },
+        {
+            "Name": "projectname1_so_serialized_luadatabase_labels_$unlabeled",
+            "Hash": "7b0126484c4ee773b9e69f02ebf7579a",
+            "Size": 2008,
+            "CRC": 4179141552
+        },
+        {
+            "Name": "projectname1_so_serialized_luascriptcontainer_labels_$unlabeled",
+            "Hash": "87aac713956ae92de64d0ec87557aaf1",
+            "Size": 2855,
+            "CRC": 848494958
+        },
+        {
+            "Name": "projectname1_so_serialized_playercontrollerso_labels_$unlabeled",
+            "Hash": "c18316a2ad05d9f078854bb4350397a5",
+            "Size": 1967,
+            "CRC": 741562759
+        },
+        {
+            "Name": "projectname1_so_serialized_scriptobjectbridgeconfig_labels_$unlabeled",
+            "Hash": "f4c0fb0f8e6e1d3bb032d6001f0337f2",
+            "Size": 1961,
+            "CRC": 2556965142
+        },
+        {
+            "Name": "projectname1_so_serialized_scriptobjectcontainer_labels_$unlabeled",
+            "Hash": "e138a42d6355b458524c8b99e957840c",
+            "Size": 2846,
+            "CRC": 2866242834
+        },
+        {
+            "Name": "projectname1_so_serialized_stateanimationconfigso_labels_$unlabeled",
+            "Hash": "aeb6fd1780b2cf84dc03a50de59ba67c",
+            "Size": 2215,
+            "CRC": 1264858343
+        },
+        {
+            "Name": "projectname1_so_serialized_typememberlistso_labels_$unlabeled",
+            "Hash": "6b875bdee460cc1e56b4e7a737260912",
+            "Size": 2494,
+            "CRC": 233286362
+        },
+        {
+            "Name": "projectname1_so_serialized_uiformconfigso_labels_$unlabeled",
+            "Hash": "11a3f61f97e652e433443ab2127d43c6",
+            "Size": 2008,
+            "CRC": 3059413693
+        },
+        {
+            "Name": "projectname1_so_serialized_uiresourceconfigso_labels_$unlabeled",
+            "Hash": "570df56866b6b04cbcde30593ed5c571",
+            "Size": 2249,
+            "CRC": 2567840786
+        },
+        {
+            "Name": "projectname1_test_serialized_textasset_labels_$unlabeled",
+            "Hash": "d21ddb4467002d58424f5e48b0ac86ca",
+            "Size": 7310,
+            "CRC": 2590807605
+        },
+        {
+            "Name": "projectname1_textmeshpro_serialized_font_labels_$unlabeled",
+            "Hash": "89361fd96ec2a8f0df459a61f6f9d540",
+            "Size": 2039771,
+            "CRC": 1288967402
+        },
+        {
+            "Name": "projectname1_textmeshpro_serialized_material_labels_$unlabeled",
+            "Hash": "4f2152b0a36956c90a875edfc32a50ed",
+            "Size": 3308,
+            "CRC": 21601078
+        },
+        {
+            "Name": "projectname1_textmeshpro_serialized_shader_labels_$unlabeled",
+            "Hash": "d004d50b0dd4f72d4868d87d286b85ea",
+            "Size": 56994,
+            "CRC": 333303079
+        },
+        {
+            "Name": "projectname1_textmeshpro_serialized_textasset_labels_$unlabeled",
+            "Hash": "75cc3e441a7e9c4d55cb267f9966b7b6",
+            "Size": 5219,
+            "CRC": 3161388551
+        },
+        {
+            "Name": "projectname1_textmeshpro_serialized_texture2d_labels_$unlabeled",
+            "Hash": "022ef5100a07fcce7552e7d112367ff7",
+            "Size": 68095,
+            "CRC": 1499268802
+        },
+        {
+            "Name": "projectname1_textmeshpro_serialized_tmp_fontasset_labels_$unlabeled",
+            "Hash": "f78a26fc9f0b6fb803f3ec464c0a3d8f",
+            "Size": 967371,
+            "CRC": 2522546992
+        },
+        {
+            "Name": "projectname1_textmeshpro_serialized_tmp_settings_labels_$unlabeled",
+            "Hash": "f1d92460a776cbc477705ce20b0be9b0",
+            "Size": 3157,
+            "CRC": 3579003260
+        },
+        {
+            "Name": "projectname1_textmeshpro_serialized_tmp_spriteasset_labels_$unlabeled",
+            "Hash": "204fabb1f1a8a2d82fc9943447588f91",
+            "Size": 5335,
+            "CRC": 2150124813
+        },
+        {
+            "Name": "projectname1_textmeshpro_serialized_tmp_stylesheet_labels_$unlabeled",
+            "Hash": "345dac307a23a61bcbd09265712cb7a9",
+            "Size": 2986,
+            "CRC": 3227704397
+        },
+        {
+            "Name": "projectname1_xluaframework_serialized_textasset_labels_$unlabeled",
+            "Hash": "ec129057a0a38546bbc5e5b8ed76bb6d",
+            "Size": 12230,
+            "CRC": 3033492221
+        }
+    ]
+}

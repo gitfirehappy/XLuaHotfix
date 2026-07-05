@@ -23,7 +23,7 @@ MonoBehaviour:
       - CollectPath: Assets/AddressableAssetsData
         CollectPathType: 0
         CollectorType: 0
-        ForcePayloadKind: 0
+        ForcePayloadKind: 1
         FilterRuleName: CollectAll
         GroupRuleName: GroupAll
     - GroupName: Animation
@@ -34,7 +34,7 @@ MonoBehaviour:
       - CollectPath: Assets/Animation
         CollectPathType: 0
         CollectorType: 0
-        ForcePayloadKind: 0
+        ForcePayloadKind: 1
         FilterRuleName: CollectAll
         GroupRuleName: GroupAll
     - GroupName: Art
@@ -45,7 +45,7 @@ MonoBehaviour:
       - CollectPath: Assets/Art
         CollectPathType: 0
         CollectorType: 0
-        ForcePayloadKind: 0
+        ForcePayloadKind: 1
         FilterRuleName: CollectAll
         GroupRuleName: GroupAll
     - GroupName: Dialogue
@@ -56,7 +56,7 @@ MonoBehaviour:
       - CollectPath: Assets/Dialogue
         CollectPathType: 0
         CollectorType: 0
-        ForcePayloadKind: 0
+        ForcePayloadKind: 1
         FilterRuleName: CollectAll
         GroupRuleName: GroupAll
     - GroupName: Game
@@ -67,7 +67,7 @@ MonoBehaviour:
       - CollectPath: Assets/Game
         CollectPathType: 0
         CollectorType: 0
-        ForcePayloadKind: 0
+        ForcePayloadKind: 1
         FilterRuleName: CollectAll
         GroupRuleName: GroupAll
     - GroupName: Global
@@ -78,7 +78,7 @@ MonoBehaviour:
       - CollectPath: Assets/Global
         CollectPathType: 0
         CollectorType: 0
-        ForcePayloadKind: 0
+        ForcePayloadKind: 1
         FilterRuleName: CollectAll
         GroupRuleName: GroupAll
     - GroupName: InputSystem
@@ -89,7 +89,7 @@ MonoBehaviour:
       - CollectPath: Assets/InputSystem
         CollectPathType: 0
         CollectorType: 0
-        ForcePayloadKind: 0
+        ForcePayloadKind: 1
         FilterRuleName: CollectAll
         GroupRuleName: GroupAll
     - GroupName: Plugins
@@ -100,7 +100,7 @@ MonoBehaviour:
       - CollectPath: Assets/Plugins
         CollectPathType: 0
         CollectorType: 0
-        ForcePayloadKind: 0
+        ForcePayloadKind: 1
         FilterRuleName: CollectAll
         GroupRuleName: GroupAll
     - GroupName: Prefab
@@ -111,7 +111,7 @@ MonoBehaviour:
       - CollectPath: Assets/Prefab
         CollectPathType: 0
         CollectorType: 0
-        ForcePayloadKind: 0
+        ForcePayloadKind: 1
         FilterRuleName: CollectAll
         GroupRuleName: GroupAll
     - GroupName: Resources
@@ -122,7 +122,62 @@ MonoBehaviour:
       - CollectPath: Assets/Resources
         CollectPathType: 0
         CollectorType: 0
-        ForcePayloadKind: 0
+        ForcePayloadKind: 1
+        FilterRuleName: CollectAll
+        GroupRuleName: GroupAll
+    - GroupName: SO
+      Enabled: 1
+      Labels: []
+      BundlePackingMode: 2
+      Collectors:
+      - CollectPath: Assets/SO
+        CollectPathType: 0
+        CollectorType: 0
+        ForcePayloadKind: 1
+        FilterRuleName: CollectAll
+        GroupRuleName: GroupAll
+    - GroupName: Test
+      Enabled: 1
+      Labels: []
+      BundlePackingMode: 2
+      Collectors:
+      - CollectPath: Assets/Test
+        CollectPathType: 0
+        CollectorType: 0
+        ForcePayloadKind: 1
+        FilterRuleName: CollectAll
+        GroupRuleName: GroupAll
+    - GroupName: TextMeshPro
+      Enabled: 1
+      Labels: []
+      BundlePackingMode: 2
+      Collectors:
+      - CollectPath: Assets/TextMesh Pro
+        CollectPathType: 0
+        CollectorType: 0
+        ForcePayloadKind: 1
+        FilterRuleName: CollectAll
+        GroupRuleName: GroupAll
+    - GroupName: UI
+      Enabled: 1
+      Labels: []
+      BundlePackingMode: 2
+      Collectors:
+      - CollectPath: Assets/UI
+        CollectPathType: 0
+        CollectorType: 0
+        ForcePayloadKind: 1
+        FilterRuleName: CollectAll
+        GroupRuleName: GroupAll
+    - GroupName: XLuaFramework
+      Enabled: 1
+      Labels: []
+      BundlePackingMode: 2
+      Collectors:
+      - CollectPath: Assets/XLuaFramework
+        CollectPathType: 0
+        CollectorType: 0
+        ForcePayloadKind: 1
         FilterRuleName: CollectAll
         GroupRuleName: GroupAll
     - GroupName: Scenes
@@ -154,72 +209,6 @@ MonoBehaviour:
         ForcePayloadKind: 3
         FilterRuleName: CollectAll
         GroupRuleName: GroupAll
-    - GroupName: SO
-      Enabled: 1
-      Labels: []
-      BundlePackingMode: 2
-      Collectors:
-      - CollectPath: Assets/SO
-        CollectPathType: 0
-        CollectorType: 0
-        ForcePayloadKind: 0
-        FilterRuleName: CollectAll
-        GroupRuleName: GroupAll
-    - GroupName: Test
-      Enabled: 1
-      Labels: []
-      BundlePackingMode: 2
-      Collectors:
-      - CollectPath: Assets/Test
-        CollectPathType: 0
-        CollectorType: 0
-        ForcePayloadKind: 0
-        FilterRuleName: CollectAll
-        GroupRuleName: GroupAll
-    - GroupName: TextMeshPro
-      Enabled: 1
-      Labels: []
-      BundlePackingMode: 2
-      Collectors:
-      - CollectPath: Assets/TextMesh Pro
-        CollectPathType: 0
-        CollectorType: 0
-        ForcePayloadKind: 0
-        FilterRuleName: CollectAll
-        GroupRuleName: GroupAll
-    - GroupName: UI
-      Enabled: 1
-      Labels: []
-      BundlePackingMode: 2
-      Collectors:
-      - CollectPath: Assets/UI
-        CollectPathType: 0
-        CollectorType: 0
-        ForcePayloadKind: 0
-        FilterRuleName: CollectAll
-        GroupRuleName: GroupAll
-    - GroupName: XLuaFramework
-      Enabled: 1
-      Labels: []
-      BundlePackingMode: 2
-      Collectors:
-      - CollectPath: Assets/XLuaFramework
-        CollectPathType: 0
-        CollectorType: 0
-        ForcePayloadKind: 0
-        FilterRuleName: CollectAll
-        GroupRuleName: GroupAll
-    - GroupName: NewGroup17
-      Enabled: 1
-      Labels: []
-      BundlePackingMode: 2
-      Collectors:
-      - CollectPath: Assets/Tools/Scripts
-        CollectPathType: 0
-        CollectorType: 0
-        ForcePayloadKind: 0
-        FilterRuleName: CollectAll
-        GroupRuleName: GroupAll
     SharePolicy:
       MinReferenceCount: 2
       MinAssetSizeBytes: 0
@@ -230,6 +219,7 @@ MonoBehaviour:
   - Assets/FYAsset/**
   - Assets/Build/**
   - Assets/StreamingAssets/**
+  - Assets/AddressableAssetsData/**
   - Assets/XLua/**
   - Assets/Tools/**
   ExcludedAssets: []
@@ -237,14 +227,6 @@ MonoBehaviour:
   - AssetGUID: ff153ba4fa8c8e5419859ecba965187c
     AutoAddress: 1
     Address: XLua
-    Labels: []
-    AutoRole: 1
-    Role: 0
-    AutoPayload: 1
-    PayloadKind: 2
-  - AssetGUID: a75a703a20f47b1408e0e62f4db3048a
-    AutoAddress: 1
-    Address: TestDialogue
     Labels: []
     AutoRole: 1
     Role: 0
@@ -258,6 +240,14 @@ MonoBehaviour:
     Role: 0
     AutoPayload: 1
     PayloadKind: 2
+  - AssetGUID: a75a703a20f47b1408e0e62f4db3048a
+    AutoAddress: 1
+    Address: TestDialogue
+    Labels: []
+    AutoRole: 1
+    Role: 0
+    AutoPayload: 1
+    PayloadKind: 2
   - AssetGUID: 2cda990e2423bbf4892e6590ba056729
     AutoAddress: 1
     Address: SampleScene
@@ -266,294 +256,134 @@ MonoBehaviour:
     Role: 0
     AutoPayload: 1
     PayloadKind: 2
-  - AssetGUID: 170f3ccdb3bee544095a2f2b92d47c18
+  - AssetGUID: 5a4c48f87981f4646bba3d940afaba68
     AutoAddress: 1
-    Address: AddressableAssetSettings
+    Address: coroutineBridge
     Labels: []
     AutoRole: 1
     Role: 0
     AutoPayload: 1
     PayloadKind: 0
-  - AssetGUID: 3361516b217dc4f4c9cd606e5a6fc9ac
+  - AssetGUID: 6ccaf450f87dac647818da5a6a45e871
     AutoAddress: 1
-    Address: Built In Data
+    Address: LogUtility
     Labels: []
     AutoRole: 1
     Role: 0
     AutoPayload: 1
     PayloadKind: 0
-  - AssetGUID: de95651730e394248981b302d2c9b7d6
+  - AssetGUID: 56efd63a62588a9419442418875c9312
     AutoAddress: 1
-    Address: CsvText
+    Address: ModuleRegistry
     Labels: []
     AutoRole: 1
     Role: 0
     AutoPayload: 1
     PayloadKind: 0
-  - AssetGUID: 8de0f9d75ac1aef4ab0f33bd1a97affe
+  - AssetGUID: 7573012e67161e3438620963fef93e74
     AutoAddress: 1
-    Address: Default
+    Address: EventCentre
     Labels: []
     AutoRole: 1
     Role: 0
     AutoPayload: 1
     PayloadKind: 0
-  - AssetGUID: ea572c62a180ea24091d7ae5f324b58a
+  - AssetGUID: b8deb2c1354c2394aad1ffb9d5b8ac33
     AutoAddress: 1
-    Address: GameData
+    Address: BaseState
     Labels: []
     AutoRole: 1
     Role: 0
     AutoPayload: 1
     PayloadKind: 0
-  - AssetGUID: 681ccb5418d021f418d1c6661d7c6592
+  - AssetGUID: ca7bcc84b721382418a91b3ab79cc87b
     AutoAddress: 1
-    Address: HotfixGroup
+    Address: BaseStateMachine
     Labels: []
     AutoRole: 1
     Role: 0
     AutoPayload: 1
     PayloadKind: 0
-  - AssetGUID: df7744c863b3e7341944119987a264db
+  - AssetGUID: 8c0c927a6c9b8594db8c002031a6af06
     AutoAddress: 1
-    Address: LuaBridge
+    Address: PlayerController
     Labels: []
     AutoRole: 1
     Role: 0
     AutoPayload: 1
     PayloadKind: 0
-  - AssetGUID: 4fc5c8c9250bea1438cce940a855c631
+  - AssetGUID: 13311c0d716a4664fbde58273ae9853b
     AutoAddress: 1
-    Address: LuaScripts
+    Address: PlayerInputHandler
     Labels: []
     AutoRole: 1
     Role: 0
     AutoPayload: 1
     PayloadKind: 0
-  - AssetGUID: 70e827a90bc9c7a46831aafcb28a3af1
+  - AssetGUID: f2a91bda687543b4285c4c75f24b420c
     AutoAddress: 1
-    Address: Built In Data_PlayerDataGroupSchema
+    Address: AirborneState
     Labels: []
     AutoRole: 1
     Role: 0
     AutoPayload: 1
     PayloadKind: 0
-  - AssetGUID: 8f43eb00325ab3345b770fc609d18215
+  - AssetGUID: 2f03af01b000a8445a7738658a88f5ad
     AutoAddress: 1
-    Address: CsvText_BundledAssetGroupSchema
+    Address: GroundedState
     Labels: []
     AutoRole: 1
     Role: 0
     AutoPayload: 1
     PayloadKind: 0
-  - AssetGUID: 1d7e03d501c2f5444ae8a84c905b6a9c
+  - AssetGUID: 38f9e5ab7dc55ff4c984e433914f0a8c
     AutoAddress: 1
-    Address: CsvText_ContentUpdateGroupSchema
+    Address: PlayerFallState
     Labels: []
     AutoRole: 1
     Role: 0
     AutoPayload: 1
     PayloadKind: 0
-  - AssetGUID: 055ac99c927ec904d885c9000efaffb8
+  - AssetGUID: 31c99a058f929624db3d951aa33ddb02
     AutoAddress: 1
-    Address: Default_BundledAssetGroupSchema
+    Address: PlayerHFSMState
     Labels: []
     AutoRole: 1
     Role: 0
     AutoPayload: 1
     PayloadKind: 0
-  - AssetGUID: 6e4d9ea61bd7078489cdf61cd66c94f9
+  - AssetGUID: 03d67662ab66fc848b47da529a5e5be4
     AutoAddress: 1
-    Address: Default_ContentUpdateGroupSchema
+    Address: PlayerIdleState
     Labels: []
     AutoRole: 1
     Role: 0
     AutoPayload: 1
     PayloadKind: 0
-  - AssetGUID: bbf4a4a6b6fb64c499f6b868d616ca82
+  - AssetGUID: a86a8a607a2cd374aa55d27e9ea236e9
     AutoAddress: 1
-    Address: GameData_BundledAssetGroupSchema
+    Address: PlayerJumpState
     Labels: []
     AutoRole: 1
     Role: 0
     AutoPayload: 1
     PayloadKind: 0
-  - AssetGUID: b1181d54387b576459fd684f90e412cd
+  - AssetGUID: e90266f36b3399244a1bf4f95e9d68a3
     AutoAddress: 1
-    Address: GameData_ContentUpdateGroupSchema
+    Address: PlayerRunState
     Labels: []
     AutoRole: 1
     Role: 0
     AutoPayload: 1
     PayloadKind: 0
-  - AssetGUID: 44d49ef2fe616be4c95b0be2d23c4122
+  - AssetGUID: 6cfd80738de344d4aa0c43485cbb2ca5
     AutoAddress: 1
-    Address: HotfixGroup_BundledAssetGroupSchema
+    Address: PlayerStateMachine
     Labels: []
     AutoRole: 1
     Role: 0
     AutoPayload: 1
     PayloadKind: 0
-  - AssetGUID: a45f4e3aa7ad4ec4690c960bd1e92ca7
-    AutoAddress: 1
-    Address: HotfixGroup_ContentUpdateGroupSchema
-    Labels: []
-    AutoRole: 1
-    Role: 0
-    AutoPayload: 1
-    PayloadKind: 0
-  - AssetGUID: 6a90c52e5efb81144a4bf8f1c52a2557
-    AutoAddress: 1
-    Address: LuaBridge_BundledAssetGroupSchema
-    Labels: []
-    AutoRole: 1
-    Role: 0
-    AutoPayload: 1
-    PayloadKind: 0
-  - AssetGUID: 8b2f24f84c2f04b4798df0a1b86fb64a
-    AutoAddress: 1
-    Address: LuaBridge_ContentUpdateGroupSchema
-    Labels: []
-    AutoRole: 1
-    Role: 0
-    AutoPayload: 1
-    PayloadKind: 0
-  - AssetGUID: 45be1151eebaf464db42701333183a65
-    AutoAddress: 1
-    Address: LuaScripts_BundledAssetGroupSchema
-    Labels: []
-    AutoRole: 1
-    Role: 0
-    AutoPayload: 1
-    PayloadKind: 0
-  - AssetGUID: ec4133b587c428f4f89ae4b4015a6a9a
-    AutoAddress: 1
-    Address: LuaScripts_ContentUpdateGroupSchema
-    Labels: []
-    AutoRole: 1
-    Role: 0
-    AutoPayload: 1
-    PayloadKind: 0
-  - AssetGUID: f6740f1de6e46e94083eb67572a2574b
-    AutoAddress: 1
-    Address: UI_BundledAssetGroupSchema
-    Labels: []
-    AutoRole: 1
-    Role: 0
-    AutoPayload: 1
-    PayloadKind: 0
-  - AssetGUID: 028c79241a14c6d42be1fee9af4e3b38
-    AutoAddress: 1
-    Address: UI_ContentUpdateGroupSchema
-    Labels: []
-    AutoRole: 1
-    Role: 0
-    AutoPayload: 1
-    PayloadKind: 0
-  - AssetGUID: 51ce986fa0720604b9af8579481788e9
-    AutoAddress: 1
-    Address: XLuaLabelConfig_BundledAssetGroupSchema
-    Labels: []
-    AutoRole: 1
-    Role: 0
-    AutoPayload: 1
-    PayloadKind: 0
-  - AssetGUID: dbe90d10ea61f08418ca61218c550ebb
-    AutoAddress: 1
-    Address: XLuaLabelConfig_ContentUpdateGroupSchema
-    Labels: []
-    AutoRole: 1
-    Role: 0
-    AutoPayload: 1
-    PayloadKind: 0
-  - AssetGUID: 83055885901cdf843855595898ba6b1d
-    AutoAddress: 1
-    Address: UI
-    Labels: []
-    AutoRole: 1
-    Role: 0
-    AutoPayload: 1
-    PayloadKind: 0
-  - AssetGUID: 9901677a4c1f8da439a8875da32e3ea8
-    AutoAddress: 1
-    Address: XLuaLabelConfig
-    Labels: []
-    AutoRole: 1
-    Role: 0
-    AutoPayload: 1
-    PayloadKind: 0
-  - AssetGUID: b2541223116770447a3da6d418729a76
-    AutoAddress: 1
-    Address: Packed Assets
-    Labels: []
-    AutoRole: 1
-    Role: 0
-    AutoPayload: 1
-    PayloadKind: 0
-  - AssetGUID: 3e2e8f49d53c51d44ad4915af259481e
-    AutoAddress: 1
-    Address: BuildScriptFastMode
-    Labels: []
-    AutoRole: 1
-    Role: 0
-    AutoPayload: 1
-    PayloadKind: 0
-  - AssetGUID: d974c5a51bcaab74e8ef2b63f0fc17e3
-    AutoAddress: 1
-    Address: BuildScriptPackedMode
-    Labels: []
-    AutoRole: 1
-    Role: 0
-    AutoPayload: 1
-    PayloadKind: 0
-  - AssetGUID: a25a4f2966d42fb4695e32e5a46de12a
-    AutoAddress: 1
-    Address: BuildScriptPackedPlayMode
-    Labels: []
-    AutoRole: 1
-    Role: 0
-    AutoPayload: 1
-    PayloadKind: 0
-  - AssetGUID: 910aaf6bfb459bd4293d7070f1207750
-    AutoAddress: 1
-    Address: BuildScriptVirtualMode
-    Labels: []
-    AutoRole: 1
-    Role: 0
-    AutoPayload: 1
-    PayloadKind: 0
-  - AssetGUID: b3140e9b8fe4aff42b336ede0cb0c9a5
-    AutoAddress: 1
-    Address: DefaultObject
-    Labels: []
-    AutoRole: 1
-    Role: 0
-    AutoPayload: 1
-    PayloadKind: 0
-  - AssetGUID: 018215545a68d914cb8bc80c8bff81b4
-    AutoAddress: 1
-    Address: ProfileDataSourceSettings
-    Labels: []
-    AutoRole: 1
-    Role: 0
-    AutoPayload: 1
-    PayloadKind: 0
-  - AssetGUID: 6ff788cb3f5854a49bd4af8658a1db6f
-    AutoAddress: 1
-    Address: addressables_content_state
-    Labels: []
-    AutoRole: 1
-    Role: 0
-    AutoPayload: 1
-    PayloadKind: 1
-  - AssetGUID: 1b8d251f9af63b746bf2f7ffe00ebb9b
-    AutoAddress: 1
-    Address: TextMesh Pro User Guide 2016
-    Labels: []
-    AutoRole: 1
-    Role: 0
-    AutoPayload: 1
-    PayloadKind: 1
   - AssetGUID: 6e59c59b81ab47f9b6ec5781fa725d2c
     AutoAddress: 1
     Address: LiberationSans - OFL
@@ -561,7 +391,7 @@ MonoBehaviour:
     AutoRole: 1
     Role: 0
     AutoPayload: 1
-    PayloadKind: 1
+    PayloadKind: 0
   - AssetGUID: e3265ab4bf004d28a9537516768c1c75
     AutoAddress: 1
     Address: LiberationSans
@@ -569,7 +399,7 @@ MonoBehaviour:
     AutoRole: 1
     Role: 0
     AutoPayload: 1
-    PayloadKind: 1
+    PayloadKind: 0
   - AssetGUID: b3e0e8d2adbd1f7408a4ade77d93b82a
     AutoAddress: 1
     Address: SmileySans-Oblique SDF
@@ -585,7 +415,7 @@ MonoBehaviour:
     AutoRole: 1
     Role: 0
     AutoPayload: 1
-    PayloadKind: 1
+    PayloadKind: 0
   - AssetGUID: e73a58f6e2794ae7b1b7e50b7fb811b0
     AutoAddress: 1
     Address: LiberationSans SDF - Drop Shadow
@@ -625,7 +455,7 @@ MonoBehaviour:
     AutoRole: 1
     Role: 0
     AutoPayload: 1
-    PayloadKind: 1
+    PayloadKind: 0
   - AssetGUID: d82c1b31c7e74239bff1220585707d2b
     AutoAddress: 1
     Address: LineBreaking Leading Characters
@@ -633,7 +463,7 @@ MonoBehaviour:
     AutoRole: 1
     Role: 0
     AutoPayload: 1
-    PayloadKind: 1
+    PayloadKind: 0
   - AssetGUID: c41005c129ba4d66911b75229fd70b45
     AutoAddress: 1
     Address: EmojiOne
@@ -762,38 +592,6 @@ MonoBehaviour:
     Role: 0
     AutoPayload: 1
     PayloadKind: 0
-  - AssetGUID: 407bc68d299748449bbf7f48ee690f8d
-    AutoAddress: 1
-    Address: TMPro
-    Labels: []
-    AutoRole: 1
-    Role: 0
-    AutoPayload: 1
-    PayloadKind: 1
-  - AssetGUID: c334973cef89a9840b0b0c507e0377ab
-    AutoAddress: 1
-    Address: TMPro_Mobile
-    Labels: []
-    AutoRole: 1
-    Role: 0
-    AutoPayload: 1
-    PayloadKind: 1
-  - AssetGUID: 3997e2241185407d80309a82f9148466
-    AutoAddress: 1
-    Address: TMPro_Properties
-    Labels: []
-    AutoRole: 1
-    Role: 0
-    AutoPayload: 1
-    PayloadKind: 1
-  - AssetGUID: d930090c0cd643c7b55f19a38538c162
-    AutoAddress: 1
-    Address: TMPro_Surface
-    Labels: []
-    AutoRole: 1
-    Role: 0
-    AutoPayload: 1
-    PayloadKind: 1
   - AssetGUID: 381dcb09d5029d14897e55f98031fca5
     AutoAddress: 1
     Address: EmojiOne Attribution
@@ -801,7 +599,7 @@ MonoBehaviour:
     AutoRole: 1
     Role: 0
     AutoPayload: 1
-    PayloadKind: 1
+    PayloadKind: 0
   - AssetGUID: 8f05276190cf498a8153f6cbe761d4e6
     AutoAddress: 1
     Address: EmojiOne
@@ -809,7 +607,7 @@ MonoBehaviour:
     AutoRole: 1
     Role: 0
     AutoPayload: 1
-    PayloadKind: 1
+    PayloadKind: 0
   - AssetGUID: dffef66376be4fa480fb02b19edbe903
     AutoAddress: 1
     Address: EmojiOne
@@ -825,7 +623,7 @@ MonoBehaviour:
     AutoRole: 1
     Role: 0
     AutoPayload: 1
-    PayloadKind: 1
+    PayloadKind: 0
   - AssetGUID: 1cfdfba54efe03d40aab0e594ccd17ed
     AutoAddress: 1
     Address: TalkTest1_Remote
@@ -833,7 +631,7 @@ MonoBehaviour:
     AutoRole: 1
     Role: 0
     AutoPayload: 1
-    PayloadKind: 1
+    PayloadKind: 0
   - AssetGUID: 6f23825d4c7f4e24997144a44ded5ac5
     AutoAddress: 1
     Address: TalkTest2
@@ -841,7 +639,7 @@ MonoBehaviour:
     AutoRole: 1
     Role: 0
     AutoPayload: 1
-    PayloadKind: 1
+    PayloadKind: 0
   - AssetGUID: 9ef2d3afbed751745a404dae153dd88e
     AutoAddress: 1
     Address: TalkTest2_Remote
@@ -849,7 +647,7 @@ MonoBehaviour:
     AutoRole: 1
     Role: 0
     AutoPayload: 1
-    PayloadKind: 1
+    PayloadKind: 0
   - AssetGUID: 1fd76485b0619f946a94a4f873fd0a0a
     AutoAddress: 1
     Address: TalkTest
@@ -857,7 +655,7 @@ MonoBehaviour:
     AutoRole: 1
     Role: 0
     AutoPayload: 1
-    PayloadKind: 1
+    PayloadKind: 0
   - AssetGUID: ccf2dbb7fc91c3c4fa5539a9671ea0b5
     AutoAddress: 1
     Address: TestCharacters
@@ -865,7 +663,7 @@ MonoBehaviour:
     AutoRole: 1
     Role: 0
     AutoPayload: 1
-    PayloadKind: 1
+    PayloadKind: 0
   - AssetGUID: f1ccd0c3699db8b419c235d428dcbd28
     AutoAddress: 1
     Address: TestGameSettings
@@ -873,7 +671,7 @@ MonoBehaviour:
     AutoRole: 1
     Role: 0
     AutoPayload: 1
-    PayloadKind: 1
+    PayloadKind: 0
   - AssetGUID: ac15555336b76b04b9511c58a27e339e
     AutoAddress: 1
     Address: TalkTest1
@@ -881,7 +679,7 @@ MonoBehaviour:
     AutoRole: 1
     Role: 0
     AutoPayload: 1
-    PayloadKind: 1
+    PayloadKind: 0
   - AssetGUID: b040060e7bd838940b15dabe9d83a6e7
     AutoAddress: 1
     Address: TalkTest2
@@ -889,7 +687,7 @@ MonoBehaviour:
     AutoRole: 1
     Role: 0
     AutoPayload: 1
-    PayloadKind: 1
+    PayloadKind: 0
   - AssetGUID: 4b2e4dda70994d944909a01ca0053baf
     AutoAddress: 1
     Address: TalkTest1_Remote
@@ -897,7 +695,7 @@ MonoBehaviour:
     AutoRole: 1
     Role: 0
     AutoPayload: 1
-    PayloadKind: 1
+    PayloadKind: 0
   - AssetGUID: 3f8257ce259f86f4a9d1e0d4f17fb395
     AutoAddress: 1
     Address: TalkTest2_Remote
@@ -905,7 +703,7 @@ MonoBehaviour:
     AutoRole: 1
     Role: 0
     AutoPayload: 1
-    PayloadKind: 1
+    PayloadKind: 0
   - AssetGUID: 85336a1098f62214fa411549187bea56
     AutoAddress: 1
     Address: TestBuff
@@ -913,7 +711,7 @@ MonoBehaviour:
     AutoRole: 1
     Role: 0
     AutoPayload: 1
-    PayloadKind: 1
+    PayloadKind: 0
   - AssetGUID: 1f38a41606ff8ed45b5ada8812a888cf
     AutoAddress: 1
     Address: TestCharacters
@@ -921,7 +719,7 @@ MonoBehaviour:
     AutoRole: 1
     Role: 0
     AutoPayload: 1
-    PayloadKind: 1
+    PayloadKind: 0
   - AssetGUID: f010d56b311f1f543b2297cf57284915
     AutoAddress: 1
     Address: TestGameSettings
@@ -929,7 +727,7 @@ MonoBehaviour:
     AutoRole: 1
     Role: 0
     AutoPayload: 1
-    PayloadKind: 1
+    PayloadKind: 0
   - AssetGUID: c839593286daa584fb3f5ccf2330a3b1
     AutoAddress: 1
     Address: TestPlayerData
@@ -937,7 +735,7 @@ MonoBehaviour:
     AutoRole: 1
     Role: 0
     AutoPayload: 1
-    PayloadKind: 1
+    PayloadKind: 0
   - AssetGUID: da65c5ba0e2c3de448acaa99dfa35dcc
     AutoAddress: 1
     Address: TalkTest
@@ -945,7 +743,7 @@ MonoBehaviour:
     AutoRole: 1
     Role: 0
     AutoPayload: 1
-    PayloadKind: 1
+    PayloadKind: 0
   - AssetGUID: 18b7c149c4534329b1a60ebea1779205
     AutoAddress: 1
     Address: TestCharacters
@@ -953,7 +751,7 @@ MonoBehaviour:
     AutoRole: 1
     Role: 0
     AutoPayload: 1
-    PayloadKind: 1
+    PayloadKind: 0
   - AssetGUID: 886e9b560ec244779bec6e89dd5cce7e
     AutoAddress: 1
     Address: TestGameSettings
@@ -961,7 +759,7 @@ MonoBehaviour:
     AutoRole: 1
     Role: 0
     AutoPayload: 1
-    PayloadKind: 1
+    PayloadKind: 0
   - AssetGUID: 67d9884d8b289bc44b06eaa42104c094
     AutoAddress: 1
     Address: HelloWorld
@@ -969,7 +767,7 @@ MonoBehaviour:
     AutoRole: 1
     Role: 0
     AutoPayload: 1
-    PayloadKind: 1
+    PayloadKind: 0
   - AssetGUID: 1e4e6ea9f2ed6d1489a2facb06e1d9da
     AutoAddress: 1
     Address: DialoguePanel
@@ -1266,41 +1064,25 @@ MonoBehaviour:
     Role: 0
     AutoPayload: 1
     PayloadKind: 0
+  - AssetGUID: afc1c74cba574048ad6044b105b166ac
+    AutoAddress: 1
+    Address: FYAssetAASettings
+    Labels: []
+    AutoRole: 1
+    Role: 0
+    AutoPayload: 1
+    PayloadKind: 0
+  - AssetGUID: 31f2251ef6bf407e83bdab3f54129be4
+    AutoAddress: 1
+    Address: FYAssetABSettings
+    Labels: []
+    AutoRole: 1
+    Role: 0
+    AutoPayload: 1
+    PayloadKind: 0
   - AssetGUID: 94f08c93eeb446b7bd3764b001a94997
     AutoAddress: 1
     Address: FYAssetSettings
-    Labels: []
-    AutoRole: 1
-    Role: 0
-    AutoPayload: 1
-    PayloadKind: 0
-  - AssetGUID: a1ca5b823e679274b97e155fcc2bbcae
-    AutoAddress: 1
-    Address: GameLauncher
-    Labels: []
-    AutoRole: 1
-    Role: 0
-    AutoPayload: 1
-    PayloadKind: 0
-  - AssetGUID: c71c9a27785313c4ba216ea9fcd6ab5b
-    AutoAddress: 1
-    Address: Player
-    Labels: []
-    AutoRole: 1
-    Role: 0
-    AutoPayload: 1
-    PayloadKind: 0
-  - AssetGUID: 6c049f6d722b98d458915632edb51312
-    AutoAddress: 1
-    Address: DialoguePanel
-    Labels: []
-    AutoRole: 1
-    Role: 0
-    AutoPayload: 1
-    PayloadKind: 0
-  - AssetGUID: f6a085bf0256f2d46a933670b697ac56
-    AutoAddress: 1
-    Address: TestButton
     Labels: []
     AutoRole: 1
     Role: 0
@@ -1313,7 +1095,7 @@ MonoBehaviour:
     AutoRole: 1
     Role: 0
     AutoPayload: 1
-    PayloadKind: 1
+    PayloadKind: 0
   - AssetGUID: 6e1b2e17cce240d4c8ff5457ac996e0d
     AutoAddress: 1
     Address: libxlua
@@ -1321,7 +1103,7 @@ MonoBehaviour:
     AutoRole: 1
     Role: 0
     AutoPayload: 1
-    PayloadKind: 1
+    PayloadKind: 0
   - AssetGUID: 038a89637b659e346a7a712ce0c9271b
     AutoAddress: 1
     Address: libxlua
@@ -1329,7 +1111,7 @@ MonoBehaviour:
     AutoRole: 1
     Role: 0
     AutoPayload: 1
-    PayloadKind: 1
+    PayloadKind: 0
   - AssetGUID: 27cd65c4cc42b42f49caa94f462466de
     AutoAddress: 1
     Address: libxlua
@@ -1337,7 +1119,7 @@ MonoBehaviour:
     AutoRole: 1
     Role: 0
     AutoPayload: 1
-    PayloadKind: 1
+    PayloadKind: 0
   - AssetGUID: 4f007001a22b3d24dae350342c4d19c8
     AutoAddress: 1
     Address: DOTween.dll
@@ -1345,7 +1127,7 @@ MonoBehaviour:
     AutoRole: 1
     Role: 0
     AutoPayload: 1
-    PayloadKind: 1
+    PayloadKind: 0
   - AssetGUID: 34192c5e0d14aee43a0e86cc4823268a
     AutoAddress: 1
     Address: DOTween
@@ -1353,7 +1135,7 @@ MonoBehaviour:
     AutoRole: 1
     Role: 0
     AutoPayload: 1
-    PayloadKind: 1
+    PayloadKind: 0
   - AssetGUID: fccfc62abf2eb0a4db614853430894fd
     AutoAddress: 1
     Address: readme
@@ -1361,7 +1143,7 @@ MonoBehaviour:
     AutoRole: 1
     Role: 0
     AutoPayload: 1
-    PayloadKind: 1
+    PayloadKind: 0
   - AssetGUID: ef0ed550afe43d449b58d883fad0585c
     AutoAddress: 1
     Address: HotfixFlags
@@ -1369,7 +1151,7 @@ MonoBehaviour:
     AutoRole: 1
     Role: 0
     AutoPayload: 1
-    PayloadKind: 1
+    PayloadKind: 0
   - AssetGUID: 2d65468f3356ca741b3fbebea91dfb6c
     AutoAddress: 1
     Address: libxlua
@@ -1377,7 +1159,7 @@ MonoBehaviour:
     AutoRole: 1
     Role: 0
     AutoPayload: 1
-    PayloadKind: 1
+    PayloadKind: 0
   - AssetGUID: 92f9773841d5ffd44b794b9b584a5c05
     AutoAddress: 1
     Address: xlua_webgl
@@ -1385,7 +1167,7 @@ MonoBehaviour:
     AutoRole: 1
     Role: 0
     AutoPayload: 1
-    PayloadKind: 1
+    PayloadKind: 0
   - AssetGUID: 9f19d785ae44ddc478a08a87ccd9dbb2
     AutoAddress: 1
     Address: libxlua
@@ -1393,7 +1175,7 @@ MonoBehaviour:
     AutoRole: 1
     Role: 0
     AutoPayload: 1
-    PayloadKind: 1
+    PayloadKind: 0
   - AssetGUID: 1055830ddb882704fa71275ed9b2a78d
     AutoAddress: 1
     Address: libxlua
@@ -1401,7 +1183,7 @@ MonoBehaviour:
     AutoRole: 1
     Role: 0
     AutoPayload: 1
-    PayloadKind: 1
+    PayloadKind: 0
   - AssetGUID: e6a34038df77e48438826b6ff94aa69e
     AutoAddress: 1
     Address: xlua
@@ -1409,7 +1191,7 @@ MonoBehaviour:
     AutoRole: 1
     Role: 0
     AutoPayload: 1
-    PayloadKind: 1
+    PayloadKind: 0
   - AssetGUID: 1229d7629745e3d40aca749760e10941
     AutoAddress: 1
     Address: InputSystem
@@ -1417,7 +1199,7 @@ MonoBehaviour:
     AutoRole: 1
     Role: 0
     AutoPayload: 1
-    PayloadKind: 1
+    PayloadKind: 0
   - AssetGUID: fb55dc4a6a5926b4089ca08bf7ed3d33
     AutoAddress: 1
     Address: DemoDialogueFunctions
@@ -1425,7 +1207,7 @@ MonoBehaviour:
     AutoRole: 1
     Role: 0
     AutoPayload: 1
-    PayloadKind: 1
+    PayloadKind: 0
   - AssetGUID: 72e988735b9e33346b1d8c38b84e76e0
     AutoAddress: 1
     Address: DialogueController
@@ -1433,7 +1215,7 @@ MonoBehaviour:
     AutoRole: 1
     Role: 0
     AutoPayload: 1
-    PayloadKind: 1
+    PayloadKind: 0
   - AssetGUID: 59b843d4648fa5b41a49a3e2eb95db30
     AutoAddress: 1
     Address: DialogueDataManager
@@ -1441,7 +1223,7 @@ MonoBehaviour:
     AutoRole: 1
     Role: 0
     AutoPayload: 1
-    PayloadKind: 1
+    PayloadKind: 0
   - AssetGUID: 621fddce2852d5f4ab898e331854a003
     AutoAddress: 1
     Address: DialogueFuncRegistry
@@ -1449,7 +1231,7 @@ MonoBehaviour:
     AutoRole: 1
     Role: 0
     AutoPayload: 1
-    PayloadKind: 1
+    PayloadKind: 0
   - AssetGUID: a2a90691845620f46ae364cbe783900c
     AutoAddress: 1
     Address: DialogueModel
@@ -1457,7 +1239,7 @@ MonoBehaviour:
     AutoRole: 1
     Role: 0
     AutoPayload: 1
-    PayloadKind: 1
+    PayloadKind: 0
   - AssetGUID: 5a0338e8feaa3104e8298a6d959f3a9a
     AutoAddress: 1
     Address: DialogueView
@@ -1465,7 +1247,7 @@ MonoBehaviour:
     AutoRole: 1
     Role: 0
     AutoPayload: 1
-    PayloadKind: 1
+    PayloadKind: 0
   - AssetGUID: cd652f5024aa10f4f88718aeaa624d54
     AutoAddress: 1
     Address: StringUtil
@@ -1473,7 +1255,7 @@ MonoBehaviour:
     AutoRole: 1
     Role: 0
     AutoPayload: 1
-    PayloadKind: 1
+    PayloadKind: 0
   - AssetGUID: 3421078018dc3934a8c1ab3b7bf89aa0
     AutoAddress: 1
     Address: Appearing (96x96)
@@ -1786,145 +1568,313 @@ MonoBehaviour:
     Role: 0
     AutoPayload: 1
     PayloadKind: 0
-  - AssetGUID: 5a4c48f87981f4646bba3d940afaba68
+  - AssetGUID: a1ca5b823e679274b97e155fcc2bbcae
     AutoAddress: 1
-    Address: coroutineBridge
-    Labels: []
-    AutoRole: 1
-    Role: 0
-    AutoPayload: 1
-    PayloadKind: 1
-  - AssetGUID: 6ccaf450f87dac647818da5a6a45e871
-    AutoAddress: 1
-    Address: LogUtility
-    Labels: []
-    AutoRole: 1
-    Role: 0
-    AutoPayload: 1
-    PayloadKind: 1
-  - AssetGUID: 56efd63a62588a9419442418875c9312
-    AutoAddress: 1
-    Address: ModuleRegistry
-    Labels: []
-    AutoRole: 1
-    Role: 0
-    AutoPayload: 1
-    PayloadKind: 1
-  - AssetGUID: 7573012e67161e3438620963fef93e74
-    AutoAddress: 1
-    Address: EventCentre
-    Labels: []
-    AutoRole: 1
-    Role: 0
-    AutoPayload: 1
-    PayloadKind: 1
-  - AssetGUID: b8deb2c1354c2394aad1ffb9d5b8ac33
-    AutoAddress: 1
-    Address: BaseState
-    Labels: []
-    AutoRole: 1
-    Role: 0
-    AutoPayload: 1
-    PayloadKind: 1
-  - AssetGUID: ca7bcc84b721382418a91b3ab79cc87b
-    AutoAddress: 1
-    Address: BaseStateMachine
-    Labels: []
-    AutoRole: 1
-    Role: 0
-    AutoPayload: 1
-    PayloadKind: 1
-  - AssetGUID: 8c0c927a6c9b8594db8c002031a6af06
-    AutoAddress: 1
-    Address: PlayerController
-    Labels: []
-    AutoRole: 1
-    Role: 0
-    AutoPayload: 1
-    PayloadKind: 1
-  - AssetGUID: 13311c0d716a4664fbde58273ae9853b
-    AutoAddress: 1
-    Address: PlayerInputHandler
-    Labels: []
-    AutoRole: 1
-    Role: 0
-    AutoPayload: 1
-    PayloadKind: 1
-  - AssetGUID: f2a91bda687543b4285c4c75f24b420c
-    AutoAddress: 1
-    Address: AirborneState
-    Labels: []
-    AutoRole: 1
-    Role: 0
-    AutoPayload: 1
-    PayloadKind: 1
-  - AssetGUID: 2f03af01b000a8445a7738658a88f5ad
-    AutoAddress: 1
-    Address: GroundedState
-    Labels: []
-    AutoRole: 1
-    Role: 0
-    AutoPayload: 1
-    PayloadKind: 1
-  - AssetGUID: 38f9e5ab7dc55ff4c984e433914f0a8c
-    AutoAddress: 1
-    Address: PlayerFallState
-    Labels: []
-    AutoRole: 1
-    Role: 0
-    AutoPayload: 1
-    PayloadKind: 1
-  - AssetGUID: 31c99a058f929624db3d951aa33ddb02
-    AutoAddress: 1
-    Address: PlayerHFSMState
-    Labels: []
-    AutoRole: 1
-    Role: 0
-    AutoPayload: 1
-    PayloadKind: 1
-  - AssetGUID: 03d67662ab66fc848b47da529a5e5be4
-    AutoAddress: 1
-    Address: PlayerIdleState
-    Labels: []
-    AutoRole: 1
-    Role: 0
-    AutoPayload: 1
-    PayloadKind: 1
-  - AssetGUID: a86a8a607a2cd374aa55d27e9ea236e9
-    AutoAddress: 1
-    Address: PlayerJumpState
-    Labels: []
-    AutoRole: 1
-    Role: 0
-    AutoPayload: 1
-    PayloadKind: 1
-  - AssetGUID: e90266f36b3399244a1bf4f95e9d68a3
-    AutoAddress: 1
-    Address: PlayerRunState
-    Labels: []
-    AutoRole: 1
-    Role: 0
-    AutoPayload: 1
-    PayloadKind: 1
-  - AssetGUID: 6cfd80738de344d4aa0c43485cbb2ca5
-    AutoAddress: 1
-    Address: PlayerStateMachine
-    Labels: []
-    AutoRole: 1
-    Role: 0
-    AutoPayload: 1
-    PayloadKind: 1
-  - AssetGUID: afc1c74cba574048ad6044b105b166ac
-    AutoAddress: 1
-    Address: FYAssetAASettings
+    Address: GameLauncher
     Labels: []
     AutoRole: 1
     Role: 0
     AutoPayload: 1
     PayloadKind: 0
-  - AssetGUID: 31f2251ef6bf407e83bdab3f54129be4
+  - AssetGUID: c71c9a27785313c4ba216ea9fcd6ab5b
     AutoAddress: 1
-    Address: FYAssetABSettings
+    Address: Player
+    Labels: []
+    AutoRole: 1
+    Role: 0
+    AutoPayload: 1
+    PayloadKind: 0
+  - AssetGUID: 6c049f6d722b98d458915632edb51312
+    AutoAddress: 1
+    Address: DialoguePanel
+    Labels: []
+    AutoRole: 1
+    Role: 0
+    AutoPayload: 1
+    PayloadKind: 0
+  - AssetGUID: f6a085bf0256f2d46a933670b697ac56
+    AutoAddress: 1
+    Address: TestButton
+    Labels: []
+    AutoRole: 1
+    Role: 0
+    AutoPayload: 1
+    PayloadKind: 0
+  - AssetGUID: 170f3ccdb3bee544095a2f2b92d47c18
+    AutoAddress: 1
+    Address: AddressableAssetSettings
+    Labels: []
+    AutoRole: 1
+    Role: 0
+    AutoPayload: 1
+    PayloadKind: 0
+  - AssetGUID: 3361516b217dc4f4c9cd606e5a6fc9ac
+    AutoAddress: 1
+    Address: Built In Data
+    Labels: []
+    AutoRole: 1
+    Role: 0
+    AutoPayload: 1
+    PayloadKind: 0
+  - AssetGUID: de95651730e394248981b302d2c9b7d6
+    AutoAddress: 1
+    Address: CsvText
+    Labels: []
+    AutoRole: 1
+    Role: 0
+    AutoPayload: 1
+    PayloadKind: 0
+  - AssetGUID: 8de0f9d75ac1aef4ab0f33bd1a97affe
+    AutoAddress: 1
+    Address: Default
+    Labels: []
+    AutoRole: 1
+    Role: 0
+    AutoPayload: 1
+    PayloadKind: 0
+  - AssetGUID: ea572c62a180ea24091d7ae5f324b58a
+    AutoAddress: 1
+    Address: GameData
+    Labels: []
+    AutoRole: 1
+    Role: 0
+    AutoPayload: 1
+    PayloadKind: 0
+  - AssetGUID: 681ccb5418d021f418d1c6661d7c6592
+    AutoAddress: 1
+    Address: HotfixGroup
+    Labels: []
+    AutoRole: 1
+    Role: 0
+    AutoPayload: 1
+    PayloadKind: 0
+  - AssetGUID: df7744c863b3e7341944119987a264db
+    AutoAddress: 1
+    Address: LuaBridge
+    Labels: []
+    AutoRole: 1
+    Role: 0
+    AutoPayload: 1
+    PayloadKind: 0
+  - AssetGUID: 4fc5c8c9250bea1438cce940a855c631
+    AutoAddress: 1
+    Address: LuaScripts
+    Labels: []
+    AutoRole: 1
+    Role: 0
+    AutoPayload: 1
+    PayloadKind: 0
+  - AssetGUID: 70e827a90bc9c7a46831aafcb28a3af1
+    AutoAddress: 1
+    Address: Built In Data_PlayerDataGroupSchema
+    Labels: []
+    AutoRole: 1
+    Role: 0
+    AutoPayload: 1
+    PayloadKind: 0
+  - AssetGUID: 8f43eb00325ab3345b770fc609d18215
+    AutoAddress: 1
+    Address: CsvText_BundledAssetGroupSchema
+    Labels: []
+    AutoRole: 1
+    Role: 0
+    AutoPayload: 1
+    PayloadKind: 0
+  - AssetGUID: 1d7e03d501c2f5444ae8a84c905b6a9c
+    AutoAddress: 1
+    Address: CsvText_ContentUpdateGroupSchema
+    Labels: []
+    AutoRole: 1
+    Role: 0
+    AutoPayload: 1
+    PayloadKind: 0
+  - AssetGUID: 055ac99c927ec904d885c9000efaffb8
+    AutoAddress: 1
+    Address: Default_BundledAssetGroupSchema
+    Labels: []
+    AutoRole: 1
+    Role: 0
+    AutoPayload: 1
+    PayloadKind: 0
+  - AssetGUID: 6e4d9ea61bd7078489cdf61cd66c94f9
+    AutoAddress: 1
+    Address: Default_ContentUpdateGroupSchema
+    Labels: []
+    AutoRole: 1
+    Role: 0
+    AutoPayload: 1
+    PayloadKind: 0
+  - AssetGUID: bbf4a4a6b6fb64c499f6b868d616ca82
+    AutoAddress: 1
+    Address: GameData_BundledAssetGroupSchema
+    Labels: []
+    AutoRole: 1
+    Role: 0
+    AutoPayload: 1
+    PayloadKind: 0
+  - AssetGUID: b1181d54387b576459fd684f90e412cd
+    AutoAddress: 1
+    Address: GameData_ContentUpdateGroupSchema
+    Labels: []
+    AutoRole: 1
+    Role: 0
+    AutoPayload: 1
+    PayloadKind: 0
+  - AssetGUID: 44d49ef2fe616be4c95b0be2d23c4122
+    AutoAddress: 1
+    Address: HotfixGroup_BundledAssetGroupSchema
+    Labels: []
+    AutoRole: 1
+    Role: 0
+    AutoPayload: 1
+    PayloadKind: 0
+  - AssetGUID: a45f4e3aa7ad4ec4690c960bd1e92ca7
+    AutoAddress: 1
+    Address: HotfixGroup_ContentUpdateGroupSchema
+    Labels: []
+    AutoRole: 1
+    Role: 0
+    AutoPayload: 1
+    PayloadKind: 0
+  - AssetGUID: 6a90c52e5efb81144a4bf8f1c52a2557
+    AutoAddress: 1
+    Address: LuaBridge_BundledAssetGroupSchema
+    Labels: []
+    AutoRole: 1
+    Role: 0
+    AutoPayload: 1
+    PayloadKind: 0
+  - AssetGUID: 8b2f24f84c2f04b4798df0a1b86fb64a
+    AutoAddress: 1
+    Address: LuaBridge_ContentUpdateGroupSchema
+    Labels: []
+    AutoRole: 1
+    Role: 0
+    AutoPayload: 1
+    PayloadKind: 0
+  - AssetGUID: 45be1151eebaf464db42701333183a65
+    AutoAddress: 1
+    Address: LuaScripts_BundledAssetGroupSchema
+    Labels: []
+    AutoRole: 1
+    Role: 0
+    AutoPayload: 1
+    PayloadKind: 0
+  - AssetGUID: ec4133b587c428f4f89ae4b4015a6a9a
+    AutoAddress: 1
+    Address: LuaScripts_ContentUpdateGroupSchema
+    Labels: []
+    AutoRole: 1
+    Role: 0
+    AutoPayload: 1
+    PayloadKind: 0
+  - AssetGUID: f6740f1de6e46e94083eb67572a2574b
+    AutoAddress: 1
+    Address: UI_BundledAssetGroupSchema
+    Labels: []
+    AutoRole: 1
+    Role: 0
+    AutoPayload: 1
+    PayloadKind: 0
+  - AssetGUID: 028c79241a14c6d42be1fee9af4e3b38
+    AutoAddress: 1
+    Address: UI_ContentUpdateGroupSchema
+    Labels: []
+    AutoRole: 1
+    Role: 0
+    AutoPayload: 1
+    PayloadKind: 0
+  - AssetGUID: 51ce986fa0720604b9af8579481788e9
+    AutoAddress: 1
+    Address: XLuaLabelConfig_BundledAssetGroupSchema
+    Labels: []
+    AutoRole: 1
+    Role: 0
+    AutoPayload: 1
+    PayloadKind: 0
+  - AssetGUID: dbe90d10ea61f08418ca61218c550ebb
+    AutoAddress: 1
+    Address: XLuaLabelConfig_ContentUpdateGroupSchema
+    Labels: []
+    AutoRole: 1
+    Role: 0
+    AutoPayload: 1
+    PayloadKind: 0
+  - AssetGUID: 83055885901cdf843855595898ba6b1d
+    AutoAddress: 1
+    Address: UI
+    Labels: []
+    AutoRole: 1
+    Role: 0
+    AutoPayload: 1
+    PayloadKind: 0
+  - AssetGUID: 9901677a4c1f8da439a8875da32e3ea8
+    AutoAddress: 1
+    Address: XLuaLabelConfig
+    Labels: []
+    AutoRole: 1
+    Role: 0
+    AutoPayload: 1
+    PayloadKind: 0
+  - AssetGUID: b2541223116770447a3da6d418729a76
+    AutoAddress: 1
+    Address: Packed Assets
+    Labels: []
+    AutoRole: 1
+    Role: 0
+    AutoPayload: 1
+    PayloadKind: 0
+  - AssetGUID: 3e2e8f49d53c51d44ad4915af259481e
+    AutoAddress: 1
+    Address: BuildScriptFastMode
+    Labels: []
+    AutoRole: 1
+    Role: 0
+    AutoPayload: 1
+    PayloadKind: 0
+  - AssetGUID: d974c5a51bcaab74e8ef2b63f0fc17e3
+    AutoAddress: 1
+    Address: BuildScriptPackedMode
+    Labels: []
+    AutoRole: 1
+    Role: 0
+    AutoPayload: 1
+    PayloadKind: 0
+  - AssetGUID: a25a4f2966d42fb4695e32e5a46de12a
+    AutoAddress: 1
+    Address: BuildScriptPackedPlayMode
+    Labels: []
+    AutoRole: 1
+    Role: 0
+    AutoPayload: 1
+    PayloadKind: 0
+  - AssetGUID: 910aaf6bfb459bd4293d7070f1207750
+    AutoAddress: 1
+    Address: BuildScriptVirtualMode
+    Labels: []
+    AutoRole: 1
+    Role: 0
+    AutoPayload: 1
+    PayloadKind: 0
+  - AssetGUID: b3140e9b8fe4aff42b336ede0cb0c9a5
+    AutoAddress: 1
+    Address: DefaultObject
+    Labels: []
+    AutoRole: 1
+    Role: 0
+    AutoPayload: 1
+    PayloadKind: 0
+  - AssetGUID: 018215545a68d914cb8bc80c8bff81b4
+    AutoAddress: 1
+    Address: ProfileDataSourceSettings
+    Labels: []
+    AutoRole: 1
+    Role: 0
+    AutoPayload: 1
+    PayloadKind: 0
+  - AssetGUID: 6ff788cb3f5854a49bd4af8658a1db6f
+    AutoAddress: 1
+    Address: addressables_content_state
     Labels: []
     AutoRole: 1
     Role: 0

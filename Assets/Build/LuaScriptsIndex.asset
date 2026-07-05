@@ -9,7 +9,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 8378eeb81205d8d49992d624de6b3f8e, type: 3}
+  m_Script: {fileID: 11500000, guid: 0fe33a041bf8e4b46be861ab72c73021, type: 3}
   m_Name: LuaScriptsIndex
   m_EditorClassIdentifier: 
   data:
@@ -27,6 +27,9 @@ MonoBehaviour:
     - StringUtil
     - DialogueFuncRegistry
     - DemoDialogueFunctions
+  - containerAddress: EventCentre
+    scriptNames:
+    - EventCentre
   - containerAddress: LuaText
     scriptNames:
     - TalkTest1
