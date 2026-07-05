@@ -35,7 +35,7 @@ public sealed class FileBuildRepository : IBuildRepository
             return status;
 
         status.HasHead = true;
-        status.HeadVersion = head.Version != null ? head.Version.GetFullVersionString() : string.Empty;
+        status.HeadVersion = head.Version != null ? head.Version.GetReleaseVersionString() : string.Empty;
         status.PackageName = head.PackageName ?? string.Empty;
         status.ArtifactCount = head.Artifacts != null ? head.Artifacts.Count : 0;
         var pushHistory = TryLoadPushHistory(channelKey);
@@ -69,6 +69,13 @@ public sealed class FileBuildRepository : IBuildRepository
         Array.Sort(files, StringComparer.OrdinalIgnoreCase);
         for (int i = 0; i < files.Length; i++)
         {
+            string versionName = Path.GetFileNameWithoutExtension(files[i]);
+            if (!IsReleaseVersionString(versionName))
+            {
+                Debug.LogWarning($"[FileBuildRepository] 已忽略旧版本快照文件: {files[i]}");
+                continue;
+            }
+
             var snapshot = TryReadSnapshot(files[i]);
             if (snapshot != null)
                 result.Add(snapshot);
@@ -95,9 +102,20 @@ public sealed class FileBuildRepository : IBuildRepository
 
         var parent = TryLoadHead(commit.ChannelKey);
         if (TryGetLastHeadError(commit.ChannelKey, out string headError))
-            throw new RepositoryHeadException(headError);
+        {
+            if (IsFullBuildCommit(commit))
+            {
+                Debug.LogWarning($"[FileBuildRepository] Full build 已废弃无效 HEAD，将以空仓重建 Repository: {headError}");
+                ClearLastHeadError(commit.ChannelKey);
+                parent = null;
+            }
+            else
+            {
+                throw new RepositoryHeadException(headError);
+            }
+        }
 
-        commit.ParentVersion = parent != null && parent.Version != null ? parent.Version.GetFullVersionString() : string.Empty;
+        commit.ParentVersion = parent != null && parent.Version != null ? parent.Version.GetReleaseVersionString() : string.Empty;
         commit.CommitDelta = ArtifactDiffer.Diff(parent != null ? parent.Artifacts : null, commit.Artifacts);
 
         FileHelper.EnsureDirectory(objectsDir);
@@ -105,7 +123,7 @@ public sealed class FileBuildRepository : IBuildRepository
 
         var head = new RepositoryHeadState
         {
-            HeadVersion = commit.Version.GetFullVersionString()
+            HeadVersion = commit.Version.GetReleaseVersionString()
         };
         try
         {
@@ -115,6 +133,102 @@ public sealed class FileBuildRepository : IBuildRepository
         {
             Debug.LogWarning($"[FileBuildRepository] HEAD swap failed; object remains as orphan: {objectPath}, reason: {ex.Message}");
             throw;
+        }
+    }
+
+    public bool TryRollbackHead(string channelKey, string expectedHeadVersion, string parentVersion, out string reason)
+    {
+        reason = string.Empty;
+        if (string.IsNullOrEmpty(channelKey))
+        {
+            reason = "channelKey is empty.";
+            return false;
+        }
+        if (string.IsNullOrEmpty(expectedHeadVersion))
+        {
+            reason = "expectedHeadVersion is empty.";
+            return false;
+        }
+
+        string channelRoot = GetChannelRoot(channelKey);
+        string headPath = FYAssetPathUtility.JoinFilePath(channelRoot, "HEAD.json");
+        if (!FileHelper.Exists(headPath))
+        {
+            reason = "HEAD already missing.";
+            return true;
+        }
+
+        RepositoryHeadState currentHead;
+        try
+        {
+            currentHead = SerializationUtility.ReadFromFile<RepositoryHeadState>(headPath);
+        }
+        catch (Exception ex)
+        {
+            reason = $"HEAD read failed during rollback: {headPath}, {ex.Message}";
+            return false;
+        }
+
+        if (currentHead == null || string.IsNullOrEmpty(currentHead.HeadVersion))
+        {
+            reason = $"HEAD content invalid during rollback: {headPath}";
+            return false;
+        }
+
+        if (!string.Equals(currentHead.HeadVersion, expectedHeadVersion, StringComparison.Ordinal))
+        {
+            reason = $"HEAD changed after commit. Expected={expectedHeadVersion}, Actual={currentHead.HeadVersion}";
+            return false;
+        }
+
+        try
+        {
+            if (string.IsNullOrEmpty(parentVersion))
+            {
+                if (!FileHelper.TryDelete(headPath))
+                {
+                    reason = $"Failed to delete HEAD during rollback: {headPath}";
+                    return false;
+                }
+            }
+            else
+            {
+                if (!IsReleaseVersionString(parentVersion))
+                {
+                    reason = $"ParentVersion is not a release version: {parentVersion}";
+                    return false;
+                }
+
+                string parentObjectPath = FYAssetPathUtility.JoinFilePath(GetObjectsDir(channelKey), parentVersion + ".json");
+                if (!FileHelper.Exists(parentObjectPath))
+                {
+                    reason = $"Parent commit object missing during rollback: {parentObjectPath}";
+                    return false;
+                }
+
+                var restoredHead = new RepositoryHeadState
+                {
+                    HeadVersion = parentVersion
+                };
+                FileHelper.WriteAllTextAtomic(headPath, SerializationUtility.SerializeToJson(restoredHead, true));
+            }
+
+            string objectPath = FYAssetPathUtility.JoinFilePath(GetObjectsDir(channelKey), expectedHeadVersion + ".json");
+            if (FileHelper.Exists(objectPath) && !FileHelper.TryDelete(objectPath))
+            {
+                reason = $"HEAD rolled back, but failed to delete rolled-back commit object: {objectPath}";
+                return false;
+            }
+
+            reason = string.IsNullOrEmpty(parentVersion)
+                ? "HEAD removed; rolled-back commit object deleted."
+                : $"HEAD restored to {parentVersion}; rolled-back commit object deleted.";
+            return true;
+        }
+        catch (Exception ex)
+        {
+            reason = $"HEAD rollback failed: {ex.Message}";
+            return false;
         }
     }
 
@@ -148,13 +262,13 @@ public sealed class FileBuildRepository : IBuildRepository
 
         var toCommit = TryLoadCommit(channelKey, toVersion);
         if (toCommit == null)
-            return FailPush(target, $"Target commit missing: {toVersion.GetFullVersionString()}");
+            return FailPush(target, $"Target commit missing: {toVersion.GetReleaseVersionString()}");
         if (string.IsNullOrEmpty(toCommit.PackageRootDir))
             return FailPush(target, "Target commit PackageRootDir is empty.");
 
         var fromCommit = TryLoadCommit(channelKey, fromVersion);
         if (fromCommit == null)
-            return FailPush(target, $"Baseline commit missing: {fromVersion.GetFullVersionString()}");
+            return FailPush(target, $"Baseline commit missing: {fromVersion.GetReleaseVersionString()}");
 
         return PushResolved(channelKey, fromCommit, toCommit, target, ArtifactDiffer.Diff(fromCommit.Artifacts, toCommit.Artifacts));
     }
@@ -187,6 +301,12 @@ public sealed class FileBuildRepository : IBuildRepository
         {
             Debug.LogError($"[FileBuildRepository] HEAD 内容无效: {headPath}");
             SetLastHeadError(channelKey, $"HEAD content invalid: {headPath}");
+            return null;
+        }
+
+        if (!IsReleaseVersionString(headState.HeadVersion))
+        {
+            Debug.LogWarning($"[FileBuildRepository] 已忽略旧版本 HEAD: {headState.HeadVersion}");
             return null;
         }
 
@@ -228,7 +348,7 @@ public sealed class FileBuildRepository : IBuildRepository
     {
         if (version == null)
             return null;
-        string objectPath = FYAssetPathUtility.JoinFilePath(GetObjectsDir(channelKey), version.GetFullVersionString() + ".json");
+        string objectPath = FYAssetPathUtility.JoinFilePath(GetObjectsDir(channelKey), version.GetReleaseVersionString() + ".json");
         return FileHelper.Exists(objectPath) ? TryReadSnapshot(objectPath) : null;
     }
 
@@ -260,12 +380,23 @@ public sealed class FileBuildRepository : IBuildRepository
 
     private static string GetSnapshotFileName(VersionNumber version)
     {
-        return $"{version.GetFullVersionString()}.json";
+        return $"{version.GetReleaseVersionString()}.json";
     }
 
     private static string GetPushHistoryPath(string channelKey)
     {
         return FYAssetPathUtility.JoinFilePath(GetChannelRoot(channelKey), "PushHistory.json");
+    }
+
+    private static bool IsReleaseVersionString(string value)
+    {
+        return VersionNumber.TryParse(value, out _);
+    }
+
+    private static bool IsFullBuildCommit(RepositoryCommit commit)
+    {
+        return commit != null &&
+               string.Equals(commit.BuildType, BuildType.Full.ToString(), StringComparison.Ordinal);
     }
 
     private static List<PushHistoryEntry> TryLoadPushHistory(string channelKey)
@@ -340,8 +471,8 @@ public sealed class FileBuildRepository : IBuildRepository
         var history = TryLoadPushHistory(channelKey);
         history.Add(new PushHistoryEntry
         {
-            FromVersion = fromCommit != null && fromCommit.Version != null ? fromCommit.Version.GetFullVersionString() : string.Empty,
-            ToVersion = toCommit.Version != null ? toCommit.Version.GetFullVersionString() : string.Empty,
+            FromVersion = fromCommit != null && fromCommit.Version != null ? fromCommit.Version.GetReleaseVersionString() : string.Empty,
+            ToVersion = toCommit.Version != null ? toCommit.Version.GetReleaseVersionString() : string.Empty,
             TargetId = receipt.TargetId,
             TargetLocation = receipt.TargetLocation,
             PushedAtUtc = receipt.PushedAtUtc,

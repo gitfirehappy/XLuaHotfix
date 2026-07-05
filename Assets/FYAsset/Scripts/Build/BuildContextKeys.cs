@@ -15,6 +15,7 @@ public static class BuildContextKeys
     public const string AAManifest = "AAManifest";
     public const string AAServerDataPath = "AAServerDataPath";
     public const string OutputPath = "OutputPath";
+    public const string DeferPackagePublication = "DeferPackagePublication";
     public const string BuildVerificationResult = "BuildVerificationResult";
     public const string ArtifactDelta = "ArtifactDelta";
     public const string RepositoryArtifacts = "RepositoryArtifacts";

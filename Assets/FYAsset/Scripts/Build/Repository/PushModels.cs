@@ -22,6 +22,7 @@ public sealed class PushTargetConfig
     public string Path;
 }
 
+#if UNITY_EDITOR
 /// <summary>
 /// Push 操作负载。
 /// 由 repository 组装，PushTarget 只发布已经构建完成的包体目录。
@@ -70,3 +71,4 @@ public interface IPushTarget
     string Id { get; }
     PushReceipt Push(PushPayload payload);
 }
+#endif

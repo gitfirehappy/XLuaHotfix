@@ -7,7 +7,7 @@ using UnityEngine;
 
 /// <summary>
 /// AA 构建后端。
-/// 只负责把 BuildPackageRequest 交给 AA DAG；Addressables build、Manifest、PackageIndex 都由 Task 图处理。
+/// 只负责把 BuildPackageRequest 交给 AA DAG；Addressables build 与 Manifest 由 Task 图处理，发布指针由编排层在 Repository commit 后写入。
 /// </summary>
 public class AABuildBackend : IBuildBackend
 {
@@ -25,6 +25,7 @@ public class AABuildBackend : IBuildBackend
             var context = new BuildContext();
             context.Set(BuildContextKeys.BuildPackageRequest, request);
             context.Set(BuildContextKeys.BuildType, request.BuildType);
+            context.Set(BuildContextKeys.DeferPackagePublication, true);
             Debug.Log($"[{nameof(AABuildBackend)}] 启动 AA DAG。BuildType={request.BuildType}, Package={request.PackageName}");
             BuildResult result = DAGScheduler.Execute(config, context, options);
             if (!result.Success)

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
@@ -19,6 +20,27 @@ public class TaskWritePackageIndex : IBuildTask
         if (request == null)
             return BuildTaskResult.Fail(BuildErrorCodes.BuildFailed, "BuildPackageRequest is null.", true);
 
+        if (ctx.Get<bool>(BuildContextKeys.DeferPackagePublication))
+        {
+            return BuildTaskResult.Ok(new List<string>
+            {
+                "[PACKAGE INDEX] Deferred until repository commit"
+            });
+        }
+
+        Publish(request);
+
+        return BuildTaskResult.Ok(new List<string>
+        {
+            $"[PACKAGE INDEX] {request.PackageName}"
+        });
+    }
+
+    public static void Publish(BuildPackageRequest request)
+    {
+        if (request == null)
+            throw new ArgumentNullException(nameof(request));
+
         var data = new PackageIndex
         {
             LatestPackage = request.PackageName,
@@ -30,12 +52,7 @@ public class TaskWritePackageIndex : IBuildTask
         if (!string.IsNullOrEmpty(directory))
             FileHelper.EnsureDirectory(directory);
 
-        SerializationUtility.WriteToFile(request.PackageIndexPath, data);
-        Debug.Log($"[{nameof(TaskWritePackageIndex)}] PackageIndex 已更新: Package={request.PackageName}, Version={request.Version.GetFullVersionString()}, Backend={data.BackendMode}, Path={request.PackageIndexPath}");
-
-        return BuildTaskResult.Ok(new List<string>
-        {
-            $"[PACKAGE INDEX] {request.PackageName}"
-        });
+        FileHelper.WriteAllTextAtomic(request.PackageIndexPath, SerializationUtility.SerializeToJson(data, true));
+        Debug.Log($"[{nameof(TaskWritePackageIndex)}] PackageIndex 已更新: Package={request.PackageName}, Version={request.Version.GetReleaseVersionString()}, Backend={data.BackendMode}, Path={request.PackageIndexPath}");
     }
 }

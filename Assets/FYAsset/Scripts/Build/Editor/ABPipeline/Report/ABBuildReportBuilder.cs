@@ -56,7 +56,7 @@ public static class ABBuildReportBuilder
         report.Header.Backend = BackendModeNames.AB;
         report.Header.BuildType = request?.BuildType.ToString() ?? string.Empty;
         report.Header.BuildTarget = EditorUserBuildSettings.activeBuildTarget.ToString();
-        report.Header.Version = request?.Version != null ? request.Version.GetFullVersionString() : string.Empty;
+        report.Header.Version = request?.Version != null ? request.Version.GetReleaseVersionString() : string.Empty;
         report.Header.PackageName = request?.PackageName ?? string.Empty;
         report.Header.PackagePath = request?.OutputDir ?? string.Empty;
         report.Header.StartedAtUtc = startedAt.ToString("o");

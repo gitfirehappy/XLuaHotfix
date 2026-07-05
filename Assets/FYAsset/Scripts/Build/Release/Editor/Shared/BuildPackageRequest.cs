@@ -56,7 +56,7 @@ public sealed class BuildPackageRequest
 
     public static string CreatePackageName(VersionNumber version, DateTime createdAt)
     {
-        return $"Build_{createdAt.ToString(PackageTimestampFormat)}_{version.GetFullVersionString()}";
+        return $"Build_{createdAt.ToString(PackageTimestampFormat)}_{version.GetReleaseVersionString()}";
     }
 }
 #endif

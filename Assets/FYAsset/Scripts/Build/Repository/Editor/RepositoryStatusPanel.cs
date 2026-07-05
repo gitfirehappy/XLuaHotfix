@@ -473,7 +473,7 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
             return;
         }
 
-        string currentVersion = _request != null && _request.Version != null ? _request.Version.GetFullVersionString() : string.Empty;
+        string currentVersion = _request != null && _request.Version != null ? _request.Version.GetReleaseVersionString() : string.Empty;
         if (!string.IsNullOrEmpty(currentVersion) && !string.Equals(currentVersion, _status.HeadVersion, StringComparison.Ordinal))
         {
             SetBadge("Version Warning", new Color(0.70f, 0.46f, 0.12f));
@@ -582,7 +582,7 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
             RenderDiffContent();
         });
 
-        string version = commit != null && commit.Version != null ? commit.Version.GetFullVersionString() : "(unknown)";
+        string version = commit != null && commit.Version != null ? commit.Version.GetReleaseVersionString() : "(unknown)";
         string titleText = isHead ? $"HEAD  {version}" : version;
         var title = new Label(titleText);
         title.style.unityFontStyleAndWeight = FontStyle.Bold;
@@ -1363,7 +1363,7 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
 
     private static string GetCommitVersion(RepositoryCommit commit)
     {
-        return commit != null && commit.Version != null ? commit.Version.GetFullVersionString() : string.Empty;
+        return commit != null && commit.Version != null ? commit.Version.GetReleaseVersionString() : string.Empty;
     }
 
     private static string GetCommitDeltaSummary(RepositoryCommit commit)

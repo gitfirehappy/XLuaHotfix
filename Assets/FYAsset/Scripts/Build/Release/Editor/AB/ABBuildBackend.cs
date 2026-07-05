@@ -8,7 +8,7 @@ using Stopwatch = System.Diagnostics.Stopwatch;
 
 /// <summary>
 /// ABManifest 新管线构建后端。
-/// 只负责把 BuildPackageRequest 交给 AB DAG；最终包目录、Manifest、PackageIndex 都由 Task 图写入。
+/// 只负责把 BuildPackageRequest 交给 AB DAG；最终包目录与 Manifest 由 Task 图写入，发布指针由编排层在 Repository commit 后写入。
 /// </summary>
 public class ABBuildBackend : IBuildBackend
 {
@@ -33,6 +33,7 @@ public class ABBuildBackend : IBuildBackend
             context = new BuildContext();
             context.Set(BuildContextKeys.BuildPackageRequest, request);
             context.Set(BuildContextKeys.BuildType, request.BuildType);
+            context.Set(BuildContextKeys.DeferPackagePublication, true);
             Debug.Log($"[{nameof(ABBuildBackend)}] 启动 AB DAG。BuildType={request.BuildType}, Package={request.PackageName}");
             result = DAGScheduler.Execute(config, context, options);
             if (!result.Success)

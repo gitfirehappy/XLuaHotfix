@@ -76,7 +76,7 @@ public static class BuildRepositoryCLI
         for (int i = 0; i < commits.Count; i++)
         {
             var commit = commits[i];
-            WriteLine($"{commit.Version?.GetFullVersionString()} | {commit.BuildType} | {commit.CreatedAtUtc} | {commit.PackageName}");
+            WriteLine($"{commit.Version?.GetReleaseVersionString()} | {commit.BuildType} | {commit.CreatedAtUtc} | {commit.PackageName}");
         }
         EditorApplication.Exit(0);
     }

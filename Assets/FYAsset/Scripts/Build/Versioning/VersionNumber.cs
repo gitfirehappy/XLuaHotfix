@@ -2,7 +2,8 @@ using System;
 
 /// <summary>
 /// 版本号数据类型，整个项目统一使用。
-/// SemVer 2.0 格式: Major.Minor.Patch-Channel+Build
+/// Release version string format: Major.Minor.Patch[-Channel].
+/// Build is stored as a separate field and must not be appended to version strings.
 /// </summary>
 [Serializable]
 [BinarySerializable]
@@ -16,17 +17,15 @@ public class VersionNumber : IComparable<VersionNumber>
 
     public string GetVersionString() => $"{Major}.{Minor}.{Patch}";
 
-    public string GetFullVersionString()
+    public string GetReleaseVersionString()
     {
         var core = $"{Major}.{Minor}.{Patch}";
         if (!string.IsNullOrEmpty(Channel))
             core += $"-{Channel}";
-        if (Build > 0)
-            core += $"+{Build}";
         return core;
     }
 
-    public override string ToString() => GetFullVersionString();
+    public override string ToString() => GetReleaseVersionString();
 
     public bool RequiresForceUpdate(VersionNumber baseline)
     {
@@ -108,7 +107,7 @@ public class VersionNumber : IComparable<VersionNumber>
     #region Parse
 
     /// <summary>
-    /// 解析 SemVer 2.0 格式: X.Y.Z[-channel][+build]
+    /// 解析发布版本格式: X.Y.Z[-channel]
     /// </summary>
     public static VersionNumber Parse(string input)
     {
@@ -125,15 +124,8 @@ public class VersionNumber : IComparable<VersionNumber>
 
         string remaining = input.Trim();
 
-        // Parse +Build
-        int build = 0;
-        int plusIdx = remaining.IndexOf('+');
-        if (plusIdx >= 0)
-        {
-            if (!int.TryParse(remaining.Substring(plusIdx + 1), out build))
-                return false;
-            remaining = remaining.Substring(0, plusIdx);
-        }
+        if (remaining.IndexOf('+') >= 0)
+            return false;
 
         // Parse -Channel
         string channel = "";
@@ -153,7 +145,7 @@ public class VersionNumber : IComparable<VersionNumber>
             !int.TryParse(parts[2], out int patch))
             return false;
 
-        if (major < 0 || minor < 0 || patch < 0 || build < 0)
+        if (major < 0 || minor < 0 || patch < 0)
             return false;
 
         if (!string.IsNullOrEmpty(channel) &&
@@ -165,7 +157,7 @@ public class VersionNumber : IComparable<VersionNumber>
             Major = major,
             Minor = minor,
             Patch = patch,
-            Build = build,
+            Build = 0,
             Channel = channel
         };
         return true;

@@ -63,12 +63,12 @@ public static class BuildRepositoryFacade
         return Repository.ListCommits(channelKey);
     }
 
-    public static void Commit(BuildPackageRequest request, System.Collections.Generic.IReadOnlyList<ArtifactDigest> artifacts)
+    public static RepositoryCommit Commit(BuildPackageRequest request, System.Collections.Generic.IReadOnlyList<ArtifactDigest> artifacts)
     {
-        Commit(request, artifacts, null);
+        return Commit(request, artifacts, null);
     }
 
-    public static void Commit(BuildPackageRequest request, System.Collections.Generic.IReadOnlyList<ArtifactDigest> artifacts, string backendMode)
+    public static RepositoryCommit Commit(BuildPackageRequest request, System.Collections.Generic.IReadOnlyList<ArtifactDigest> artifacts, string backendMode)
     {
         if (request == null)
             throw new ArgumentNullException(nameof(request));
@@ -89,8 +89,30 @@ public static class BuildRepositoryFacade
             Artifacts = artifacts != null ? new List<ArtifactDigest>(artifacts) : new List<ArtifactDigest>()
         };
 
-        UnityEngine.Debug.Log($"[{nameof(BuildRepositoryFacade)}] 写入 Repository commit: Channel={commit.ChannelKey}, Version={commit.Version.GetFullVersionString()}, Backend={commit.BackendMode}, BuildType={commit.BuildType}, Artifacts={commit.Artifacts.Count}, Dirty={commit.IsDirty}");
+        UnityEngine.Debug.Log($"[{nameof(BuildRepositoryFacade)}] 写入 Repository commit: Channel={commit.ChannelKey}, Version={commit.Version.GetReleaseVersionString()}, Build={commit.Version.Build}, Backend={commit.BackendMode}, BuildType={commit.BuildType}, Artifacts={commit.Artifacts.Count}, Dirty={commit.IsDirty}");
         Repository.Commit(commit);
+        return commit;
+    }
+
+    public static bool TryRollbackHead(RepositoryCommit commit, out string reason)
+    {
+        reason = string.Empty;
+        if (FileRepository == null)
+        {
+            reason = "Repository implementation does not support HEAD rollback.";
+            return false;
+        }
+        if (commit == null || commit.Version == null)
+        {
+            reason = "Commit is null or missing Version.";
+            return false;
+        }
+
+        return FileRepository.TryRollbackHead(
+            commit.ChannelKey,
+            commit.Version.GetReleaseVersionString(),
+            commit.ParentVersion,
+            out reason);
     }
 
     public static List<RepositoryCommit> ListCommits(BuildPackageRequest request)

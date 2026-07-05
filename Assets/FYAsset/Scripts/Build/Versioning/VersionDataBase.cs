@@ -82,6 +82,6 @@ public class VersionDataBase : ScriptableObject
 #if UNITY_EDITOR
         EditorUtility.SetDirty(this);
 #endif
-        Debug.Log($"[VersionDataBase] 版本更新至: {CurrentVersion.GetFullVersionString()}");
+        Debug.Log($"[VersionDataBase] 版本更新至: {CurrentVersion.GetReleaseVersionString()} (Build={DailyBuildCount})");
     }
 }

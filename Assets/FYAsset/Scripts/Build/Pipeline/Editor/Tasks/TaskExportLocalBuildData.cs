@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using UnityEditor;
@@ -5,7 +6,7 @@ using UnityEngine;
 
 /// <summary>
 /// 本地启动数据导出 Task — 仅整包构建导出 BuildIndex 与 baseline manifest 到 StreamingAssets。
-/// 挂在 AA/AB Task 图尾部；Hotfix 构建保持跳过。
+/// 挂在 AA/AB Task 图尾部；正式构建会延迟到 Repository commit 成功后发布，Hotfix 构建保持跳过。
 /// </summary>
 public class TaskExportLocalBuildData : IBuildTask
 {
@@ -45,11 +46,19 @@ public class TaskExportLocalBuildData : IBuildTask
             return BuildTaskResult.Fail(BuildErrorCodes.BuildFailed,
                 $"本地构建数据导出前最终输出目录不存在: {request.OutputDir}", true);
 
-        ExportData(request);
+        if (ctx.Get<bool>(BuildContextKeys.DeferPackagePublication))
+        {
+            return BuildTaskResult.Ok(new List<string>
+            {
+                "[LOCAL BUILD DATA] Deferred until repository commit"
+            });
+        }
+
+        Publish(request);
 
         return BuildTaskResult.Ok(new List<string>
         {
-            $"[LOCAL BUILD DATA] Version: {request.Version.GetFullVersionString()}"
+            $"[LOCAL BUILD DATA] Version: {request.Version.GetReleaseVersionString()}"
         });
     }
 
@@ -58,6 +67,21 @@ public class TaskExportLocalBuildData : IBuildTask
     /// <summary>
     /// 导出启动期所需的本地构建数据。
     /// </summary>
+    public static void Publish(BuildPackageRequest request)
+    {
+        if (request == null)
+            throw new ArgumentNullException(nameof(request));
+        if (request.BuildType != BuildType.Full)
+        {
+            Debug.Log("[TaskExportLocalBuildData] Hotfix build 不导出本地启动数据。");
+            return;
+        }
+        if (!FileHelper.DirectoryExists(request.OutputDir))
+            throw new DirectoryNotFoundException($"本地构建数据导出前最终输出目录不存在: {request.OutputDir}");
+
+        ExportData(request);
+    }
+
     private static void ExportData(BuildPackageRequest request)
     {
         Debug.Log("[TaskExportLocalBuildData] 开始导出本地启动数据到 StreamingAssets...");
@@ -95,7 +119,7 @@ public class TaskExportLocalBuildData : IBuildTask
 
         Debug.Log($"[TaskExportLocalBuildData] BuildIndex 已写入: {BuildIndexStreamingPath}");
         Debug.Log($"[TaskExportLocalBuildData] BuildIndex 副本已写入: {projectPath}");
-        Debug.Log($"[TaskExportLocalBuildData] Info - GUID: {buildIndexData.BuildGUID}, Ver: {request.Version.GetVersionString()}, Backend: {buildIndexData.BackendMode}");
+        Debug.Log($"[TaskExportLocalBuildData] Info - GUID: {buildIndexData.BuildGUID}, Ver: {request.Version.GetReleaseVersionString()}, Backend: {buildIndexData.BackendMode}");
     }
 
     /// <summary>
