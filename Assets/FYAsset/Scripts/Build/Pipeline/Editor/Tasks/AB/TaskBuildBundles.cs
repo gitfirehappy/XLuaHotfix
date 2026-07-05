@@ -72,6 +72,10 @@ public class TaskBuildBundles : IBuildTask
             string bundleName = kv.Key;
             var assetList = kv.Value;
 
+            var validation = ValidateBundleGroup(bundleName, assetList);
+            if (!validation.Success)
+                return validation;
+
             var serializedPaths = new List<string>();
             var scenePaths = new List<string>();
 
@@ -87,6 +91,10 @@ public class TaskBuildBundles : IBuildTask
                         scenePaths.Add(a.AssetPath);
                         break;
                     default:
+                        var entryValidation = ValidateSerializedBundleEntry(a.AssetPath);
+                        if (!entryValidation.Success)
+                            return entryValidation;
+
                         serializedPaths.Add(a.AssetPath);
                         break;
                 }
@@ -114,8 +122,7 @@ public class TaskBuildBundles : IBuildTask
 
         // 创建临时构建目录
         string tempDir = FYAssetPathUtility.JoinFilePath(outputRoot, "_temp");
-        if (!Directory.Exists(tempDir))
-            Directory.CreateDirectory(tempDir);
+        FileHelper.EnsureDirectory(tempDir);
 
         // 调用 Unity BuildPipeline
         AssetBundleManifest unityManifest;
@@ -238,20 +245,24 @@ public class TaskBuildBundles : IBuildTask
         {
             var (bundleName, assetPath) = rawFileEntries[r];
 
-            if (processedOutputs.Contains(bundleName))
-                continue;
-
             if (rawBundleFileCount[bundleName] > 1)
                 return BuildTaskResult.Fail(BuildErrorCodes.RawfileMultiAsset,
                     $"Bundle '{bundleName}' 包含 {rawBundleFileCount[bundleName]} 个 RawFile，" +
-                    "每个 Bundle 仅支持一个 RawFile。", true);
+                    $"每个 Bundle 仅支持一个 RawFile。示例 Asset: '{assetPath}'。", true);
+
+            if (processedOutputs.Contains(bundleName))
+            {
+                return BuildTaskResult.Fail(BuildErrorCodes.RawfilePayloadConflict,
+                    $"Bundle '{bundleName}' 同时包含 RawFile 与 Serialized/Scene 输出路线。RawFile Asset '{assetPath}' " +
+                    "不会被 Unity AssetBundle 构建流程写入已存在的同名输出；请调整分组、BundlePackingMode 或 PayloadKind 配置。", true);
+            }
 
             string destPath = FYAssetPathUtility.JoinFilePath(tempDir, bundleName);
             try
             {
-                File.Copy(assetPath, destPath, true);
+                FileHelper.CopyFile(assetPath, destPath, true);
             }
-            catch (IOException ex)
+            catch (Exception ex)
             {
                 return BuildTaskResult.Fail(BuildErrorCodes.RawfileCopyFailed,
                     $"文件拷贝失败 '{assetPath}' -> '{destPath}': {ex.Message}", true);
@@ -275,5 +286,52 @@ public class TaskBuildBundles : IBuildTask
         ctx.Set(BuildContextKeys.BundleBuildResults, results);
         return BuildTaskResult.Ok(new List<string>
             { $"[BUILD] {results.Count} bundle(s) produced in {tempDir}." });
+    }
+
+    private static BuildTaskResult ValidateBundleGroup(string bundleName, List<CollectedAssetInfo> assets)
+    {
+        if (assets == null || assets.Count == 0)
+            return BuildTaskResult.Ok();
+
+        var payloads = new HashSet<EPayloadKind>();
+        var primaryTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        for (int i = 0; i < assets.Count; i++)
+        {
+            var asset = assets[i];
+            payloads.Add(asset.Classification.PayloadKind);
+            primaryTypes.Add(asset.PrimaryType ?? string.Empty);
+        }
+
+        if (payloads.Count != 1)
+        {
+            return BuildTaskResult.Fail(BuildErrorCodes.MixedPayloadBundle,
+                $"Bundle '{bundleName}' 混入了多种 PayloadKind。每个物理 Bundle 只能有一种载荷路线。", true);
+        }
+
+        if (primaryTypes.Count != 1)
+        {
+            return BuildTaskResult.Fail(BuildErrorCodes.MixedPrimaryTypeBundle,
+                $"Bundle '{bundleName}' 混入了多种 PrimaryType。每个物理 Bundle 必须按精确主类型分桶。", true);
+        }
+
+        EPayloadKind payload = assets[0].Classification.PayloadKind;
+        if (payload == EPayloadKind.RawFile && assets.Count != 1)
+        {
+            return BuildTaskResult.Fail(BuildErrorCodes.RawfileMultiAsset,
+                $"Bundle '{bundleName}' 包含 {assets.Count} 个 RawFile，每个 RawFile 必须独立输出。示例 Asset: '{assets[0].AssetPath}'。", true);
+        }
+
+        return BuildTaskResult.Ok();
+    }
+
+    private static BuildTaskResult ValidateSerializedBundleEntry(string assetPath)
+    {
+        if (!AssetClassifier.CanUseAsSerializedBundleEntry(assetPath, out string reason))
+        {
+            return BuildTaskResult.Fail(BuildErrorCodes.InvalidBundleEntryAsset,
+                $"Asset '{assetPath}' 不能作为 AssetBundle Serialized 入口资产: {reason}", true);
+        }
+
+        return BuildTaskResult.Ok();
     }
 }

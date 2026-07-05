@@ -66,6 +66,8 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
     private string _selectedAssetGuid;
     private float _curateSidebarWidth = 250f;
     private VisualElement _curateSidebar;
+    private ScrollView _curateSidebarTree;
+    private Vector2 _curateSidebarScrollOffset;
     private readonly HashSet<string> _expandedPackages = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _expandedGroups = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
     private bool _draggingCurateSplitter;
@@ -128,8 +130,11 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         if (_root == null)
             return;
 
+        CaptureCurateSidebarScrollOffset();
         _root.Clear();
         _root.Unbind();
+        _curateSidebar = null;
+        _curateSidebarTree = null;
 
         if (_setting == null)
         {
@@ -161,6 +166,7 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         _curatePreviewDirty = false;
         _curateHasUnsavedChanges = false;
         _curatePanelMode = CuratePanelMode.Details;
+        ResetCurateSidebarScroll();
         ClearSelection();
     }
 
@@ -173,6 +179,7 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         _curatePreviewDirty = false;
         _curateHasUnsavedChanges = false;
         _curatePanelMode = CuratePanelMode.Details;
+        ResetCurateSidebarScroll();
         ClearSelection();
     }
 
@@ -193,7 +200,10 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         _curateHasUnsavedChanges = normalizedSceneCollectors;
         _curatePanelMode = CuratePanelMode.Details;
         if (initializeExpansionState)
+        {
             EnsureDefaultExpandedState(candidate);
+            ResetCurateSidebarScroll();
+        }
         EnsureSelection(selectFirst);
     }
 
@@ -554,6 +564,8 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
                 minHeight = 0f
             }
         };
+        _curateSidebarTree = tree;
+        RestoreCurateSidebarScrollOffset(tree);
         sidebar.Add(tree);
 
         for (int pi = 0; pi < _curateSetting.Packages.Count; pi++)
@@ -618,6 +630,34 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         }
 
         return sidebar;
+    }
+
+    private void CaptureCurateSidebarScrollOffset()
+    {
+        if (_curateSidebarTree == null)
+            return;
+
+        _curateSidebarScrollOffset = _curateSidebarTree.scrollOffset;
+    }
+
+    private void RestoreCurateSidebarScrollOffset(ScrollView tree)
+    {
+        if (tree == null)
+            return;
+
+        Vector2 offset = _curateSidebarScrollOffset;
+        tree.scrollOffset = offset;
+        tree.schedule.Execute(() =>
+        {
+            if (_curateSidebarTree == tree)
+                tree.scrollOffset = offset;
+        });
+    }
+
+    private void ResetCurateSidebarScroll()
+    {
+        _curateSidebarScrollOffset = Vector2.zero;
+        _curateSidebarTree = null;
     }
 
     private void DrawCurateDetails(VisualElement parent)
@@ -2157,6 +2197,7 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         if (guids == null)
             return;
 
+        List<string> ignorePatterns = setting?.GetEffectiveIgnorePatterns();
         for (int i = 0; i < guids.Length; i++)
         {
             string assetPath = CollectorPathUtility.NormalizePath(AssetDatabase.GUIDToAssetPath(guids[i]));
@@ -2164,7 +2205,7 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
                 continue;
             if (!IsSceneAssetPath(assetPath))
                 continue;
-            if (CollectorPathUtility.MatchesIgnorePattern(assetPath, "Assets", setting.IgnorePatterns))
+            if (CollectorPathUtility.MatchesIgnorePattern(assetPath, "Assets", ignorePatterns))
                 continue;
             if (IsExcludedBySetting(setting, assetPath))
                 continue;
@@ -2234,7 +2275,7 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
 
     private static bool HasNonSceneCollectableAssets(string folder, AssetCollectionSetting setting)
     {
-        List<string> ignorePatterns = setting?.IgnorePatterns;
+        List<string> ignorePatterns = setting?.GetEffectiveIgnorePatterns();
         if (CollectorPathUtility.MatchesIgnorePattern(folder, "Assets", ignorePatterns))
             return false;
 
@@ -2261,7 +2302,7 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
     private static List<string> CollectSceneAssetPaths(string folder, AssetCollectionSetting setting)
     {
         var scenePaths = new List<string>();
-        List<string> ignorePatterns = setting?.IgnorePatterns;
+        List<string> ignorePatterns = setting?.GetEffectiveIgnorePatterns();
         if (CollectorPathUtility.MatchesIgnorePattern(folder, "Assets", ignorePatterns))
             return scenePaths;
 

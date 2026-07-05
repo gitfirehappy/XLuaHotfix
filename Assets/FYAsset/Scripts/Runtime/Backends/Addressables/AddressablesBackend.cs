@@ -69,6 +69,19 @@ public class AddressablesBackend : IPackageBackend
         return (null, RuntimeMessage.LoadFailed(key, $"同步加载失败: {key}"));
     }
 
+    public Task<(byte[] data, RuntimeMessage error)> LoadRawBytesAsync(string key, string entryId)
+    {
+        return Task.FromResult<(byte[] data, RuntimeMessage error)>((
+            null,
+            RuntimeMessage.UnsupportedOperation("AddressablesBackend.LoadRawBytesAsync", "AA 后端不支持 RawFile bytes/text 直读")));
+    }
+
+    public (byte[] data, RuntimeMessage error) LoadRawBytesSync(string key, string entryId)
+    {
+        return (null,
+            RuntimeMessage.UnsupportedOperation("AddressablesBackend.LoadRawBytesSync", "AA 后端不支持 RawFile bytes/text 直读"));
+    }
+
     public void UnloadAsset(string key)
     {
         if (!_resourceCache.TryGetValue(key, out var entry) || !entry.IsValid) return;

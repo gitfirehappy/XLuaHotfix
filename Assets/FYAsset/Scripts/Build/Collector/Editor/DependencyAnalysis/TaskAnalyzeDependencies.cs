@@ -20,7 +20,7 @@ public class TaskAnalyzeDependencies : IBuildTask
         var assets = ctx.Get<List<CollectedAssetInfo>>(BuildContextKeys.CollectedAssets);
         if (assets == null || assets.Count == 0)
         {
-            return BuildTaskResult.Fail("NO_COLLECTED_ASSETS",
+            return BuildTaskResult.Fail(BuildErrorCodes.NoCollectedAssets,
                 "TaskCollectAssets 未产出 Asset。请检查 Collector 配置。", false);
         }
 
@@ -59,7 +59,7 @@ public class TaskAnalyzeDependencies : IBuildTask
 
         if (hasFatal)
         {
-            var result = BuildTaskResult.Fail("DEPENDENCY_ANALYSIS_FAILED",
+            var result = BuildTaskResult.Fail(BuildErrorCodes.DependencyAnalysisFailed,
                 $"依赖分析发现 {messages.Count} 个问题。详见 Warning 列表。", true);
             result.Warnings = warnings;
             return result;

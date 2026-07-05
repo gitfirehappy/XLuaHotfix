@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
 
@@ -352,6 +353,74 @@ public class AssetPackageManager : Singleton<AssetPackageManager>
         return asset;
     }
 
+    public async Task<byte[]> LoadRawBytesAsync(string address, IReadOnlyList<string> labels = null)
+    {
+        if (!_isInitialized || _index == null)
+        {
+            LogRuntimeMessage(RuntimeMessage.LoadFailed(address, "AssetPackageManager 未初始化或当前后端不支持 RawFile 条目查询"));
+            return null;
+        }
+
+        var result = AssetResolver.ResolveRawByAddress(_index, address, labels);
+        if (!result.IsSuccess)
+        {
+            LogRuntimeMessage(result.Error);
+            return null;
+        }
+
+        var (data, error) = await _backend.LoadRawBytesAsync(result.Entry.Address, result.Entry.EntryId);
+        if (error != null)
+        {
+            LogRuntimeMessage(error);
+            return null;
+        }
+
+        return data;
+    }
+
+    public byte[] LoadRawBytesSync(string address, IReadOnlyList<string> labels = null)
+    {
+        if (!_isInitialized || _index == null)
+        {
+            LogRuntimeMessage(RuntimeMessage.LoadFailed(address, "AssetPackageManager 未初始化或当前后端不支持 RawFile 条目查询"));
+            return null;
+        }
+
+        var result = AssetResolver.ResolveRawByAddress(_index, address, labels);
+        if (!result.IsSuccess)
+        {
+            LogRuntimeMessage(result.Error);
+            return null;
+        }
+
+        var (data, error) = _backend.LoadRawBytesSync(result.Entry.Address, result.Entry.EntryId);
+        if (error != null)
+        {
+            LogRuntimeMessage(error);
+            return null;
+        }
+
+        return data;
+    }
+
+    public async Task<string> LoadRawTextAsync(
+        string address,
+        IReadOnlyList<string> labels = null,
+        Encoding encoding = null)
+    {
+        byte[] data = await LoadRawBytesAsync(address, labels);
+        return data != null ? (encoding ?? Encoding.UTF8).GetString(data) : null;
+    }
+
+    public string LoadRawTextSync(
+        string address,
+        IReadOnlyList<string> labels = null,
+        Encoding encoding = null)
+    {
+        byte[] data = LoadRawBytesSync(address, labels);
+        return data != null ? (encoding ?? Encoding.UTF8).GetString(data) : null;
+    }
+
     #endregion
 
     #region Resolve / Load API（基于条目解析的加载接口）
@@ -430,6 +499,10 @@ public class AssetPackageManager : Singleton<AssetPackageManager>
 
     private async Task<AssetHandle<T>> LoadResolvedAsync<T>(RuntimeAssetEntry entry) where T : UnityEngine.Object
     {
+        if (entry.PayloadKind == EPayloadKind.RawFile)
+            return new AssetHandle<T>(
+                RuntimeMessage.InvalidPayloadKind(entry.EntryId, EPayloadKind.Serialized, entry.PayloadKind));
+
         var abBackend = _backend as ABPackageBackend;
         if (abBackend != null)
             return await LoadResolvedWithABAsync<T>(abBackend, entry);
@@ -439,6 +512,10 @@ public class AssetPackageManager : Singleton<AssetPackageManager>
 
     private AssetHandle<T> LoadResolvedSync<T>(RuntimeAssetEntry entry) where T : UnityEngine.Object
     {
+        if (entry.PayloadKind == EPayloadKind.RawFile)
+            return new AssetHandle<T>(
+                RuntimeMessage.InvalidPayloadKind(entry.EntryId, EPayloadKind.Serialized, entry.PayloadKind));
+
         var abBackend = _backend as ABPackageBackend;
         if (abBackend != null)
             return LoadResolvedWithABSync<T>(abBackend, entry);

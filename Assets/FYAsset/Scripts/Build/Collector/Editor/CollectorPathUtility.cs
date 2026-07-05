@@ -59,7 +59,8 @@ public static class CollectorPathUtility
         }
         else if (string.Equals(normalizedAsset, normalizedCollect, StringComparison.OrdinalIgnoreCase))
         {
-            return false;
+            int slash = normalizedAsset.LastIndexOf('/');
+            relativePath = slash >= 0 ? normalizedAsset.Substring(slash + 1) : normalizedAsset;
         }
         else
         {

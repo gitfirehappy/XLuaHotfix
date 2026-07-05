@@ -128,6 +128,64 @@ public static class AssetResolver
 
     #endregion
 
+    #region RawFile
+
+    /// <summary>
+    /// 通过 Address + 可选 Labels 解析 RawFile 条目。
+    /// RawFile 没有 UnityEngine.Object 类型参数，因此只按 Address、Labels、PayloadKind 消歧。
+    /// </summary>
+    public static ResolveResult ResolveRawByAddress(
+        IAssetIndex index,
+        string address,
+        IReadOnlyList<string> labels = null)
+    {
+        IReadOnlyList<RuntimeAssetEntry> entries;
+        try
+        {
+            entries = index.GetEntriesByAddress(address);
+        }
+        catch (NotSupportedException)
+        {
+            return ResolveResult.IndexNotSupported(index.GetType().Name);
+        }
+
+        if (entries == null || entries.Count == 0)
+            return ResolveResult.NotFound(string.Concat("RawFile Address='", address, "'"));
+
+        var labelMatched = new List<RuntimeAssetEntry>();
+        for (int i = 0; i < entries.Count; i++)
+        {
+            if (entries[i].HasAllLabels(labels))
+                labelMatched.Add(entries[i]);
+        }
+
+        if (labelMatched.Count == 0)
+            return ResolveResult.NotFound(
+                string.Concat("RawFile Address='", address, "', Labels=[", JoinStrings(labels), "]"));
+
+        var rawMatched = new List<RuntimeAssetEntry>();
+        for (int i = 0; i < labelMatched.Count; i++)
+        {
+            if (labelMatched[i].PayloadKind == EPayloadKind.RawFile)
+                rawMatched.Add(labelMatched[i]);
+        }
+
+        if (rawMatched.Count == 0)
+            return ResolveResult.InvalidPayloadKind(
+                string.Concat("RawFile Address='", address, "'"),
+                EPayloadKind.RawFile,
+                labelMatched[0].PayloadKind);
+
+        if (rawMatched.Count == 1)
+            return ResolveResult.Hit(rawMatched[0]);
+
+        return ResolveResult.Conflict(
+            string.Concat("RawFile Address='", address, "', Labels=[", JoinStrings(labels), "]"),
+            rawMatched);
+    }
+
+    #endregion
+
     #region 批量解析
 
     /// <summary>

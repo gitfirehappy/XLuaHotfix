@@ -67,7 +67,7 @@ public static class DAGScheduler
             .ToList();
         if (enabled.Count == 0)
             return ErrorResult(config, new List<BuildTaskResult> { BuildTaskResult.Fail(
-                "NO_ENABLED_TASKS", "管线配置中无已启用的 Task。", true) });
+                BuildErrorCodes.NoEnabledTasks, "管线配置中无已启用的 Task。", true) });
 
         if (taskWhitelist == null)
         {
@@ -75,7 +75,7 @@ public static class DAGScheduler
             if (missingBackboneTasks.Count > 0)
             {
                 errors.Add(WithTaskName(BuildTaskResult.Fail(
-                    "MISSING_BACKBONE_TASK",
+                    BuildErrorCodes.MissingBackboneTask,
                     $"管线配置缺少必需主干 Task: {string.Join(", ", missingBackboneTasks)}。请更新 BuildPipelineConfig asset。",
                     true), "BuildPipelineConfig"));
                 return ErrorResult(config, errors);
@@ -87,14 +87,14 @@ public static class DAGScheduler
         var enabledNames = new HashSet<string>(enabled.Select(e => e.TaskName), StringComparer.Ordinal);
         foreach (var entry in enabled)
         {
-            if (!BuildTaskResolver.Exists(entry.TaskName))
+            if (!BuildTaskResolver.TryCreateTask(entry.TaskName, out var task, out string error))
             {
                 errors.Add(WithTaskName(BuildTaskResult.Fail(
-                    "TASK_NOT_FOUND",
-                    $"'{entry.TaskName}' — 未找到对应的 IBuildTask 实现。", true), entry.TaskName));
+                    SelectTaskResolutionErrorCode(entry.TaskName),
+                    error, true), entry.TaskName));
                 continue;
             }
-            instances[entry.TaskName] = BuildTaskResolver.CreateTask(entry.TaskName);
+            instances[entry.TaskName] = task;
         }
         if (errors.Count > 0) return ErrorResult(config, errors);
 
@@ -112,7 +112,7 @@ public static class DAGScheduler
                         ? $"'{dep}' 已禁用 — 请启用该 Task 或更新 '{instance.TaskName}' 的依赖。"
                         : $"'{dep}' — 不在 Task 列表中。";
                     errors.Add(WithTaskName(BuildTaskResult.Fail(
-                        "MISSING_DEPENDENCY",
+                        BuildErrorCodes.MissingDependency,
                         $"'{instance.TaskName}' depends on '{dep}': {reason}", true), instance.TaskName));
                 }
             }
@@ -127,7 +127,7 @@ public static class DAGScheduler
         if (sorted.Count < instances.Count)
         {
             var cyclic = instances.Keys.Except(sorted).ToList();
-            errors.Add(WithTaskName(BuildTaskResult.Fail("CIRCULAR_TASK_DEPENDENCY",
+            errors.Add(WithTaskName(BuildTaskResult.Fail(BuildErrorCodes.CircularTaskDependency,
                 $"检测到循环依赖: {string.Join(", ", cyclic)}。", true), "BuildPipelineConfig"));
             return ErrorResult(config, errors);
         }
@@ -144,7 +144,7 @@ public static class DAGScheduler
                     bool selfProduce = instance.WriteKeys != null && instance.WriteKeys.Contains(key);
                     if (!selfProduce && !produced.Contains(key))
                     {
-                        warnings.Add(WithTaskName(BuildTaskResult.Fail("UNSATISFIED_READ_KEY",
+                        warnings.Add(WithTaskName(BuildTaskResult.Fail(BuildErrorCodes.UnsatisfiedReadKey,
                             $"'{taskName}' 读取 '{key}'，但没有前置 Task 产出该 Key。", false), taskName));
                     }
                 }
@@ -195,7 +195,22 @@ public static class DAGScheduler
             .ToList();
         var instances = new Dictionary<string, IBuildTask>(StringComparer.Ordinal);
         foreach (var entry in enabled)
-            instances[entry.TaskName] = BuildTaskResolver.CreateTask(entry.TaskName);
+        {
+            if (!BuildTaskResolver.TryCreateTask(entry.TaskName, out var task, out string error))
+            {
+                return new BuildResult
+                {
+                    Success = false,
+                    TotalTasks = enabled.Count,
+                    TaskResults = new List<BuildTaskResult>
+                    {
+                        WithTaskName(BuildTaskResult.Fail(SelectTaskResolutionErrorCode(entry.TaskName), error, true),
+                            entry.TaskName)
+                    }
+                };
+            }
+            instances[entry.TaskName] = task;
+        }
         foreach (var taskName in instances.Keys)
             options?.Report(taskName, BuildTaskExecutionStatus.Pending);
 
@@ -216,7 +231,7 @@ public static class DAGScheduler
 
             if (ready.Count == 0)
             {
-                results.Add(BuildTaskResult.Fail("SCHEDULER_DEADLOCK",
+                results.Add(BuildTaskResult.Fail(BuildErrorCodes.SchedulerDeadlock,
                     $"存在无法满足的依赖，剩余未执行 Task: {string.Join(", ", remaining)}。", true));
                 break;
             }
@@ -234,11 +249,11 @@ public static class DAGScheduler
                 try
                 {
                     taskResult = task.Execute(context) ?? BuildTaskResult.Fail(
-                        "NULL_RESULT", $"'{taskName}' 返回了 null。", true);
+                        BuildErrorCodes.NullTaskResult, $"'{taskName}' 返回了 null。", true);
                 }
                 catch (Exception ex)
                 {
-                    taskResult = BuildTaskResult.Fail("TASK_EXECUTION_ERROR",
+                    taskResult = BuildTaskResult.Fail(BuildErrorCodes.TaskExecutionError,
                         $"'{taskName}' 执行异常 — {ex.GetType().Name}: {ex.Message}。", true);
                 }
 
@@ -358,6 +373,24 @@ public static class DAGScheduler
         if (result != null)
             result.TaskName = taskName;
         return result;
+    }
+
+    private static string SelectTaskResolutionErrorCode(string taskName)
+    {
+        var diagnostics = BuildTaskResolver.GetDiagnostics();
+        for (int i = 0; i < diagnostics.Count; i++)
+        {
+            var diagnostic = diagnostics[i];
+            if (string.Equals(diagnostic.TaskNameHint, taskName, StringComparison.Ordinal)
+                || string.Equals(diagnostic.TypeName, taskName, StringComparison.Ordinal)
+                || (!string.IsNullOrEmpty(diagnostic.TypeFullName)
+                    && diagnostic.TypeFullName.EndsWith("." + taskName, StringComparison.Ordinal)))
+            {
+                return BuildErrorCodes.TaskResolutionFailed;
+            }
+        }
+
+        return BuildErrorCodes.TaskNotFound;
     }
 
     #endregion

@@ -45,6 +45,12 @@ public static class RuntimeErrorCodes
     /// <summary>从 Bundle 中提取 Asset 失败（SourcePath 不正确或类型不匹配）</summary>
     public const string AssetExtractionFailed = "ASSET_EXTRACTION_FAILED";
 
+    /// <summary>请求的加载 API 与资产 PayloadKind 不匹配</summary>
+    public const string InvalidPayloadKind = "INVALID_PAYLOAD_KIND";
+
+    /// <summary>当前后端或平台不支持该操作</summary>
+    public const string UnsupportedOperation = "UNSUPPORTED_OPERATION";
+
     /// <summary>参数无效（null / 空字符串 / 越界等）</summary>
     public const string InvalidArgument = "INVALID_ARG";
 }
@@ -173,6 +179,17 @@ public class RuntimeMessage
         => Error(RuntimeErrorCodes.AssetExtractionFailed,
             string.Concat("从 Bundle 提取 Asset 失败: SourcePath=", sourcePath,
                 ", Bundle=", bundleName, ", EntryId=", entryId));
+
+    /// <summary>加载 API 与 PayloadKind 不匹配</summary>
+    public static RuntimeMessage InvalidPayloadKind(string entryId, EPayloadKind expected, EPayloadKind actual)
+        => Error(RuntimeErrorCodes.InvalidPayloadKind,
+            string.Concat("PayloadKind 不匹配, EntryId=[", entryId, "], 期望 ",
+                expected.ToString(), ", 实际 ", actual.ToString()));
+
+    /// <summary>当前后端或平台不支持该操作</summary>
+    public static RuntimeMessage UnsupportedOperation(string operation, string reason)
+        => Error(RuntimeErrorCodes.UnsupportedOperation,
+            string.Concat(operation, " 不支持: ", reason));
 
     #endregion
 

@@ -14,7 +14,8 @@ public static class DependencyAnalyzer
     /// <summary>BFS 展开时默认过滤的框架级非资源文件扩展名</summary>
     private static readonly string[] DefaultFilterExtensions =
     {
-        ".meta", ".cs", ".dll", ".asmdef", ".asmref", ".gitignore"
+        ".meta", ".cs", ".dll", ".asmdef", ".asmref", ".gitignore",
+        ".cginc", ".hlsl", ".hlslinc"
     };
 
     /// <summary>BFS 展开时过滤的目录段</summary>
@@ -287,8 +288,15 @@ public static class DependencyAnalyzer
             bool meetsSizeThreshold = true;
             if (policy.MinAssetSizeBytes > 0)
             {
-                long fileSize = GetAssetFileSize(candidate.AssetPath);
-                if (fileSize > 0 && fileSize < policy.MinAssetSizeBytes)
+                if (!TryGetAssetFileSize(candidate.AssetPath, out long fileSize, out string sizeError))
+                {
+                    messages.Add(BuildMessage.Error(BuildErrorCodes.SharePolicySizeUnknown,
+                        $"Asset '{candidate.AssetPath}' 无法读取文件大小，Package '{packageName}' 的 MinAssetSizeBytes 策略无法可靠执行: {sizeError}",
+                        candidate.AssetPath));
+                    continue;
+                }
+
+                if (fileSize < policy.MinAssetSizeBytes)
                     meetsSizeThreshold = false;
             }
 
@@ -300,7 +308,11 @@ public static class DependencyAnalyzer
             {
                 // 共享：打入 "$shared" Bundle
                 string bundleKey = candidate.PrimaryType;
-                bundleName = BundleNameBuilder.BuildShared(packageName, bundleKey);
+                bundleName = BundleNameBuilder.BuildShared(
+                    packageName,
+                    bundleKey,
+                    EPayloadKind.Serialized,
+                    candidate.PrimaryType);
                 isShared = true;
                 isDuplicated = false;
 
@@ -405,6 +417,9 @@ public static class DependencyAnalyzer
                 return true;
         }
 
+        if (AssetClassifier.IsUnsupportedAssetBundleEntry(assetPath, out _))
+            return true;
+
         // 排除 Editor 目录
         foreach (var seg in FilterDirSegments)
         {
@@ -432,22 +447,33 @@ public static class DependencyAnalyzer
         return false;
     }
 
-    private static long GetAssetFileSize(string assetPath)
+    private static bool TryGetAssetFileSize(string assetPath, out long size, out string error)
     {
+        size = 0;
+        error = string.Empty;
+
         if (string.IsNullOrEmpty(assetPath))
-            return -1;
+        {
+            error = "AssetPath is empty.";
+            return false;
+        }
 
         try
         {
             var info = new System.IO.FileInfo(assetPath);
             if (info.Exists)
-                return info.Length;
+            {
+                size = info.Length;
+                return true;
+            }
+
+            error = "File does not exist.";
         }
-        catch
+        catch (Exception ex)
         {
-            // 权限不足或路径非法 → 忽略，不影响分析流程
+            error = $"{ex.GetType().Name}: {ex.Message}";
         }
-        return -1;
+        return false;
     }
 
     private class ImplicitCandidate

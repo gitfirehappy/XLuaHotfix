@@ -81,6 +81,12 @@ public class ManifestAssetEntry
     [BinaryField(7)]
     public int BundleIndex;
 
+    /// <summary>
+    /// 资产载荷类型。Runtime 用它区分 UnityEngine.Object 加载和 RawFile bytes/text 加载。
+    /// </summary>
+    [BinaryField(8)]
+    public EPayloadKind PayloadKind = EPayloadKind.Serialized;
+
     #endregion
 
     /// <summary>
@@ -95,7 +101,8 @@ public class ManifestAssetEntry
             PrimaryType = PrimaryType,
             SourcePath = SourcePath,
             Group = Group,
-            AutoAddress = AutoAddress
+            AutoAddress = AutoAddress,
+            PayloadKind = PayloadKind
         };
         entry.SetLabels(Labels);
         return entry;

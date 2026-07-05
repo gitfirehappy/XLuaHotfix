@@ -29,7 +29,7 @@ public class AssetCollectionSetting : ScriptableObject
     /// <summary>自动 Address 的项目级默认生成样式。</summary>
     public AssetAddressStyle AddressStyle = AssetAddressStyle.ShortName;
 
-    /// <summary>Project Scan 阶段的全局忽略规则，用于生成候选 Collector 前过滤项目资产。</summary>
+    /// <summary>全局忽略规则，用于 Project Scan 和构建扫描阶段过滤项目资产。</summary>
     public List<string> IgnorePatterns = CreateDefaultIgnorePatterns();
 
     /// <summary>被 Folder Collector 覆盖但显式排除的资产列表，按 GUID 判断，路径只作为可读缓存。</summary>
@@ -182,12 +182,48 @@ public class AssetCollectionSetting : ScriptableObject
 
     public static List<string> CreateDefaultIgnorePatterns()
     {
-        return new List<string>
+        var patterns = new List<string>
         {
             "Assets/FYAsset/**",
             "Assets/Build/**",
             "Assets/StreamingAssets/**"
         };
+
+        AddDefaultBundleEntryIgnorePatterns(patterns);
+        return patterns;
+    }
+
+    public List<string> GetEffectiveIgnorePatterns()
+    {
+        var patterns = IgnorePatterns != null
+            ? new List<string>(IgnorePatterns)
+            : CreateDefaultIgnorePatterns();
+
+        AddDefaultBundleEntryIgnorePatterns(patterns);
+        return patterns;
+    }
+
+    private static void AddDefaultBundleEntryIgnorePatterns(List<string> patterns)
+    {
+        AddPatternIfMissing(patterns, "Assets/AddressableAssetsData/**");
+        AddPatternIfMissing(patterns, "*.cginc");
+        AddPatternIfMissing(patterns, "*.hlsl");
+        AddPatternIfMissing(patterns, "*.hlslinc");
+        AddPatternIfMissing(patterns, "*.pdf");
+    }
+
+    private static void AddPatternIfMissing(List<string> patterns, string pattern)
+    {
+        if (patterns == null || string.IsNullOrEmpty(pattern))
+            return;
+
+        for (int i = 0; i < patterns.Count; i++)
+        {
+            if (string.Equals(patterns[i], pattern, StringComparison.OrdinalIgnoreCase))
+                return;
+        }
+
+        patterns.Add(pattern);
     }
 
     private static string NormalizeAssetPath(string assetPath)

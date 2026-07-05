@@ -37,27 +37,25 @@ public static class BundleNameBuilder
         BundlePackingMode mode,
         string address,
         string assetGuid,
-        System.Collections.Generic.List<string> finalLabels)
+        System.Collections.Generic.List<string> finalLabels,
+        EPayloadKind payloadKind,
+        string primaryType)
     {
         string safePkg = SanitizeSegment(packageName);
         string safeGroup = SanitizeSegment(groupName);
+        string payloadSegment = GetPayloadSegment(payloadKind);
+        string typeSegment = SanitizeSegment(primaryType);
         string modeSegment = GetModeSegment(mode);
         string bundleKey = GetBundleKey(mode, address, assetGuid, finalLabels);
-
-        if (mode == BundlePackingMode.PackTogether)
-        {
-            return string.Concat(
-                safePkg,
-                SystemIdentifiers.SegmentSeparator,
-                safeGroup,
-                SystemIdentifiers.SegmentSeparator,
-                modeSegment);
-        }
 
         return string.Concat(
             safePkg,
             SystemIdentifiers.SegmentSeparator,
             safeGroup,
+            SystemIdentifiers.SegmentSeparator,
+            payloadSegment,
+            SystemIdentifiers.SegmentSeparator,
+            typeSegment,
             SystemIdentifiers.SegmentSeparator,
             modeSegment,
             SystemIdentifiers.SegmentSeparator,
@@ -70,6 +68,24 @@ public static class BundleNameBuilder
             SanitizeSegment(packageName),
             SystemIdentifiers.SegmentSeparator,
             "$shared",
+            SystemIdentifiers.SegmentSeparator,
+            SanitizeBundleKey(bundleKey));
+    }
+
+    public static string BuildShared(
+        string packageName,
+        string bundleKey,
+        EPayloadKind payloadKind,
+        string primaryType)
+    {
+        return string.Concat(
+            SanitizeSegment(packageName),
+            SystemIdentifiers.SegmentSeparator,
+            "$shared",
+            SystemIdentifiers.SegmentSeparator,
+            GetPayloadSegment(payloadKind),
+            SystemIdentifiers.SegmentSeparator,
+            SanitizeSegment(primaryType),
             SystemIdentifiers.SegmentSeparator,
             SanitizeBundleKey(bundleKey));
     }
@@ -184,6 +200,21 @@ public static class BundleNameBuilder
                 return "asset";
             case BundlePackingMode.PackTogetherByLabel:
                 return "labels";
+            default:
+                return "unknown";
+        }
+    }
+
+    private static string GetPayloadSegment(EPayloadKind payloadKind)
+    {
+        switch (payloadKind)
+        {
+            case EPayloadKind.Serialized:
+                return "serialized";
+            case EPayloadKind.RawFile:
+                return "rawfile";
+            case EPayloadKind.Scene:
+                return "scene";
             default:
                 return "unknown";
         }

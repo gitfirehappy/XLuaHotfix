@@ -33,10 +33,30 @@ public class TaskGenerateManifest : IBuildTask
         if (!validation.Success)
             return validation;
 
-        // ③ bundleNameToIndex
+        // ③ bundleNameToIndex（依赖图仍以逻辑 BundleName 表达）
         var bundleNameToIndex = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         for (int i = 0; i < buildResults.Count; i++)
             bundleNameToIndex[buildResults[i].BundleName] = i;
+
+        var membership = new Dictionary<BuildMembershipKey, int>(BuildMembershipKey.Comparer);
+        for (int bundleIndex = 0; bundleIndex < buildResults.Count; bundleIndex++)
+        {
+            BundleBuildInfo bundleInfo = buildResults[bundleIndex];
+            if (bundleInfo.AssetPaths == null)
+                continue;
+
+            for (int p = 0; p < bundleInfo.AssetPaths.Count; p++)
+            {
+                var key = new BuildMembershipKey(bundleInfo.AssetPaths[p], bundleInfo.BundleName);
+                if (membership.ContainsKey(key))
+                {
+                    return BuildTaskResult.Fail(BuildErrorCodes.DuplicateManifestMembership,
+                        $"Asset '{bundleInfo.AssetPaths[p]}' 在实际构建结果中重复归属于 Bundle '{bundleInfo.BundleName}'。", true);
+                }
+
+                membership[key] = bundleIndex;
+            }
+        }
 
         // ④ BundleBuildInfo → ManifestBundleEntry（基础字段，BundleType/DependBundleIndices/Tags 待填）
         var bundleEntries = new List<ManifestBundleEntry>(buildResults.Count);
@@ -46,7 +66,7 @@ public class TaskGenerateManifest : IBuildTask
             string outputDir = cfg.OutputRoot;
             string fileName = b.OutputFileName ?? b.BundleName;
             string filePath = FYAssetPathUtility.JoinFilePath(outputDir, "_temp", fileName);
-            if (!File.Exists(filePath))
+            if (!FileHelper.Exists(filePath))
                 return BuildTaskResult.Fail(BuildErrorCodes.BundleFileNotFound,
                     $"Bundle 输出文件不存在: '{filePath}'。", true);
 
@@ -73,10 +93,16 @@ public class TaskGenerateManifest : IBuildTask
             if (string.IsNullOrEmpty(a.BundleName))
                 continue;
 
-            if (!bundleNameToIndex.TryGetValue(a.BundleName, out int bundleIndex))
-                return BuildTaskResult.Fail(BuildErrorCodes.BundleNotFoundBuild,
-                    $"Asset '{a.AssetPath}' 引用了不存在的 Bundle '{a.BundleName}' " +
-                    "which is not in BundleBuildResults.", true);
+            var membershipKey = new BuildMembershipKey(a.AssetPath, a.BundleName);
+            if (!membership.TryGetValue(membershipKey, out int bundleIndex))
+                return BuildTaskResult.Fail(BuildErrorCodes.ManifestMembershipMissing,
+                    $"Asset '{a.AssetPath}' 无法在 BundleBuildInfo.AssetPaths 中找到实际归属 Bundle '{a.BundleName}'。", true);
+
+            BundleBuildInfo actualBundle = buildResults[bundleIndex];
+            if (actualBundle.PayloadKind != a.Classification.PayloadKind)
+                return BuildTaskResult.Fail(BuildErrorCodes.ManifestPayloadMismatch,
+                    $"Asset '{a.AssetPath}' 的采集 PayloadKind={a.Classification.PayloadKind}，" +
+                    $"实际构建 Bundle '{actualBundle.BundleName}' PayloadKind={actualBundle.PayloadKind}。", true);
 
             assetEntries.Add(new ManifestAssetEntry
             {
@@ -87,7 +113,8 @@ public class TaskGenerateManifest : IBuildTask
                 SourcePath = a.AssetPath ?? "",
                 Group = a.GroupName ?? "",
                 AutoAddress = true,
-                BundleIndex = bundleIndex
+                BundleIndex = bundleIndex,
+                PayloadKind = a.Classification.PayloadKind
             });
         }
 
@@ -221,4 +248,51 @@ public class TaskGenerateManifest : IBuildTask
         return BuildTaskResult.Ok();
     }
 
+    private readonly struct BuildMembershipKey : IEquatable<BuildMembershipKey>
+    {
+        public static readonly IEqualityComparer<BuildMembershipKey> Comparer = new KeyComparer();
+
+        public readonly string AssetPath;
+        public readonly string LogicalBundleName;
+
+        public BuildMembershipKey(string assetPath, string logicalBundleName)
+        {
+            AssetPath = assetPath ?? string.Empty;
+            LogicalBundleName = logicalBundleName ?? string.Empty;
+        }
+
+        public bool Equals(BuildMembershipKey other)
+        {
+            return string.Equals(AssetPath, other.AssetPath, StringComparison.OrdinalIgnoreCase) &&
+                   string.Equals(LogicalBundleName, other.LogicalBundleName, StringComparison.OrdinalIgnoreCase);
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is BuildMembershipKey other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                int hash = StringComparer.OrdinalIgnoreCase.GetHashCode(AssetPath);
+                hash = (hash * 397) ^ StringComparer.OrdinalIgnoreCase.GetHashCode(LogicalBundleName);
+                return hash;
+            }
+        }
+
+        private sealed class KeyComparer : IEqualityComparer<BuildMembershipKey>
+        {
+            public bool Equals(BuildMembershipKey x, BuildMembershipKey y)
+            {
+                return x.Equals(y);
+            }
+
+            public int GetHashCode(BuildMembershipKey obj)
+            {
+                return obj.GetHashCode();
+            }
+        }
+    }
 }

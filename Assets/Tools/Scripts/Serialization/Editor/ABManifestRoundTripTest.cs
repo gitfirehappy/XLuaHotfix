@@ -40,7 +40,8 @@ public static class ABManifestRoundTripTest
                     SourcePath = "Assets/Prefabs/Player.prefab",
                     Group = "Characters",
                     AutoAddress = true,
-                    BundleIndex = 0
+                    BundleIndex = 0,
+                    PayloadKind = EPayloadKind.Serialized
                 },
                 new ManifestAssetEntry
                 {
@@ -51,7 +52,8 @@ public static class ABManifestRoundTripTest
                     SourcePath = "Assets/Textures/Icon.png",
                     Group = "UI",
                     AutoAddress = true,
-                    BundleIndex = 1
+                    BundleIndex = 1,
+                    PayloadKind = EPayloadKind.RawFile
                 }
             },
             BundleEntries = new List<ManifestBundleEntry>
@@ -140,8 +142,14 @@ public static class ABManifestRoundTripTest
             var tgt = target.AssetEntries[i];
             if (src.EntryId != tgt.EntryId || src.Address != tgt.Address || src.PrimaryType != tgt.PrimaryType)
                 throw new InvalidOperationException($"AssetEntry[{i}] mismatch");
+            if (src.PayloadKind != tgt.PayloadKind)
+                throw new InvalidOperationException($"AssetEntry[{i}] PayloadKind mismatch");
             if (src.Labels.Count != tgt.Labels.Count)
                 throw new InvalidOperationException($"AssetEntry[{i}] Labels count mismatch");
+
+            var runtimeEntry = tgt.ToRuntimeEntry();
+            if (runtimeEntry.PayloadKind != tgt.PayloadKind)
+                throw new InvalidOperationException($"AssetEntry[{i}] RuntimeAssetEntry PayloadKind mismatch");
         }
 
         for (int i = 0; i < source.BundleEntries.Count; i++)

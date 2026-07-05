@@ -14,6 +14,10 @@ public interface IPackageBackend
 
     (T asset, RuntimeMessage error) LoadAssetSync<T>(string key) where T : UnityEngine.Object;
 
+    Task<(byte[] data, RuntimeMessage error)> LoadRawBytesAsync(string key, string entryId);
+
+    (byte[] data, RuntimeMessage error) LoadRawBytesSync(string key, string entryId);
+
     #endregion
 
     #region 资源卸载

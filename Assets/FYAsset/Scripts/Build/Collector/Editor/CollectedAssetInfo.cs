@@ -45,7 +45,7 @@ public class CollectedAssetInfo
     /// <summary>逻辑 Bundle 名称，由 BundleNameBuilder 组装</summary>
     public string BundleName;
 
-    /// <summary>Group 配置的打包模式；Scene 会在扫描时强制为 PackSeparately</summary>
+    /// <summary>Group 配置的打包模式；Scene / RawFile 会在扫描时强制为 PackSeparately</summary>
     public BundlePackingMode BundlePackingMode;
 
     /// <summary>分类结果：资产角色 + 载荷类型</summary>

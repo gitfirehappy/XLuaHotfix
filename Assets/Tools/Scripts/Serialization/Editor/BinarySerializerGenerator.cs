@@ -241,7 +241,7 @@ public static class BinarySerializerGenerator
             sb.AppendLine("    {");
             sb.AppendLine("        var header = BinaryHeader.ReadHeader(reader);");
             sb.AppendLine($"        if (header.Magic != {attr.Magic}u) throw new InvalidDataException(\"Magic mismatch\");");
-            sb.AppendLine($"        if (header.SchemaVersion > {attr.SchemaVersion}) throw new InvalidDataException(\"SchemaVersion too new\");");
+            sb.AppendLine($"        if (header.SchemaVersion != {attr.SchemaVersion}) throw new InvalidDataException(\"SchemaVersion mismatch\");");
             sb.AppendLine("        return Read(reader);");
             sb.AppendLine("    }");
         }

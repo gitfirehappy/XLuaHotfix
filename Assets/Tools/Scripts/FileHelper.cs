@@ -297,6 +297,18 @@ public static class FileHelper
     }
 
     /// <summary>
+    /// 同步读取文件全部字节。仅支持真实文件系统路径。
+    /// </summary>
+    public static byte[] ReadAllBytes(string path)
+    {
+        if (string.IsNullOrEmpty(path))
+            throw new ArgumentNullException(nameof(path));
+        if (!File.Exists(path))
+            throw new FileNotFoundException($"[FileHelper] 文件不存在: {path}");
+        return File.ReadAllBytes(path);
+    }
+
+    /// <summary>
     /// 枚举目录下的文件。目录不存在时返回空数组。
     /// </summary>
     public static string[] GetFiles(string path, string searchPattern = "*", SearchOption searchOption = SearchOption.TopDirectoryOnly)

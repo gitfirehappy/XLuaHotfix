@@ -40,7 +40,7 @@ public class TaskCollectBuiltins : IBuildTask
     {
         var assets = ctx.Get<List<CollectedAssetInfo>>(BuildContextKeys.CollectedAssets);
         if (assets == null || assets.Count == 0)
-            return BuildTaskResult.Fail("NO_COLLECTED_ASSETS",
+            return BuildTaskResult.Fail(BuildErrorCodes.NoCollectedAssets,
                 "TaskCollectAssets 未产出 Asset。无法收集 Builtin。", false);
 
         // 取第一个 Package 的 PackageName
@@ -93,7 +93,11 @@ public class TaskCollectBuiltins : IBuildTask
                     AssetLabels = new List<string>(),
                     GroupName = SystemIdentifiers.SharedGroupName,
                     PackageName = pkgName,
-                    BundleName = BundleNameBuilder.BuildShared(pkgName, cat.BundleKey),
+                    BundleName = BundleNameBuilder.BuildShared(
+                        pkgName,
+                        cat.BundleKey,
+                        EPayloadKind.Serialized,
+                        primaryType),
                     BundlePackingMode = BundlePackingMode.PackSeparately,
                     Classification = new AssetClassification
                     {

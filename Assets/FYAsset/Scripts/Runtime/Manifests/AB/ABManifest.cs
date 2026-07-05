@@ -11,7 +11,7 @@ using UnityEngine;
 /// 3. 通过 TryGetAssets* / GetBundle* 方法查询资源和 Bundle 信息
 /// </summary>
 [Serializable]
-[BinarySerializable(Magic = 0x41424D46, SchemaVersion = 2)]
+[BinarySerializable(Magic = 0x41424D46, SchemaVersion = 3)]
 public class ABManifest
 {
     #region 序列化字段

@@ -36,6 +36,11 @@ public class RuntimeAssetEntry
     public string PrimaryType;
 
     /// <summary>
+    /// 运行时载荷类型。RawFile 不允许通过 UnityEngine.Object 加载路径读取。
+    /// </summary>
+    public EPayloadKind PayloadKind = EPayloadKind.Serialized;
+
+    /// <summary>
     /// 无序唯一标签集合。
     /// 存储时保留原始输入大小写；匹配时使用归一化（小写）比较。
     /// </summary>
@@ -148,7 +153,8 @@ public class RuntimeAssetEntry
         return string.Concat(
             "[", EntryId ?? "", "] ",
             Address ?? "", " (", PrimaryType ?? "", ") Labels=[",
-            string.Join(",", Labels), "]"
+            string.Join(",", Labels), "] Payload=",
+            PayloadKind.ToString()
         );
     }
 }

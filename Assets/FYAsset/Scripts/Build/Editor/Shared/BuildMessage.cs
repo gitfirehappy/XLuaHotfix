@@ -63,6 +63,9 @@ public static class BuildErrorCodes
     /// <summary>Bundle 命名片段包含非法字符</summary>
     public const string InvalidBundleNameSegment = "INVALID_BUNDLE_NAME_SEGMENT";
 
+    /// <summary>资源不能作为 AssetBundle 入口资产</summary>
+    public const string InvalidBundleEntryAsset = "INVALID_BUNDLE_ENTRY_ASSET";
+
     /// <summary>Label 包含非法字符</summary>
     public const string InvalidLabel = "INVALID_LABEL";
 
@@ -84,6 +87,15 @@ public static class BuildErrorCodes
     /// <summary>AssetBundle 构建过程失败</summary>
     public const string BuildFailed = "BUILD_FAILED";
 
+    /// <summary>RawFile 与 Serialized/Scene 输出路线落入同一个逻辑 Bundle</summary>
+    public const string RawfilePayloadConflict = "RAWFILE_PAYLOAD_CONFLICT";
+
+    /// <summary>同一个 Bundle 构建组混入多种 PayloadKind</summary>
+    public const string MixedPayloadBundle = "MIXED_PAYLOAD_BUNDLE";
+
+    /// <summary>同一个 Bundle 构建组混入多种 PrimaryType</summary>
+    public const string MixedPrimaryTypeBundle = "MIXED_PRIMARY_TYPE_BUNDLE";
+
     /// <summary>RawFile 模式下单个文件产生多个 Asset（内部逻辑错误）</summary>
     public const string RawfileMultiAsset = "RAWFILE_MULTI_ASSET";
 
@@ -95,6 +107,15 @@ public static class BuildErrorCodes
 
     /// <summary>构建侧 Manifest 中未找到对应 Bundle 条目</summary>
     public const string BundleNotFoundBuild = "BUNDLE_NOT_FOUND_BUILD";
+
+    /// <summary>构建结果中同一个资产与逻辑 Bundle 的实际归属重复</summary>
+    public const string DuplicateManifestMembership = "DUPLICATE_MANIFEST_MEMBERSHIP";
+
+    /// <summary>CollectedAssetInfo 无法在实际 BundleBuildInfo.AssetPaths 中找到归属</summary>
+    public const string ManifestMembershipMissing = "MANIFEST_MEMBERSHIP_MISSING";
+
+    /// <summary>CollectedAssetInfo 与实际 BundleBuildInfo 的 PayloadKind 不一致</summary>
+    public const string ManifestPayloadMismatch = "MANIFEST_PAYLOAD_MISMATCH";
 
     /// <summary>ABManifest 初始化失败（数据为空或格式错误）</summary>
     public const string ManifestInitFailed = "MANIFEST_INIT_FAILED";
@@ -116,6 +137,58 @@ public static class BuildErrorCodes
 
     /// <summary>SharePolicy 规则存在冲突</summary>
     public const string SharePolicyConflict = "SHAREPOLICY_CONFLICT";
+
+    /// <summary>SharePolicy 需要文件大小但无法读取</summary>
+    public const string SharePolicySizeUnknown = "SHAREPOLICY_SIZE_UNKNOWN";
+
+    /// <summary>管线配置中没有已启用的 Task</summary>
+    public const string NoEnabledTasks = "NO_ENABLED_TASKS";
+
+    /// <summary>管线配置缺少必需主干 Task</summary>
+    public const string MissingBackboneTask = "MISSING_BACKBONE_TASK";
+
+    /// <summary>配置引用的 TaskName 未找到实现</summary>
+    public const string TaskNotFound = "TASK_NOT_FOUND";
+
+    /// <summary>Task 反射发现或实例化失败</summary>
+    public const string TaskResolutionFailed = "TASK_RESOLUTION_FAILED";
+
+    /// <summary>Task 依赖缺失或未启用</summary>
+    public const string MissingDependency = "MISSING_DEPENDENCY";
+
+    /// <summary>Task 依赖图存在环</summary>
+    public const string CircularTaskDependency = "CIRCULAR_TASK_DEPENDENCY";
+
+    /// <summary>Task 读取的 BuildContext key 没有上游产出</summary>
+    public const string UnsatisfiedReadKey = "UNSATISFIED_READ_KEY";
+
+    /// <summary>DAG 调度器无法继续推进</summary>
+    public const string SchedulerDeadlock = "SCHEDULER_DEADLOCK";
+
+    /// <summary>Task 执行返回 null</summary>
+    public const string NullTaskResult = "NULL_RESULT";
+
+    /// <summary>Task 执行异常</summary>
+    public const string TaskExecutionError = "TASK_EXECUTION_ERROR";
+
+    /// <summary>采集结果为空，后续 Task 无法继续</summary>
+    public const string NoCollectedAssets = "NO_COLLECTED_ASSETS";
+
+    /// <summary>依赖分析阶段失败</summary>
+    public const string DependencyAnalysisFailed = "DEPENDENCY_ANALYSIS_FAILED";
+}
+
+/// <summary>
+/// 构建结果校验项代码。它们描述 verification issue，不等同于 Task 失败码。
+/// </summary>
+public static class BuildVerificationIssueCodes
+{
+    public const string FileExistence = "FILE_EXISTENCE";
+    public const string FileIntegrity = "FILE_INTEGRITY";
+    public const string HashReVerify = "HASH_RE_VERIFY";
+    public const string SizeAnomaly = "SIZE_ANOMALY";
+    public const string OrphanCheck = "ORPHAN_CHECK";
+    public const string CountCrossCheck = "COUNT_CROSS_CHECK";
 }
 
 /// <summary>
@@ -231,6 +304,11 @@ public class BuildMessage
 
     public static BuildMessage InvalidBundleNameSegment(string message, string source)
         => Error(BuildErrorCodes.InvalidBundleNameSegment, message, source);
+
+    public static BuildMessage UnsupportedBundleEntryAsset(string assetPath, string reason, string source)
+        => Warning(BuildErrorCodes.InvalidBundleEntryAsset,
+            string.Concat("Asset '", assetPath, "' cannot be used as an AssetBundle entry and was skipped: ", reason),
+            source);
 
     public static BuildMessage InvalidLabel(string message, string source)
         => Error(BuildErrorCodes.InvalidLabel, message, source);

@@ -57,6 +57,9 @@ public class ResolveResult
     public static ResolveResult TypeMismatch(string query, string expectedType, string actualType)
         => new() { Status = ResolveStatus.TypeMismatch, Error = RuntimeMessage.TypeMismatch(query, expectedType, actualType) };
 
+    public static ResolveResult InvalidPayloadKind(string query, EPayloadKind expected, EPayloadKind actual)
+        => new() { Status = ResolveStatus.TypeMismatch, Error = RuntimeMessage.InvalidPayloadKind(query, expected, actual) };
+
     public static ResolveResult IndexNotSupported(string indexType)
         => new() { Status = ResolveStatus.NotFound, Error = RuntimeMessage.IndexNotSupported(indexType) };
 

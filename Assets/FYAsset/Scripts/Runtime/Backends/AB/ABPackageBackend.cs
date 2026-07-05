@@ -174,6 +174,30 @@ public class ABPackageBackend : IPackageBackend
         return (asset, error);
     }
 
+    public async Task<(byte[] data, RuntimeMessage error)> LoadRawBytesAsync(string key, string entryId)
+    {
+        if (string.IsNullOrEmpty(key))
+            return (null, RuntimeMessage.Error(RuntimeErrorCodes.InvalidArgument, "LoadRawBytesAsync: key 为 null 或空"));
+
+        var assetEntry = ResolveAssetEntry(key, entryId);
+        if (assetEntry == null)
+            return (null, RuntimeMessage.NotFound(string.Concat("key=", key, ", entryId=", entryId ?? "")));
+
+        return await LoadRawBytesInternalAsync(assetEntry);
+    }
+
+    public (byte[] data, RuntimeMessage error) LoadRawBytesSync(string key, string entryId)
+    {
+        if (string.IsNullOrEmpty(key))
+            return (null, RuntimeMessage.Error(RuntimeErrorCodes.InvalidArgument, "LoadRawBytesSync: key 为 null 或空"));
+
+        var assetEntry = ResolveAssetEntry(key, entryId);
+        if (assetEntry == null)
+            return (null, RuntimeMessage.NotFound(string.Concat("key=", key, ", entryId=", entryId ?? "")));
+
+        return LoadRawBytesInternalSync(assetEntry);
+    }
+
     #endregion
 
     #region IPackageBackend · 卸载
@@ -326,6 +350,12 @@ public class ABPackageBackend : IPackageBackend
     private async Task<(T asset, string bundleName, RuntimeMessage error)> LoadAssetInternalAsync<T>(
         ManifestAssetEntry assetEntry) where T : UnityEngine.Object
     {
+        if (assetEntry.PayloadKind == EPayloadKind.RawFile)
+        {
+            return (null, null,
+                RuntimeMessage.InvalidPayloadKind(assetEntry.EntryId, EPayloadKind.Serialized, assetEntry.PayloadKind));
+        }
+
         string entryId = assetEntry.EntryId;
 
         // 并发去重：如果已有进行中的加载，等待其完成后从缓存读取
@@ -421,6 +451,12 @@ public class ABPackageBackend : IPackageBackend
     private (T asset, string bundleName, RuntimeMessage error) LoadAssetInternalSync<T>(
         ManifestAssetEntry assetEntry) where T : UnityEngine.Object
     {
+        if (assetEntry.PayloadKind == EPayloadKind.RawFile)
+        {
+            return (null, null,
+                RuntimeMessage.InvalidPayloadKind(assetEntry.EntryId, EPayloadKind.Serialized, assetEntry.PayloadKind));
+        }
+
         // 获取 Bundle 信息
         var bundleEntry = _manifest.GetBundleForAsset(assetEntry);
         if (bundleEntry == null)
@@ -451,6 +487,107 @@ public class ABPackageBackend : IPackageBackend
         // 加入 Asset 缓存
         AddToAssetCache(assetEntry, asset, bundleName);
         return (asset, bundleName, null);
+    }
+
+    private async Task<(byte[] data, RuntimeMessage error)> LoadRawBytesInternalAsync(ManifestAssetEntry assetEntry)
+    {
+        if (assetEntry.PayloadKind != EPayloadKind.RawFile)
+            return (null, RuntimeMessage.InvalidPayloadKind(assetEntry.EntryId, EPayloadKind.RawFile, assetEntry.PayloadKind));
+
+        var bundleEntry = _manifest.GetBundleForAsset(assetEntry);
+        if (bundleEntry == null)
+        {
+            return (null,
+                RuntimeMessage.BundleNotFound(
+                    string.Concat("(asset: ", assetEntry.Address, ", EntryId=", assetEntry.EntryId, ")")));
+        }
+
+        string bundleName = bundleEntry.BundleName;
+        string primaryPath = BuildBundlePath(RuntimePathManager.CurrentGUIDRoot, bundleName);
+        if (FileHelper.Exists(primaryPath))
+            return await TryReadRawBytesAsync(primaryPath, assetEntry.EntryId);
+
+        string fallbackPath = BuildBundlePath(Application.streamingAssetsPath, bundleName);
+        return await TryReadRawBytesAsync(fallbackPath, assetEntry.EntryId);
+    }
+
+    private (byte[] data, RuntimeMessage error) LoadRawBytesInternalSync(ManifestAssetEntry assetEntry)
+    {
+        if (assetEntry.PayloadKind != EPayloadKind.RawFile)
+            return (null, RuntimeMessage.InvalidPayloadKind(assetEntry.EntryId, EPayloadKind.RawFile, assetEntry.PayloadKind));
+
+        var bundleEntry = _manifest.GetBundleForAsset(assetEntry);
+        if (bundleEntry == null)
+        {
+            return (null,
+                RuntimeMessage.BundleNotFound(
+                    string.Concat("(asset: ", assetEntry.Address, ", EntryId=", assetEntry.EntryId, ")")));
+        }
+
+        string bundleName = bundleEntry.BundleName;
+        string primaryPath = BuildBundlePath(RuntimePathManager.CurrentGUIDRoot, bundleName);
+        if (FileHelper.Exists(primaryPath))
+            return TryReadRawBytesSync(primaryPath, assetEntry.EntryId);
+
+        string fallbackPath = BuildBundlePath(Application.streamingAssetsPath, bundleName);
+        if (FileHelper.Exists(fallbackPath))
+            return TryReadRawBytesSync(fallbackPath, assetEntry.EntryId);
+
+        if (IsNonFileSystemPath(fallbackPath))
+        {
+            return (null,
+                RuntimeMessage.UnsupportedOperation(
+                    "ABPackageBackend.LoadRawBytesSync",
+                    "RawFile 同步读取只支持真实文件系统路径，请使用异步 API 读取 StreamingAssets URI"));
+        }
+
+        return (null, RuntimeMessage.BundleNotFound(bundleName));
+    }
+
+    private static async Task<(byte[] data, RuntimeMessage error)> TryReadRawBytesAsync(string path, string entryId)
+    {
+        try
+        {
+            return (await FileHelper.ReadAllBytesAsync(path), null);
+        }
+        catch (System.IO.FileNotFoundException)
+        {
+            return (null, RuntimeMessage.BundleNotFound(path));
+        }
+        catch (Exception ex)
+        {
+            return (null, RuntimeMessage.LoadFailed(entryId, ex.Message));
+        }
+    }
+
+    private static (byte[] data, RuntimeMessage error) TryReadRawBytesSync(string path, string entryId)
+    {
+        try
+        {
+            return (FileHelper.ReadAllBytes(path), null);
+        }
+        catch (System.IO.FileNotFoundException)
+        {
+            return (null, RuntimeMessage.BundleNotFound(path));
+        }
+        catch (Exception ex)
+        {
+            return (null, RuntimeMessage.LoadFailed(entryId, ex.Message));
+        }
+    }
+
+    private static string BuildBundlePath(string root, string bundleName)
+    {
+        return FYAssetPathUtility.JoinFilePath(root, FYAssetSettings.BUNDLES_DIRECTORY_NAME, bundleName);
+    }
+
+    private static bool IsNonFileSystemPath(string path)
+    {
+        if (string.IsNullOrEmpty(path))
+            return false;
+
+        return path.StartsWith("jar:", StringComparison.OrdinalIgnoreCase) ||
+               path.IndexOf("://", StringComparison.Ordinal) >= 0;
     }
 
     /// <summary>

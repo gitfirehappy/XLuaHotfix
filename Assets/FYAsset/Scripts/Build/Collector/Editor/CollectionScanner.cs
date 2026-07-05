@@ -188,11 +188,13 @@ public static class CollectionScanner
         // 逐 Collector 扫描
         List<CollectedAssetInfo> packageAssets = new List<CollectedAssetInfo>();
 
+        List<string> effectiveIgnorePatterns = setting.GetEffectiveIgnorePatterns();
         for (int ci = 0; ci < contexts.Count; ci++)
         {
             var ctx = contexts[ci];
             ctx.Setting = setting;
             ctx.Options = options;
+            ctx.IgnorePatterns = effectiveIgnorePatterns;
             if (!ScanCollector(ctx, packageName, groupLookup, result, packageAssets))
                 break;
         }
@@ -414,6 +416,15 @@ public static class CollectionScanner
             return true;
         }
 
+        if (CollectorPathUtility.MatchesIgnorePattern(assetPath, collectPath, ctx.IgnorePatterns))
+            return true;
+
+        if (AssetClassifier.IsUnsupportedAssetBundleEntry(assetPath, out string unsupportedReason))
+        {
+            result.Messages.Add(BuildMessage.UnsupportedBundleEntryAsset(assetPath, unsupportedReason, assetPath));
+            return true;
+        }
+
         var filterCtx = new FilterRuleContext
         {
             AssetPath = assetPath,
@@ -491,6 +502,13 @@ public static class CollectionScanner
         if (IsSceneAssetPath(assetPath))
             resolvedClassification.PayloadKind = EPayloadKind.Scene;
 
+        if (resolvedClassification.PayloadKind == EPayloadKind.Serialized &&
+            !AssetClassifier.CanUseAsSerializedBundleEntry(assetPath, out string serializedEntryReason))
+        {
+            result.Messages.Add(BuildMessage.UnsupportedBundleEntryAsset(assetPath, serializedEntryReason, assetPath));
+            return true;
+        }
+
         List<string> groupLabels = CopyLabels(targetGroup?.Labels);
         List<string> assetLabels = CopyLabels(entry.Labels);
         List<string> labels = MergeLabels(groupLabels, assetLabels);
@@ -509,7 +527,15 @@ public static class CollectionScanner
         if (HasInvalidLabels(labels, assetPath, result))
             return false;
 
-        string bundleName = BundleNameBuilder.Build(packageName, targetGroupName, packingMode, address, guid, labels);
+        string bundleName = BundleNameBuilder.Build(
+            packageName,
+            targetGroupName,
+            packingMode,
+            address,
+            guid,
+            labels,
+            resolvedClassification.PayloadKind,
+            primaryType);
 
         var collected = new CollectedAssetInfo
         {
@@ -680,7 +706,8 @@ public static class CollectionScanner
 
     private static BundlePackingMode ResolvePackingMode(AssetCollectionGroup targetGroup, AssetClassification classification)
     {
-        if (classification.PayloadKind == EPayloadKind.Scene)
+        if (classification.PayloadKind == EPayloadKind.Scene ||
+            classification.PayloadKind == EPayloadKind.RawFile)
             return BundlePackingMode.PackSeparately;
 
         return targetGroup != null ? targetGroup.BundlePackingMode : BundlePackingMode.PackTogetherByLabel;
@@ -727,6 +754,7 @@ public static class CollectionScanner
         public Collector Collector;
         public string ParentGroupName;
         public AssetCollectionGroup ParentGroup;
+        public List<string> IgnorePatterns;
         public List<string> ExcludedPaths = new();
     }
 

@@ -101,6 +101,8 @@ public class LuaScriptsIndexExporter
 
         var settings = AddressableAssetSettingsDefaultObject.Settings;
         if (settings == null) return;
+
+        bool useABBackend = FYAssetSettings.Instance.UseABBackend;
         
         string[] guids = AssetDatabase.FindAssets("t:LuaScriptContainer");
         
@@ -111,7 +113,11 @@ public class LuaScriptsIndexExporter
             if (container == null) continue;
 
             var entry = settings.FindAssetEntry(guid);
-            if (entry == null)
+            string containerAddress = entry != null ? entry.address : string.Empty;
+            if (string.IsNullOrEmpty(containerAddress) && useABBackend)
+                containerAddress = container.name;
+
+            if (string.IsNullOrEmpty(containerAddress))
             {
                 // 仅警告，不中断，可能该容器不需要进包
                 Debug.LogWarning($"[LuaIndexExporter] Container不在Addressables中: {container.name}");
@@ -120,7 +126,7 @@ public class LuaScriptsIndexExporter
 
             var entryData = new LuaScriptsIndex.ContainerEntry
             {
-                containerAddress = entry.address,
+                containerAddress = containerAddress,
                 scriptNames = new List<string>()
             };
 

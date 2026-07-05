@@ -8,6 +8,13 @@ using UnityEngine;
 /// </summary>
 public static class AssetClassifier
 {
+    private static readonly string[] UnsupportedBundleEntryExtensions =
+    {
+        ".cginc",
+        ".hlsl",
+        ".hlslinc"
+    };
+
     #region 公共方法
 
     /// <summary>
@@ -20,6 +27,63 @@ public static class AssetClassifier
             Role = MapRole(collectorType),
             PayloadKind = ResolvePayloadKind(assetPath, forcePayloadKind)
         };
+    }
+
+    /// <summary>
+    /// Unity imports shader include files as editor-only ShaderInclude objects.
+    /// They must never be passed to AssetBundleBuild.assetNames.
+    /// </summary>
+    public static bool IsUnsupportedAssetBundleEntry(string assetPath, out string reason)
+    {
+        reason = string.Empty;
+        if (string.IsNullOrEmpty(assetPath))
+            return false;
+
+        string extension = Path.GetExtension(assetPath);
+        if (IsUnsupportedBundleEntryExtension(extension))
+        {
+            reason = string.Concat("extension '", extension, "' is a shader include file.");
+            return true;
+        }
+
+        Type mainType = AssetDatabase.GetMainAssetTypeAtPath(assetPath);
+        if (IsShaderIncludeType(mainType))
+        {
+            reason = string.Concat("Unity imported it as ", mainType.Name, ".");
+            return true;
+        }
+
+        UnityEngine.Object mainAsset = AssetDatabase.LoadMainAssetAtPath(assetPath);
+        Type loadedType = mainAsset != null ? mainAsset.GetType() : null;
+        if (IsShaderIncludeType(loadedType))
+        {
+            reason = string.Concat("Unity loaded it as ", loadedType.Name, ".");
+            return true;
+        }
+
+        return false;
+    }
+
+    public static bool CanUseAsSerializedBundleEntry(string assetPath, out string reason)
+    {
+        if (IsUnsupportedAssetBundleEntry(assetPath, out reason))
+            return false;
+
+        Type mainType = AssetDatabase.GetMainAssetTypeAtPath(assetPath);
+        if (mainType == null || mainType == typeof(DefaultAsset))
+        {
+            reason = "it has no serializable Unity main asset type.";
+            return false;
+        }
+
+        UnityEngine.Object mainAsset = AssetDatabase.LoadMainAssetAtPath(assetPath);
+        if (mainAsset == null || mainAsset is DefaultAsset)
+        {
+            reason = "Unity cannot load it as a serializable main asset.";
+            return false;
+        }
+
+        return true;
     }
 
     #endregion
@@ -82,6 +146,25 @@ public static class AssetClassifier
             return false;
 
         return true;
+    }
+
+    private static bool IsUnsupportedBundleEntryExtension(string extension)
+    {
+        if (string.IsNullOrEmpty(extension))
+            return false;
+
+        for (int i = 0; i < UnsupportedBundleEntryExtensions.Length; i++)
+        {
+            if (string.Equals(extension, UnsupportedBundleEntryExtensions[i], StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool IsShaderIncludeType(Type type)
+    {
+        return type != null && string.Equals(type.Name, "ShaderInclude", StringComparison.Ordinal);
     }
 
     #endregion

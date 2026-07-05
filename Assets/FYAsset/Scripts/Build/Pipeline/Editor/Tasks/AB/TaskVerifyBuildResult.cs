@@ -54,9 +54,9 @@ public class TaskVerifyBuildResult : IBuildTask
             knownFiles.Add(bundle.BundleName);
 
             // ①
-            if (!File.Exists(bundlePath))
+            if (!FileHelper.Exists(bundlePath))
             {
-                AddIssue(issues, "FILE_EXISTENCE", IssueLevel.Error, bundle.BundleName,
+                AddIssue(issues, BuildVerificationIssueCodes.FileExistence, IssueLevel.Error, bundle.BundleName,
                     $"Bundle file not found: {bundlePath}", ref errorCount, ref warningCount);
                 continue;
             }
@@ -66,7 +66,7 @@ public class TaskVerifyBuildResult : IBuildTask
             // ② — 大小 > 0；对非 RawFile 检查 UnityFS header
             if (fileInfo.Length == 0)
             {
-                AddIssue(issues, "FILE_INTEGRITY", IssueLevel.Error, bundle.BundleName,
+                AddIssue(issues, BuildVerificationIssueCodes.FileIntegrity, IssueLevel.Error, bundle.BundleName,
                     "Bundle file size is 0.", ref errorCount, ref warningCount);
             }
             else if (NeedsUnityHeaderCheck(bundle.BundleName, payloadKindByBundle))
@@ -76,7 +76,7 @@ public class TaskVerifyBuildResult : IBuildTask
                     using var fs = File.OpenRead(bundlePath);
                     var header = new byte[UnityFSMagic.Length];
                     if (fs.Read(header, 0, header.Length) < header.Length)
-                        AddIssue(issues, "FILE_INTEGRITY", IssueLevel.Error, bundle.BundleName,
+                        AddIssue(issues, BuildVerificationIssueCodes.FileIntegrity, IssueLevel.Error, bundle.BundleName,
                             "Bundle file too small to contain UnityFS header.", ref errorCount, ref warningCount);
                     else
                     {
@@ -86,13 +86,13 @@ public class TaskVerifyBuildResult : IBuildTask
                             if (header[h] != UnityFSMagic[h]) { validHeader = false; break; }
                         }
                         if (!validHeader)
-                            AddIssue(issues, "FILE_INTEGRITY", IssueLevel.Error, bundle.BundleName,
+                            AddIssue(issues, BuildVerificationIssueCodes.FileIntegrity, IssueLevel.Error, bundle.BundleName,
                                 "Bundle file missing UnityFS header magic.", ref errorCount, ref warningCount);
                     }
                 }
                 catch (IOException ex)
                 {
-                    AddIssue(issues, "FILE_INTEGRITY", IssueLevel.Error, bundle.BundleName,
+                    AddIssue(issues, BuildVerificationIssueCodes.FileIntegrity, IssueLevel.Error, bundle.BundleName,
                         $"Failed to read bundle header: {ex.Message}", ref errorCount, ref warningCount);
                 }
             }
@@ -101,27 +101,27 @@ public class TaskVerifyBuildResult : IBuildTask
             string recomputedHash = HashGenerator.GenerateFileHash(bundlePath);
             if (!string.Equals(recomputedHash, bundle.FileHash, StringComparison.Ordinal))
             {
-                AddIssue(issues, "HASH_RE_VERIFY", IssueLevel.Error, bundle.BundleName,
+                AddIssue(issues, BuildVerificationIssueCodes.HashReVerify, IssueLevel.Error, bundle.BundleName,
                     $"Hash mismatch: manifest={bundle.FileHash}, actual={recomputedHash}", ref errorCount, ref warningCount);
             }
 
             // ⑤
             if (fileInfo.Length < MinSizeBytes)
             {
-                AddIssue(issues, "SIZE_ANOMALY", IssueLevel.Warning, bundle.BundleName,
+                AddIssue(issues, BuildVerificationIssueCodes.SizeAnomaly, IssueLevel.Warning, bundle.BundleName,
                     $"Bundle size {fileInfo.Length} bytes below minimum ({MinSizeBytes} bytes).", ref errorCount, ref warningCount);
             }
             if (fileInfo.Length > MaxSizeBytes)
             {
-                AddIssue(issues, "SIZE_ANOMALY", IssueLevel.Warning, bundle.BundleName,
+                AddIssue(issues, BuildVerificationIssueCodes.SizeAnomaly, IssueLevel.Warning, bundle.BundleName,
                     $"Bundle size {fileInfo.Length} bytes exceeds maximum ({MaxSizeBytes} bytes).", ref errorCount, ref warningCount);
             }
         }
 
         // ③ ORPHAN CHECK — 扫描 temp 目录所有文件，发现不在 knownFiles 中的报 Warning
-        if (Directory.Exists(tempDir))
+        if (FileHelper.DirectoryExists(tempDir))
         {
-            foreach (var filePath in Directory.GetFiles(tempDir))
+            foreach (var filePath in FileHelper.GetFiles(tempDir))
             {
                 string fileName = Path.GetFileName(filePath);
                 if (IsUnitySidecarFile(fileName, tempDir))
@@ -129,7 +129,7 @@ public class TaskVerifyBuildResult : IBuildTask
 
                 if (!knownFiles.Contains(fileName))
                 {
-                    AddIssue(issues, "ORPHAN_CHECK", IssueLevel.Warning, fileName,
+                    AddIssue(issues, BuildVerificationIssueCodes.OrphanCheck, IssueLevel.Warning, fileName,
                         $"Orphan file in output dir with no matching manifest entry: {fileName}", ref errorCount, ref warningCount);
                 }
             }
@@ -137,13 +137,13 @@ public class TaskVerifyBuildResult : IBuildTask
 
         // ⑥ COUNT CROSS-CHECK — 以 manifest 文件数为基准与实际文件数比对
         int manifestCount = manifest.BundleEntries.Count;
-        int actualCount = Directory.Exists(tempDir)
+        int actualCount = FileHelper.DirectoryExists(tempDir)
             ? CountDeployableFiles(tempDir)
             : 0;
 
         if (actualCount != manifestCount || manifest.BundleEntries.Count != buildResults.Count)
         {
-            AddIssue(issues, "COUNT_CROSS_CHECK", IssueLevel.Error, null,
+            AddIssue(issues, BuildVerificationIssueCodes.CountCrossCheck, IssueLevel.Error, null,
                 $"Count mismatch: actualFiles={actualCount}, manifest={manifestCount}, buildInfo={buildResults.Count}",
                 ref errorCount, ref warningCount);
         }
@@ -180,7 +180,7 @@ public class TaskVerifyBuildResult : IBuildTask
     private static int CountDeployableFiles(string tempDir)
     {
         int count = 0;
-        foreach (var filePath in Directory.GetFiles(tempDir))
+        foreach (var filePath in FileHelper.GetFiles(tempDir))
         {
             string fileName = Path.GetFileName(filePath);
             if (!IsUnitySidecarFile(fileName, tempDir))

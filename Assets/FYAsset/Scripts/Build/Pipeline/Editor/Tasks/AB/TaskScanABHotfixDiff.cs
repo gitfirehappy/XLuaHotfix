@@ -66,7 +66,7 @@ public class TaskScanABHotfixDiff : IBuildTask
             if (fullBaseline == null)
             {
                 return BuildTaskResult.Fail(BuildErrorCodes.BuildFailed,
-                    $"AB Hotfix 缺少同 Major Full baseline。Channel={channelKey}, Version={request.Version.GetFullVersionString()}。请先重新执行 AB Full build。", true);
+                    $"AB Hotfix 缺少同 Major Full baseline。Channel={channelKey}, Version={request.Version.GetReleaseVersionString()}。请先重新执行 AB Full build。", true);
             }
 
             var deliveryDelta = ArtifactDiffer.Diff(fullBaseline.Artifacts, current);
@@ -79,7 +79,7 @@ public class TaskScanABHotfixDiff : IBuildTask
 
             manifest.DeliveryBundles = deliveryBundles;
             ctx.Set(BuildContextKeys.ABDeliveryBundles, deliveryBundles);
-            Debug.Log($"[{nameof(TaskScanABHotfixDiff)}] AB delivery 完成: FullBaseline={fullBaseline.Version.GetFullVersionString()}, DeliveryBundles={deliveryBundles.Count}, DeliverySize={SumBundleSize(deliveryBundles)}");
+            Debug.Log($"[{nameof(TaskScanABHotfixDiff)}] AB delivery 完成: FullBaseline={fullBaseline.Version.GetReleaseVersionString()}, DeliveryBundles={deliveryBundles.Count}, DeliverySize={SumBundleSize(deliveryBundles)}");
 
             if (delta.IsEmpty)
             {
