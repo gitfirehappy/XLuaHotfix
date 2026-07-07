@@ -1,6 +1,6 @@
 # FYAsset Bundle Identity + RawFile Root Fix Plan 2026-06-11
 
-> **Status**: Active / Executed, awaiting developer sign-off
+> **Status**: Signed off / Archived
 > **Requirement ID**: fyasset-bundle-identity-rawfile-root-fix-20260611
 > **Origin**: `requirements/review/review-fyasset-mistake-decision-alignment-20260608.md`
 > **Scope**: Bundle payload/type identity, RawFile first-class runtime loading, ABManifest payload schema, and manifest physical-membership mapping.
@@ -14,7 +14,7 @@ Fix the root model error behind RawFile + manifest mismatches:
 - RawFile must be a first-class runtime asset loaded as bytes/text, not a fake `UnityEngine.Object` loaded through `AssetBundle.LoadAsset`.
 - Manifest asset-to-bundle membership must come from actual build output membership, not from a collected logical bundle name alone.
 
-This plan is executable only after explicit developer approval. Capturing this plan does not execute any build/runtime code change.
+This plan was executed and signed off by the developer on 2026-07-07.
 
 ## Locked Decisions
 

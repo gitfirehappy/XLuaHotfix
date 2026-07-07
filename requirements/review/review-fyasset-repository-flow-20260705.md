@@ -7,9 +7,19 @@
 
 ## 结论
 
-这次构建链路已经从“边构建边发布指针”收敛到更合理的顺序：先生成包体，再提交 Repository，最后发布 `PackageIndex` / `StreamingAssets`，并且 Full build 可以废弃损坏 HEAD 后以空仓重建。最新日志中最后一次 Full build 已经能导出包体并提交 HEAD，说明主链路可跑通。
+这次构建链路已经从“边构建边发布指针”收敛到更合理的顺序：先生成包体，再提交 Repository，最后发布 `PackageIndex` / `StreamingAssets`。2026-07-06 修复后，Full build 不再自动废弃损坏 HEAD；坏仓库状态必须先由显式 Health/Repair 处理，避免构建判断被隐式修复掩盖。命令行 Full build 已导出 `Build_20260706134750_6.0.0` 并提交 Repository HEAD。
 
-但仓库层还没有达到可长期信任的事务模型。当前最需要补的是 push 发布事务、orphan/坏对象治理、以及状态 UI 对“损坏、空仓、废弃重建”的显式表达。
+原始 review 中的 P1 事务和坏对象治理项已完成第一轮代码修复与命令行 smoke；当前剩余风险主要是 UI 体验项和更系统的故障注入测试。
+
+## 2026-07-06 修复状态
+
+- 已修复 P1 Push 非事务：`LocalDirectoryPushTarget` 改为 staging + backup/restore + root `PackageIndex.json` 原子写，Push 仍只发布已构建包体，不解释包内内容。
+- 已修复 P1 orphan/坏对象治理入口：`FileBuildRepository` 增加 `GetHealth()` / explicit `Repair()`；坏 HEAD、坏 parent 链、旧 `+Build` HEAD 会阻断 build/Push，Repair 将 HEAD/legacy/invalid/loose objects 移入 `repair-quarantine`。
+- 已调整 P1 Full build 坏 HEAD 策略：Full 不再自动废弃坏 HEAD 重建；必须显式 Repair 后才能构建，避免构建判断被自动修复掩盖。
+- 已修复 P2 publication 事务缺口中的 Full baseline 部分：`TaskExportLocalBuildData` 对 `StreamingAssets` FYAsset-owned 文件和 project BuildIndex 做 stage + backup/restore。`TaskWritePackageIndex` 本身已是原子写，仍由 `BuildProjectManager` 在 Repository commit 后调用。
+- 已同步 UI/CLI：Repository 面板增加 Health/Repair，Push 前复查 fatal health；CLI 增加 `Health`、`RepairDryRun`、`Repair`，`Status` 输出 health 并在 fatal health 时返回非 0。
+- 已修复 smoke blockers：删除 `XLuaConfigTester` missing-script scene object；修复 `Snapshots/Editor.meta` GUID；修复 repository JSON BOM 兼容；Full CLI package export 已通过。
+- 未处理：RepositoryStatusPanel 左侧滚动位置保持仍是 UI 体验项；Push/Repair 的异常恢复路径还缺少更系统的故障注入测试。
 
 ## Findings
 
@@ -60,13 +70,11 @@ Full build 遇到 malformed/stale HEAD 时会清空 parent 并重建仓库；Hot
 - 版本字符串已收口为 `Major.Minor.Patch[-Channel]`，`Build` 只保留为数字字段，仓库 object/HEAD/ParentVersion/PushHistory 不再使用 `+Build`。
 - 官方构建 DAG 设置 `DeferPackagePublication`，PackageIndex 和 Full baseline 发布移到 Repository commit 之后。
 - Full build 失败不再继续弹 Unity Build Settings；失败包目录会删除，删除失败时写 `FAILED_BUILD.json`。
-- Full build 对坏 HEAD 采用废弃重建策略；Hotfix 对坏 HEAD 保持严格失败。
-- `XLuaLoaderTester` missing script 已补回；最新日志中仍有 `XLuaConfigTester` missing script，需要单独处理。
+- Full build 和 Hotfix build 都通过 repository health 阻断坏 HEAD；显式 Repair 负责隔离坏 HEAD/坏对象/loose object。
+- `XLuaLoaderTester` missing script 已补回；`XLuaConfigTester` disabled missing-script scene object 已删除，最新 Full build 日志未再出现 missing-script warning。
 
 ## 后续建议顺序
 
-1. 先做 LocalDirectory push staging/atomic replacement，避免把坏状态发布到外部目录。
-2. 增加 repository cleanup/repair 入口，清理 `+Build` 旧对象和 orphan object。
-3. 给 post-commit publication 加 baseline staging 或失败恢复。
-4. 优化 RepositoryStatusPanel 左侧列表刷新，保留滚动位置。
-5. 单独恢复或删除 `XLuaConfigTester` 场景引用。
+1. 优化 RepositoryStatusPanel 左侧列表刷新，保留滚动位置。
+2. 为 Push staging/restore、Repair quarantine、Full baseline restore 增加故障注入测试，覆盖复制中断、写指针失败、坏 parent 链等路径。
+3. 在包体验收稳定后，再决定是否推进 ponytail simplification review 中的瘦身项。

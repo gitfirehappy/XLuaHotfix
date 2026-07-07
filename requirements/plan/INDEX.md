@@ -29,8 +29,9 @@ Shared executable plans live here while active. `requirements/plan.md` remains t
 | `plan-review-build-chain-blockers-20260607.md` | Signed off and archived |
 | `plan-ab-build-report-panel-20260606.md` | Signed off and archived |
 | `plan-repository-git-style-diff-20260606.md` | Signed off and archived |
+| `plan-fyasset-bundle-identity-rawfile-root-fix-20260611.md` | Signed off and archived |
 
 ## Active
 | File | Status |
 |---|---|
-| `plan-fyasset-bundle-identity-rawfile-root-fix-20260611.md` | Active / Executed, awaiting developer sign-off |
+| `plan-build-state-cleanup-tools-20260707.md` | Active / Awaiting developer approval |

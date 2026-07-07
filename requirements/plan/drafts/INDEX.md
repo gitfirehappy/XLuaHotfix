@@ -19,6 +19,12 @@ Promoted, superseded, or deprecated drafts go to `archive/`.
 | draft-offline-standalone-package-20260513.md | Draft | Offline standalone package design |
 | draft-debug-panel-20260512.md | Draft | Runtime debugger panel |
 | plan-playmode-draft.md | Draft | PlayMode 三模式设计 |
+| draft-docs-synchronization-20260707.md | Draft | Documentation synchronization audit and update proposal |
+| draft-fyasset-architecture-review-20260707.md | Draft | FYAsset architecture optimization — 12 issues identified, all confirmed 2026-07-07 |
+| draft-broken-pptr-scene-validation-20260707.md | Draft | Scene broken reference detection and cleanup (3 solutions) |
+| draft-version-system-test-features-20260707.md | Draft | Version panel: read-only build metadata + Reset to 1.0.0 button |
+| draft-buildresults-management-panel-20260707.md | Draft | BuildResults panel with package/log deletion and status tagging |
+| draft-repository-reset-20260707.md | Draft | Test-environment reset tool (version + repository HEAD + BuildIndex) |
 
 ## Discussion Order
 
@@ -36,3 +42,8 @@ A draft moves to `archive/` when:
 - Promoted to a formal plan (trace retained, draft archived)
 - Superseded by another draft or plan
 - Explicitly deprecated or abandoned
+
+## Recently Archived Drafts
+
+| File | Reason |
+|------|--------|

@@ -1,9 +1,9 @@
 # Refactor Plan: XLuaHotfix Full Resource Management System Overhaul — Master Plan
 
-> **Status**: In progress (Phase 1-4 completed, Phase 5 E1-1/E1-2/E1-3/E1-4/E2 realized, Phase 6 E4/E5-1/E5-2a/E5-2b/E6/E7/E9/E10/E11 main path realized, Build Repository AA Push signed off and archived, AssetsCollection address/settings/follow-up plans signed off and archived, AB cumulative hotfix delivery signed off and archived, AB Build Result panel signed off and archived, Repository git-style diff signed off and archived, review build-chain blocker fixes signed off and archived, basic pipeline UI layout aligned)
+> **Status**: In progress (Phase 1-4 completed, Phase 5 E1-1/E1-2/E1-3/E1-4/E2 realized, Phase 6 E4/E5-1/E5-2a/E5-2b/E6/E7/E9/E10/E11 main path realized, Build Repository AA Push signed off and archived, AssetsCollection address/settings/follow-up plans signed off and archived, AB cumulative hotfix delivery signed off and archived, AB Build Result panel signed off and archived, Repository git-style diff signed off and archived, review build-chain blocker fixes signed off and archived, FYAsset bundle identity + RawFile root fix signed off and archived, build state cleanup tools active)
 > **Ultimate Goal**: Fully replace Addressables with custom runtime + build-time resource management system (referencing YooAsset architecture)
 > **Created**: 2026-03-16
-> **Updated**: 2026-06-11 — Active plan captured for FYAsset bundle payload/type identity, RawFile first-class runtime loading, and manifest physical-membership mapping
+> **Updated**: 2026-07-07 — Active plan captured for Version reset, package deletion, and repository test reset tooling
 
 ---
 
@@ -187,12 +187,13 @@ Phase 4 and Phase 6 must be coordinated (ABManifest runtime consumption + build-
 | plan-review-build-chain-blockers-20260607.md | Review build-chain blockers: Collections package pin, git-style empty-baseline Changes, separate AB Delivery preview, importer-first payload Auto, AB sidecar verification, transactional version increment, and preview diagnostics | Archived / Signed off |
 | plan-ab-build-report-panel-20260606.md | AB Build Result report panel: editor-only AB report JSON under `BuildData/Reports/AB/`, Addressables-style Summary/Explore/Potential Issues UI, AB-only scope with AA left on Unity Addressables Report | Archived / Signed off |
 | plan-repository-git-style-diff-20260606.md | Repository git-style commit diff and GitHub Desktop-style Changes/History layout: persist per-commit parent delta, keep staging diff as current preview output vs HEAD, and remove editable Push From/To from the Repository panel | Archived / Signed off |
+| plan-fyasset-bundle-identity-rawfile-root-fix-20260611.md | FYAsset bundle identity + RawFile root fix: payload/type-separated bundle buckets, scanner RawFile PackSeparately normalization, manifest membership from `BundleBuildInfo.AssetPaths`, ABManifest schema v3, and direct RawFile bytes/text API | Archived / Signed off |
 
 ### Active Shared Plans
 
 | File | Content | Status |
 |------|---------|--------|
-| plan-fyasset-bundle-identity-rawfile-root-fix-20260611.md | FYAsset bundle identity + RawFile root fix: payload/type-separated bundle buckets, scanner RawFile PackSeparately normalization, manifest membership from `BundleBuildInfo.AssetPaths`, ABManifest schema v3, and direct RawFile bytes/text API | Active / Executed, awaiting developer sign-off |
+| plan-build-state-cleanup-tools-20260707.md | Version test reset/read-only metadata, package output listing/deletion, and channel-scoped repository test reset with explicit destructive options | Active / Awaiting developer approval |
 
 ### Phase 5: Build-Time - Asset Collection & Indexing
 
