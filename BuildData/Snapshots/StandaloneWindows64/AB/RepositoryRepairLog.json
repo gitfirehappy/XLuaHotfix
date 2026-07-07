@@ -1,0 +1,40 @@
+{
+    "Success": true,
+    "DryRun": false,
+    "Message": "Repository repair completed. Quarantine: E:\\unity\\project\\XLuaHotfix\\BuildData\\Snapshots\\StandaloneWindows64\\AB\\repair-quarantine\\20260706134119_52e830b7",
+    "Before": {
+        "ChannelKey": "StandaloneWindows64/AB",
+        "HasFatalIssue": false,
+        "Summary": "Repository health OK with cleanup warnings. Warnings=1, Loose=1, Legacy=0, Invalid=0.",
+        "FatalCount": 0,
+        "WarningCount": 1,
+        "LooseObjectCount": 1,
+        "LegacyObjectCount": 0,
+        "InvalidObjectCount": 0,
+        "LastRepairAtUtc": "",
+        "FatalIssues": [],
+        "Warnings": [
+            "Loose object ignored: E:\\unity\\project\\XLuaHotfix\\BuildData\\Snapshots\\StandaloneWindows64\\AB\\objects\\3.0.0.json"
+        ],
+        "RepairActions": [
+            "Quarantine loose object: E:\\unity\\project\\XLuaHotfix\\BuildData\\Snapshots\\StandaloneWindows64\\AB\\objects\\3.0.0.json"
+        ]
+    },
+    "After": {
+        "ChannelKey": "StandaloneWindows64/AB",
+        "HasFatalIssue": false,
+        "Summary": "Repository health OK.",
+        "FatalCount": 0,
+        "WarningCount": 0,
+        "LooseObjectCount": 0,
+        "LegacyObjectCount": 0,
+        "InvalidObjectCount": 0,
+        "LastRepairAtUtc": "",
+        "FatalIssues": [],
+        "Warnings": [],
+        "RepairActions": []
+    },
+    "Actions": [
+        "Quarantine loose object: E:\\unity\\project\\XLuaHotfix\\BuildData\\Snapshots\\StandaloneWindows64\\AB\\objects\\3.0.0.json"
+    ]
+}
