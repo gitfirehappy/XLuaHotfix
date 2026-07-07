@@ -33,9 +33,7 @@ public static class BuildProjectManager
         LastBuildSuccess = RunBuild(nextVersion, BuildType.Full, options);
         if (LastBuildSuccess)
         {
-            versionData.ApplyVersion(nextVersion);
-            AssetDatabase.SaveAssets();
-            AssetDatabase.Refresh();
+            LastBuildSuccess = ApplyBuiltVersion(nextVersion);
         }
 
         if (LastBuildSuccess && !Application.isBatchMode)
@@ -64,9 +62,7 @@ public static class BuildProjectManager
         LastBuildSuccess = RunBuild(nextVersion, BuildType.Hotfix, options);
         if (LastBuildSuccess)
         {
-            versionData.ApplyVersion(nextVersion);
-            AssetDatabase.SaveAssets();
-            AssetDatabase.Refresh();
+            LastBuildSuccess = ApplyBuiltVersion(nextVersion);
         }
     }
     
@@ -102,13 +98,14 @@ public static class BuildProjectManager
 
         try
         {
-            // LuaScriptsIndex 仍由编排层统一导出；AA/AB package 产物由各自 DAG 负责。
-            LuaScriptsIndexExporter.ExportData();
-            AssetDatabase.Refresh();
-
             BackendMode backendMode = FYAssetSettings.Instance.UseABBackend ? BackendMode.ABManifest : BackendMode.AA;
             request = BuildPackageRequest.Create(version, buildType, backendMode);
             Debug.Log($"[{nameof(BuildProjectManager)}] 已创建 BuildPackageRequest: Package={request.PackageName}, Backend={backendMode}, Output={request.OutputDir}");
+            BuildRepositoryFacade.EnsureHealthyForBuild(request);
+
+            // LuaScriptsIndex 仍由编排层统一导出；AA/AB package 产物由各自 DAG 负责。
+            LuaScriptsIndexExporter.ExportData();
+            AssetDatabase.Refresh();
 
             IBuildBackend backend = CreateBackend();
             var buildResult = backend.BuildAsync(request, options).GetAwaiter().GetResult();
@@ -160,6 +157,18 @@ public static class BuildProjectManager
             return null;
         }
         return versionData;
+    }
+
+    private static bool ApplyBuiltVersion(VersionNumber version)
+    {
+        VersionDataBase versionData = LoadVersionDataBase();
+        if (versionData == null)
+            return false;
+
+        versionData.ApplyVersion(version);
+        AssetDatabase.SaveAssets();
+        AssetDatabase.Refresh();
+        return true;
     }
     
     private static RepositoryCommit CommitBuildRepository(BuildPackageRequest request, BackendMode backendMode, System.Collections.Generic.IReadOnlyList<ArtifactDigest> artifacts)

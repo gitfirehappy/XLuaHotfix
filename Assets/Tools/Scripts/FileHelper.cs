@@ -10,6 +10,8 @@ using UnityEngine.Networking;
 /// </summary>
 public static class FileHelper
 {
+    private static readonly System.Text.UTF8Encoding Utf8NoBom = new System.Text.UTF8Encoding(false);
+
     /// <summary>
     /// 异步读取文件为字节数组。
     /// Android StreamingAssets 路径 → UnityWebRequest（需主线程）。
@@ -103,7 +105,7 @@ public static class FileHelper
         EnsureDirectoryForFile(path);
         string tempPath = path + ".tmp." + Guid.NewGuid().ToString("N").Substring(0, 8);
 
-        File.WriteAllText(tempPath, text, System.Text.Encoding.UTF8);
+        File.WriteAllText(tempPath, text, Utf8NoBom);
 
         if (File.Exists(path))
             File.Delete(path);

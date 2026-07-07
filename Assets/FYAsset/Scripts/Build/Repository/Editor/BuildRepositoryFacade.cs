@@ -43,6 +43,32 @@ public static class BuildRepositoryFacade
         return GetStatus(GetChannelKey(request));
     }
 
+    public static RepositoryHealthReport GetHealth(string channelKey)
+    {
+        if (FileRepository == null)
+            throw new InvalidOperationException("Repository implementation does not support health checks.");
+        return FileRepository.GetHealth(channelKey);
+    }
+
+    public static RepositoryHealthReport GetHealth(BuildPackageRequest request)
+    {
+        return GetHealth(GetChannelKey(request));
+    }
+
+    public static RepositoryRepairResult Repair(string channelKey, bool dryRun)
+    {
+        if (FileRepository == null)
+            throw new InvalidOperationException("Repository implementation does not support repair.");
+        return FileRepository.Repair(channelKey, dryRun);
+    }
+
+    public static void EnsureHealthyForBuild(BuildPackageRequest request)
+    {
+        var health = GetHealth(request);
+        if (health != null && health.HasFatalIssue)
+            throw new RepositoryHeadException(health.Summary);
+    }
+
     public static string GetChannelKey(BuildPackageRequest request)
     {
         return GetChannelKey(request?.Version, request != null ? request.BackendMode : BackendMode.AA);

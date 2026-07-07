@@ -48,6 +48,69 @@ public sealed class FileBuildRepository : IBuildRepository
         return status;
     }
 
+    public RepositoryHealthReport GetHealth(string channelKey)
+    {
+        return BuildHealthReport(channelKey);
+    }
+
+    public RepositoryRepairResult Repair(string channelKey, bool dryRun)
+    {
+        var result = new RepositoryRepairResult
+        {
+            DryRun = dryRun,
+            Before = BuildHealthReport(channelKey)
+        };
+        result.Actions.AddRange(result.Before.RepairActions);
+
+        if (dryRun)
+        {
+            result.Success = true;
+            result.Message = result.Actions.Count == 0
+                ? "Repository repair dry run found no actions."
+                : $"Repository repair dry run found {result.Actions.Count} action(s).";
+            return result;
+        }
+
+        if (result.Actions.Count == 0)
+        {
+            result.Success = true;
+            result.Message = "Repository repair found no actions.";
+            result.After = result.Before;
+            return result;
+        }
+
+        string channelRoot = GetChannelRoot(channelKey);
+        string quarantineRoot = FYAssetPathUtility.JoinFilePath(
+            channelRoot,
+            "repair-quarantine",
+            DateTime.UtcNow.ToString("yyyyMMddHHmmss") + "_" + Guid.NewGuid().ToString("N").Substring(0, 8));
+
+        try
+        {
+            string headPath = FYAssetPathUtility.JoinFilePath(channelRoot, "HEAD.json");
+            if (result.Before.HasFatalIssue && FileHelper.Exists(headPath))
+                MoveFileToQuarantine(channelRoot, quarantineRoot, headPath);
+
+            List<string> objectFiles = CollectRepairObjectFiles(channelKey);
+            for (int i = 0; i < objectFiles.Count; i++)
+                MoveFileToQuarantine(channelRoot, quarantineRoot, objectFiles[i]);
+
+            result.After = BuildHealthReport(channelKey);
+            result.Success = !result.After.HasFatalIssue;
+            result.Message = result.Success
+                ? $"Repository repair completed. Quarantine: {quarantineRoot}"
+                : $"Repository repair completed but fatal issues remain. Quarantine: {quarantineRoot}";
+            WriteRepairLog(channelKey, result);
+            return result;
+        }
+        catch (Exception ex)
+        {
+            result.Success = false;
+            result.Message = $"Repository repair failed: {ex.Message}";
+            return result;
+        }
+    }
+
     public RepositoryCommit GetHeadCommit(string channelKey)
     {
         var head = TryLoadHead(channelKey);
@@ -103,16 +166,7 @@ public sealed class FileBuildRepository : IBuildRepository
         var parent = TryLoadHead(commit.ChannelKey);
         if (TryGetLastHeadError(commit.ChannelKey, out string headError))
         {
-            if (IsFullBuildCommit(commit))
-            {
-                Debug.LogWarning($"[FileBuildRepository] Full build 已废弃无效 HEAD，将以空仓重建 Repository: {headError}");
-                ClearLastHeadError(commit.ChannelKey);
-                parent = null;
-            }
-            else
-            {
-                throw new RepositoryHeadException(headError);
-            }
+            throw new RepositoryHeadException(headError);
         }
 
         commit.ParentVersion = parent != null && parent.Version != null ? parent.Version.GetReleaseVersionString() : string.Empty;
@@ -131,8 +185,9 @@ public sealed class FileBuildRepository : IBuildRepository
         }
         catch (Exception ex)
         {
-            Debug.LogWarning($"[FileBuildRepository] HEAD swap failed; object remains as orphan: {objectPath}, reason: {ex.Message}");
-            throw;
+            bool objectDeleted = FileHelper.TryDelete(objectPath);
+            string cleanup = objectDeleted ? "commit object deleted" : "commit object cleanup failed";
+            throw new IOException($"HEAD write failed; {cleanup}: {objectPath}. Reason: {ex.Message}", ex);
         }
     }
 
@@ -306,7 +361,8 @@ public sealed class FileBuildRepository : IBuildRepository
 
         if (!IsReleaseVersionString(headState.HeadVersion))
         {
-            Debug.LogWarning($"[FileBuildRepository] 已忽略旧版本 HEAD: {headState.HeadVersion}");
+            Debug.LogError($"[FileBuildRepository] HEAD 版本不是 release identity: {headState.HeadVersion}");
+            SetLastHeadError(channelKey, $"HEAD version is not a release identity: {headState.HeadVersion}");
             return null;
         }
 
@@ -393,12 +449,6 @@ public sealed class FileBuildRepository : IBuildRepository
         return VersionNumber.TryParse(value, out _);
     }
 
-    private static bool IsFullBuildCommit(RepositoryCommit commit)
-    {
-        return commit != null &&
-               string.Equals(commit.BuildType, BuildType.Full.ToString(), StringComparison.Ordinal);
-    }
-
     private static List<PushHistoryEntry> TryLoadPushHistory(string channelKey)
     {
         string path = GetPushHistoryPath(channelKey);
@@ -452,6 +502,10 @@ public sealed class FileBuildRepository : IBuildRepository
 
     private static PushReceipt PushResolved(string channelKey, RepositoryCommit fromCommit, RepositoryCommit toCommit, IPushTarget target, ArtifactDelta delta)
     {
+        RepositoryHealthReport health = BuildHealthReport(channelKey);
+        if (health.HasFatalIssue)
+            return FailPush(target, health.Summary);
+
         if (toCommit == null)
             return FailPush(target, "Target commit is null.");
         if (string.IsNullOrEmpty(toCommit.PackageRootDir))
@@ -490,6 +544,256 @@ public sealed class FileBuildRepository : IBuildRepository
         int modified = delta.Modified != null ? delta.Modified.Count : 0;
         int removed = delta.Removed != null ? delta.Removed.Count : 0;
         return added + modified + removed;
+    }
+
+    private static RepositoryHealthReport BuildHealthReport(string channelKey)
+    {
+        var report = new RepositoryHealthReport
+        {
+            ChannelKey = channelKey ?? string.Empty
+        };
+
+        var reachable = new HashSet<string>(StringComparer.Ordinal);
+        LoadHeadForHealth(channelKey, report, reachable);
+        CollectObjectHealth(channelKey, report, reachable);
+
+        string repairLogPath = GetRepairLogPath(channelKey);
+        if (FileHelper.Exists(repairLogPath))
+        {
+            try
+            {
+                report.LastRepairAtUtc = File.GetLastWriteTimeUtc(repairLogPath).ToString("o");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[FileBuildRepository] 读取 repair log 时间失败: {repairLogPath}, 原因: {ex.Message}");
+                report.LastRepairAtUtc = string.Empty;
+            }
+        }
+
+        FinalizeHealthReport(report);
+        return report;
+    }
+
+    private static void LoadHeadForHealth(string channelKey, RepositoryHealthReport report, HashSet<string> reachable)
+    {
+        string headPath = FYAssetPathUtility.JoinFilePath(GetChannelRoot(channelKey), "HEAD.json");
+        if (!FileHelper.Exists(headPath))
+            return;
+
+        RepositoryHeadState headState;
+        try
+        {
+            headState = SerializationUtility.ReadFromFile<RepositoryHeadState>(headPath);
+        }
+        catch (Exception ex)
+        {
+            AddFatal(report, $"HEAD read failed: {headPath}, {ex.Message}");
+            AddRepairAction(report, $"Quarantine HEAD: {headPath}");
+            return;
+        }
+
+        if (headState == null || string.IsNullOrEmpty(headState.HeadVersion))
+        {
+            AddFatal(report, $"HEAD content invalid: {headPath}");
+            AddRepairAction(report, $"Quarantine HEAD: {headPath}");
+            return;
+        }
+
+        if (!IsReleaseVersionString(headState.HeadVersion))
+        {
+            AddFatal(report, $"HEAD version is not a release identity: {headState.HeadVersion}");
+            AddRepairAction(report, $"Quarantine HEAD: {headPath}");
+            return;
+        }
+
+        WalkReachableCommits(channelKey, headState.HeadVersion, report, reachable);
+        if (report.HasFatalIssue)
+            AddRepairAction(report, $"Quarantine HEAD: {headPath}");
+    }
+
+    private static void WalkReachableCommits(string channelKey, string headVersion, RepositoryHealthReport report, HashSet<string> reachable)
+    {
+        string version = headVersion;
+        while (!string.IsNullOrEmpty(version))
+        {
+            if (!IsReleaseVersionString(version))
+            {
+                AddFatal(report, $"Commit parent version is not a release identity: {version}");
+                return;
+            }
+
+            if (!reachable.Add(version))
+            {
+                AddFatal(report, $"Repository parent chain has a cycle at {version}.");
+                return;
+            }
+
+            string objectPath = FYAssetPathUtility.JoinFilePath(GetObjectsDir(channelKey), version + ".json");
+            if (!FileHelper.Exists(objectPath))
+            {
+                AddFatal(report, $"HEAD chain commit object missing: {objectPath}");
+                return;
+            }
+
+            if (!TryReadSnapshotForHealth(objectPath, out RepositoryCommit commit, out string reason))
+            {
+                AddFatal(report, $"HEAD chain commit object invalid: {objectPath}, {reason}");
+                return;
+            }
+
+            version = commit != null ? commit.ParentVersion : string.Empty;
+        }
+    }
+
+    private static void CollectObjectHealth(string channelKey, RepositoryHealthReport report, HashSet<string> reachable)
+    {
+        string objectsDir = GetObjectsDir(channelKey);
+        if (!FileHelper.DirectoryExists(objectsDir))
+            return;
+
+        string[] files = FileHelper.GetFiles(objectsDir, "*.json", SearchOption.TopDirectoryOnly);
+        Array.Sort(files, StringComparer.OrdinalIgnoreCase);
+        for (int i = 0; i < files.Length; i++)
+        {
+            string versionName = Path.GetFileNameWithoutExtension(files[i]);
+            if (!IsReleaseVersionString(versionName))
+            {
+                report.LegacyObjectCount++;
+                AddWarning(report, $"Legacy object ignored: {files[i]}");
+                AddRepairAction(report, $"Quarantine legacy object: {files[i]}");
+                continue;
+            }
+
+            if (!TryReadSnapshotForHealth(files[i], out _, out string reason))
+            {
+                report.InvalidObjectCount++;
+                AddWarning(report, $"Invalid object ignored: {files[i]}, {reason}");
+                AddRepairAction(report, $"Quarantine invalid object: {files[i]}");
+                continue;
+            }
+
+            if (!reachable.Contains(versionName))
+            {
+                report.LooseObjectCount++;
+                AddWarning(report, $"Loose object ignored: {files[i]}");
+                AddRepairAction(report, $"Quarantine loose object: {files[i]}");
+            }
+        }
+    }
+
+    private static List<string> CollectRepairObjectFiles(string channelKey)
+    {
+        var report = new RepositoryHealthReport { ChannelKey = channelKey ?? string.Empty };
+        var reachable = new HashSet<string>(StringComparer.Ordinal);
+        LoadHeadForHealth(channelKey, report, reachable);
+
+        var filesToMove = new List<string>();
+        string objectsDir = GetObjectsDir(channelKey);
+        if (!FileHelper.DirectoryExists(objectsDir))
+            return filesToMove;
+
+        string[] files = FileHelper.GetFiles(objectsDir, "*.json", SearchOption.TopDirectoryOnly);
+        Array.Sort(files, StringComparer.OrdinalIgnoreCase);
+        for (int i = 0; i < files.Length; i++)
+        {
+            string versionName = Path.GetFileNameWithoutExtension(files[i]);
+            if (!IsReleaseVersionString(versionName) ||
+                !TryReadSnapshotForHealth(files[i], out _, out _) ||
+                !reachable.Contains(versionName))
+            {
+                filesToMove.Add(files[i]);
+            }
+        }
+
+        return filesToMove;
+    }
+
+    private static bool TryReadSnapshotForHealth(string path, out RepositoryCommit commit, out string reason)
+    {
+        commit = null;
+        reason = string.Empty;
+        try
+        {
+            commit = SerializationUtility.ReadFromFile<RepositoryCommit>(path);
+            if (commit == null)
+            {
+                reason = "deserialized commit is null";
+                return false;
+            }
+            return true;
+        }
+        catch (Exception ex)
+        {
+            reason = ex.Message;
+            return false;
+        }
+    }
+
+    private static void MoveFileToQuarantine(string channelRoot, string quarantineRoot, string sourcePath)
+    {
+        if (!FileHelper.Exists(sourcePath))
+            return;
+
+        string relativePath = FYAssetPathUtility.GetRelativeFilePath(channelRoot, sourcePath);
+        string targetPath = FYAssetPathUtility.JoinFilePath(quarantineRoot, relativePath);
+        FileHelper.EnsureDirectoryForFile(targetPath);
+        if (FileHelper.Exists(targetPath))
+            FileHelper.TryDelete(targetPath);
+        File.Move(sourcePath, targetPath);
+    }
+
+    private static void WriteRepairLog(string channelKey, RepositoryRepairResult result)
+    {
+        string path = GetRepairLogPath(channelKey);
+        FileHelper.WriteAllTextAtomic(path, SerializationUtility.SerializeToJson(result, true));
+    }
+
+    private static string GetRepairLogPath(string channelKey)
+    {
+        return FYAssetPathUtility.JoinFilePath(GetChannelRoot(channelKey), "RepositoryRepairLog.json");
+    }
+
+    private static void AddFatal(RepositoryHealthReport report, string message)
+    {
+        report.HasFatalIssue = true;
+        report.FatalCount++;
+        report.FatalIssues.Add(message);
+    }
+
+    private static void AddWarning(RepositoryHealthReport report, string message)
+    {
+        report.WarningCount++;
+        report.Warnings.Add(message);
+    }
+
+    private static void AddRepairAction(RepositoryHealthReport report, string action)
+    {
+        if (string.IsNullOrEmpty(action))
+            return;
+        for (int i = 0; i < report.RepairActions.Count; i++)
+        {
+            if (string.Equals(report.RepairActions[i], action, StringComparison.Ordinal))
+                return;
+        }
+        report.RepairActions.Add(action);
+    }
+
+    private static void FinalizeHealthReport(RepositoryHealthReport report)
+    {
+        if (report.HasFatalIssue)
+        {
+            report.Summary = $"Repository health failed. Fatal={report.FatalCount}, Warnings={report.WarningCount}. Run explicit Repair before build or Push.";
+            return;
+        }
+
+        if (report.WarningCount > 0)
+        {
+            report.Summary = $"Repository health OK with cleanup warnings. Warnings={report.WarningCount}, Loose={report.LooseObjectCount}, Legacy={report.LegacyObjectCount}, Invalid={report.InvalidObjectCount}.";
+            return;
+        }
+
+        report.Summary = "Repository health OK.";
     }
 
     private static string SanitizePathSegment(string value)

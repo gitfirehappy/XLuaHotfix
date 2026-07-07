@@ -55,6 +55,7 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
     private DropdownField _targetDropdown;
 
     private RepositoryStatus _status;
+    private RepositoryHealthReport _health;
     private RepositoryCommit _headCommit;
     private RepositoryCommit _selectedCommit;
     private BuildPackageRequest _request;
@@ -118,6 +119,7 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
         _messageLabel = null;
         _targetDropdown = null;
         _status = null;
+        _health = null;
         _headCommit = null;
         _selectedCommit = null;
         _request = null;
@@ -182,6 +184,8 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
         top.Add(titleBox);
 
         top.Add(BuildPipelineUI.ToolbarButton("Refresh", Rebuild, 70f));
+        top.Add(BuildPipelineUI.ToolbarButton("Health", RunHealth, 70f));
+        top.Add(BuildPipelineUI.ToolbarButton("Repair", RunRepair, 70f));
         top.Add(BuildPipelineUI.ToolbarButton("Refresh Changes", RunRefreshStaging, 118f));
         if (_backendMode == BackendMode.ABManifest)
             top.Add(BuildPipelineUI.ToolbarButton("Preview Delivery", RunPreviewDelivery, 118f));
@@ -435,6 +439,7 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
         _request = CreatePreviewRequest();
         _channelKey = BuildRepositoryFacade.GetChannelKey(_request);
         _status = BuildRepositoryFacade.GetStatus(_request);
+        _health = BuildRepositoryFacade.GetHealth(_channelKey);
         _headCommit = _status != null && _status.HasHead ? BuildRepositoryFacade.GetHeadCommit(_channelKey) : null;
         _commits.Clear();
         _commits.AddRange(BuildRepositoryFacade.ListCommits(_channelKey));
@@ -459,10 +464,24 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
             ? "-"
             : $"{SafeText(_status.LastPushTargetId)} {FormatUtc(_status.LastPushAtUtc)}";
 
+        if (_health != null && _health.HasFatalIssue)
+        {
+            SetBadge("Health Error", new Color(0.65f, 0.20f, 0.16f));
+            _messageLabel.text = _health.Summary;
+            return;
+        }
+
         if (_status.HasHeadError)
         {
             SetBadge("HEAD Error", new Color(0.65f, 0.20f, 0.16f));
             _messageLabel.text = _status.HeadErrorReason;
+            return;
+        }
+
+        if (_health != null && _health.WarningCount > 0)
+        {
+            SetBadge("Cleanup Warning", new Color(0.70f, 0.46f, 0.12f));
+            _messageLabel.text = _health.Summary;
             return;
         }
 
@@ -801,6 +820,57 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
         }
     }
 
+    private void RunHealth()
+    {
+        try
+        {
+            _health = BuildRepositoryFacade.GetHealth(_channelKey);
+            LogHealth(_health);
+            RefreshHeader();
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"[RepositoryStatusPanel] Health check failed: {ex}");
+            SetBadge("Health Failed", new Color(0.65f, 0.20f, 0.16f));
+            _messageLabel.text = ex.Message;
+        }
+    }
+
+    private void RunRepair()
+    {
+        try
+        {
+            bool confirm = EditorUtility.DisplayDialog(
+                "Repair Repository",
+                "Repair will quarantine invalid HEAD and ignored object files for the current channel. Continue?",
+                "Repair",
+                "Cancel");
+            if (!confirm)
+                return;
+
+            RepositoryRepairResult result = BuildRepositoryFacade.Repair(_channelKey, false);
+            LogRepair(result);
+            RefreshRepositoryState();
+
+            if (result != null && result.Success)
+            {
+                SetBadge("Repair OK", new Color(0.18f, 0.48f, 0.28f));
+                _messageLabel.text = result.Message;
+            }
+            else
+            {
+                SetBadge("Repair Failed", new Color(0.65f, 0.20f, 0.16f));
+                _messageLabel.text = result != null ? result.Message : "Repair returned null result.";
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"[RepositoryStatusPanel] Repair failed: {ex}");
+            SetBadge("Repair Failed", new Color(0.65f, 0.20f, 0.16f));
+            _messageLabel.text = ex.Message;
+        }
+    }
+
     private void RunPreviewDelivery()
     {
         if (_backendMode != BackendMode.ABManifest)
@@ -842,6 +912,9 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
     {
         try
         {
+            if (HasFatalHealthIssue("Push"))
+                return;
+
             if (_headCommit == null)
             {
                 SetBadge("Push Failed", new Color(0.65f, 0.20f, 0.16f));
@@ -870,6 +943,18 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
             SetBadge("Push Failed", new Color(0.65f, 0.20f, 0.16f));
             _messageLabel.text = ex.Message;
         }
+    }
+
+    private bool HasFatalHealthIssue(string action)
+    {
+        _health = BuildRepositoryFacade.GetHealth(_channelKey);
+        if (_health == null || !_health.HasFatalIssue)
+            return false;
+
+        SetBadge(action + " Blocked", new Color(0.65f, 0.20f, 0.16f));
+        _messageLabel.text = _health.Summary;
+        LogHealth(_health);
+        return true;
     }
 
     private void RefreshPushHistory()
@@ -941,6 +1026,28 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
     {
         EditorUtility.SetDirty(FYAssetSettings.Instance);
         AssetDatabase.SaveAssets();
+    }
+
+    private static void LogHealth(RepositoryHealthReport health)
+    {
+        if (health == null)
+            return;
+
+        Debug.Log($"[RepositoryStatusPanel] Health: {health.Summary}");
+        for (int i = 0; i < health.FatalIssues.Count; i++)
+            Debug.LogError($"[RepositoryStatusPanel] {health.FatalIssues[i]}");
+        for (int i = 0; i < health.Warnings.Count; i++)
+            Debug.LogWarning($"[RepositoryStatusPanel] {health.Warnings[i]}");
+    }
+
+    private static void LogRepair(RepositoryRepairResult result)
+    {
+        if (result == null)
+            return;
+
+        Debug.Log($"[RepositoryStatusPanel] Repair: {result.Message}");
+        for (int i = 0; i < result.Actions.Count; i++)
+            Debug.Log($"[RepositoryStatusPanel] Repair action: {result.Actions[i]}");
     }
 
     private BuildPackageRequest CreatePreviewRequest()

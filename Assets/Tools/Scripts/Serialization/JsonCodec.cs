@@ -24,6 +24,8 @@ public sealed class JsonCodec : ISerializationCodec
         }
 
         string json = Encoding.UTF8.GetString(data);
+        if (json.Length > 0 && json[0] == '\uFEFF')
+            json = json.Substring(1);
         return JsonUtility.FromJson<T>(json);
     }
 }

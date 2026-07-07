@@ -53,6 +53,40 @@ public sealed class RepositoryStatus
 }
 
 /// <summary>
+/// Repository health report used by build blocking, CLI, and editor repair.
+/// </summary>
+[Serializable]
+public sealed class RepositoryHealthReport
+{
+    public string ChannelKey;
+    public bool HasFatalIssue;
+    public string Summary;
+    public int FatalCount;
+    public int WarningCount;
+    public int LooseObjectCount;
+    public int LegacyObjectCount;
+    public int InvalidObjectCount;
+    public string LastRepairAtUtc;
+    public List<string> FatalIssues = new();
+    public List<string> Warnings = new();
+    public List<string> RepairActions = new();
+}
+
+/// <summary>
+/// Result of an explicit repository repair command.
+/// </summary>
+[Serializable]
+public sealed class RepositoryRepairResult
+{
+    public bool Success;
+    public bool DryRun;
+    public string Message;
+    public RepositoryHealthReport Before;
+    public RepositoryHealthReport After;
+    public List<string> Actions = new();
+}
+
+/// <summary>
 /// Repository HEAD 读取异常。
 /// 缺失 HEAD 由调用方按无 HEAD 处理；损坏 HEAD 必须显式报错。
 /// </summary>

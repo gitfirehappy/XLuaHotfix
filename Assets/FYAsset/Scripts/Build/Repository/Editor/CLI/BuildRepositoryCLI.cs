@@ -8,7 +8,7 @@ using UnityEngine;
 
 /// <summary>
 /// Build Repository 命令行入口。
-/// 只暴露 status / diff / push / list-commits。
+/// 暴露 status / health / repair / diff / push / list-commits。
 /// </summary>
 public static class BuildRepositoryCLI
 {
@@ -17,13 +17,39 @@ public static class BuildRepositoryCLI
         var args = ParseArgs();
         var channelKey = GetChannelKey(args);
         var status = BuildRepositoryFacade.GetStatus(channelKey);
+        var health = BuildRepositoryFacade.GetHealth(channelKey);
         WriteLine($"Channel: {status.ChannelKey}");
         WriteLine($"HEAD: {(status.HasHead ? status.HeadVersion : "(none)")}");
         WriteLine($"Package: {status.PackageName}");
         WriteLine($"Artifacts: {status.ArtifactCount}");
         WriteLine($"LastPushTarget: {status.LastPushTargetId}");
         WriteLine($"LastPushAtUtc: {status.LastPushAtUtc}");
-        EditorApplication.Exit(0);
+        WriteHealth(health);
+        EditorApplication.Exit(health != null && health.HasFatalIssue ? 1 : 0);
+    }
+
+    public static void Health()
+    {
+        var args = ParseArgs();
+        var health = BuildRepositoryFacade.GetHealth(GetChannelKey(args));
+        WriteHealth(health);
+        EditorApplication.Exit(health != null && health.HasFatalIssue ? 1 : 0);
+    }
+
+    public static void RepairDryRun()
+    {
+        var args = ParseArgs();
+        var result = BuildRepositoryFacade.Repair(GetChannelKey(args), true);
+        WriteRepair(result);
+        EditorApplication.Exit(result != null && result.Success ? 0 : 1);
+    }
+
+    public static void Repair()
+    {
+        var args = ParseArgs();
+        var result = BuildRepositoryFacade.Repair(GetChannelKey(args), false);
+        WriteRepair(result);
+        EditorApplication.Exit(result != null && result.Success ? 0 : 1);
     }
 
     public static void Diff()
@@ -192,6 +218,43 @@ public static class BuildRepositoryCLI
         builder.AppendLine($"Removed: {delta.Removed.Count}");
         for (int i = 0; i < delta.Removed.Count; i++)
             builder.AppendLine(delta.Removed[i]);
+    }
+
+    private static void WriteHealth(RepositoryHealthReport health)
+    {
+        if (health == null)
+        {
+            WriteLine("Health: (unavailable)");
+            return;
+        }
+
+        WriteLine($"Health: {health.Summary}");
+        WriteLine($"Fatal: {health.FatalCount}");
+        for (int i = 0; i < health.FatalIssues.Count; i++)
+            WriteLine($"  {health.FatalIssues[i]}");
+        WriteLine($"Warnings: {health.WarningCount}");
+        for (int i = 0; i < health.Warnings.Count; i++)
+            WriteLine($"  {health.Warnings[i]}");
+        if (!string.IsNullOrEmpty(health.LastRepairAtUtc))
+            WriteLine($"LastRepairAtUtc: {health.LastRepairAtUtc}");
+    }
+
+    private static void WriteRepair(RepositoryRepairResult result)
+    {
+        if (result == null)
+        {
+            WriteLine("Repair: (null result)");
+            return;
+        }
+
+        WriteLine($"RepairSuccess: {result.Success}");
+        WriteLine($"DryRun: {result.DryRun}");
+        WriteLine($"Message: {result.Message}");
+        WriteLine($"Actions: {result.Actions.Count}");
+        for (int i = 0; i < result.Actions.Count; i++)
+            WriteLine($"  {result.Actions[i]}");
+        if (result.After != null)
+            WriteHealth(result.After);
     }
 
     private static void WriteLine(string text)

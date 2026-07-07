@@ -12,6 +12,14 @@ public class TaskExportLocalBuildData : IBuildTask
 {
     private const string BuildIndexFileName = FYAssetSettings.BUILD_INDEX_FILENAME;
 
+    private sealed class BackupEntry
+    {
+        public string TargetPath;
+        public string BackupPath;
+        public bool IsDirectory;
+        public bool Existed;
+    }
+
     public string TaskName => "TaskExportLocalBuildData";
     public string[] DependsOn => new string[0];
     // OutputPath 只在 Full Build 分支实际读取；Hotfix 分支提前返回。
@@ -87,20 +95,45 @@ public class TaskExportLocalBuildData : IBuildTask
         Debug.Log("[TaskExportLocalBuildData] 开始导出本地启动数据到 StreamingAssets...");
 
         FileHelper.EnsureDirectory(Application.streamingAssetsPath);
+        string workRoot = FYAssetPathUtility.JoinFilePath(
+            BuildPathManager.ProjectRoot,
+            "Temp",
+            "FYAssetLocalBuildData",
+            Guid.NewGuid().ToString("N"));
+        string stageRoot = FYAssetPathUtility.JoinFilePath(workRoot, "stage");
+        string backupRoot = FYAssetPathUtility.JoinFilePath(workRoot, "backup");
+        var backups = new List<BackupEntry>();
 
-        ExportBuildIndex(request);
-        ExportBaselinePackage(request);
+        try
+        {
+            BuildIndexData buildIndexData = CreateBuildIndexData(request);
+            StageBuildIndex(stageRoot, buildIndexData);
+            StageBaselinePackage(request, stageRoot);
+            ValidateStage(request, stageRoot);
 
-        AssetDatabase.Refresh();
-        Debug.Log("[TaskExportLocalBuildData] 本地启动数据导出完成。");
+            BackupOwnedTargets(backupRoot, backups);
+            ApplyStagedData(request, stageRoot);
+
+            AssetDatabase.Refresh();
+            Debug.Log("[TaskExportLocalBuildData] 本地启动数据导出完成。");
+            Debug.Log($"[TaskExportLocalBuildData] Info - GUID: {buildIndexData.BuildGUID}, Ver: {request.Version.GetReleaseVersionString()}, Backend: {buildIndexData.BackendMode}");
+        }
+        catch
+        {
+            RestoreBackups(backups);
+            AssetDatabase.Refresh();
+            throw;
+        }
+        finally
+        {
+            FileHelper.TryDeleteDirectory(workRoot, true);
+        }
     }
 
-    private static void ExportBuildIndex(BuildPackageRequest request)
+    private static BuildIndexData CreateBuildIndexData(BuildPackageRequest request)
     {
-        Debug.Log("[TaskExportLocalBuildData] 正在生成 BuildIndex...");
-
         string buildTime = request.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss");
-        var buildIndexData = new BuildIndexData
+        return new BuildIndexData
         {
             BuildGUID = request.PackageName,
             BuildTime = buildTime,
@@ -109,57 +142,120 @@ public class TaskExportLocalBuildData : IBuildTask
             BackendMode = BackendModeNames.FromBackendMode(request.BackendMode),
             Version = request.Version
         };
-
-        SerializationUtility.WriteToFile(BuildIndexStreamingPath, buildIndexData);
-
-        string projectPath = FYAssetSettings.Instance.BuildIndexJsonPath;
-        string projectDir = Path.GetDirectoryName(projectPath);
-        FileHelper.EnsureDirectory(projectDir);
-        SerializationUtility.WriteToFile(projectPath, buildIndexData);
-
-        Debug.Log($"[TaskExportLocalBuildData] BuildIndex 已写入: {BuildIndexStreamingPath}");
-        Debug.Log($"[TaskExportLocalBuildData] BuildIndex 副本已写入: {projectPath}");
-        Debug.Log($"[TaskExportLocalBuildData] Info - GUID: {buildIndexData.BuildGUID}, Ver: {request.Version.GetReleaseVersionString()}, Backend: {buildIndexData.BackendMode}");
     }
 
-    /// <summary>
-    /// 导出当前整包 baseline 到 StreamingAssets。
-    /// </summary>
-    private static void ExportBaselinePackage(BuildPackageRequest request)
+    private static void StageBuildIndex(string stageRoot, BuildIndexData buildIndexData)
+    {
+        string path = FYAssetPathUtility.JoinFilePath(stageRoot, BuildIndexFileName);
+        FileHelper.WriteAllTextAtomic(path, SerializationUtility.SerializeToJson(buildIndexData, true));
+    }
+
+    private static void StageBaselinePackage(BuildPackageRequest request, string stageRoot)
     {
         if (request.BackendMode == BackendMode.ABManifest)
         {
-            ExportABBaselinePackage(request);
-            CleanAABaselineFiles();
+            Debug.Log("[TaskExportLocalBuildData] 正在暂存 AB baseline package...");
+            StagePackageFileIfExists(request.OutputDir, stageRoot, FYAssetSettings.MANIFEST_FILE_NAME);
+            StagePackageFileIfExists(request.OutputDir, stageRoot, FYAssetSettings.MANIFEST_FILE_NAME_BIN);
+            StagePackageBundles(request, stageRoot);
             return;
         }
 
-        ExportAABaselineManifest(request);
-        CleanABManifest();
+        Debug.Log("[TaskExportLocalBuildData] 正在暂存 AA baseline manifest...");
+        StagePackageFileIfExists(request.OutputDir, stageRoot, FYAssetSettings.AA_MANIFEST_FILE_NAME);
+        StagePackageFileIfExists(request.OutputDir, stageRoot, FYAssetSettings.AA_MANIFEST_FILE_NAME_BIN);
     }
 
-    private static void ExportAABaselineManifest(BuildPackageRequest request)
+    private static void StagePackageFileIfExists(string sourceDir, string stageRoot, string fileName)
     {
-        Debug.Log("[TaskExportLocalBuildData] 正在复制 AA baseline manifest...");
-
-        CopyPackageFileIfExists(request.OutputDir, Application.streamingAssetsPath, FYAssetSettings.AA_MANIFEST_FILE_NAME);
-        CopyPackageFileIfExists(request.OutputDir, Application.streamingAssetsPath, FYAssetSettings.AA_MANIFEST_FILE_NAME_BIN);
-
-        Debug.Log($"[TaskExportLocalBuildData] AA baseline manifest 已复制: {request.OutputDir} -> {Application.streamingAssetsPath}");
+        string sourcePath = FYAssetPathUtility.JoinFilePath(sourceDir, fileName);
+        string targetPath = FYAssetPathUtility.JoinFilePath(stageRoot, fileName);
+        if (FileHelper.Exists(sourcePath))
+            FileHelper.CopyFile(sourcePath, targetPath, true);
     }
 
-    private static void ExportABBaselinePackage(BuildPackageRequest request)
+    private static void StagePackageBundles(BuildPackageRequest request, string stageRoot)
     {
-        Debug.Log("[TaskExportLocalBuildData] 正在复制 AB baseline package...");
+        if (!FileHelper.DirectoryExists(request.BundlesDir))
+            return;
 
-        CopyPackageFileIfExists(request.OutputDir, Application.streamingAssetsPath, FYAssetSettings.MANIFEST_FILE_NAME);
-        CopyPackageFileIfExists(request.OutputDir, Application.streamingAssetsPath, FYAssetSettings.MANIFEST_FILE_NAME_BIN);
-        CopyPackageBundles(request);
-
-        Debug.Log($"[TaskExportLocalBuildData] AB baseline 已复制: {request.OutputDir} -> {Application.streamingAssetsPath}");
+        string targetBundlesDir = FYAssetPathUtility.JoinFilePath(stageRoot, FYAssetSettings.BUNDLES_DIRECTORY_NAME);
+        FileHelper.EnsureDirectory(targetBundlesDir);
+        string[] bundleFiles = FileHelper.GetFiles(request.BundlesDir, "*", SearchOption.AllDirectories);
+        for (int i = 0; i < bundleFiles.Length; i++)
+        {
+            string relativePath = FYAssetPathUtility.GetRelativeFilePath(request.BundlesDir, bundleFiles[i]);
+            string targetPath = FYAssetPathUtility.JoinFilePath(targetBundlesDir, relativePath);
+            FileHelper.CopyFile(bundleFiles[i], targetPath, true);
+        }
     }
 
-    private static void CopyPackageFileIfExists(string sourceDir, string targetDir, string fileName)
+    private static void ValidateStage(BuildPackageRequest request, string stageRoot)
+    {
+        string buildIndexPath = FYAssetPathUtility.JoinFilePath(stageRoot, BuildIndexFileName);
+        if (!FileHelper.Exists(buildIndexPath))
+            throw new FileNotFoundException($"Staged BuildIndex missing: {buildIndexPath}", buildIndexPath);
+
+        if (request.BackendMode == BackendMode.ABManifest)
+        {
+            string json = FYAssetPathUtility.JoinFilePath(stageRoot, FYAssetSettings.MANIFEST_FILE_NAME);
+            string bin = FYAssetPathUtility.JoinFilePath(stageRoot, FYAssetSettings.MANIFEST_FILE_NAME_BIN);
+            if (!FileHelper.Exists(json) && !FileHelper.Exists(bin))
+                throw new FileNotFoundException($"Staged ABManifest missing: {json} or {bin}", json);
+
+            int sourceBundleCount = CountFiles(request.BundlesDir);
+            int stageBundleCount = CountFiles(FYAssetPathUtility.JoinFilePath(stageRoot, FYAssetSettings.BUNDLES_DIRECTORY_NAME));
+            if (sourceBundleCount > 0 && stageBundleCount != sourceBundleCount)
+                throw new IOException($"Staged AB bundles mismatch. Source={sourceBundleCount}, Stage={stageBundleCount}");
+            return;
+        }
+
+        string aaJson = FYAssetPathUtility.JoinFilePath(stageRoot, FYAssetSettings.AA_MANIFEST_FILE_NAME);
+        string aaBin = FYAssetPathUtility.JoinFilePath(stageRoot, FYAssetSettings.AA_MANIFEST_FILE_NAME_BIN);
+        if (!FileHelper.Exists(aaJson) && !FileHelper.Exists(aaBin))
+            throw new FileNotFoundException($"Staged AAManifest missing: {aaJson} or {aaBin}", aaJson);
+    }
+
+    private static void BackupOwnedTargets(string backupRoot, List<BackupEntry> backups)
+    {
+        BackupFile(BuildIndexStreamingPath, backupRoot, "StreamingAssets/" + BuildIndexFileName, backups);
+        BackupFile(FYAssetSettings.Instance.BuildIndexJsonPath, backupRoot, "ProjectBuildIndex/" + BuildIndexFileName, backups);
+        BackupFile(FYAssetPathUtility.JoinFilePath(Application.streamingAssetsPath, FYAssetSettings.ADDRESSABLES_CATALOG_FILE_NAME), backupRoot, "StreamingAssets/" + FYAssetSettings.ADDRESSABLES_CATALOG_FILE_NAME, backups);
+        BackupFile(FYAssetPathUtility.JoinFilePath(Application.streamingAssetsPath, FYAssetSettings.AA_MANIFEST_FILE_NAME), backupRoot, "StreamingAssets/" + FYAssetSettings.AA_MANIFEST_FILE_NAME, backups);
+        BackupFile(FYAssetPathUtility.JoinFilePath(Application.streamingAssetsPath, FYAssetSettings.AA_MANIFEST_FILE_NAME_BIN), backupRoot, "StreamingAssets/" + FYAssetSettings.AA_MANIFEST_FILE_NAME_BIN, backups);
+        BackupFile(FYAssetPathUtility.JoinFilePath(Application.streamingAssetsPath, FYAssetSettings.MANIFEST_FILE_NAME), backupRoot, "StreamingAssets/" + FYAssetSettings.MANIFEST_FILE_NAME, backups);
+        BackupFile(FYAssetPathUtility.JoinFilePath(Application.streamingAssetsPath, FYAssetSettings.MANIFEST_FILE_NAME_BIN), backupRoot, "StreamingAssets/" + FYAssetSettings.MANIFEST_FILE_NAME_BIN, backups);
+        BackupDirectory(FYAssetPathUtility.JoinFilePath(Application.streamingAssetsPath, FYAssetSettings.BUNDLES_DIRECTORY_NAME), backupRoot, "StreamingAssets/" + FYAssetSettings.BUNDLES_DIRECTORY_NAME, backups);
+    }
+
+    private static void ApplyStagedData(BuildPackageRequest request, string stageRoot)
+    {
+        ApplyFileOrDelete(stageRoot, Application.streamingAssetsPath, BuildIndexFileName);
+
+        if (request.BackendMode == BackendMode.ABManifest)
+        {
+            ApplyFileOrDelete(stageRoot, Application.streamingAssetsPath, FYAssetSettings.MANIFEST_FILE_NAME);
+            ApplyFileOrDelete(stageRoot, Application.streamingAssetsPath, FYAssetSettings.MANIFEST_FILE_NAME_BIN);
+            DeleteStreamingFile(FYAssetSettings.ADDRESSABLES_CATALOG_FILE_NAME);
+            DeleteStreamingFile(FYAssetSettings.AA_MANIFEST_FILE_NAME);
+            DeleteStreamingFile(FYAssetSettings.AA_MANIFEST_FILE_NAME_BIN);
+            ApplyBundles(stageRoot);
+        }
+        else
+        {
+            ApplyFileOrDelete(stageRoot, Application.streamingAssetsPath, FYAssetSettings.AA_MANIFEST_FILE_NAME);
+            ApplyFileOrDelete(stageRoot, Application.streamingAssetsPath, FYAssetSettings.AA_MANIFEST_FILE_NAME_BIN);
+            DeleteStreamingFile(FYAssetSettings.MANIFEST_FILE_NAME);
+            DeleteStreamingFile(FYAssetSettings.MANIFEST_FILE_NAME_BIN);
+        }
+
+        string projectPath = FYAssetSettings.Instance.BuildIndexJsonPath;
+        FileHelper.CopyFile(FYAssetPathUtility.JoinFilePath(stageRoot, BuildIndexFileName), projectPath, true);
+        Debug.Log($"[TaskExportLocalBuildData] BuildIndex 已写入: {BuildIndexStreamingPath}");
+        Debug.Log($"[TaskExportLocalBuildData] BuildIndex 副本已写入: {projectPath}");
+    }
+
+    private static void ApplyFileOrDelete(string sourceDir, string targetDir, string fileName)
     {
         string sourcePath = FYAssetPathUtility.JoinFilePath(sourceDir, fileName);
         string targetPath = FYAssetPathUtility.JoinFilePath(targetDir, fileName);
@@ -172,42 +268,89 @@ public class TaskExportLocalBuildData : IBuildTask
         FileHelper.TryDelete(targetPath);
     }
 
-    private static void CopyPackageBundles(BuildPackageRequest request)
+    private static void DeleteStreamingFile(string fileName)
     {
+        FileHelper.TryDelete(FYAssetPathUtility.JoinFilePath(Application.streamingAssetsPath, fileName));
+    }
+
+    private static void ApplyBundles(string stageRoot)
+    {
+        string sourceBundlesDir = FYAssetPathUtility.JoinFilePath(stageRoot, FYAssetSettings.BUNDLES_DIRECTORY_NAME);
         string targetBundlesDir = FYAssetPathUtility.JoinFilePath(Application.streamingAssetsPath, FYAssetSettings.BUNDLES_DIRECTORY_NAME);
-        if (FileHelper.DirectoryExists(targetBundlesDir))
-            FileHelper.TryDeleteDirectory(targetBundlesDir, true);
+        FileHelper.TryDeleteDirectory(targetBundlesDir, true);
+        if (FileHelper.DirectoryExists(sourceBundlesDir))
+            CopyDirectory(sourceBundlesDir, targetBundlesDir);
+    }
 
-        if (!FileHelper.DirectoryExists(request.BundlesDir))
-            return;
-
-        FileHelper.EnsureDirectory(targetBundlesDir);
-        string[] bundleFiles = FileHelper.GetFiles(request.BundlesDir, "*", SearchOption.AllDirectories);
-        for (int i = 0; i < bundleFiles.Length; i++)
+    private static void BackupFile(string targetPath, string backupRoot, string relativeBackupPath, List<BackupEntry> backups)
+    {
+        var entry = new BackupEntry
         {
-            string relativePath = FYAssetPathUtility.GetRelativeFilePath(request.BundlesDir, bundleFiles[i]);
-            string targetPath = FYAssetPathUtility.JoinFilePath(targetBundlesDir, relativePath);
-            FileHelper.CopyFile(bundleFiles[i], targetPath, true);
+            TargetPath = targetPath,
+            BackupPath = FYAssetPathUtility.JoinFilePath(backupRoot, relativeBackupPath),
+            IsDirectory = false,
+            Existed = FileHelper.Exists(targetPath)
+        };
+        if (entry.Existed)
+            FileHelper.CopyFile(targetPath, entry.BackupPath, true);
+        backups.Add(entry);
+    }
+
+    private static void BackupDirectory(string targetPath, string backupRoot, string relativeBackupPath, List<BackupEntry> backups)
+    {
+        var entry = new BackupEntry
+        {
+            TargetPath = targetPath,
+            BackupPath = FYAssetPathUtility.JoinFilePath(backupRoot, relativeBackupPath),
+            IsDirectory = true,
+            Existed = FileHelper.DirectoryExists(targetPath)
+        };
+        if (entry.Existed)
+            CopyDirectory(targetPath, entry.BackupPath);
+        backups.Add(entry);
+    }
+
+    private static void RestoreBackups(List<BackupEntry> backups)
+    {
+        for (int i = backups.Count - 1; i >= 0; i--)
+        {
+            BackupEntry entry = backups[i];
+            try
+            {
+                if (entry.IsDirectory)
+                {
+                    FileHelper.TryDeleteDirectory(entry.TargetPath, true);
+                    if (entry.Existed)
+                        CopyDirectory(entry.BackupPath, entry.TargetPath);
+                    continue;
+                }
+
+                if (entry.Existed)
+                    FileHelper.CopyFile(entry.BackupPath, entry.TargetPath, true);
+                else
+                    FileHelper.TryDelete(entry.TargetPath);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[TaskExportLocalBuildData] Restore failed: {entry.TargetPath}, {ex.Message}");
+            }
         }
     }
 
-    private static void CleanAABaselineFiles()
+    private static void CopyDirectory(string sourceDir, string targetDir)
     {
-        FileHelper.TryDelete(FYAssetPathUtility.JoinFilePath(Application.streamingAssetsPath, FYAssetSettings.ADDRESSABLES_CATALOG_FILE_NAME));
-        FileHelper.TryDelete(FYAssetPathUtility.JoinFilePath(Application.streamingAssetsPath, FYAssetSettings.AA_MANIFEST_FILE_NAME));
-        FileHelper.TryDelete(FYAssetPathUtility.JoinFilePath(Application.streamingAssetsPath, FYAssetSettings.AA_MANIFEST_FILE_NAME_BIN));
+        FileHelper.EnsureDirectory(targetDir);
+        string[] files = FileHelper.GetFiles(sourceDir, "*", SearchOption.AllDirectories);
+        for (int i = 0; i < files.Length; i++)
+        {
+            string relativePath = FYAssetPathUtility.GetRelativeFilePath(sourceDir, files[i]);
+            string targetPath = FYAssetPathUtility.JoinFilePath(targetDir, relativePath);
+            FileHelper.CopyFile(files[i], targetPath, true);
+        }
     }
 
-    private static void CleanABManifest()
+    private static int CountFiles(string dir)
     {
-        bool cleaned = false;
-        if (FileHelper.TryDelete(FYAssetPathUtility.JoinFilePath(Application.streamingAssetsPath, FYAssetSettings.MANIFEST_FILE_NAME)))
-            cleaned = true;
-
-        if (FileHelper.TryDelete(FYAssetPathUtility.JoinFilePath(Application.streamingAssetsPath, FYAssetSettings.MANIFEST_FILE_NAME_BIN)))
-            cleaned = true;
-
-        if (cleaned)
-            Debug.Log("[TaskExportLocalBuildData] 已清理旧的 ABManifest 文件");
+        return FileHelper.GetFiles(dir, "*", SearchOption.AllDirectories).Length;
     }
 }
