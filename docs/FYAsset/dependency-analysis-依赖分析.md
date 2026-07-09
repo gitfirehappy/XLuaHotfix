@@ -4,7 +4,7 @@
 
 > **关联代码**
 >
-> `Assets/FYAsset/Scripts/Build/Collector/Editor/DependencyAnalysis/` · `Assets/FYAsset/Scripts/Build/Collector/SharePolicyConfig.cs`
+> `Assets/FYAsset/Scripts/AB/Build/Collector/Editor/DependencyAnalysis/` · `Assets/FYAsset/Scripts/AB/Build/Collector/SharePolicyConfig.cs`
 
 ---
 
@@ -22,7 +22,7 @@
 |------|------|
 | `DependencyAnalyzer` | 单次 BFS 遍历，完成依赖边构建 + 隐式发现 + 共享决策 |
 | `BundleDependencyGraph` | Bundle 依赖图，存储有向边列表，支持按需构建索引 |
-| `TaskAnalyzeDependencies` | IBuildTask 实现，将依赖分析接入 DAG 构建管线 |
+| `TaskAnalyzeDependencies` | IBuildTask 实现，将依赖分析接入构建管线 |
 | `SharePolicyConfig` | Per-Package 共享策略配置 |
 | `AssetConflictRules` | 资源冲突处理规则 |
 
@@ -143,7 +143,7 @@ BundleDependencyGraph
 
 ## TaskAnalyzeDependencies
 
-实现 `IBuildTask`，将依赖分析接入 DAG 构建管线。
+实现 `IBuildTask`，将依赖分析接入构建管线。
 
 ```
 TaskName:     "TaskAnalyzeDependencies"

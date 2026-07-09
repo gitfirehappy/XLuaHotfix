@@ -1,6 +1,6 @@
 # FileHelper 文件工具
 
-> **关联代码** | `Assets/FYAsset/Scripts/Helpers/FileHelper.cs`
+> **关联代码** | `Assets/Tools/Scripts/FileHelper.cs`
 
 ## 概述
 

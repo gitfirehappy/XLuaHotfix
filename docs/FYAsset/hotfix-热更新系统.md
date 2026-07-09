@@ -4,16 +4,16 @@
 
 > **关联代码**
 >
-> `Assets/FYAsset/Scripts/Hotfix/HotfixManager.cs` · `Assets/FYAsset/Scripts/Hotfix/IHotfixPipeline.cs` · `Assets/FYAsset/Scripts/Hotfix/Backends/` · `Assets/FYAsset/Scripts/Hotfix/PackageCleaner.cs` · `Assets/FYAsset/Scripts/Helpers/NetworkDownloader.cs`
+> `Assets/FYAsset/Scripts/AA/Hotfix/AAHotfixManager.cs` · `Assets/FYAsset/Scripts/AB/Hotfix/ABHotfixManager.cs` · `Assets/FYAsset/Scripts/Shared/Hotfix/HotfixFlowBase.cs` · `Assets/FYAsset/Scripts/Shared/Compatibility/HotfixManager.cs` · `Assets/FYAsset/Scripts/Shared/Hotfix/IHotfixPipeline.cs` · `Assets/FYAsset/Scripts/AA/Hotfix/Backends/Addressables/` · `Assets/FYAsset/Scripts/AB/Hotfix/Backends/AB/`
 
 ---
 
 ## 概述
 
-热更新系统负责在 App 启动后检查远端资源更新、下载新 Bundle、切换到最新版本。整个流程由 `HotfixManager` 统一编排，通过 `IHotfixPipeline` 接口屏蔽 AA/AB 双后端的实现差异。
+热更新系统负责在 App 启动后检查远端资源更新、下载新 Bundle、切换到最新版本。当前有 `AAHotfixManager` 与 `ABHotfixManager` 两个 concrete 入口，共用 `HotfixFlowBase` 的 11 步流程；旧 `HotfixManager` 作为兼容门面保留给现有启动调用方。
 
 设计目标：
-- 热更流程本身**与后端解耦** — 编排逻辑写在 `HotfixManager` 里，后端只实现 5 个差异方法
+- 热更流程本身**与后端解耦** — 编排逻辑写在 `HotfixFlowBase` 里，AA/AB concrete flow 只提供后端、URL/重试设置和最终 runtime manager 初始化
 - AA 路径仍依赖 Addressables catalog 进行资源定位；自定义 AAManifest 用于版本、Bundle 校验和查询索引。AB 路径用自研 ABManifest 替代 Addressables catalog。
 
 ---
@@ -22,7 +22,10 @@
 
 | 组件 | 职责 |
 |------|------|
-| `HotfixManager` | 11 步热更流程编排，进度/错误回调，BuildIndex 初始化 |
+| `AAHotfixManager` | AA concrete 热更入口，使用 AA 设置、`AAHotfixBackend` 和 `AAPackageManager` |
+| `ABHotfixManager` | AB concrete 热更入口，使用 AB 设置、`ABHotfixBackend` 和 `ABPackageManager` |
+| `HotfixManager` | 兼容门面，根据 `UseABBackend` 路由旧调用方 |
+| `HotfixFlowBase` | 11 步热更流程编排，进度/错误回调，BuildIndex 初始化 |
 | `IHotfixPipeline` | 后端抽象接口，定义 5 个后端差异方法 |
 | `ABHotfixBackend` | AB 后端实现 — 基于 ABManifest，无需 Addressables 依赖 |
 | `AAHotfixBackend` | AA 后端实现 — 基于 Addressables + catalog，同时使用 AAManifest 作为版本和查询索引数据 |
@@ -31,7 +34,7 @@
 | `BundleDownloadItem` | 下载项最小信息集（BundleName / FileHash / FileCRC / FileSize） |
 | `HotfixStepResult` | 结构化步骤结果，替代裸 bool 返回值 |
 | `PackageCleaner` | 热更目录清理（大版本清空 / 旧包体轮转删除） |
-| `NetworkDownloader` | 网络下载器，提供文本/字节/文件下载原语；Bundle 重试策略由 `HotfixManager` 统一控制 |
+| `NetworkDownloader` | 网络下载器，提供文本/字节/文件下载原语；Bundle 重试策略由 `HotfixFlowBase` 统一控制 |
 
 ---
 
@@ -57,7 +60,7 @@ public interface IHotfixPipeline
 }
 ```
 
-HotfixManager 按固定顺序调用这 5 个方法，不关心后端是 AA 还是 AB。后端选择由 `FYAssetSettings.Instance.UseABBackend` 控制。
+`HotfixFlowBase` 按固定顺序调用这 5 个方法，不关心后端是 AA 还是 AB。具体后端由 `AAHotfixManager` / `ABHotfixManager` 的 concrete flow 决定；`UseABBackend` 只用于旧 `HotfixManager` 兼容门面路由。
 
 ---
 
@@ -124,17 +127,17 @@ Start
   │
   ├─[9] Apply Update ── 更新本地 PackageIndex 指针 + RuntimePathManager 切换
   │
-  └─[10] Finalize ── 初始化 AssetPackageManager + LuaEnv
+  └─[10] Finalize ── 初始化 AAPackageManager 或 ABPackageManager
 ```
 
 ### 进度回调
 
-`HotfixManager` 提供两个事件供 UI 层监听：
+`HotfixManager` 兼容门面和 AA/AB concrete manager 都提供事件供 UI 层监听：
 
 - `OnStepChanged(string stepName)` — 步骤切换时触发
 - `OnProgress(float progress, string stepName)` — 进度更新（0~1 全局进度 + 当前步骤名）
 
-总步骤数固定为 11，计算公式：`overallProgress = (stepIndex + stepProgress) / 11`。
+总步骤表由 `StepNames` 数组驱动，计算公式：`overallProgress = (stepIndex + stepProgress) / StepNames.Length`。
 
 ### 错误处理
 
@@ -144,7 +147,7 @@ Start
 
 ### Bundle 下载安全策略
 
-Bundle 下载阶段由 `HotfixManager` 统一管理重试与校验：
+Bundle 下载阶段由 `HotfixFlowBase` 统一管理重试与校验：
 
 - `HotfixUrl`、最大重试次数和基础退避时间来自当前后端设置：AA 读取 `FYAssetAASettings`，AB 读取 `FYAssetABSettings`。
 - 默认最大重试次数为 3，基础退避时间为 1 秒，即失败后按 1s / 2s / 4s 等待重试。

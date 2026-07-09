@@ -15,7 +15,7 @@ AB runtime also needs `LuaScriptsIndex` (loaded by address via `ABPackageBackend
 ## Current State
 
 - `BuildProjectManager` calls `LuaScriptsIndexExporter.ExportData()` before backend selection (both AA and AB execute it)
-- The exporter is in `Assets/FYAsset/Scripts/Build/Release/Editor/Addressables/` — physically located in the AA-specific directory
+- The exporter is in `Assets/FYAsset/Scripts/AA/Build/Release/Editor/Addressables/` — physically located in the AA-specific directory
 - AB builds need the index to exist and be up-to-date so it gets packed into AB bundles
 
 ## Design Question

@@ -1,6 +1,6 @@
 # Build State Cleanup Tools Plan 2026-07-07
 
-> **Status**: Active / Awaiting developer approval
+> **Status**: Implemented / Verified / Pending developer sign-off
 > **Requirement ID**: build-state-cleanup-tools-20260707
 > **Origin**: `draft-version-system-test-features-20260707.md`, `draft-buildresults-management-panel-20260707.md`, `draft-repository-reset-20260707.md`
 > **Scope**: Version test reset, package output deletion, and repository test reset.
@@ -21,7 +21,7 @@ Make local build testing recoverable without manual file surgery:
 4. Build metadata fields remain visible but read-only in `VersionPanel`.
 5. Package deletion deletes selected package directories under `BuildPathManager.PackagesDir` only after confirmation.
 6. Repository reset is test-only and channel-scoped: current `BuildTarget + Channel + Backend` only.
-7. Repository reset physically clears `HEAD.json`, `objects/*.json`, `PushHistory.json`, and cached repository head errors for that channel.
+7. Repository reset physically clears `HEAD.json`, `objects/*.json`, cached repository head errors, and any legacy `PushHistory.json` residue for that channel.
 8. Package pointer cleanup writes an empty `PackageIndex.json` at `BuildPathManager.PackageIndexPath`.
 9. `BuildIndex.json` and `StreamingAssets` cleanup are not part of the default reset; they require a separate explicit checkbox because they affect startup baseline state.
 
@@ -69,8 +69,9 @@ Make local build testing recoverable without manual file surgery:
 
 ## Verification
 
-- `dotnet build XLuaHotfix.sln --no-restore`
-- `git diff --check`
+- `dotnet build XLuaHotfix.sln --no-restore` exited 0. Existing `System.Net.Http` conflict warnings remain.
+- `git diff --check` exited 0. Git reported LF/CRLF working-copy warnings only.
+- Static checks confirmed `BuildPackageResultsView`, `ClearChannelForTest`, and `VersionPanel` test reset/read-only metadata are present.
 - Manual editor checks:
   - Reset version, cancel and confirm paths.
   - Delete one disposable package folder.

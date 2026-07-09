@@ -4,7 +4,7 @@
 
 > **关联代码**
 >
-> `Assets/FYAsset/Scripts/Build/Snapshots/ArtifactDigest.cs` · `Assets/FYAsset/Scripts/Build/Snapshots/ArtifactDelta.cs` · `Assets/FYAsset/Scripts/Build/Snapshots/Editor/ArtifactDiffer.cs` · `Assets/FYAsset/Scripts/Build/Repository/`
+> `Assets/FYAsset/Scripts/Shared/Build/Snapshots/ArtifactDigest.cs` · `Assets/FYAsset/Scripts/Shared/Build/Snapshots/ArtifactDelta.cs` · `Assets/FYAsset/Scripts/Shared/Build/Snapshots/Editor/ArtifactDiffer.cs` · `Assets/FYAsset/Scripts/Shared/Build/Repository/`
 
 ---
 

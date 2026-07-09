@@ -20,11 +20,8 @@ Promoted, superseded, or deprecated drafts go to `archive/`.
 | draft-debug-panel-20260512.md | Draft | Runtime debugger panel |
 | plan-playmode-draft.md | Draft | PlayMode 三模式设计 |
 | draft-docs-synchronization-20260707.md | Draft | Documentation synchronization audit and update proposal |
-| draft-fyasset-architecture-review-20260707.md | Draft | FYAsset architecture optimization — 12 issues identified, all confirmed 2026-07-07 |
+| draft-fyasset-architecture-review-20260707.md | Draft / Partially promoted | FYAsset architecture optimization — A10/A2/A4/A1+A3+A5+A9 extracted, implemented, and verified in active plans 2026-07-09; A0/A6/A8 remain deferred |
 | draft-broken-pptr-scene-validation-20260707.md | Draft | Scene broken reference detection and cleanup (3 solutions) |
-| draft-version-system-test-features-20260707.md | Draft | Version panel: read-only build metadata + Reset to 1.0.0 button |
-| draft-buildresults-management-panel-20260707.md | Draft | BuildResults panel with package/log deletion and status tagging |
-| draft-repository-reset-20260707.md | Draft | Test-environment reset tool (version + repository HEAD + BuildIndex) |
 
 ## Discussion Order
 
@@ -47,3 +44,6 @@ A draft moves to `archive/` when:
 
 | File | Reason |
 |------|--------|
+| draft-version-system-test-features-20260707.md | Promoted into `plan-build-state-cleanup-tools-20260707.md` and implemented |
+| draft-buildresults-management-panel-20260707.md | Promoted into `plan-build-state-cleanup-tools-20260707.md` and implemented with the first-pass package deletion scope |
+| draft-repository-reset-20260707.md | Promoted into `plan-build-state-cleanup-tools-20260707.md` and implemented as channel-scoped test reset |

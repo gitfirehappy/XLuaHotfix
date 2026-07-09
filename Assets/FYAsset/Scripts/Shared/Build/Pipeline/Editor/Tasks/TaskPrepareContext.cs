@@ -1,0 +1,86 @@
+using UnityEditor;
+using UnityEngine;
+using System;
+using System.IO;
+
+/// <summary>
+/// 管线起点 Task —— 初始化构建环境：后端模式、版本号、输出目录、目标平台。
+/// 正式构建后端模式由 FYAssetSettings SO 决定，BuildProjectManager 在 pipeline 前创建对应 request/backend。
+/// </summary>
+public class TaskPrepareContext : IBuildTask
+{
+    public string TaskName => "TaskPrepareContext";
+    public string[] DependsOn => new string[0];
+    public string[] ReadKeys => new string[0];
+    public string[] WriteKeys => new[] { BuildContextKeys.BuildConfig };
+
+    public BuildTaskResult Execute(BuildContext ctx)
+    {
+        var request = ctx.Get<BuildPackageRequest>(BuildContextKeys.BuildPackageRequest);
+        // Official Full/Hotfix builds carry the concrete backend in the request.
+        // Older diagnostic paths without a request still route through compatibility settings.
+        BackendMode mode = request != null
+            ? request.BackendMode
+            : FYAssetSettings.Instance.UseABBackend
+                ? BackendMode.ABManifest
+                : BackendMode.AA;
+
+        // BuildVersionString: CLI --version > 时间戳（用于构建摘要；正式包目录名由 BuildPackageRequest 决定）
+        string buildVersionString = GetCommandLineArg("--version")
+            ?? DateTime.UtcNow.ToString("yyyyMMdd-HHmmss");
+
+        // CLI --version 只在没有 BuildPackageRequest 的旧/诊断路径中覆盖本次 BuildConfig，不提前写回 VersionDataBase。
+        var versionData = AssetDatabase.LoadAssetAtPath<VersionDataBase>(
+            FYAssetSettings.Instance.VersionDataBasePath);
+        string cliVersion = GetCommandLineArg("--version");
+        VersionNumber cliParsedVersion = request == null
+            && !string.IsNullOrEmpty(cliVersion)
+            && VersionNumber.TryParse(cliVersion, out var cliVer)
+            ? cliVer
+            : null;
+
+        // TargetPlatform: CLI --platform > Editor 当前设置
+        BuildTarget platform;
+        string platformStr = GetCommandLineArg("--platform");
+        if (!string.IsNullOrEmpty(platformStr))
+        {
+            if (!Enum.TryParse(platformStr, true, out platform))
+                return BuildTaskResult.Fail(BuildErrorCodes.InvalidPlatform,
+                    $"未知 Platform '{platformStr}'。", true);
+        }
+        else
+        {
+            platform = EditorUserBuildSettings.activeBuildTarget;
+        }
+
+        // OutputRoot: CLI --output > 默认路径
+        string outputRoot = GetCommandLineArg("--output")
+            ?? ctx.Get<string>(BuildContextKeys.RepositoryPreviewOutput)
+            ?? FYAssetPathUtility.JoinFilePath(BuildPathManager.ProjectRoot, "Build", platform.ToString());
+
+        var version = request != null && request.Version != null
+            ? request.Version
+            : cliParsedVersion != null
+            ? cliParsedVersion
+            : versionData != null
+            ? versionData.CurrentVersion
+            : new VersionNumber { Major = 1, Minor = 0, Patch = 0 };
+
+        var cfg = new BuildConfig(mode, version, buildVersionString, outputRoot, platform);
+        ctx.Set(BuildContextKeys.BuildConfig, cfg);
+
+        return BuildTaskResult.Ok();
+    }
+
+    private static string GetCommandLineArg(string name)
+    {
+        string[] args = Environment.GetCommandLineArgs();
+        for (int i = 0; i < args.Length - 1; i++)
+        {
+            if (string.Equals(args[i], name, StringComparison.OrdinalIgnoreCase))
+                return args[i + 1];
+        }
+        return null;
+    }
+
+}

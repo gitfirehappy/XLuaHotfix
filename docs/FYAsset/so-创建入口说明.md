@@ -1,13 +1,15 @@
 # SO 创建入口说明
 
-> **关联代码**  
-> `Assets/FYAsset/Scripts/FYAssetSettings.cs`  
-> `Assets/FYAsset/Scripts/Build/Editor/Settings/SettingsPanel.cs`  
-> `Assets/FYAsset/Scripts/Build/Editor/Manage/VersionPanel.cs`  
-> `Assets/FYAsset/Scripts/Helpers/Editor/SOAddressableTagger.cs`  
-> `Assets/FYAsset/Scripts/Build/Editor/ABPipeline/AssetsCollectionPanel.cs`
-> `Assets/FYAsset/Scripts/Build/Editor/ABPipeline/PipelinePanel.cs`  
-> `Assets/XLuaFramework/Scripts/Editor/LuaFileCreatorWithName.cs`  
+> **关联代码**
+> `Assets/FYAsset/Scripts/Shared/Settings/FYAssetSettings.cs`
+> `Assets/FYAsset/Scripts/AA/Settings/FYAssetAASettings.cs`
+> `Assets/FYAsset/Scripts/AB/Settings/FYAssetABSettings.cs`
+> `Assets/FYAsset/Scripts/Shared/Build/Editor/Settings/SettingsPanel.cs`
+> `Assets/FYAsset/Scripts/Shared/Build/Editor/Manage/VersionPanel.cs`
+> `Assets/FYAsset/Scripts/Shared/Helpers/Editor/SOAddressableTagger.cs`
+> `Assets/FYAsset/Scripts/AB/Build/Editor/ABPipeline/AssetsCollectionPanel.cs`
+> `Assets/FYAsset/Scripts/AB/Build/Editor/ABPipeline/PipelinePanel.cs`
+> `Assets/XLuaFramework/Scripts/Editor/LuaFileCreatorWithName.cs`
 > `Assets/XLuaFramework/Scripts/Editor/LuaDirectoryScanner.cs`
 
 ---

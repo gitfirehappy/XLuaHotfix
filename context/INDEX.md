@@ -2,14 +2,10 @@
 
 Start here before any task.
 
-## Architecture
-- `architecture/INDEX.md` - module structure, technical stack, runtime systems
-- `architecture/system-overview.md` - verified top-level module map, stack baseline, and architecture boundaries
-- `architecture/resource-build-and-release.md` - build-time exports, differential snapshots, and release operations
-- `architecture/runtime-resource-loading.md` - runtime loading facade, hotfix boundary, and AA-vs-AB split
-- `architecture/collector-framework.md` - collector data model, rule contracts, and current classification behavior
-- `architecture/xlua-runtime.md` - project-side XLua integration, bridge lifecycle, and cross-language runtime services
-- `architecture/xlua-third-party.md` - third-party XLua internals used to reason about wrappers, delegates, GC, and hotfix
+## Codegraph
+- Use Codegraph for current architecture, symbols, call paths, blast radius, and file relationships.
+- Treat code as the source of truth when Codegraph and code differ.
+- Do not recreate generated architecture summaries in `context/`.
 
 ## Business
 - `business/INDEX.md` - domain-specific gameplay and business knowledge
@@ -32,6 +28,6 @@ Rules:
 - Only store verified knowledge here.
 - Mark uncertain items as [UNVERIFIED].
 - Keep `context/` in English.
-- Keep `context/` aligned with current verified project reality.
+- Keep `context/` focused on stable human-curated knowledge, not generated architecture maps.
 - Keep plan sequencing, TODOs, and workflow text out of `context/`.
 - Keep human-facing docs in `docs/` and in Chinese.

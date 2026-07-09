@@ -459,81 +459,59 @@
     }
     .big-btn:hover { background: #4a4a4a; }
 
-    /* ── BuildGraph ── */
-    .graph-area {
+    /* ── Pipeline task sequence ── */
+    .task-list-area {
       flex: 1;
       min-height: 0;
-      position: relative;
       background: #2a2a2a;
       overflow: auto;
+      padding: 8px;
     }
-    .graph-svg { width: 100%; height: 100%; }
-    .bg-node {
-      fill: #3a3a3a;
-      stroke: #555;
-      stroke-width: 1.5;
-    }
-    .bg-node.pending { fill: #333333; stroke: #666; }
-    .bg-node.running { fill: #4c3a22; stroke: #c27a2c; }
-    .bg-node.success { fill: #2f4a32; stroke: #4f9a55; }
-    .bg-node.failed { fill: #5a2424; stroke: #a33; }
-    .bg-node.skipped { fill: #303030; stroke: #555; }
-    .bg-node.disabled { fill: #2e2e2e; stroke: #444; }
-    .bg-node.unresolved { fill: #4a2020; stroke: #662222; }
-    .bg-node-title {
-      font-size: 11px;
-      font-weight: 700;
-      fill: #ddd;
-      font-family: -apple-system, "Segoe UI", Arial, sans-serif;
-    }
-    .bg-node-title.disabled { fill: #777; }
-    .bg-node-keys {
-      font-size: 9px;
-      fill: #999;
-      font-family: -apple-system, "Segoe UI", Arial, sans-serif;
-    }
-    .bg-node-status {
-      font-size: 9px;
-      fill: #ddd;
-      font-family: -apple-system, "Segoe UI", Arial, sans-serif;
-    }
-    .bg-edge { stroke-width: 1.8; fill: none; stroke-linecap: round; }
-    .bg-edge.code { stroke: #cccccc; }
-    .bg-edge.so { stroke: #6699dd; stroke-dasharray: 6 4; }
-    .bg-edge.data { stroke: #55aa55; stroke-dasharray: 3 3; }
-    .bg-arrow { fill: #ccc; }
-    .bg-arrow.so { fill: #6699dd; }
-    .bg-arrow.data { fill: #55aa55; }
-    .bg-port-label {
-      font-size: 8px;
-      fill: #777;
-      font-family: -apple-system, "Segoe UI", Arial, sans-serif;
-    }
-    .graph-legend {
-      position: absolute;
-      bottom: 8px;
-      right: 8px;
-      background: rgba(0,0,0,0.7);
-      padding: 6px 10px;
-      border-radius: 3px;
-      font-size: 10px;
-      color: #bbb;
+    .task-row {
+      min-height: 30px;
       display: flex;
-      gap: 14px;
+      align-items: center;
+      padding: 0 8px;
+      border-bottom: 1px solid #4d4d4d;
+      color: #ddd;
     }
-    .legend-item { display: flex; align-items: center; gap: 4px; }
-    .legend-line {
-      width: 20px;
-      height: 2px;
-      border-radius: 1px;
+    .task-index {
+      width: 36px;
+      color: #999;
+      font-size: 11px;
+      flex: 0 0 auto;
     }
-    .legend-line.code { background: #cccccc; }
-    .legend-line.so {
-      background: repeating-linear-gradient(90deg, #6699dd 0px, #6699dd 6px, transparent 6px, transparent 10px);
+    .task-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-right: 10px;
+      background: #666;
+      flex: 0 0 auto;
     }
-    .legend-line.data {
-      background: repeating-linear-gradient(90deg, #55aa55 0px, #55aa55 3px, transparent 3px, transparent 6px);
+    .task-dot.pending { background: #474747; }
+    .task-dot.running { background: #e0b84c; }
+    .task-dot.success { background: #4f9a55; }
+    .task-dot.failed { background: #cc4444; }
+    .task-dot.skipped { background: #777; }
+    .task-name {
+      flex: 1;
+      min-width: 0;
+      font-weight: 700;
+      font-size: 10px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
+    .task-state {
+      width: 150px;
+      text-align: right;
+      font-size: 11px;
+      color: #bbb;
+      flex: 0 0 auto;
+    }
+    .task-row.disabled { opacity: 0.55; }
+    .task-state.unresolved { color: #ff7777; }
   </style>
 </head>
 <body>
@@ -602,7 +580,7 @@
             <button class="tb-btn" data-action="Reload">Reload</button>
             <button class="tb-btn" data-action="Validate">Validate</button>
             <div class="tb-spacer"></div>
-            <span class="tb-label">AA Build Pipeline DAG</span>
+            <span class="tb-label">AA Build Pipeline Tasks</span>
           </div>
           <div class="scroll-body">
             <div class="box" style="color:#aaa">Uses PipelinePanel with FYAssetAASettings.BuildPipelineConfigPath and CreateAATasks()</div>
@@ -780,121 +758,32 @@
             <select class="tb-popup"><option>BundleName</option><option>HashName</option><option>BundleName_HashName</option></select>
             <span class="tb-label">Compression</span>
             <select class="tb-popup"><option>LZ4</option><option>LZMA</option><option>Uncompressed</option></select>
-            <label class="tb-label"><input type="checkbox" /> Sequential</label>
             <div class="tb-spacer"></div>
           </div>
-          <div class="graph-area">
-            <svg class="graph-svg" viewBox="0 0 1300 520" id="pipelineGraph">
-              <!-- Grid background -->
-              <defs>
-                <pattern id="smallGrid" width="20" height="20" patternUnits="userSpaceOnUse">
-                  <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#333" stroke-width="0.5"/>
-                </pattern>
-                <pattern id="grid" width="100" height="100" patternUnits="userSpaceOnUse">
-                  <rect width="100" height="100" fill="url(#smallGrid)"/>
-                  <path d="M 100 0 L 0 0 0 100" fill="none" stroke="#3a3a3a" stroke-width="1"/>
-                </pattern>
-                <marker id="arrowCode" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
-                  <path d="M 0 0 L 10 5 L 0 10 z" class="bg-arrow"/>
-                </marker>
-                <marker id="arrowSO" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
-                  <path d="M 0 0 L 10 5 L 0 10 z" class="bg-arrow so"/>
-                </marker>
-                <marker id="arrowData" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
-                  <path d="M 0 0 L 10 5 L 0 10 z" class="bg-arrow data"/>
-                </marker>
-              </defs>
-              <rect width="1300" height="520" fill="url(#grid)"/>
-
-              <!-- Code execution edges: shown left-to-right by dependency layer -->
-              <line x1="240" y1="260" x2="290" y2="260" class="bg-edge code" marker-end="url(#arrowCode)"/>
-              <line x1="520" y1="260" x2="540" y2="160" class="bg-edge code" marker-end="url(#arrowCode)"/>
-              <line x1="520" y1="260" x2="540" y2="360" class="bg-edge code" marker-end="url(#arrowCode)"/>
-              <line x1="770" y1="160" x2="790" y2="250" class="bg-edge code" marker-end="url(#arrowCode)"/>
-              <line x1="770" y1="360" x2="790" y2="250" class="bg-edge data" marker-end="url(#arrowData)"/>
-              <line x1="990" y1="250" x2="1040" y2="120" class="bg-edge code" marker-end="url(#arrowCode)"/>
-              <line x1="990" y1="250" x2="1040" y2="260" class="bg-edge code" marker-end="url(#arrowCode)"/>
-              <line x1="990" y1="250" x2="1040" y2="400" class="bg-edge code" marker-end="url(#arrowCode)"/>
-
-              <!-- ══ Nodes ══ -->
-
-              <g transform="translate(10, 220)">
-                <rect width="230" height="92" rx="4" class="bg-node success"/>
-                <text x="12" y="18" class="bg-node-title">TaskPrepareContext</text>
-                <text x="12" y="34" class="bg-node-status">Status: Success</text>
-                <text x="12" y="48" class="bg-node-keys">Write: BuildConfig</text>
-                <text x="12" y="62" class="bg-node-keys">Read: —</text>
-                <text x="12" y="76" class="bg-node-keys">Deps: —</text>
-              </g>
-
-              <g transform="translate(290, 220)">
-                <rect width="230" height="92" rx="4" class="bg-node success"/>
-                <text x="12" y="18" class="bg-node-title">TaskCollectAssets</text>
-                <text x="12" y="34" class="bg-node-status">Status: Success</text>
-                <text x="12" y="48" class="bg-node-keys">Write: CollectedAssets, SharePolicies</text>
-                <text x="12" y="62" class="bg-node-keys">Read: —</text>
-                <text x="12" y="76" class="bg-node-keys">Deps: TaskPrepareContext</text>
-              </g>
-
-              <g transform="translate(540, 120)">
-                <rect width="230" height="92" rx="4" class="bg-node running"/>
-                <text x="12" y="18" class="bg-node-title">TaskAnalyzeDependencies</text>
-                <text x="12" y="34" class="bg-node-status">Status: Running</text>
-                <text x="12" y="48" class="bg-node-keys">Write: BundleDependencyGraph</text>
-                <text x="12" y="62" class="bg-node-keys">Read: CollectedAssets</text>
-                <text x="12" y="76" class="bg-node-keys">Deps: TaskCollectAssets</text>
-              </g>
-
-              <g transform="translate(540, 320)">
-                <rect width="230" height="92" rx="4" class="bg-node pending"/>
-                <text x="12" y="18" class="bg-node-title">TaskCollectBuiltins</text>
-                <text x="12" y="34" class="bg-node-status">Status: Pending</text>
-                <text x="12" y="48" class="bg-node-keys">Optional backbone augmentation</text>
-                <text x="12" y="62" class="bg-node-keys">Write: CollectedAssets</text>
-                <text x="12" y="76" class="bg-node-keys">Deps: TaskCollectAssets</text>
-              </g>
-
-              <g transform="translate(790, 210)">
-                <rect width="230" height="92" rx="4" class="bg-node pending"/>
-                <text x="12" y="18" class="bg-node-title">TaskBuildBundles</text>
-                <text x="12" y="34" class="bg-node-status">Status: Pending</text>
-                <text x="12" y="48" class="bg-node-keys">Write: BundleBuildResults</text>
-                <text x="12" y="62" class="bg-node-keys">Read: Config, Assets, DepGraph</text>
-                <text x="12" y="76" class="bg-node-keys">Deps: Analyze / Builtins</text>
-              </g>
-
-              <g transform="translate(1040, 80)">
-                <rect width="230" height="92" rx="4" class="bg-node pending"/>
-                <text x="12" y="18" class="bg-node-title">TaskGenerateManifest</text>
-                <text x="12" y="34" class="bg-node-status">Status: Pending</text>
-                <text x="12" y="48" class="bg-node-keys">Write: ABManifest</text>
-                <text x="12" y="62" class="bg-node-keys">Read: BundleBuildResults</text>
-                <text x="12" y="76" class="bg-node-keys">Deps: TaskBuildBundles</text>
-              </g>
-
-              <g transform="translate(1040, 220)">
-                <rect width="230" height="92" rx="4" class="bg-node pending"/>
-                <text x="12" y="18" class="bg-node-title">TaskVerifyBuildResult</text>
-                <text x="12" y="34" class="bg-node-status">Status: Pending</text>
-                <text x="12" y="48" class="bg-node-keys">Write: BuildVerificationResult</text>
-                <text x="12" y="62" class="bg-node-keys">Read: BundleBuildResults</text>
-                <text x="12" y="76" class="bg-node-keys">Deps: TaskBuildBundles</text>
-              </g>
-
-              <g transform="translate(1040, 360)">
-                <rect width="230" height="92" rx="4" class="bg-node pending"/>
-                <text x="12" y="18" class="bg-node-title">TaskOrganizeOutput</text>
-                <text x="12" y="34" class="bg-node-status">Status: Pending</text>
-                <text x="12" y="48" class="bg-node-keys">Write: OutputPath</text>
-                <text x="12" y="62" class="bg-node-keys">Read: BundleBuildResults</text>
-                <text x="12" y="76" class="bg-node-keys">Deps: TaskBuildBundles</text>
-              </g>
-            </svg>
-            <!-- Legend -->
-            <div class="graph-legend">
-              <div class="legend-item"><span class="legend-line code"></span> Code Dep</div>
-              <div class="legend-item"><span class="legend-line so"></span> SO Dep</div>
-              <div class="legend-item"><span class="legend-line data"></span> Data Flow</div>
+          <div class="task-list-area">
+            <div class="task-row">
+              <span class="task-index">01</span><span class="task-dot success"></span>
+              <span class="task-name">TaskPrepareContext</span><span class="task-state">Enabled / Resolved</span>
+            </div>
+            <div class="task-row">
+              <span class="task-index">02</span><span class="task-dot success"></span>
+              <span class="task-name">TaskCollectAssets</span><span class="task-state">Enabled / Resolved</span>
+            </div>
+            <div class="task-row">
+              <span class="task-index">03</span><span class="task-dot running"></span>
+              <span class="task-name">TaskCollectBuiltins</span><span class="task-state">Enabled / Resolved</span>
+            </div>
+            <div class="task-row">
+              <span class="task-index">04</span><span class="task-dot pending"></span>
+              <span class="task-name">TaskAnalyzeDependencies</span><span class="task-state">Enabled / Resolved</span>
+            </div>
+            <div class="task-row">
+              <span class="task-index">05</span><span class="task-dot pending"></span>
+              <span class="task-name">TaskBuildBundles</span><span class="task-state">Enabled / Resolved</span>
+            </div>
+            <div class="task-row disabled">
+              <span class="task-index">06</span><span class="task-dot skipped"></span>
+              <span class="task-name">OptionalCustomTask</span><span class="task-state unresolved">Disabled / Unresolved</span>
             </div>
           </div>
         </section>

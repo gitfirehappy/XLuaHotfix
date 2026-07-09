@@ -16,27 +16,9 @@ MonoBehaviour:
   BundleCompression: 0
   Tasks:
   - TaskName: TaskScanAddressableHotfixDiff
-    Enabled: 1
-    DependsOn: []
   - TaskName: TaskMoveAddressableHotfixGroups
-    Enabled: 1
-    DependsOn:
-    - TaskScanAddressableHotfixDiff
   - TaskName: TaskBuildAddressablesContent
-    Enabled: 1
-    DependsOn:
-    - TaskMoveAddressableHotfixGroups
   - TaskName: TaskOrganizeAAOutput
-    Enabled: 1
-    DependsOn: []
   - TaskName: TaskWriteAAPackageManifest
-    Enabled: 1
-    DependsOn: []
   - TaskName: TaskWritePackageIndex
-    Enabled: 1
-    DependsOn:
-    - TaskWriteAAPackageManifest
   - TaskName: TaskExportLocalBuildData
-    Enabled: 1
-    DependsOn:
-    - TaskWritePackageIndex

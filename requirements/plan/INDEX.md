@@ -34,4 +34,9 @@ Shared executable plans live here while active. `requirements/plan.md` remains t
 ## Active
 | File | Status |
 |---|---|
-| `plan-build-state-cleanup-tools-20260707.md` | Active / Awaiting developer approval |
+| `plan-build-state-cleanup-tools-20260707.md` | Implemented / Verified / Pending developer sign-off |
+| `plan-hotfix-progress-steps-20260709.md` | Implemented / Verified / Pending developer sign-off |
+| `plan-linear-build-pipeline-runner-20260709.md` | Implemented / Verified / Pending developer sign-off |
+| `plan-pipeline-sequence-list-editor-20260709.md` | Implemented / Verified / Pending developer sign-off |
+| `plan-repository-slim-20260709.md` | Implemented / Verified / Pending developer sign-off |
+| `plan-aa-ab-shared-split-20260709.md` | Implemented / Verified / Pending developer sign-off |

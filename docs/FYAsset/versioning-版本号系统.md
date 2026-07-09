@@ -4,7 +4,7 @@
 
 > **关联代码**
 >
-> `Assets/FYAsset/Scripts/Build/Versioning/VersionDataBase.cs` · `Assets/FYAsset/Scripts/Build/Versioning/VersionNumber.cs`
+> `Assets/FYAsset/Scripts/Shared/Build/Versioning/VersionDataBase.cs` · `Assets/FYAsset/Scripts/Shared/Build/Versioning/VersionNumber.cs`
 
 ---
 
@@ -139,7 +139,7 @@ public void IncrementVersion(bool isMajor, bool isMinor, string channel)
 ## 与热更流程的关系
 
 1. **构建时**：`VersionDataBase.IncrementVersion()` 递增版本号 → 写入 `ABManifest.PackageVersion`
-2. **热更时**：`HotfixManager.StepCompareVersionAsync()` 比对本地的 `BuildIndex.Version`、`localInfo.Version` 和 `remoteInfo.Version`
+2. **热更时**：`HotfixFlowBase` 的版本比对步骤会比对本地的 `BuildIndex.Version`、`localInfo.Version` 和 `remoteInfo.Version`
 3. **判断规则**：
    - 远端 Major > 本地 Major + BuildIndex.Version 不匹配 → 要求强制更新整包
    - 远端 Major > 本地 Major + BuildIndex.Version 匹配远端 → 全量清理旧热更数据（整包已更新）

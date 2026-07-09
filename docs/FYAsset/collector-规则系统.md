@@ -4,7 +4,7 @@
 
 > **关联代码**
 >
-> `Assets/FYAsset/Scripts/Build/Collector/AssetCollectionSetting.cs` · `Assets/FYAsset/Scripts/Build/Collector/Editor/CollectionScanner.cs` · `Assets/FYAsset/Scripts/Build/Collector/Editor/BundleNameBuilder.cs`
+> `Assets/FYAsset/Scripts/AB/Build/Collector/AssetCollectionSetting.cs` · `Assets/FYAsset/Scripts/AB/Build/Collector/Editor/CollectionScanner.cs` · `Assets/FYAsset/Scripts/AB/Build/Collector/Editor/BundleNameBuilder.cs`
 
 ---
 

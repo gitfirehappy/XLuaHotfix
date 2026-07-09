@@ -4,7 +4,7 @@
 
 > **关联代码**
 >
-> `Assets/FYAsset/Scripts/Runtime/Backends/AB/` · `Assets/FYAsset/Scripts/Runtime/Core/` · `Assets/FYAsset/Scripts/Runtime/Models/`
+> `Assets/FYAsset/Scripts/AB/Runtime/ABPackageManager.cs` · `Assets/FYAsset/Scripts/Shared/Runtime/PackageManagerBase.cs` · `Assets/FYAsset/Scripts/Shared/Compatibility/AssetPackageManager.cs` · `Assets/FYAsset/Scripts/AB/Runtime/Backends/AB/`
 
 ---
 
@@ -22,7 +22,8 @@ AB 运行时加载系统负责从磁盘加载 AssetBundle 文件、从 Bundle �
 | `ABPackageBackend` | Asset 级加载/卸载，管理 Asset 缓存和 Handle 回调 |
 | `AssetResolver` | 将 Address / TypeKey 解析为 RuntimeAssetEntry |
 | `HandleRegistry` | 静态 Handle 注册表，管理外部持有的 AssetHandle 引用计数 |
-| `AssetPackageManager` | 上层统一入口，封装 Backend 差异 |
+| `ABPackageManager` | AB 上层 concrete 入口 |
+| `AssetPackageManager` | 旧兼容入口，根据 Backend 设置路由到 AA/AB |
 
 ---
 
@@ -79,7 +80,7 @@ AB 路径采用 **Bundle + Asset** 双层引用计数，配合 Handle 层对外�
 
 ```mermaid
 flowchart TD
-    A[AssetPackageManager.LoadByAddress&lt;T&gt;] --> B[AssetResolver.ResolveByAddress]
+    A[ABPackageManager.LoadByAddress&lt;T&gt;] --> B[AssetResolver.ResolveByAddress]
     B --> C{ABPackageBackend:_assetCache 命中?}
 
     C -->|命中| D[返回缓存 Asset]
@@ -206,24 +207,24 @@ ABBundleLoader.UnloadBundle(bundleName)
 
 ---
 
-## AssetPackageManager — 上层入口
+## ABPackageManager — 上层入口
 
-`AssetPackageManager` 是外部使用的统一入口，封装了 AB 和 AA 两种后端的差异。主要 API：
+`ABPackageManager` 是 AB concrete 入口。旧 `AssetPackageManager` 仍作为兼容门面存在，会根据 `UseABBackend` 路由到 AA 或 AB。AB 主要 API：
 
 ```csharp
 // 初始化
-await AssetPackageManager.Instance.Initialize();
+await ABPackageManager.Instance.Initialize();
 
 // 加载
-var handle = await AssetPackageManager.Instance.LoadByAddress<Texture2D>("myTex");
-var handle = await AssetPackageManager.Instance.LoadByTypeKey<GameObject>("prefab", "ui");
+var handle = await ABPackageManager.Instance.LoadByAddress<Texture2D>("myTex");
+var handle = await ABPackageManager.Instance.LoadByTypeKey<GameObject>("prefab", "ui");
 
 // 卸载
 handle.Release();
-AssetPackageManager.Instance.UnloadByLabel("ui");
+ABPackageManager.Instance.UnloadByLabel("ui");
 ```
 
-Resolve-And-Handle API 返回 `AssetHandle<T>`；兼容的 `LoadAssetAsync<T>` / `LoadAssetSync<T>` 仍直接返回资源对象。内部按后端模式（AB / AA）路由到对应的 `IPackageBackend` 实现。
+Resolve-And-Handle API 返回 `AssetHandle<T>`；兼容的 `LoadAssetAsync<T>` / `LoadAssetSync<T>` 仍直接返回资源对象。AB concrete 入口固定使用 `ABPackageBackend`。
 
 ---
 
@@ -232,7 +233,7 @@ Resolve-And-Handle API 返回 `AssetHandle<T>`；兼容的 `LoadAssetAsync<T>` /
 ```mermaid
 sequenceDiagram
     participant User as 调用方
-    participant APM as AssetPackageManager
+    participant APM as ABPackageManager
     participant Resolver as AssetResolver
     participant Backend as ABPackageBackend
     participant Loader as ABBundleLoader

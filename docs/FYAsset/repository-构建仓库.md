@@ -4,7 +4,7 @@
 
 > **关联代码**
 >
-> `Assets/FYAsset/Scripts/Build/Repository/` · `Assets/FYAsset/Scripts/Build/Snapshots/` · `Assets/FYAsset/Scripts/Build/Pipeline/Editor/Tasks/AA/TaskScanAddressableHotfixDiff.cs` · `Assets/FYAsset/Scripts/Build/Pipeline/Editor/Tasks/AB/TaskScanABHotfixDiff.cs`
+> `Assets/FYAsset/Scripts/Shared/Build/Repository/` · `Assets/FYAsset/Scripts/Shared/Build/Snapshots/` · `Assets/FYAsset/Scripts/AA/Build/Pipeline/Editor/Tasks/AA/TaskScanAddressableHotfixDiff.cs` · `Assets/FYAsset/Scripts/AB/Build/Pipeline/Editor/Tasks/AB/TaskScanABHotfixDiff.cs`
 
 ---
 
@@ -18,7 +18,7 @@ Build Repository 是构建产物的版本化存储系统，采用类 git 的 HEA
 - **AA / AB 仓库空间隔离**，通过 ChannelKey 中的 BackendMode 段区分
 - **提交级 CommitDiff 固化**：每个 commit 写入时记录它相对上一个同 Channel/Backend HEAD 的 `CommitDelta`，首个 commit 的 diff 是从空集合到当前产物的全量 Added
 - **Push 发布已构建包体**：发布根包含 `PackageIndex.json` 和 `{BuildPackagesFolderName}/{PackageName}`，包体内容由构建 Task 负责
-- **Diff 不筛 Push 文件**：Repository Diff 负责识别变化、驱动 AA Hotfix Group、展示提交/预览和记录 PushHistory；Push 始终发布已构建包体。AB Hotfix 的实际包体交付列表由 AB 构建 Task 按 Full baseline 计算。
+- **Diff 不筛 Push 文件**：Repository Diff 负责识别变化、驱动 AA Hotfix Group、展示提交/预览；Push 始终发布已构建包体。AB Hotfix 的实际包体交付列表由 AB 构建 Task 按 Full baseline 计算。
 
 ---
 
@@ -82,7 +82,7 @@ Build Repository 是构建产物的版本化存储系统，采用类 git 的 HEA
 - AB：`TaskScanABHotfixDiff` 在 `TaskVerifyBuildResult` 后执行，从 `ABManifest.BundleEntries` 生成当前 bundle 指纹。它同时计算两类结果：`ArtifactDelta` 是 current-vs-Repository HEAD 的预览/提交差异；`ABDeliveryBundles` 是 current-vs-同 Channel/Backend/Major 的 Full baseline 的 Hotfix 实际交付列表。
 - AB Full：`TaskOrganizeOutput` 复制 `ABManifest.BundleEntries` 中的全部 bundle，`ABManifest.DeliveryBundles` 保持空列表。
 - AB Hotfix：`TaskOrganizeOutput` 只复制 `ABDeliveryBundles`，`TaskWriteABPackageManifest` 发布完整 `ABManifest`，其中 `BundleEntries` 仍是完整运行时索引，`DeliveryBundles` 记录本次远端包实际交付/下载的 bundle。
-- Push：`FileBuildRepository.Push()` 使用 `ArtifactDiffer.Diff(fromCommit.Artifacts, toCommit.Artifacts)` 计算差异数量，仅用于 `PushHistory.DeltaFileCount` 展示。`LocalDirectoryPushTarget` 发布已构建包体目录，不重新解释 catalog、AAManifest 或 ABManifest。
+- Push：`FileBuildRepository.Push()` 发布指定 from/to 范围内的目标包体；`LocalDirectoryPushTarget` 发布已构建包体目录，不重新解释 catalog、AAManifest 或 ABManifest。Push 历史不再持久化。
 
 ### AA 机制边界
 
@@ -126,7 +126,6 @@ public interface IBuildRepository
     List<RepositoryCommit> ListCommits(string channelKey);
     void Commit(RepositoryCommit commit);
     PushReceipt Push(string channelKey, VersionNumber fromVersion, VersionNumber toVersion, IPushTarget target);
-    List<PushHistoryEntry> ListPushHistory(string channelKey);
 }
 ```
 
@@ -143,10 +142,9 @@ BuildData/Snapshots/
 ├─ {BuildTarget}[-Channel]/
 │  └─ {BackendMode}/               # "AA" 或 "AB"
 │     ├─ HEAD.json                  # HEAD 指针 → objects/{HeadVersion}.json
-│     ├─ PushHistory.json           # 推送历史记录
 │     └─ objects/
-│        ├─ 1.0.0+1.json
-│        ├─ 1.0.1+2.json
+│        ├─ 1.0.0.json
+│        ├─ 1.0.1.json
 │        └─ ...
 ```
 
@@ -196,8 +194,6 @@ HEAD 指针文件路径：`{channelRoot}/HEAD.json`。Object 文件路径由目�
 | `HeadVersion` | string | HEAD 版本字符串 |
 | `PackageName` | string | HEAD 对应的包名 |
 | `ArtifactCount` | int | HEAD 产物数量 |
-| `LastPushTargetId` | string | 最近一次 Push 的目标 ID |
-| `LastPushAtUtc` | string | 最近一次 Push 的时间 |
 | `HeadErrorReason` | string | HEAD 异常原因（HasHeadError 为 true 时） |
 
 ---
@@ -220,7 +216,6 @@ HEAD 指针文件路径：`{channelRoot}/HEAD.json`。Object 文件路径由目�
 |------|------|------|
 | `FromCommit` | RepositoryCommit | 基准提交 |
 | `ToCommit` | RepositoryCommit | 目标提交 |
-| `ChangedArtifactCount` | int | 本次 from/to 差异数量，仅用于 PushHistory 展示 |
 
 **PushReceipt** — Push 执行结果：
 
@@ -231,17 +226,6 @@ HEAD 指针文件路径：`{channelRoot}/HEAD.json`。Object 文件路径由目�
 | `TargetLocation` | string | 目标路径 |
 | `PushedAtUtc` | string | Push 执行时间 |
 | `FailureReason` | string | 失败原因（Success=false 时） |
-
-**PushHistoryEntry** — `PushHistory.json` 的条目：
-
-| 字段 | 类型 | 语义 |
-|------|------|------|
-| `FromVersion` | string | 基准版本 |
-| `ToVersion` | string | 目标版本 |
-| `TargetId` | string | 推送目标 |
-| `TargetLocation` | string | 推送路径 |
-| `PushedAtUtc` | string | 推送时间 |
-| `DeltaFileCount` | int | 推送的差异文件数 |
 
 ### IPushTarget 接口
 
@@ -261,11 +245,11 @@ public interface IPushTarget
 2. `BuildRepositoryFacade.PushHead()` 走文件仓库实现的 UI 专用入口，不改变 `IBuildRepository.Push(...)` 和 CLI 的显式 from/to 契约。
 3. `FileBuildRepository.PushHead()` 读取 HEAD commit，并从 `ParentVersion` 推导 `FromCommit`；首个提交的 From 为空。
 4. CLI 仍调用 `FileBuildRepository.Push(channelKey, fromVersion, toVersion, target)`，保留显式 `-from` / `-to` 参数契约。
-5. Repository 组装 `PushPayload` 并调用 `target.Push(payload)`；差异数量只用于 `PushHistory.DeltaFileCount`。
+5. Repository 组装 `PushPayload` 并调用 `target.Push(payload)`。
 6. `LocalDirectoryPushTarget` 将 `PushTargetConfig.Path` 作为发布根；空路径解析为当前 `BuildPathManager.OutputRoot`
 7. 发布 `{PublishRoot}/PackageIndex.json` 和 `{PublishRoot}/{BuildPackagesFolderName}/{PackageName}/...`
-8. Push 成功后追加 `PushHistoryEntry` 并写入 `PushHistory.json`
-9. **当前状态**：AA/AB Push 均走同一发布根语义，Push 成功后记录对应 Channel 的 `PushHistory.json`。
+8. Push 成功后返回 `PushReceipt`；不写持久化 PushHistory。
+9. **当前状态**：AA/AB Push 均走同一发布根语义。
 
 ### LocalDirectoryPushTarget
 
@@ -312,14 +296,14 @@ GetChannelKey(channel, backendMode)
 
 ### AA Diff Preview
 
-- DAG 白名单：仅 `TaskScanAddressableHotfixDiff`
+- runner 白名单：仅 `TaskScanAddressableHotfixDiff`
 - Stop-after：`TaskScanAddressableHotfixDiff`
 - 不产生临时文件，纯读取 `AddressableAssetSettings` 的当前资产状态
 - 对比当前源资产 GUID 指纹与 Repository HEAD
 
 ### AB Diff Preview
 
-- DAG 白名单：`TaskPrepareContext` → `TaskCollectAssets` → `TaskCollectBuiltins` → `TaskAnalyzeDependencies` → `TaskBuildBundles` → `TaskGenerateManifest` → `TaskVerifyBuildResult` → `TaskScanABHotfixDiff`
+- runner 白名单：`TaskPrepareContext` → `TaskCollectAssets` → `TaskCollectBuiltins` → `TaskAnalyzeDependencies` → `TaskBuildBundles` → `TaskGenerateManifest` → `TaskVerifyBuildResult` → `TaskScanABHotfixDiff`
 - Stop-after：`TaskScanABHotfixDiff`
 - 使用 `Temp/BuildRepositoryPreview/{guid}/` 临时输出目录
 - `finally` 块清理临时目录
@@ -337,22 +321,22 @@ Build Pipeline 窗口中不再使用一个总仓库入口；AA 和 AB 各有独�
 
 功能：
 
-- **状态栏**：显示当前 HEAD 版本、包名、产物数量、最近 Push 信息
+- **状态栏**：显示当前 HEAD 版本、包名、产物数量和 Health 状态
 - **History**：显示 commit 列表，选择 commit 后展示该 commit 持久化的 `CommitDelta`；不会执行 `RepositoryPreviewRunner`
-- **Changes**：显示 staging diff，只有点击 `Refresh Changes` 才执行 AA/AB preview DAG
+- **Changes**：显示 staging diff，只有点击 `Refresh Changes` 才执行 AA/AB preview runner
 - **Artifact Detail**：展示 Added/Modified/Removed 的 `ArtifactDigest` 元数据；Modified 优先显示 old/new hash、CRC、size
 - **Push 按钮**：选择 Push Target 后发布当前 Repository HEAD；面板不再提供可编辑 From/To 版本号
-- **Push History**：展示该 Channel 的推送历史
 
 ---
 
 ## CLI 入口
 
-`BuildRepositoryCLI` 提供四个批处理/CI 命令：
+`BuildRepositoryCLI` 提供批处理/CI 命令：
 
 | 命令 | 方法 | 关键参数 |
 |------|------|---------|
 | `Status` | `BuildRepositoryCLI.Status()` | `-channel`, `-backend` |
+| `Health` | `BuildRepositoryCLI.Health()` | `-channel`, `-backend` |
 | `Diff` | `BuildRepositoryCLI.Diff()` | `-channel`, `-backend`, `-json`（可选输出路径） |
 | `Push` | `BuildRepositoryCLI.Push()` | `-channel`, `-backend`, `-from`, `-to`, `-target` |
 | `ListCommits` | `BuildRepositoryCLI.ListCommits()` | `-channel`, `-backend` |
@@ -383,8 +367,8 @@ BuildFullPackage / BuildHotfix
 
 ## 注意事项
 
-- **AA/AB Push 同级**：当前 Push 发布根部 `PackageIndex.json` 和已构建 package 目录，并记录 PushHistory；不重新解释 catalog、AAManifest 或 ABManifest
-- **Diff 不筛 Push 文件**：Push 中的差异只用于 PushHistory 数量统计，不用于 delta-copy bundle；AB Hotfix 的交付筛选发生在构建 Task 内，不发生在 Push 阶段
+- **AA/AB Push 同级**：当前 Push 发布根部 `PackageIndex.json` 和已构建 package 目录；不重新解释 catalog、AAManifest 或 ABManifest
+- **Diff 不筛 Push 文件**：Push 不做 delta-copy bundle；AB Hotfix 的交付筛选发生在构建 Task 内，不发生在 Push 阶段
 - **提交 diff 与 staging diff 分离**：History 展示已持久化的 `CommitDelta`；Changes/CLI Diff 才运行当前 preview output vs HEAD 的主动预览
 - **编辑器 Push 只发布 HEAD**：Target 是发布位置；From/To 在 UI 中不再作为人工输入。CLI Push 继续保留显式 from/to 参数。
 - **AB Hotfix 依赖 Full baseline**：AB Hotfix 必须能找到同 Channel/Backend/Major 且 `BuildType == "Full"` 的 commit，否则失败

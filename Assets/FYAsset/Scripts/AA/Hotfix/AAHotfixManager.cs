@@ -1,0 +1,57 @@
+using System;
+using System.Threading.Tasks;
+
+/// <summary>
+/// AA concrete hotfix entrypoint.
+/// </summary>
+public static class AAHotfixManager
+{
+    private static readonly AAHotfixFlow Flow = new();
+
+    public static event Action<string> OnStepChanged
+    {
+        add => Flow.OnStepChanged += value;
+        remove => Flow.OnStepChanged -= value;
+    }
+
+    public static event Action<float, string> OnProgress
+    {
+        add => Flow.OnProgress += value;
+        remove => Flow.OnProgress -= value;
+    }
+
+    public static event Action<string> OnError
+    {
+        add => Flow.OnError += value;
+        remove => Flow.OnError -= value;
+    }
+
+    public static event Action OnFinished
+    {
+        add => Flow.OnFinished += value;
+        remove => Flow.OnFinished -= value;
+    }
+
+    public static string CurrentStepName => Flow.CurrentStepName;
+    public static float CurrentProgressValue => Flow.CurrentProgressValue;
+
+    public static Task InitializeAsync() => Flow.InitializeAsync();
+
+    private sealed class AAHotfixFlow : HotfixFlowBase
+    {
+        protected override string HotfixUrl => FYAssetAASettings.Instance.HotfixUrl;
+        protected override string BackendModeName => BackendModeNames.AA;
+        protected override int HotfixMaxRetryCount => FYAssetAASettings.Instance.HotfixMaxRetryCount;
+        protected override float HotfixRetryBaseDelaySeconds => FYAssetAASettings.Instance.HotfixRetryBaseDelaySeconds;
+
+        protected override IHotfixPipeline CreatePipeline()
+        {
+            return new AAHotfixBackend();
+        }
+
+        protected override Task FinishHotfix()
+        {
+            return AAPackageManager.Instance.Initialize();
+        }
+    }
+}

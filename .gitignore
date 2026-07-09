@@ -110,6 +110,7 @@ opencode.jsonc
 opencode.jsonc.ccbak
 /.opencode/
 /.codex/
+/.codegraph/
 /skills/private/
 
 # Secrets and local environment

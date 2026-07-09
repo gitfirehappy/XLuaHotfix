@@ -8,45 +8,47 @@
 
 对当前 FYAsset 整体架构进行系统性审查，识别优化空间。本 Draft 记录讨论阶段的初步观察，具体 Plan 需逐项确认后单独立项。
 
+## Promotion Update 2026-07-09
+
+The reduction/simplification items approved from this draft were extracted into active executable plans:
+
+| Item | Active Plan | Promotion Status |
+|------|-------------|------------------|
+| A10 | `../plan-hotfix-progress-steps-20260709.md` | Extracted / Implemented / Verified |
+| A2 | `../plan-linear-build-pipeline-runner-20260709.md` + `../plan-pipeline-sequence-list-editor-20260709.md` | Extracted / Implemented / Verified |
+| A4 | `../plan-repository-slim-20260709.md` | Extracted / Implemented / Verified |
+| A1 + A3 + A5 + A9 | `../plan-aa-ab-shared-split-20260709.md` | Merged / Extracted / Implemented / Verified |
+
+A9 is intentionally merged into the AA/AB/Shared split. Its retained decision is: keep three independent settings assets
+and deduplicate `LoadOrCreate` through Shared. It is not a standalone settings merge/refactor plan.
+
+A0/A12 preview cache, A6 HandleRegistry simplification, and A8 incremental build remain deferred and are not authorized
+by the extracted plans.
+
 ## Current Architecture Summary
 
 ```
 FYAsset 分层结构
-├── Runtime
-│   ├── AssetPackageManager (统一入口 Singleton)
-│   ├── Backends
-│   │   ├── ABPackageBackend (AssetBundle)
-│   │   └── AddressablesBackend (Addressables AA)
-│   ├── Hotfix
-│   │   ├── HotfixManager
-│   │   ├── ABHotfixBackend
-│   │   └── AAHotfixBackend
-│   └── Core Models
-│       ├── HandleRegistry (引用计数)
-│       ├── ResolveResult
-│       └── RuntimeMessage
+├── AA
+│   ├── Runtime (AAPackageManager + AddressablesBackend + AAManifest)
+│   ├── Hotfix (AAHotfixManager + AAHotfixBackend + CatalogUpdater)
+│   ├── Build (AABuildProjectManager + AA pipeline tasks + AA build backend)
+│   └── Settings (FYAssetAASettings)
 │
-├── Build (Editor-only)
-│   ├── Pipeline
-│   │   ├── DAGScheduler (拓扑调度)
-│   │   ├── IBuildTask + 各 Task 实现
-│   │   └── BuildContext (上下文数据共享)
-│   ├── Repository
-│   │   ├── FileBuildRepository (版本存储)
-│   │   ├── BuildRepositoryFacade (门面)
-│   │   └── RepositoryStatusPanel (UI)
-│   ├── Release
-│   │   ├── BuildProjectManager (编排入口)
-│   │   ├── ABBuildBackend / AABuildBackend
-│   │   └── BuildPathManager (路径管理)
-│   └── Versioning
-│       ├── VersionDataBase (ScriptableObject)
-│       └── VersionNumber (数据类型)
+├── AB
+│   ├── Runtime (ABPackageManager + ABPackageBackend + ABManifest + HandleRegistry models)
+│   ├── Hotfix (ABHotfixManager + ABHotfixBackend)
+│   ├── Build (ABBuildProjectManager + AB pipeline tasks + AB build backend)
+│   ├── Collector (AssetsCollection, dependency analysis, collector UI)
+│   └── Settings (FYAssetABSettings)
 │
-└── Editor Tools (Panels)
-    ├── VersionPanel
-    ├── RepositoryStatusPanel
-    └── BuildResultsPanel (待建)
+└── Shared
+    ├── Runtime (contracts, resolver, PackageIndex, PackageManagerBase, RuntimeMessage, RuntimePathManager)
+    ├── Hotfix (IHotfixPipeline, flow base, DTOs, PackageCleaner)
+    ├── Build (linear pipeline runner, common tasks, repository, snapshots, versioning, CLI/shared DTOs)
+    ├── Compatibility (old AssetPackageManager/HotfixManager/BuildProjectManager facades)
+    ├── Helpers
+    └── Settings (FYAssetSettings + shared loader)
 ```
 
 ## Identified Optimization Areas
@@ -313,16 +315,16 @@ Repository 系统同时承担：
 | # | Area | 核心问题 | Action | Priority | Est. Effort |
 |---|------|---------|--------|----------|-------------|
 | A0 | RepositoryPreviewRunner | Preview = 完整构建，性能极差 | 缓存 build-hashes.json，Preview 读缓存替代重建。**已确认问题，暂缓决策** | **P1（已确认，暂缓）** | 2-3 人日 |
-| A1 | 双后端策略 | 维护成本翻倍，无切换场景 | **已决策**：AB/AA 彻底拆分为独立框架，不共用接口（删除 IPackageBackend 约束），代码可复用但逻辑不共享，AA 不废弃 | **P1（已决策）** | N/A |
-| A2 | DAGScheduler | Kahn算法服务线性链 | **已确认**：退化为线性 BuildPipelineRunner（数组遍历），保留 stopAfterTaskName/whitelist | P2 | 0.5 人日 |
-| A3 | AssetPackageManager | Singleton 包装多余 | **已确认**：拆分为独立的 ABPackageManager 和 AAPackageManager，删除 IPackageBackend 共用接口 | P2 | 1 人日 |
-| A4 | Repository Mini-VCS | 健康检查/修复/推送历史超出需求 | **已确认**：保留 Health check；删除 Repair/Quarantine；推送功能保留但简化为单次状态（无历史记录） | P2 | 1.5 人日 |
-| A5 | BuildProjectManager | 职责过重（5项职责） | **已确认**：保留串联总线定位，随 A1（AB/AA拆分）同步消除 UseABBackend 路由判断，不拆分为多个控制模块 | P2（随A1） | 0.5 人日 |
+| A1 | 双后端策略 | 维护成本翻倍，无切换场景 | **已抽取**：见 `../plan-aa-ab-shared-split-20260709.md`，AB/AA 拆分为独立框架，AA 不废弃 | **P1（已抽取）** | N/A |
+| A2 | DAGScheduler / GraphView | Kahn算法和 GraphView 服务线性链 | **已抽取**：见 `../plan-linear-build-pipeline-runner-20260709.md` 和 `../plan-pipeline-sequence-list-editor-20260709.md`，退化为线性 BuildPipelineRunner，并移除 PipelinePanel GraphView/SO 级依赖 | P2 | 0.5 人日 + follow-up |
+| A3 | AssetPackageManager | Singleton 包装多余 | **已抽取**：随 `../plan-aa-ab-shared-split-20260709.md` 拆分为 ABPackageManager 和 AAPackageManager | P2 | 1 人日 |
+| A4 | Repository Mini-VCS | 健康检查/修复/推送历史超出需求 | **已抽取**：见 `../plan-repository-slim-20260709.md`，保留 Health/Push，删除 Repair/Quarantine/PushHistory | P2 | 1.5 人日 |
+| A5 | BuildProjectManager | 职责过重（5项职责） | **已抽取**：随 `../plan-aa-ab-shared-split-20260709.md` 保留串联总线定位并消除主线 UseABBackend 路由 | P2（随A1） | 0.5 人日 |
 | A6 | HandleRegistry 世代号 | C# 不需要世代号，AA 双重引用计数 | **已确认**：去掉世代号简化引用计数；AA 路径直接返回 AA OperationHandle | P3 | 1 人日 |
 | A7 | TaskAnalyzeDependencies | ~~被引用但不在代码库~~ **已确认**：在 `Collector/Editor/DependencyAnalysis/`，非失效引用 | 关闭 | ~~P1（验证）~~ **N/A** | 0 |
 | A8 | 增量构建 | 每次 Full Build 重处理全部资源 | **已记录**：专项调研后决策 | P3（待调研） | TBD |
-| A9 | Settings 分散 | 3个 Singleton SO，LoadOrCreate 重复，调用方条件判断 | **已确认**：3个 SO 文件保持独立（AB/AA独立合理），提取 LoadOrCreate 共用基类/工具消除重复代码 | P2 | 0.5 人日 |
-| A10 | HotfixManager TotalSteps | 硬编码常量，扩展时易出错 | **已确认**：改为动态步骤列表自报告进度 | P3 | 0.5 人日 |
+| A9 | Settings 分散 | 3个 Singleton SO，LoadOrCreate 重复，调用方条件判断 | **已抽取并并入 A1**：3个 SO 文件保持独立，随 `../plan-aa-ab-shared-split-20260709.md` 提取 LoadOrCreate 共用基类/工具 | P2 | 0.5 人日 |
+| A10 | HotfixManager TotalSteps | 硬编码常量，扩展时易出错 | **已抽取**：见 `../plan-hotfix-progress-steps-20260709.md`，改为动态步骤列表自报告进度 | P3 | 0.5 人日 |
 | A11 | Collector 层 | 25文件，复杂度合理 | 无需改造，仅记录 | ✅ 无 | — |
 | A8 | 增量构建 | 每次 Full Build 重处理全部资源 | 专项调研后决策 | P3 | TBD |
 | A12 | BuildRepositoryCLI `diff` | CLI diff 同样触发完整 AB 构建 | 随 A0 缓存方案一并修复 | P1（随A0） | 含在A0内 |
@@ -348,34 +350,31 @@ Repository 系统同时承担：
 | 编号 | 决策 | 执行状态 |
 |------|------|---------|
 | A0 | Preview 缓存方案（完整构建 + Broken PPtr） | 确认问题，**暂缓立项** |
-| A1 | AB/AA 彻底拆分独立框架，不共用接口，AA 不废弃 | **已决策** |
-| A2 | DAGScheduler → 线性 BuildPipelineRunner（保留 stop/whitelist） | **已确认，待立项** |
-| A3 | AssetPackageManager → ABPackageManager + AAPackageManager 独立 | **已确认，随 A1 执行** |
-| A4 | 保留 Health；删除 Repair/Quarantine；Push 简化为单次状态（无历史） | **已确认，待立项** |
-| A5 | BuildProjectManager 保留串联总线定位，随 A1 消除路由判断 | **已确认，随 A1 执行** |
+| A1 | AB/AA 彻底拆分独立框架，不共用接口，AA 不废弃 | **已抽取到 `../plan-aa-ab-shared-split-20260709.md`** |
+| A2 | DAGScheduler → 线性 BuildPipelineRunner（保留 stop/whitelist）；GraphView → Task 顺序列表 | **Runner 已抽取到 `../plan-linear-build-pipeline-runner-20260709.md`；Editor follow-up 已抽取到 `../plan-pipeline-sequence-list-editor-20260709.md`** |
+| A3 | AssetPackageManager → ABPackageManager + AAPackageManager 独立 | **已并入 `../plan-aa-ab-shared-split-20260709.md`** |
+| A4 | 保留 Health；删除 Repair/Quarantine；Push 简化为单次状态（无历史） | **已抽取到 `../plan-repository-slim-20260709.md`** |
+| A5 | BuildProjectManager 保留串联总线定位，随 A1 消除路由判断 | **已并入 `../plan-aa-ab-shared-split-20260709.md`** |
 | A6 | HandleRegistry 去掉世代号，AA 路径直接返回 AA Handle | **已确认，待立项** |
 | A7 | TaskAnalyzeDependencies 在 `Collector/Editor/DependencyAnalysis/` | **关闭** |
 | A8 | 增量构建 | **记录问题，待调研** |
-| A9 | Settings 文件保持独立，提取 LoadOrCreate 共用基类消除重复 | **已确认，待立项** |
-| A10 | HotfixManager 改为动态步骤自报告进度 | **已确认，待立项** |
+| A9 | Settings 文件保持独立，提取 LoadOrCreate 共用基类消除重复 | **已并入 `../plan-aa-ab-shared-split-20260709.md`** |
+| A10 | HotfixManager 改为动态步骤自报告进度 | **已抽取到 `../plan-hotfix-progress-steps-20260709.md`** |
 | A11 | Collector 层 25文件复杂度合理 | **关闭** |
 | A12 | CLI diff 随 A0 缓存方案一并修复 | **随 A0 执行** |
 
 ## Next Steps（已更新）
 
-**立即可执行（无额外决策依赖）：**
-1. A2：DAGScheduler → 线性遍历（0.5天，风险低）
-2. A9：Settings LoadOrCreate 基类提取（0.5天，风险低）
-3. A10：HotfixManager 动态步骤（0.5天，风险低）
-
-**需协调执行（A1 拆分主线）：**
-4. A1 拆分启动后，A3/A5 随之执行
-5. A4 Repository 精简独立立项
+**已抽取并执行验证，待开发者签收：**
+1. A10：`../plan-hotfix-progress-steps-20260709.md`
+2. A2：`../plan-linear-build-pipeline-runner-20260709.md` + `../plan-pipeline-sequence-list-editor-20260709.md`
+3. A4：`../plan-repository-slim-20260709.md`
+4. A1/A3/A5+A9：`../plan-aa-ab-shared-split-20260709.md`
 
 **暂缓（待时机）：**
-6. A0 Preview 缓存方案
-7. A6 HandleRegistry 简化
-8. A8 增量构建调研
+5. A0 Preview 缓存方案
+6. A6 HandleRegistry 简化
+7. A8 增量构建调研
 
 ## Open Questions（已更新）
 
