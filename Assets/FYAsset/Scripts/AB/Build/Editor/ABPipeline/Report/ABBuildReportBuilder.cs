@@ -205,7 +205,32 @@ public static class ABBuildReportBuilder
 
         FillAssetRows(report, manifest, delivered, bundleNames, assetCountByBundle, groupStats, labelStats);
         FillBundleRows(report, manifest, delivered, bundleNames, assetCountByBundle, groupStats, labelStats);
+        FillReferencedBy(report.Bundles);
         FillAggregateRows(report, groupStats, labelStats);
+    }
+
+    internal static void FillReferencedBy(List<ABBuildReportBundle> bundles)
+    {
+        var byName = new Dictionary<string, ABBuildReportBundle>(StringComparer.Ordinal);
+        for (int i = 0; i < bundles.Count; i++)
+        {
+            ABBuildReportBundle bundle = bundles[i];
+            if (bundle != null && !string.IsNullOrEmpty(bundle.BundleName))
+                byName[bundle.BundleName] = bundle;
+        }
+
+        for (int i = 0; i < bundles.Count; i++)
+        {
+            ABBuildReportBundle bundle = bundles[i];
+            if (bundle?.Dependencies == null)
+                continue;
+
+            for (int dependencyIndex = 0; dependencyIndex < bundle.Dependencies.Count; dependencyIndex++)
+            {
+                if (byName.TryGetValue(bundle.Dependencies[dependencyIndex], out ABBuildReportBundle dependency))
+                    dependency.ReferencedBy.Add(bundle.BundleName);
+            }
+        }
     }
 
     private static HashSet<string> BuildDeliverySet(List<ManifestBundleEntry> deliveryBundles)

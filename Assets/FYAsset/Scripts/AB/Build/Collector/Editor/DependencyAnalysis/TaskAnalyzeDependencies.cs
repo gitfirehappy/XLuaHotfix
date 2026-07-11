@@ -10,10 +10,6 @@ using UnityEditor;
 public class TaskAnalyzeDependencies : IBuildTask
 {
     public string TaskName => "TaskAnalyzeDependencies";
-    public string[] DependsOn => new[] { "TaskCollectBuiltins" };
-    public string[] ReadKeys => new[] { BuildContextKeys.CollectedAssets, BuildContextKeys.SharePolicies };
-    public string[] WriteKeys => new[] { BuildContextKeys.CollectedAssets, BuildContextKeys.BundleDependencyGraph };
-
     public BuildTaskResult Execute(BuildContext ctx)
     {
         // 读取收集扫描产出的资产列表

@@ -10,10 +10,6 @@ using System.IO;
 public class TaskPrepareContext : IBuildTask
 {
     public string TaskName => "TaskPrepareContext";
-    public string[] DependsOn => new string[0];
-    public string[] ReadKeys => new string[0];
-    public string[] WriteKeys => new[] { BuildContextKeys.BuildConfig };
-
     public BuildTaskResult Execute(BuildContext ctx)
     {
         var request = ctx.Get<BuildPackageRequest>(BuildContextKeys.BuildPackageRequest);

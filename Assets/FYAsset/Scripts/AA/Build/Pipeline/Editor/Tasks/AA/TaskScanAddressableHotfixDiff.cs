@@ -11,14 +11,6 @@ using UnityEngine;
 public class TaskScanAddressableHotfixDiff : IBuildTask
 {
     public string TaskName => "TaskScanAddressableHotfixDiff";
-    public string[] DependsOn => new string[0];
-    public string[] ReadKeys => new[]
-    {
-        BuildContextKeys.BuildPackageRequest,
-        BuildContextKeys.BuildType
-    };
-    public string[] WriteKeys => new[] { BuildContextKeys.ArtifactDelta, BuildContextKeys.RepositoryArtifacts };
-
     public BuildTaskResult Execute(BuildContext ctx)
     {
         var request = ctx.Require<BuildPackageRequest>(BuildContextKeys.BuildPackageRequest);

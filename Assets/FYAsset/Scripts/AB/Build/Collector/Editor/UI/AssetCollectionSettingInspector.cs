@@ -4,7 +4,7 @@ using UnityEngine.UIElements;
 
 /// <summary>
 /// AssetCollectionSetting 的自定义 Inspector。
-/// 在默认字段之外提供 BuildPipelineWindow 快捷入口。
+/// 在默认字段之外提供 AB Build Pipeline 快捷入口。
 /// </summary>
 [CustomEditor(typeof(AssetCollectionSetting))]
 public class AssetCollectionSettingInspector : Editor
@@ -17,9 +17,9 @@ public class AssetCollectionSettingInspector : Editor
         var root = new VisualElement();
         root.style.paddingTop = 10f;
 
-        var openButton = new Button(() => EditorApplication.ExecuteMenuItem(FYAssetSettings.BUILD_PIPELINE_WINDOW_MENU_PATH))
+        var openButton = new Button(ABBuildPipelineWindow.Open)
         {
-            text = "Open Build Pipeline Window"
+            text = "Open AB Build Pipeline"
         };
         openButton.style.height = 40f;
         openButton.style.unityFontStyleAndWeight = UnityEngine.FontStyle.Bold;

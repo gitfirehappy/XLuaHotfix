@@ -4,6 +4,8 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using UnityEditor;
+using UnityEditor.AddressableAssets;
+using UnityEditor.UIElements;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -33,8 +35,18 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
         public ArtifactDigest NewArtifact;
     }
 
+    private sealed class ArtifactPresentation
+    {
+        public string DisplayName;
+        public string Address;
+        public string AssetPath;
+        public string Guid;
+        public bool IsResolved;
+    }
+
     private readonly BackendMode _backendMode;
     private readonly string _panelName;
+    private readonly IRepositoryMaintenancePanel _maintenancePanel;
 
     private VisualElement _root;
     private VisualElement _tabs;
@@ -48,6 +60,7 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
     private Label _statusBadge;
     private Label _channelLabel;
     private Label _headLabel;
+    private Label _versionLabel;
     private Label _packageLabel;
     private Label _artifactLabel;
     private Label _messageLabel;
@@ -72,7 +85,10 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
 
     private const float LeftPaneWidth = 310f;
     private const float MiddlePaneWidth = 360f;
-    private const float RightPaneMinWidth = 360f;
+    private const float LeftPaneMinWidth = 180f;
+    private const float MiddlePaneMinWidth = 220f;
+    private const float RightPaneMinWidth = 260f;
+    private const float MaxRememberedPaneWidth = 1200f;
 
     public RepositoryStatusPanel()
         : this(FYAssetSettings.Instance.UseABBackend ? BackendMode.ABManifest : BackendMode.AA, "Repository")
@@ -80,9 +96,18 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
     }
 
     public RepositoryStatusPanel(BackendMode backendMode, string panelName)
+        : this(backendMode, panelName, null)
+    {
+    }
+
+    public RepositoryStatusPanel(
+        BackendMode backendMode,
+        string panelName,
+        IRepositoryMaintenancePanel maintenancePanel)
     {
         _backendMode = backendMode;
         _panelName = string.IsNullOrEmpty(panelName) ? "Repository" : panelName;
+        _maintenancePanel = maintenancePanel;
     }
 
     public string PanelName => _panelName;
@@ -114,6 +139,7 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
         _statusBadge = null;
         _channelLabel = null;
         _headLabel = null;
+        _versionLabel = null;
         _packageLabel = null;
         _artifactLabel = null;
         _messageLabel = null;
@@ -211,6 +237,7 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
         stats.style.flexDirection = FlexDirection.Row;
         stats.style.marginTop = 8f;
         _headLabel = AddStat(stats, "HEAD", "-");
+        _versionLabel = AddStat(stats, "Version", "-");
         _packageLabel = AddStat(stats, "Package", "-");
         _artifactLabel = AddStat(stats, "Artifacts", "-");
         header.Add(stats);
@@ -220,25 +247,40 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
 
     private VisualElement CreateBody()
     {
-        var body = new VisualElement { name = "RepositoryBody" };
-        body.style.flexGrow = 1f;
-        body.style.flexDirection = FlexDirection.Row;
-        body.style.minHeight = 0f;
+        VisualElement leftPane = CreateLeftPane();
+        VisualElement middlePane = CreateMiddlePane();
+        VisualElement rightPane = CreateRightPane();
 
-        body.Add(CreateLeftPane());
-        body.Add(CreateMiddlePane());
-        body.Add(CreateRightPane());
+        float middleWidth = LoadPaneWidth("Middle", MiddlePaneWidth, MiddlePaneMinWidth);
+        var middleRightSplit = new TwoPaneSplitView(0, middleWidth, TwoPaneSplitViewOrientation.Horizontal)
+        {
+            name = "RepositoryMiddleRightSplit"
+        };
+        middleRightSplit.style.flexGrow = 1f;
+        middleRightSplit.style.minWidth = 0f;
+        middleRightSplit.Add(middlePane);
+        middleRightSplit.Add(rightPane);
+        RegisterPaneWidthPersistence(middlePane, "Middle", MiddlePaneMinWidth);
+
+        float leftWidth = LoadPaneWidth("Left", LeftPaneWidth, LeftPaneMinWidth);
+        var body = new TwoPaneSplitView(0, leftWidth, TwoPaneSplitViewOrientation.Horizontal)
+        {
+            name = "RepositoryBody"
+        };
+        body.style.flexGrow = 1f;
+        body.style.minHeight = 0f;
+        body.style.minWidth = 0f;
+        body.Add(leftPane);
+        body.Add(middleRightSplit);
+        RegisterPaneWidthPersistence(leftPane, "Left", LeftPaneMinWidth);
         return body;
     }
 
     private VisualElement CreateLeftPane()
     {
         var pane = BuildPipelineUI.Card();
-        pane.style.width = LeftPaneWidth;
-        pane.style.minWidth = LeftPaneWidth;
-        pane.style.marginRight = 8f;
+        pane.style.minWidth = LeftPaneMinWidth;
         pane.style.marginBottom = 0f;
-        pane.style.flexShrink = 0f;
 
         _tabs = new VisualElement();
         _tabs.style.flexDirection = FlexDirection.Row;
@@ -257,11 +299,8 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
     private VisualElement CreateMiddlePane()
     {
         var pane = BuildPipelineUI.Card();
-        pane.style.width = MiddlePaneWidth;
-        pane.style.minWidth = 300f;
-        pane.style.marginRight = 8f;
+        pane.style.minWidth = MiddlePaneMinWidth;
         pane.style.marginBottom = 0f;
-        pane.style.flexShrink = 0f;
 
         _artifactTitle = BuildPipelineUI.Header("Commit Diff");
         pane.Add(_artifactTitle);
@@ -285,6 +324,30 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
         return pane;
     }
 
+    private float LoadPaneWidth(string paneName, float defaultWidth, float minWidth)
+    {
+        float width = EditorPrefs.GetFloat(GetPaneWidthKey(paneName), defaultWidth);
+        return Mathf.Clamp(width, minWidth, MaxRememberedPaneWidth);
+    }
+
+    private void RegisterPaneWidthPersistence(
+        VisualElement fixedPane,
+        string paneName,
+        float minWidth)
+    {
+        fixedPane.RegisterCallback<GeometryChangedEvent>(_ =>
+        {
+            float width = fixedPane.resolvedStyle.width;
+            if (width >= minWidth && width <= MaxRememberedPaneWidth)
+                EditorPrefs.SetFloat(GetPaneWidthKey(paneName), width);
+        });
+    }
+
+    private string GetPaneWidthKey(string paneName)
+    {
+        return $"FYAsset.Repository.{_backendMode}.{paneName}PaneWidth";
+    }
+
     private VisualElement CreateRightPane()
     {
         var pane = new VisualElement();
@@ -302,6 +365,8 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
         pane.Add(detail);
 
         pane.Add(CreatePushPanel());
+        if (_maintenancePanel != null)
+            pane.Add(_maintenancePanel.CreateContent());
         pane.Add(CreateResetPanel());
         return pane;
     }
@@ -359,6 +424,7 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
         var title = BuildPipelineUI.Header("Test Reset");
         title.style.flexGrow = 1f;
         header.Add(title);
+        header.Add(BuildPipelineUI.ToolbarButton("Reset Version", RunResetVersionForTest, 104f));
         header.Add(BuildPipelineUI.ToolbarButton("Clear Channel", RunClearChannelForTest, 104f));
         panel.Add(header);
 
@@ -462,6 +528,7 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
         RefreshHeader();
         RenderNavigation();
         RenderDiffContent();
+        _maintenancePanel?.Refresh();
     }
 
     private void RefreshHeader()
@@ -471,6 +538,7 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
 
         _channelLabel.text = $"Channel: {_channelKey}    Backend: {GetBackendDisplayName(_request.BackendMode)}";
         _headLabel.text = _status.HasHead ? SafeText(_status.HeadVersion) : "-";
+        _versionLabel.text = _request?.Version != null ? _request.Version.GetReleaseVersionString() : "-";
         _packageLabel.text = _status.HasHead ? SafeText(_status.PackageName) : "-";
         _artifactLabel.text = _status.HasHead ? _status.ArtifactCount.ToString(CultureInfo.InvariantCulture) : "0";
 
@@ -635,7 +703,7 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
         line.style.alignItems = Align.Center;
         line.Add(CreateMarkerLabel(item.Kind));
 
-        var name = new Label(SafeText(item.Name));
+        var name = new Label(GetArtifactPresentation(item.Name).DisplayName);
         name.style.flexGrow = 1f;
         name.style.minWidth = 0f;
         name.style.whiteSpace = WhiteSpace.Normal;
@@ -739,7 +807,7 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
         text.style.flexGrow = 1f;
         text.style.minWidth = 0f;
 
-        var name = new Label(SafeText(item.Name));
+        var name = new Label(GetArtifactPresentation(item.Name).DisplayName);
         name.style.whiteSpace = WhiteSpace.Normal;
         text.Add(name);
 
@@ -760,7 +828,7 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
 
         _detailTitle.text = "Artifact Detail";
         _detailContent.Add(CreateDetailLine("Status", GetKindText(item.Kind)));
-        _detailContent.Add(CreateDetailLine("Name", SafeText(item.Name)));
+        AddArtifactIdentityDetails(_detailContent, item.Name);
 
         if (item.Kind == RepositoryDiffKind.Modified)
         {
@@ -970,6 +1038,31 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
             SetBadge("Clear Failed", new Color(0.65f, 0.20f, 0.16f));
             _messageLabel.text = ex.Message;
         }
+    }
+
+    private void RunResetVersionForTest()
+    {
+        VersionDataBase versionDB = AssetDatabase.LoadAssetAtPath<VersionDataBase>(FYAssetSettings.Instance.VersionDataBasePath);
+        if (versionDB == null)
+        {
+            EditorUtility.DisplayDialog("Reset Version", "VersionDataBase not found:\n\n" + FYAssetSettings.Instance.VersionDataBasePath, "OK");
+            return;
+        }
+
+        if (!EditorUtility.DisplayDialog(
+                "Reset Version",
+                "Reset VersionDataBase to 1.0.0 for testing?\n\nThis clears Channel, LastBuildTime, and DailyBuildCount.",
+                "Reset",
+                "Cancel"))
+            return;
+
+        Undo.RecordObject(versionDB, "Reset VersionDataBase");
+        versionDB.CurrentVersion = new VersionNumber { Major = 1, Minor = 0, Patch = 0, Build = 0, Channel = string.Empty };
+        versionDB.LastBuildTime = string.Empty;
+        versionDB.DailyBuildCount = 0;
+        EditorUtility.SetDirty(versionDB);
+        AssetDatabase.SaveAssets();
+        Rebuild();
     }
 
     private static void WriteEmptyPackageIndex()
@@ -1271,6 +1364,66 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
                 map.Add(artifact.Name, artifact);
         }
         return map;
+    }
+
+    private ArtifactPresentation GetArtifactPresentation(string identity)
+    {
+        if (_backendMode != BackendMode.AA)
+        {
+            return new ArtifactPresentation
+            {
+                DisplayName = SafeText(identity)
+            };
+        }
+
+        string guid = identity ?? string.Empty;
+        string assetPath = string.IsNullOrEmpty(guid) ? string.Empty : AssetDatabase.GUIDToAssetPath(guid);
+        var settings = AddressableAssetSettingsDefaultObject.Settings;
+        var entry = settings != null && !string.IsNullOrEmpty(guid) ? settings.FindAssetEntry(guid) : null;
+        string address = entry != null ? entry.address ?? string.Empty : string.Empty;
+        bool isResolved = !string.IsNullOrEmpty(address) && !string.IsNullOrEmpty(assetPath);
+        string displayName;
+        if (isResolved)
+        {
+            displayName = $"{address} | {assetPath}";
+        }
+        else if (!string.IsNullOrEmpty(address))
+        {
+            displayName = $"Unresolved AA asset: {address} (GUID: {SafeText(guid)})";
+        }
+        else if (!string.IsNullOrEmpty(assetPath))
+        {
+            displayName = $"Unresolved Addressables entry: {assetPath} (GUID: {SafeText(guid)})";
+        }
+        else
+        {
+            displayName = $"Unresolved AA asset (GUID: {SafeText(guid)})";
+        }
+
+        return new ArtifactPresentation
+        {
+            DisplayName = displayName,
+            Address = address,
+            AssetPath = assetPath,
+            Guid = guid,
+            IsResolved = isResolved
+        };
+    }
+
+    private void AddArtifactIdentityDetails(VisualElement parent, string identity)
+    {
+        ArtifactPresentation presentation = GetArtifactPresentation(identity);
+        if (_backendMode != BackendMode.AA)
+        {
+            parent.Add(CreateDetailLine("Name", presentation.DisplayName));
+            return;
+        }
+
+        parent.Add(CreateDetailLine("Address", SafeText(presentation.Address)));
+        parent.Add(CreateDetailLine("Asset Path", SafeText(presentation.AssetPath)));
+        parent.Add(CreateDetailLine("GUID", SafeText(presentation.Guid)));
+        if (!presentation.IsResolved)
+            parent.Add(CreateWarning("Addressable asset cannot be fully resolved from the persisted GUID."));
     }
 
     private void AddDiffStats(ArtifactDelta delta)
@@ -1617,5 +1770,14 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
     {
         return backendMode == BackendMode.ABManifest ? "AB" : "AA";
     }
+}
+
+/// <summary>
+/// Backend-owned maintenance content hosted by the shared Repository panel.
+/// </summary>
+public interface IRepositoryMaintenancePanel
+{
+    VisualElement CreateContent();
+    void Refresh();
 }
 #endif

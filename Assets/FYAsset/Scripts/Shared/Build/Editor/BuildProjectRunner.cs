@@ -66,22 +66,44 @@ public static class BuildProjectRunner
     /// 重置分组 (Manual Trigger)
     /// 将位于 Hotfix 组的资源还原回它们原始的分组 (通常在打整包前，或者放弃本次热更时使用)
     /// </summary>
-    public static void ResetGroupsToOriginal(BackendMode backendMode)
+    public static HotfixGroupRestoreResult ResetGroupsToOriginal(BackendMode backendMode)
     {
         if (backendMode == BackendMode.ABManifest)
         {
             Debug.LogWarning("[BuildProjectRunner] ResetGroupsToOriginal 仅适用于 AA 构建链路，AB backend 下已跳过。");
-            return;
+            return new HotfixGroupRestoreResult
+            {
+                Message = "ResetGroupsToOriginal is not applicable to the AB backend."
+            };
+        }
+
+        HotfixGroupRestoreStatus status = TaskMoveAddressableHotfixGroups.GetRestoreStatus();
+        if (status.PendingCount == 0)
+        {
+            Debug.Log("[BuildProjectRunner] No pending AA hotfix group moves to restore.");
+            return new HotfixGroupRestoreResult
+            {
+                Message = "No pending AA hotfix group moves to restore."
+            };
         }
 
         bool confirm = EditorUtility.DisplayDialog("重置分组", 
-            "确定要将所有热更组 (Remote_Hotfix_Group) 中的资源还原回原始分组吗？\n\n注意：这通常在构建新的整包前执行。", 
+            $"将尝试还原 {status.RestorableCount} 个资源到原分组。\n" +
+            $"{status.DefaultGroupFallbackCount} 个资源将在原分组不存在时回退到 DefaultGroup。\n" +
+            $"{status.UnrestorableCount} 条无法恢复的记录将保留。\n\n" +
+            "此操作通常在构建新的整包前或放弃本次热更时使用。",
             "确定重置", "取消");
 
-        if (confirm)
-        {
-            TaskMoveAddressableHotfixGroups.Restore();
-        }
+        if (!confirm)
+            return new HotfixGroupRestoreResult
+            {
+                InitialPendingCount = status.PendingCount,
+                RemainingCount = status.PendingCount,
+                Cancelled = true,
+                Message = "Restore was cancelled."
+            };
+
+        return TaskMoveAddressableHotfixGroups.Restore();
     }
 
     private static bool RunBuild(

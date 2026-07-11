@@ -7,10 +7,6 @@ using UnityEditor;
 public class TaskCollectAssets : IBuildTask
 {
     public string TaskName => "TaskCollectAssets";
-    public string[] DependsOn => new[] { "TaskPrepareContext" };
-    public string[] ReadKeys => new string[0];
-    public string[] WriteKeys => new[] { BuildContextKeys.CollectedAssets, BuildContextKeys.SharePolicies };
-
     public BuildTaskResult Execute(BuildContext ctx)
     {
         AssetCollectionSetting setting = CollectorMutationUtility.LoadSetting();

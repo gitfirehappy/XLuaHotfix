@@ -2,8 +2,8 @@ using UnityEditor;
 using UnityEngine.UIElements;
 
 /// <summary>
-/// BuildPipelineWindow 子面板协议。
-/// 面板统一通过 UI Toolkit 渲染，并由 BuildPipelineWindow 承载。
+/// Build Pipeline window 子面板协议。
+/// 面板统一通过 UI Toolkit 渲染，并由 backend-specific window 承载。
 /// </summary>
 public interface IBuildPipelinePanel
 {

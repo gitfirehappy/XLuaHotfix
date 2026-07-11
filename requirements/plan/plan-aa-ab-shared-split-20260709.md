@@ -1,6 +1,6 @@
 # FYAsset Strict AA/AB/Shared Split Plan 2026-07-09
 
-> **Status**: Implemented / Verified / Pending developer sign-off
+> **Status**: Implemented / Static Verified / Editor acceptance pending
 > **Requirement ID**: aa-ab-shared-split-20260709
 > **Origin**: A1, A3, A5, and A9 from `requirements/plan/drafts/draft-fyasset-architecture-review-20260707.md`
 > **Scope**: Split AA/AB runtime, hotfix, build, and settings ownership into strict `AA/`, `AB/`, and `Shared/` script roots while keeping thin compatibility facades.
@@ -39,6 +39,10 @@ small compatibility layer for existing call sites and tests during migration.
     - common data contracts that are genuinely backend-neutral
 11. Do not change Addressables/AssetBundle package formats, hot-update protocol, or repository object format as part of
     this split.
+12. Build editor ownership follows the same split: AA and AB have separate windows composed over one shared shell; shared Settings and Version panels appear in both.
+13. Repository uses two native horizontal splitters for its three panes and persists AA/AB pane widths independently in EditorPrefs.
+14. AA Repository resolves persisted GUID identities into Address plus asset path for presentation only; repository diff identity and JSON remain GUID-based.
+15. AA-only Repository maintenance is injected by the AA window. It owns HotfixGroup recovery and never shares Test Reset, package, or Repository mutation behavior with AB.
 
 ## PRS Design Boundary
 
@@ -68,6 +72,8 @@ small compatibility layer for existing call sites and tests during migration.
 - `AABuildProjectManager`: AA build entrypoint.
 - `ABBuildProjectManager`: AB build entrypoint.
 - Compatibility facades keep the old public names and route only where needed.
+- `AABuildPipelineWindow` and `ABBuildPipelineWindow` are independent editor entrypoints; the old menu routes to one for compatibility.
+- `AAHotfixGroupMaintenancePanel` is an AA editor adapter hosted by `RepositoryStatusPanel`; AB does not register it.
 
 #### Integration Points
 
@@ -88,6 +94,7 @@ small compatibility layer for existing call sites and tests during migration.
 10. Update project files if Unity-generated `.csproj` files are tracked.
 11. Remove old empty script folders and their `.meta` files after moving `.cs`/`.meta` pairs.
 12. Update context/docs after code verification, not before.
+13. Add AA Repository presentation/recovery follow-up: show Address plus path while preserving GUID identity, expose pending HotfixGroup recovery, preserve unresolved undo records, and allow explicit record-only discard.
 
 ## Acceptance Criteria
 
@@ -99,6 +106,8 @@ small compatibility layer for existing call sites and tests during migration.
 - Three settings assets remain independent, with shared `LoadOrCreate` logic.
 - Shared infrastructure is not duplicated into AA and AB folders.
 - Existing external call sites continue to compile through compatibility facades where not yet migrated.
+- AA Repository exposes readable Address/path names without changing ArtifactDigest or stored repository objects.
+- AA Repository recovery retains unresolved undo records and can discard only those records after confirmation.
 - `Assets/FYAsset/Scripts/` has exactly `AA`, `AB`, and `Shared` as top-level code directories.
 - Active docs, context, requirements, and tracked `.csproj` entries describe current FYAsset script code only under those three roots.
 

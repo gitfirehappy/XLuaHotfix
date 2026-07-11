@@ -42,9 +42,17 @@ public sealed class ABReportPanel : BuildPipelineUIToolkitPanel
     private string _searchText = string.Empty;
     private ReportTab _activeTab = ReportTab.Summary;
     private ExploreMode _exploreMode = ExploreMode.AssetBundles;
-    private readonly BuildPackageResultsView _packageResults = new();
+    private readonly BuildPackageResultsView _packageResults;
 
     public override string PanelName => "AB Build Results";
+
+    public ABReportPanel()
+    {
+        _packageResults = new BuildPackageResultsView(
+            ABBuildReportStore.ListReportPathsByPackagePath,
+            ABBuildReportStore.DeleteReportsByPackagePath,
+            () => LoadReports(true));
+    }
 
     public override void SetVisible(bool visible)
     {
@@ -78,6 +86,7 @@ public sealed class ABReportPanel : BuildPipelineUIToolkitPanel
         VisualElement toolbar = BuildPipelineUI.Toolbar();
         toolbar.Add(BuildPipelineUI.ToolbarButton("Refresh", () => LoadReports(true), 60f));
         toolbar.Add(BuildPipelineUI.ToolbarButton("Reports Folder", ABBuildReportStore.RevealReportsDirectory, 96f));
+        toolbar.Add(BuildPipelineUI.ToolbarButton("Delete Report", DeleteCurrentReport, 96f));
         toolbar.Add(BuildPipelineUI.ToolbarButton("Open Package", RevealPackage, 96f));
 
         _reportDropdown = new DropdownField();
@@ -196,8 +205,15 @@ public sealed class ABReportPanel : BuildPipelineUIToolkitPanel
                 return;
             }
 
-            SetStatus(_report.Header.Success ? "构建成功" : "构建失败",
-                _report.Header.Success ? new Color(0.35f, 0.95f, 0.35f) : Color.red);
+            if (ABBuildReportStore.HasPackageConflict(_report))
+            {
+                SetStatus("包体缺失（报告冲突）", new Color(1f, 0.65f, 0.2f));
+            }
+            else
+            {
+                SetStatus(_report.Header.Success ? "构建成功" : "构建失败",
+                    _report.Header.Success ? new Color(0.35f, 0.95f, 0.35f) : Color.red);
+            }
         }
         catch (Exception ex)
         {
@@ -244,6 +260,9 @@ public sealed class ABReportPanel : BuildPipelineUIToolkitPanel
             return;
         }
 
+        if (ABBuildReportStore.HasPackageConflict(_report))
+            DrawPackageConflict();
+
         switch (_activeTab)
         {
             case ReportTab.Summary:
@@ -263,6 +282,18 @@ public sealed class ABReportPanel : BuildPipelineUIToolkitPanel
         VisualElement panel = CreateCenteredPanel(_body, 460f);
         panel.Add(CreateTitle("暂无可显示的 AB 构建报告"));
         panel.Add(CreateBody("执行 AB Full 或 Hotfix 构建后，报告会写入 BuildData/Reports/AB。"));
+    }
+
+    private void DrawPackageConflict()
+    {
+        VisualElement card = BuildPipelineUI.Card();
+        card.style.backgroundColor = new Color(0.42f, 0.24f, 0.04f, 0.45f);
+        card.Add(BuildPipelineUI.Header("报告与包体目录不一致"));
+        card.Add(BuildPipelineUI.SmallText(
+            "此成功报告对应的包体目录不存在：\n"
+            + (string.IsNullOrWhiteSpace(_report.Header.PackagePath) ? "(empty path)" : _report.Header.PackagePath)));
+        card.Add(BuildPipelineUI.ToolbarButton("Delete This Report", DeleteCurrentReport, 140f));
+        _body.Add(card);
     }
 
     private void DrawSummary()
@@ -365,7 +396,7 @@ public sealed class ABReportPanel : BuildPipelineUIToolkitPanel
 
     private void DrawBundleRows(VisualElement parent)
     {
-        AddTableHeader(parent, "Bundle", "Size", "Type", "Group", "Assets", "Deps", "Delivery");
+        AddTableHeader(parent, "Bundle / Asset", "File Size", "Type", "Group", "Assets", "Refs To", "Refs By", "Delivery");
         for (int i = 0; i < _report.Bundles.Count; i++)
         {
             ABBuildReportBundle bundle = _report.Bundles[i];
@@ -373,15 +404,44 @@ public sealed class ABReportPanel : BuildPipelineUIToolkitPanel
                 continue;
 
             VisualElement row = CreateDataRow();
-            row.Add(CreateCell(bundle.BundleName, 260f));
+            var foldout = new Foldout { text = bundle.BundleName, value = false };
+            foldout.style.width = 260f;
+            foldout.style.flexShrink = 0f;
+            row.Add(foldout);
             row.Add(CreateCell(FormatBytes(bundle.FileSize), 92f));
             row.Add(CreateCell(bundle.BundleType, 90f));
             row.Add(CreateCell(bundle.Group, 130f));
             row.Add(CreateCell(bundle.AssetCount.ToString(), 56f));
             row.Add(CreateCell(bundle.DependencyCount.ToString(), 52f));
+            row.Add(CreateCell((bundle.ReferencedBy?.Count ?? 0).ToString(), 52f));
             row.Add(CreateCell(bundle.Delivered ? "Yes" : "No", 70f, bundle.Delivered ? new Color(0.35f, 0.95f, 0.35f) : BuildPipelineUI.SecondaryTextColor));
             row.RegisterCallback<PointerDownEvent>(_ => DrawBundleDetails(bundle));
             parent.Add(row);
+
+            var assetRows = new VisualElement();
+            assetRows.style.display = DisplayStyle.None;
+            for (int assetIndex = 0; assetIndex < _report.Assets.Count; assetIndex++)
+            {
+                ABBuildReportAsset asset = _report.Assets[assetIndex];
+                if (asset == null || !string.Equals(asset.BundleName, bundle.BundleName, StringComparison.Ordinal))
+                    continue;
+
+                VisualElement assetRow = CreateDataRow();
+                Label assetName = CreateCell("    " + asset.SourcePath, 260f);
+                assetName.style.color = BuildPipelineUI.SecondaryTextColor;
+                assetRow.Add(assetName);
+                assetRow.Add(CreateCell(asset.Address, 92f));
+                assetRow.Add(CreateCell(asset.PrimaryType, 90f));
+                assetRow.Add(CreateCell(asset.Group, 130f));
+                assetRow.Add(CreateCell(string.Empty, 56f));
+                assetRow.Add(CreateCell(string.Empty, 52f));
+                assetRow.Add(CreateCell(string.Empty, 52f));
+                assetRow.Add(CreateCell(asset.Delivered ? "Yes" : "No", 70f, BuildPipelineUI.SecondaryTextColor));
+                assetRow.RegisterCallback<PointerDownEvent>(_ => DrawAssetDetails(asset));
+                assetRows.Add(assetRow);
+            }
+            foldout.RegisterValueChangedCallback(evt => assetRows.style.display = evt.newValue ? DisplayStyle.Flex : DisplayStyle.None);
+            parent.Add(assetRows);
         }
     }
 
@@ -453,6 +513,7 @@ public sealed class ABReportPanel : BuildPipelineUIToolkitPanel
         _details.Clear();
         _details.Add(BuildPipelineUI.Header("Bundle"));
         AddKeyValue(_details, "Name", bundle.BundleName);
+        AddKeyValue(_details, "File Path", GetBundleFilePath(bundle.BundleName));
         AddKeyValue(_details, "Size", FormatBytes(bundle.FileSize));
         AddKeyValue(_details, "Hash", bundle.FileHash);
         AddKeyValue(_details, "CRC", bundle.FileCRC.ToString());
@@ -461,7 +522,18 @@ public sealed class ABReportPanel : BuildPipelineUIToolkitPanel
         AddKeyValue(_details, "Tags", bundle.Tags);
         AddKeyValue(_details, "Delivered", bundle.Delivered ? "Yes" : "No");
         AddList(_details, "Dependencies", bundle.Dependencies);
+        AddList(_details, "Referenced By", bundle.ReferencedBy);
         AddList(_details, "Assets", bundle.Assets);
+    }
+
+    private string GetBundleFilePath(string bundleName)
+    {
+        if (_report?.Header == null || string.IsNullOrEmpty(_report.Header.PackagePath) || string.IsNullOrEmpty(bundleName))
+            return string.Empty;
+        return FYAssetPathUtility.JoinFilePath(
+            _report.Header.PackagePath,
+            FYAssetSettings.BUNDLES_DIRECTORY_NAME,
+            bundleName);
     }
 
     private void DrawAssetDetails(ABBuildReportAsset asset)
@@ -657,7 +729,38 @@ public sealed class ABReportPanel : BuildPipelineUIToolkitPanel
         if (_report == null || string.IsNullOrEmpty(_report.Header.PackagePath))
             return;
 
+        if (ABBuildReportStore.HasPackageConflict(_report))
+        {
+            EditorUtility.DisplayDialog(
+                "Package Missing",
+                "The report points to a package directory that no longer exists:\n\n" + _report.Header.PackagePath,
+                "OK");
+            return;
+        }
+
         EditorUtility.RevealInFinder(_report.Header.PackagePath);
+    }
+
+    private void DeleteCurrentReport()
+    {
+        if (_report == null || string.IsNullOrEmpty(_selectedReportPath))
+            return;
+
+        if (!EditorUtility.DisplayDialog(
+                "Delete Report",
+                "Delete this build report? The package directory will not be changed.\n\n"
+                + Path.GetFileName(_selectedReportPath),
+                "Delete",
+                "Cancel"))
+            return;
+
+        if (!ABBuildReportStore.TryDeleteReport(_selectedReportPath))
+        {
+            EditorUtility.DisplayDialog("Delete Failed", "Failed to delete report:\n\n" + _selectedReportPath, "OK");
+            return;
+        }
+
+        LoadReports(true);
     }
 
     #endregion

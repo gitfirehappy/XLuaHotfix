@@ -82,14 +82,13 @@ TaskA (WriteKeys: ["CollectedAssets"])     TaskB (ReadKeys: ["CollectedAssets"],
 
 ### Editor Layout
 
-Build Pipeline 窗口当前按 backend 分离入口：
+Build Pipeline 编辑器现在提供两个可同时打开的独立窗口：
 
-- 设置：全局 `FYAssetSettings`
-- AA：AA 配置、AA 构建、AA 构建结果、AA 仓库
-- AB：AB 配置、AssetsCollection、AB 构建、AB 构建结果、AB 仓库
-- 管理：版本
+- `Tools/Build/AA Build Pipeline`：Settings、AA Config、AA Build、AA Build Results、AA Repository、Version。
+- `Tools/Build/AB Build Pipeline`：Settings、AB Config、AssetsCollection、AB Build、AB Build Results、AB Repository、Version。
+- 旧 `Tools/Build/Build Pipeline` 菜单保留为兼容入口，根据 `UseABBackend` 打开 AA 或 AB 窗口。
 
-`UseABBackend` 只控制旧兼容入口和编辑器构建按钮的互斥状态：开启 AB 时 AA 构建不可执行，关闭 AB 时 AB 构建不可执行。AA/AB 配置、构建结果占位和仓库入口始终可查看。构建结果面板当前只是占位，不读取或生成报告数据；具体构建报告数据模型、持久化和展示另行规划。
+两个窗口中的构建按钮分别直达 `AABuildProjectManager` 和 `ABBuildProjectManager`，不再由 `UseABBackend` 互斥置灰。`UseABBackend` 只保留给旧兼容入口与命令行路由。AA/AB Repository 都使用可拖动的左/中/右三栏布局，两条分隔线宽度按 backend 分别保存在 EditorPrefs 中。
 
 ---
 

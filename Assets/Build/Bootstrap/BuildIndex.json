@@ -1,14 +1,14 @@
 {
-    "BuildGUID": "Build_20260706134750_6.0.0",
-    "BuildTime": "2026-07-06 13:47:50",
+    "BuildGUID": "Build_20260711130832_4.0.0",
+    "BuildTime": "2026-07-11 13:08:32",
     "IsDebug": false,
     "Platform": "StandaloneWindows64",
-    "BackendMode": "AB",
+    "BackendMode": "AA",
     "Version": {
-        "Major": 6,
+        "Major": 4,
         "Minor": 0,
         "Patch": 0,
-        "Build": 2,
+        "Build": 3,
         "Channel": ""
     }
 }

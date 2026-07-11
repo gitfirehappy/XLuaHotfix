@@ -1,6 +1,6 @@
 # Build State Cleanup Tools Plan 2026-07-07
 
-> **Status**: Implemented / Verified / Pending developer sign-off
+> **Status**: Implemented / Static Verified / AB report self-check pending
 > **Requirement ID**: build-state-cleanup-tools-20260707
 > **Origin**: `draft-version-system-test-features-20260707.md`, `draft-buildresults-management-panel-20260707.md`, `draft-repository-reset-20260707.md`
 > **Scope**: Version test reset, package output deletion, and repository test reset.
@@ -24,6 +24,7 @@ Make local build testing recoverable without manual file surgery:
 7. Repository reset physically clears `HEAD.json`, `objects/*.json`, cached repository head errors, and any legacy `PushHistory.json` residue for that channel.
 8. Package pointer cleanup writes an empty `PackageIndex.json` at `BuildPathManager.PackageIndexPath`.
 9. `BuildIndex.json` and `StreamingAssets` cleanup are not part of the default reset; they require a separate explicit checkbox because they affect startup baseline state.
+10. AB package deletion removes only reports whose normalized `Header.PackagePath` matches a successfully deleted package directory. Unmatched reports are preserved automatically, but any currently selected success, failure, stale, or abandoned report may be deleted explicitly after confirmation.
 
 ## Implementation Checklist
 
@@ -41,6 +42,9 @@ Make local build testing recoverable without manual file surgery:
 - Show package name, version, build time, size, and path in the existing Build Result area.
 - Add `Delete Selected` with confirmation listing selected package names and total size.
 - Delete only directories inside `BuildPathManager.PackagesDir`; reject paths outside that root.
+- For AB, show the matching report count, delete matching reports only after package deletion succeeds, and refresh the report dropdown immediately.
+- Warn when a successful AB report points to a missing package directory and allow confirmed deletion of that stale report.
+- Add a persistent `Delete Report` action for the current report regardless of build success or package-directory existence; deleting a report never deletes its package directory.
 
 ### 3. Repository Test Reset
 
@@ -66,12 +70,16 @@ Make local build testing recoverable without manual file surgery:
 - Repository reset cannot affect another backend/channel/build target.
 - After repository reset, Repository Health reports empty/OK rather than corrupted.
 - Empty `PackageIndex.json` does not point to a stale package.
+- Deleting an AB package deletes only reports with the same normalized `Header.PackagePath`; unrelated and failed-build reports remain.
+- A successful report with missing package output is visible as a conflict and can be removed explicitly.
+- Failed or abandoned reports without package output can also be deleted explicitly from the report toolbar.
 
 ## Verification
 
 - `dotnet build XLuaHotfix.sln --no-restore` exited 0. Existing `System.Net.Http` conflict warnings remain.
 - `git diff --check` exited 0. Git reported LF/CRLF working-copy warnings only.
 - Static checks confirmed `BuildPackageResultsView`, `ClearChannelForTest`, and `VersionPanel` test reset/read-only metadata are present.
+- 2026-07-11 follow-up: `dotnet build XLuaHotfix.sln --no-restore` exits 0 after AB report/package synchronization changes; Unity batchmode self-check is pending because the project is open in another Unity Editor instance.
 - Manual editor checks:
   - Reset version, cancel and confirm paths.
   - Delete one disposable package folder.
@@ -84,3 +92,4 @@ Make local build testing recoverable without manual file surgery:
 - No CI command surface unless later requested.
 - No scene validation build task.
 - No automatic deletion of `StreamingAssets` or startup baseline by default.
+- No report database, retention policy, or automatic cleanup of unrelated/stale reports.

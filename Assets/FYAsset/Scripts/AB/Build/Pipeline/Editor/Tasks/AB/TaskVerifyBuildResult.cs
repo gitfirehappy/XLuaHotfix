@@ -12,15 +12,6 @@ using UnityEngine;
 public class TaskVerifyBuildResult : IBuildTask
 {
     public string TaskName => "TaskVerifyBuildResult";
-    public string[] DependsOn => new[] { "TaskGenerateManifest" };
-    public string[] ReadKeys => new[]
-    {
-        BuildContextKeys.BuildConfig,
-        BuildContextKeys.ABManifest,
-        BuildContextKeys.BundleBuildResults
-    };
-    public string[] WriteKeys => new[] { BuildContextKeys.BuildVerificationResult };
-
     private const long MinSizeBytes = 1024L;
     private const long MaxSizeBytes = 500_000_000L;
 

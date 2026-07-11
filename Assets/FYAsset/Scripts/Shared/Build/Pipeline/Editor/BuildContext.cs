@@ -2,8 +2,7 @@ using System.Collections.Generic;
 
 /// <summary>
 /// 构建管线上下文 —— 类型安全的 KV 数据总线。
-/// 各 Task 通过 ReadKeys/WriteKeys 声明数据流可见性。
-/// WriteKeys 表示写入或更新，不表示独占写锁；BuildPipelineRunner 在执行前校验依赖顺序和 Read-before-Write。
+/// 各 Task 按配置顺序读写共享构建数据。
 /// 内部使用 Dictionary&lt;string, object&gt; 存储，兼容值类型和引用类型。
 /// </summary>
 public class BuildContext

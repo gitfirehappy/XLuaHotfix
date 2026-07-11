@@ -54,13 +54,95 @@ public static class ABBuildReportStore
             throw new ArgumentNullException(nameof(path));
 
         string json = FileHelper.ReadAllText(path);
-        return SerializationUtility.DeserializeJson<ABBuildReport>(json);
+        ABBuildReport report = SerializationUtility.DeserializeJson<ABBuildReport>(json);
+        if (report?.Bundles == null)
+            return report;
+
+        for (int i = 0; i < report.Bundles.Count; i++)
+        {
+            ABBuildReportBundle bundle = report.Bundles[i];
+            if (bundle == null)
+                continue;
+            bundle.Dependencies ??= new List<string>();
+            bundle.ReferencedBy ??= new List<string>();
+            bundle.Assets ??= new List<string>();
+        }
+        return report;
     }
 
     public static List<string> ListReportPaths()
     {
+        return ListReportPaths(ReportsDirectory);
+    }
+
+    internal static List<string> ListReportPathsByPackagePath(string packagePath, string reportsDirectory)
+    {
         var result = new List<string>();
-        string[] files = FileHelper.GetFiles(ReportsDirectory, "*" + ReportFileExtension, SearchOption.TopDirectoryOnly);
+        string normalizedPackagePath = NormalizeComparablePath(packagePath);
+        if (string.IsNullOrEmpty(normalizedPackagePath))
+            return result;
+
+        List<string> reportPaths = ListReportPaths(reportsDirectory);
+        for (int i = 0; i < reportPaths.Count; i++)
+        {
+            try
+            {
+                ABBuildReport report = Read(reportPaths[i]);
+                string reportPackagePath = NormalizeComparablePath(report?.Header?.PackagePath);
+                if (string.Equals(reportPackagePath, normalizedPackagePath, StringComparison.OrdinalIgnoreCase))
+                    result.Add(reportPaths[i]);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[{nameof(ABBuildReportStore)}] Failed to inspect report: {reportPaths[i]}, {ex.Message}");
+            }
+        }
+
+        return result;
+    }
+
+    public static List<string> ListReportPathsByPackagePath(string packagePath)
+    {
+        return ListReportPathsByPackagePath(packagePath, ReportsDirectory);
+    }
+
+    internal static int DeleteReportsByPackagePath(string packagePath, string reportsDirectory, List<string> failedPaths)
+    {
+        int deleted = 0;
+        List<string> paths = ListReportPathsByPackagePath(packagePath, reportsDirectory);
+        for (int i = 0; i < paths.Count; i++)
+        {
+            if (TryDeleteReport(paths[i], reportsDirectory))
+                deleted++;
+            else
+                failedPaths?.Add(paths[i]);
+        }
+
+        return deleted;
+    }
+
+    public static int DeleteReportsByPackagePath(string packagePath, List<string> failedPaths)
+    {
+        return DeleteReportsByPackagePath(packagePath, ReportsDirectory, failedPaths);
+    }
+
+    public static bool TryDeleteReport(string path)
+    {
+        return TryDeleteReport(path, ReportsDirectory);
+    }
+
+    public static bool HasPackageConflict(ABBuildReport report)
+    {
+        return report?.Header != null
+            && report.Header.Success
+            && (string.IsNullOrWhiteSpace(report.Header.PackagePath)
+                || !FileHelper.DirectoryExists(report.Header.PackagePath));
+    }
+
+    private static List<string> ListReportPaths(string reportsDirectory)
+    {
+        var result = new List<string>();
+        string[] files = FileHelper.GetFiles(reportsDirectory, "*" + ReportFileExtension, SearchOption.TopDirectoryOnly);
         if (files == null || files.Length == 0)
             return result;
 
@@ -68,6 +150,44 @@ public static class ABBuildReportStore
         for (int i = files.Length - 1; i >= 0; i--)
             result.Add(FYAssetPathUtility.NormalizePath(files[i]));
         return result;
+    }
+
+    private static bool TryDeleteReport(string path, string reportsDirectory)
+    {
+        if (!IsPathInsideDirectory(reportsDirectory, path))
+        {
+            Debug.LogError($"[{nameof(ABBuildReportStore)}] Refused to delete report outside ReportsDirectory: {path}");
+            return false;
+        }
+
+        return FileHelper.TryDelete(path);
+    }
+
+    private static bool IsPathInsideDirectory(string directory, string path)
+    {
+        string root = NormalizeComparablePath(directory);
+        string candidate = NormalizeComparablePath(path);
+        if (string.IsNullOrEmpty(root) || string.IsNullOrEmpty(candidate))
+            return false;
+
+        root += Path.DirectorySeparatorChar;
+        return candidate.StartsWith(root, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string NormalizeComparablePath(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            return string.Empty;
+
+        try
+        {
+            return Path.GetFullPath(path)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        }
+        catch (Exception)
+        {
+            return string.Empty;
+        }
     }
 
     public static string GetLatestReportPath()

@@ -1,5 +1,4 @@
 using System;
-using System.Threading.Tasks;
 using UnityEditor;
 using UnityEditor.AddressableAssets;
 using UnityEditor.AddressableAssets.Build;
@@ -8,18 +7,17 @@ using UnityEditor.AddressableAssets.Settings.GroupSchemas;
 using UnityEngine;
 
 /// <summary>
-/// AA 构建 Task — 配置 catalog、清理 ServerData、执行 BuildPlayerContent。
+/// AA 构建 Task — 注入最终输出路径并执行 BuildPlayerContent。
 /// </summary>
 public class TaskBuildAddressablesContent : IBuildTask
 {
+    private const string CatalogBuildPathVariable = "FYAsset.CatalogBuildPath";
+
     public string TaskName => "TaskBuildAddressablesContent";
-    public string[] DependsOn => new string[0];
-    public string[] ReadKeys => new[] { BuildContextKeys.BuildPackageRequest };
-    public string[] WriteKeys => new[] { BuildContextKeys.AAServerDataPath };
 
     public BuildTaskResult Execute(BuildContext ctx)
     {
-        ctx.Require<BuildPackageRequest>(BuildContextKeys.BuildPackageRequest);
+        var request = ctx.Require<BuildPackageRequest>(BuildContextKeys.BuildPackageRequest);
 
         var settings = AddressableAssetSettingsDefaultObject.Settings;
         if (settings == null)
@@ -28,21 +26,19 @@ public class TaskBuildAddressablesContent : IBuildTask
 
         try
         {
-            ConfigureBasicSettings(settings);
+            ConfigureBasicSettings(settings, request);
             AssetDatabase.Refresh();
 
-            string serverDataPath = BuildPathManager.GetServerDataDir();
-            AddressablesBuildOutputOrganizer.CleanServerData(serverDataPath);
             Debug.Log("[TaskBuildAddressablesContent] 开始执行 Addressables BuildPlayerContent...");
             AddressableAssetSettings.BuildPlayerContent(out AddressablesPlayerBuildResult result);
 
             if (!string.IsNullOrEmpty(result.Error))
                 return BuildTaskResult.Fail(BuildErrorCodes.BuildFailed, result.Error, true);
 
-            ctx.Set(BuildContextKeys.AAServerDataPath, serverDataPath);
             return BuildTaskResult.Ok(new System.Collections.Generic.List<string>
             {
-                $"[AA BUILD] ServerData: {serverDataPath}"
+                $"[AA BUILD] Catalog: {request.OutputDir}",
+                $"[AA BUILD] Remote bundles: {request.BundlesDir}"
             });
         }
         catch (Exception ex)
@@ -55,10 +51,19 @@ public class TaskBuildAddressablesContent : IBuildTask
     /// <summary>
     /// 配置 AddressableAssetSettings 基本参数。
     /// </summary>
-    private static void ConfigureBasicSettings(AddressableAssetSettings settings)
+    private static void ConfigureBasicSettings(AddressableAssetSettings settings, BuildPackageRequest request)
     {
         settings.BuildRemoteCatalog = true;
         settings.OverridePlayerVersion = "addressables_content_state";
+        ProjectConfigData.GenerateBuildLayout = true;
+
+        string catalogBuildPath = FYAssetPathUtility.NormalizePath(request.OutputDir);
+        string remoteBuildPath = FYAssetPathUtility.NormalizePath(request.BundlesDir);
+        settings.profileSettings.CreateValue(CatalogBuildPathVariable, catalogBuildPath);
+        settings.profileSettings.SetValue(settings.activeProfileId, CatalogBuildPathVariable, catalogBuildPath);
+        settings.profileSettings.SetValue(settings.activeProfileId, AddressableAssetSettings.kRemoteBuildPath, remoteBuildPath);
+        if (!settings.RemoteCatalogBuildPath.SetVariableByName(settings, CatalogBuildPathVariable))
+            throw new InvalidOperationException($"Unable to bind RemoteCatalogBuildPath to '{CatalogBuildPathVariable}'.");
 
         foreach (var group in settings.groups)
         {
@@ -87,7 +92,9 @@ public class TaskBuildAddressablesContent : IBuildTask
                 SetSchemaPathToRemote(settings, schema);
         }
 
+        EditorUtility.SetDirty(settings);
         AssetDatabase.SaveAssets();
+        Debug.Log($"[TaskBuildAddressablesContent] Addressables BuildPath 已注入并保存: Catalog={catalogBuildPath}, Remote={remoteBuildPath}");
     }
 
     /// <summary>

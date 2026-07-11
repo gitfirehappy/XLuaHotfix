@@ -9,7 +9,7 @@ using System.Collections.Generic;
 [Serializable]
 public class ABBuildReport
 {
-    public int SchemaVersion = 1;
+    public int SchemaVersion = 2;
     public ABBuildReportHeader Header = new();
     public ABBuildReportSummary Summary = new();
     public List<ABBuildReportBundle> Bundles = new();
@@ -79,6 +79,7 @@ public class ABBuildReportBundle
     public int DependencyCount;
     public bool Delivered;
     public List<string> Dependencies = new();
+    public List<string> ReferencedBy = new();
     public List<string> Assets = new();
 }
 

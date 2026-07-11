@@ -27,12 +27,6 @@ public static class BuildPathManager
         return FYAssetPathUtility.JoinFilePath(packageDir, FYAssetSettings.BUNDLES_DIRECTORY_NAME);
     }
 
-    public static string GetServerDataDir()
-    {
-        string platformSubDir = EditorUserBuildSettings.activeBuildTarget.ToString();
-        return FYAssetPathUtility.JoinFilePath(ProjectRoot, "ServerData", platformSubDir);
-    }
-
     private static string ResolveProjectRelativePath(string path)
     {
         if (string.IsNullOrWhiteSpace(path))

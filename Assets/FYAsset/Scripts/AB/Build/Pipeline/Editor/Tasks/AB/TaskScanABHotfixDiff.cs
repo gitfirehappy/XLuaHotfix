@@ -13,20 +13,6 @@ using UnityEngine;
 public class TaskScanABHotfixDiff : IBuildTask
 {
     public string TaskName => "TaskScanABHotfixDiff";
-    public string[] DependsOn => new[] { "TaskVerifyBuildResult" };
-    public string[] ReadKeys => new[]
-    {
-        BuildContextKeys.BuildPackageRequest,
-        BuildContextKeys.ABManifest,
-        BuildContextKeys.BuildType
-    };
-    public string[] WriteKeys => new[]
-    {
-        BuildContextKeys.ArtifactDelta,
-        BuildContextKeys.RepositoryArtifacts,
-        BuildContextKeys.ABDeliveryBundles
-    };
-
     public BuildTaskResult Execute(BuildContext ctx)
     {
         var request = ctx.Require<BuildPackageRequest>(BuildContextKeys.BuildPackageRequest);

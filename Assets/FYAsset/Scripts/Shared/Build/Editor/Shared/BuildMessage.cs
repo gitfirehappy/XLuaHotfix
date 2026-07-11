@@ -153,12 +153,6 @@ public static class BuildErrorCodes
     /// <summary>Task 反射发现或实例化失败</summary>
     public const string TaskResolutionFailed = "TASK_RESOLUTION_FAILED";
 
-    /// <summary>Task 依赖缺失或未启用</summary>
-    public const string MissingDependency = "MISSING_DEPENDENCY";
-
-    /// <summary>Task 读取的 BuildContext key 没有上游产出</summary>
-    public const string UnsatisfiedReadKey = "UNSATISFIED_READ_KEY";
-
     /// <summary>Task 执行返回 null</summary>
     public const string NullTaskResult = "NULL_RESULT";
 

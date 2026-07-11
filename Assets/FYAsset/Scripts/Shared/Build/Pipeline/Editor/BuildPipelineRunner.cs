@@ -4,7 +4,7 @@ using System.Linq;
 
 /// <summary>
 /// Linear build pipeline runner.
-/// The configured Task list order is the execution order; dependencies are validation-only guardrails.
+/// The configured Task list order is the execution order.
 /// </summary>
 public static class BuildPipelineRunner
 {
@@ -43,30 +43,22 @@ public static class BuildPipelineRunner
         if (config == null) throw new ArgumentNullException(nameof(config));
         if (context == null) throw new ArgumentNullException(nameof(context));
 
-        BuildResult validation = ValidateInternal(config, taskWhitelist);
-        if (!validation.Success)
-            return validation;
-
         return ExecuteInternal(config, context, options, stopAfterTaskName, taskWhitelist);
-    }
-
-    /// <summary>Validate the configured linear task list without executing tasks.</summary>
-    public static BuildResult Validate(BuildPipelineConfig config)
-    {
-        if (config == null) throw new ArgumentNullException(nameof(config));
-        return ValidateInternal(config);
     }
 
     #endregion
 
-    #region Validation
+    #region Execution
 
-    private static BuildResult ValidateInternal(BuildPipelineConfig config, HashSet<string> taskWhitelist = null)
+    private static BuildResult ExecuteInternal(
+        BuildPipelineConfig config,
+        BuildContext context,
+        BuildExecutionOptions options,
+        string stopAfterTaskName,
+        HashSet<string> taskWhitelist)
     {
         var errors = new List<BuildTaskResult>();
-        var warnings = new List<BuildTaskResult>();
         List<TaskEntry> entries = GetTaskEntries(config, taskWhitelist);
-
         if (entries.Count == 0)
         {
             return ErrorResult(0, new List<BuildTaskResult>
@@ -88,100 +80,6 @@ public static class BuildPipelineRunner
             }
         }
 
-        List<ResolvedTask> tasks = ResolveTasks(entries, errors);
-        if (errors.Count > 0)
-            return ErrorResult(entries.Count, errors);
-
-        ValidateDependencyOrder(config, tasks, errors);
-        if (errors.Count > 0)
-            return ErrorResult(tasks.Count, errors);
-
-        ValidateReadBeforeWrite(tasks, warnings);
-
-        var result = new BuildResult { Success = true, TotalTasks = tasks.Count };
-        result.TaskResults.AddRange(warnings);
-        return result;
-    }
-
-    private static void ValidateDependencyOrder(
-        BuildPipelineConfig config,
-        List<ResolvedTask> tasks,
-        List<BuildTaskResult> errors)
-    {
-        var enabledNames = new HashSet<string>(tasks.Select(t => t.Name), StringComparer.Ordinal);
-        var producedTaskNames = new HashSet<string>(StringComparer.Ordinal);
-
-        for (int i = 0; i < tasks.Count; i++)
-        {
-            ResolvedTask current = tasks[i];
-            string[] dependencies = current.Task.DependsOn ?? Array.Empty<string>();
-            for (int dependencyIndex = 0; dependencyIndex < dependencies.Length; dependencyIndex++)
-            {
-                string dependency = dependencies[dependencyIndex];
-                if (!enabledNames.Contains(dependency))
-                {
-                    errors.Add(WithTaskName(BuildTaskResult.Fail(
-                        BuildErrorCodes.MissingDependency,
-                        $"'{current.Name}' depends on '{dependency}', but '{dependency}' is not in the Task list.", true), current.Name));
-                    continue;
-                }
-
-                if (!producedTaskNames.Contains(dependency))
-                {
-                    errors.Add(WithTaskName(BuildTaskResult.Fail(
-                        BuildErrorCodes.MissingDependency,
-                        $"'{current.Name}' depends on '{dependency}', but '{dependency}' appears after it in the linear task list.",
-                        true), current.Name));
-                }
-            }
-
-            producedTaskNames.Add(current.Name);
-        }
-    }
-
-    private static void ValidateReadBeforeWrite(List<ResolvedTask> tasks, List<BuildTaskResult> warnings)
-    {
-        var produced = new HashSet<string>(StringComparer.Ordinal);
-
-        for (int i = 0; i < tasks.Count; i++)
-        {
-            IBuildTask task = tasks[i].Task;
-            if (task.ReadKeys != null)
-            {
-                for (int keyIndex = 0; keyIndex < task.ReadKeys.Length; keyIndex++)
-                {
-                    string key = task.ReadKeys[keyIndex];
-                    bool selfProduce = task.WriteKeys != null && task.WriteKeys.Contains(key);
-                    if (!selfProduce && !produced.Contains(key))
-                    {
-                        warnings.Add(WithTaskName(BuildTaskResult.Fail(
-                            BuildErrorCodes.UnsatisfiedReadKey,
-                            $"'{task.TaskName}' 读取 '{key}'，但没有前置 Task 产出该 Key。", false), task.TaskName));
-                    }
-                }
-            }
-
-            if (task.WriteKeys == null)
-                continue;
-
-            for (int keyIndex = 0; keyIndex < task.WriteKeys.Length; keyIndex++)
-                produced.Add(task.WriteKeys[keyIndex]);
-        }
-    }
-
-    #endregion
-
-    #region Execution
-
-    private static BuildResult ExecuteInternal(
-        BuildPipelineConfig config,
-        BuildContext context,
-        BuildExecutionOptions options,
-        string stopAfterTaskName,
-        HashSet<string> taskWhitelist)
-    {
-        var errors = new List<BuildTaskResult>();
-        List<TaskEntry> entries = GetTaskEntries(config, taskWhitelist);
         List<ResolvedTask> tasks = ResolveTasks(entries, errors);
         if (errors.Count > 0)
             return ErrorResult(entries.Count, errors);

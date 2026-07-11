@@ -12,15 +12,6 @@ using UnityEngine;
 public class TaskBuildBundles : IBuildTask
 {
     public string TaskName => "TaskBuildBundles";
-    public string[] DependsOn => new[] { "TaskAnalyzeDependencies" };
-    public string[] ReadKeys => new[]
-    {
-        BuildContextKeys.BuildConfig,
-        BuildContextKeys.CollectedAssets,
-        BuildContextKeys.BundleDependencyGraph
-    };
-    public string[] WriteKeys => new[] { BuildContextKeys.BundleBuildResults };
-
     /// <summary>
     /// AssetBundle 构建执行。
     /// 流程：按 BundleName 分组 -> 按 PayloadKind 分流（Serialized 走 BuildPipeline / Scene 独立打包 / RawFile 直接拷贝）

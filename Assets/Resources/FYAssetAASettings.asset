@@ -16,6 +16,6 @@ MonoBehaviour:
   HotfixMaxRetryCount: 3
   HotfixRetryBaseDelaySeconds: 1
   BuildPipelineConfigPath: Assets/Build/AABuildPipelineConfig.asset
-  ManifestOutputFormat: 1
+  ManifestOutputFormat: 2
   MaxHotfixSizeBytes: 1073741824
   LuaScriptsIndexPath: Assets/Build/LuaScriptsIndex.asset

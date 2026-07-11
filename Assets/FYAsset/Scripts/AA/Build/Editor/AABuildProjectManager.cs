@@ -24,7 +24,22 @@ public static class AABuildProjectManager
 
     public static void ResetGroupsToOriginal()
     {
-        BuildProjectRunner.ResetGroupsToOriginal(BackendMode.AA);
+        RestoreGroupsToOriginal();
+    }
+
+    public static HotfixGroupRestoreStatus GetHotfixGroupRestoreStatus()
+    {
+        return TaskMoveAddressableHotfixGroups.GetRestoreStatus();
+    }
+
+    public static HotfixGroupRestoreResult RestoreGroupsToOriginal()
+    {
+        return BuildProjectRunner.ResetGroupsToOriginal(BackendMode.AA);
+    }
+
+    public static HotfixGroupRestoreResult DiscardUnrestorableGroupRecords()
+    {
+        return TaskMoveAddressableHotfixGroups.DiscardUnrestorableRecords();
     }
 }
 #endif

@@ -9,17 +9,6 @@ using System.Text;
 public class TaskWriteABPackageManifest : IBuildTask
 {
     public string TaskName => "TaskWriteABPackageManifest";
-    public string[] DependsOn => new[] { "TaskOrganizeOutput" };
-    public string[] ReadKeys => new[]
-    {
-        BuildContextKeys.BuildPackageRequest,
-        BuildContextKeys.BuildType,
-        BuildContextKeys.ABManifest,
-        BuildContextKeys.ABDeliveryBundles,
-        BuildContextKeys.OutputPath
-    };
-    public string[] WriteKeys => new string[0];
-
     public BuildTaskResult Execute(BuildContext ctx)
     {
         var request = ctx.Require<BuildPackageRequest>(BuildContextKeys.BuildPackageRequest);

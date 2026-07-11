@@ -519,7 +519,7 @@
   <!-- Unity EditorWindow title bar -->
   <div class="titlebar">
     <span class="dot"></span><span class="dot"></span><span class="dot"></span>
-    <span class="title-text">Build Pipeline</span>
+    <span class="title-text">AB Build Pipeline (AA uses a separate window)</span>
   </div>
 
   <div class="body">
@@ -529,13 +529,6 @@
         <div class="group">
           <div class="group-title">SETTINGS</div>
           <button class="nav-btn active" data-panel="settings">Settings</button>
-        </div>
-        <div class="group" id="aaGroup">
-          <div class="group-title">AA PIPELINE</div>
-          <button class="nav-btn" data-panel="aa-config">AA Config</button>
-          <button class="nav-btn" data-panel="aa-build">AA Build</button>
-          <button class="nav-btn" data-panel="aa-report">AA Build Result</button>
-          <button class="nav-btn" data-panel="aa-repository">AA Repository</button>
         </div>
         <div class="group" id="abGroup">
           <div class="group-title">AB PIPELINE</div>
@@ -557,11 +550,6 @@
     <!-- ── Content Area (12px padding) ── -->
     <main class="main">
       <div class="main-inner" id="mainInner">
-        <!-- AB disabled hint (shown for panels 1-4 when UseABBackend=false) -->
-        <div class="ab-hint hidden" id="abHint">
-          AB Backend is disabled. Enable UseABBackend in Settings to edit.
-        </div>
-
         <!-- ═══════════════ AA Config Panel ═══════════════ -->
         <section class="panel" id="panel-aa-config">
           <div class="unity-toolbar">
@@ -862,10 +850,6 @@ Removed: 1
 <script>
   const sidebar = document.getElementById('sidebar');
   const sidebarSplitter = document.getElementById('sidebarSplitter');
-  const abHint = document.getElementById('abHint');
-  const useAB = document.getElementById('useAB');
-  const aaGroup = document.getElementById('aaGroup');
-  const abGroup = document.getElementById('abGroup');
   const navButtons = [...document.querySelectorAll('.nav-btn')];
 
   const panels = {
@@ -879,38 +863,9 @@ Removed: 1
     'ab-repository': document.getElementById('panel-ab-repository')
   };
 
-  // Only build execution panels are mutually disabled by UseABBackend. Config, build result, and repository remain viewable.
-  const abPanelIds = new Set(['ab-config', 'assets-collection', 'ab-build', 'ab-report', 'ab-repository']);
-  const aaPanelIds = new Set(['aa-config', 'aa-build', 'aa-report', 'aa-repository']);
-  let abEnabled = true;
-
   function setActivePanel(panelId) {
     navButtons.forEach(btn => btn.classList.toggle('active', btn.dataset.panel === panelId));
     Object.entries(panels).forEach(([id, el]) => el.classList.toggle('active', id === panelId));
-
-    const disabledBuildPanel = (panelId === 'ab-build' && !abEnabled) || (panelId === 'aa-build' && abEnabled);
-    abHint.classList.toggle('hidden', !disabledBuildPanel);
-
-    if (disabledBuildPanel) {
-      panels[panelId].style.opacity = '0.4';
-      panels[panelId].style.pointerEvents = 'none';
-    } else {
-      panels[panelId].style.opacity = '';
-      panels[panelId].style.pointerEvents = '';
-    }
-  }
-
-  function updateABState() {
-    abEnabled = useAB.checked;
-    // Only AA/AB build execution entries are mutually enabled. Reports and repositories are fixed backend views.
-    const aaBtns = aaGroup.querySelectorAll('.nav-btn');
-    aaBtns.forEach(btn => { btn.disabled = btn.dataset.panel === 'aa-build' && abEnabled; });
-    const abBtns = abGroup.querySelectorAll('.nav-btn');
-    abBtns.forEach(btn => { btn.disabled = btn.dataset.panel === 'ab-build' && !abEnabled; });
-
-    // Update AB hint visibility for the active panel
-    const activeBtn = navButtons.find(b => b.classList.contains('active'));
-    if (activeBtn) setActivePanel(activeBtn.dataset.panel);
   }
 
   // Sidebar navigation
@@ -920,9 +875,6 @@ Removed: 1
       setActivePanel(btn.dataset.panel);
     });
   });
-
-  // UseABBackend toggle
-  useAB.addEventListener('change', updateABState);
 
   // Sidebar splitter drag
   let dragging = false, dragStartX = 0, dragStartWidth = 0;
@@ -946,7 +898,6 @@ Removed: 1
     });
   });
 
-  updateABState();
   setActivePanel('settings');
 </script>
 </body>

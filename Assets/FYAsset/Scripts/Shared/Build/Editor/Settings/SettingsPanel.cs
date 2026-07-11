@@ -9,7 +9,6 @@ using UnityEngine.UIElements;
 /// </summary>
 public class SettingsPanel : IBuildPipelinePanel
 {
-    private BuildPipelineWindow _window;
     private FYAssetSettings _settings;
     private SerializedObject _so;
     private VisualElement _root;
@@ -19,7 +18,6 @@ public class SettingsPanel : IBuildPipelinePanel
 
     public void OnEnable(EditorWindow window)
     {
-        _window = window as BuildPipelineWindow;
         LoadSettings();
     }
 
@@ -39,7 +37,7 @@ public class SettingsPanel : IBuildPipelinePanel
     }
 
     /// <summary>
-    /// 重建设置面板内容，并在 UseABBackend 变化时刷新窗口壳层禁用状态。
+    /// 重建设置面板内容。
     /// </summary>
     private void Rebuild()
     {
@@ -78,7 +76,6 @@ public class SettingsPanel : IBuildPipelinePanel
             {
                 EditorUtility.SetDirty(_settings);
                 AssetDatabase.SaveAssets();
-                _window?.RefreshShell();
             });
         }
 

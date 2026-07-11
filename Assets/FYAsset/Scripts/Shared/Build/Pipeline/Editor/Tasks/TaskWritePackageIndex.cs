@@ -10,10 +10,6 @@ using UnityEngine;
 public class TaskWritePackageIndex : IBuildTask
 {
     public string TaskName => "TaskWritePackageIndex";
-    public string[] DependsOn => new string[0];
-    public string[] ReadKeys => new[] { BuildContextKeys.BuildPackageRequest };
-    public string[] WriteKeys => new string[0];
-
     public BuildTaskResult Execute(BuildContext ctx)
     {
         var request = ctx.Require<BuildPackageRequest>(BuildContextKeys.BuildPackageRequest);

@@ -41,3 +41,4 @@ Replace the Pipeline panel GraphView with a direct vertical Task sequence list. 
   - `TaskEntry` has no `Enabled`
   - tracked `BuildPipelineConfig` assets have no Task `Enabled:` entries
   - `BuildPipelineRunner` still validates `IBuildTask.DependsOn` ordering
+> 2026-07-11 follow-up: `plan-build-panel-task-slim-20260711.md` removes the Validate button/detail area and leaves the sequence list as build execution status only.

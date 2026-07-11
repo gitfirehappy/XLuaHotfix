@@ -21,17 +21,6 @@ public class TaskExportLocalBuildData : IBuildTask
     }
 
     public string TaskName => "TaskExportLocalBuildData";
-    public string[] DependsOn => Array.Empty<string>();
-    // OutputPath 只在 Full Build 分支实际读取；Hotfix 分支提前返回。
-    // 静态 ReadKeys 仍声明它，确保 Full Build 的尾部导出保持正确线性顺序。
-    public string[] ReadKeys => new[]
-    {
-        BuildContextKeys.BuildPackageRequest,
-        BuildContextKeys.BuildType,
-        BuildContextKeys.OutputPath
-    };
-    public string[] WriteKeys => Array.Empty<string>();
-
     public BuildTaskResult Execute(BuildContext ctx)
     {
         var request = ctx.Require<BuildPackageRequest>(BuildContextKeys.BuildPackageRequest);

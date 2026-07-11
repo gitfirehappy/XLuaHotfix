@@ -12,11 +12,24 @@ using UnityEngine.UIElements;
 /// </summary>
 public sealed class BuildPackageResultsView
 {
+    private readonly Func<string, List<string>> _listMatchingReports;
+    private readonly Func<string, List<string>, int> _deleteMatchingReports;
+    private readonly Action _reportsChanged;
     private readonly List<PackageEntry> _entries = new();
     private readonly HashSet<string> _selectedPaths = new(StringComparer.OrdinalIgnoreCase);
     private VisualElement _root;
     private VisualElement _list;
     private Label _statusLabel;
+
+    public BuildPackageResultsView(
+        Func<string, List<string>> listMatchingReports = null,
+        Func<string, List<string>, int> deleteMatchingReports = null,
+        Action reportsChanged = null)
+    {
+        _listMatchingReports = listMatchingReports;
+        _deleteMatchingReports = deleteMatchingReports;
+        _reportsChanged = reportsChanged;
+    }
 
     public void Build(VisualElement root)
     {
@@ -144,33 +157,71 @@ public sealed class BuildPackageResultsView
             return;
 
         var names = new List<string>();
+        int matchingReportCount = 0;
         for (int i = 0; i < selected.Count; i++)
+        {
             names.Add(selected[i].PackageName);
+            matchingReportCount += _listMatchingReports?.Invoke(selected[i].FullPath).Count ?? 0;
+        }
 
+        string reportMessage = _listMatchingReports == null
+            ? string.Empty
+            : "\nMatching reports: " + matchingReportCount;
         if (!EditorUtility.DisplayDialog(
                 "Delete Packages",
-                "Delete selected package folders?\n\n" + string.Join("\n", names) + "\n\nTotal: " + FormatBytes(totalBytes),
+                (_listMatchingReports == null
+                    ? "Delete selected package folders?\n\n"
+                    : "Delete selected package folders and their matching reports?\n\n")
+                + string.Join("\n", names)
+                + "\n\nPackages: " + selected.Count
+                + reportMessage
+                + "\nTotal: " + FormatBytes(totalBytes),
                 "Delete",
                 "Cancel"))
             return;
 
         string root = BuildPathManager.PackagesDir;
+        var failures = new List<string>();
         for (int i = 0; i < selected.Count; i++)
         {
             PackageEntry entry = selected[i];
             if (!IsSafePackagePath(root, entry.FullPath))
             {
                 Debug.LogError($"[BuildPackageResultsView] Refused to delete path outside PackagesDir: {entry.FullPath}");
+                failures.Add("Unsafe package path: " + entry.FullPath);
                 continue;
             }
 
             if (!FileHelper.TryDeleteDirectory(entry.FullPath, true))
+            {
                 Debug.LogError($"[BuildPackageResultsView] Failed to delete package: {entry.FullPath}");
+                failures.Add("Package delete failed: " + entry.PackageName);
+                continue;
+            }
+
+            if (_deleteMatchingReports != null)
+            {
+                var failedReports = new List<string>();
+                _deleteMatchingReports(entry.FullPath, failedReports);
+                for (int j = 0; j < failedReports.Count; j++)
+                    failures.Add("Report delete failed: " + Path.GetFileName(failedReports[j]));
+            }
         }
 
         _selectedPaths.Clear();
         AssetDatabase.Refresh();
-        Refresh();
+        if (failures.Count > 0)
+        {
+            EditorUtility.DisplayDialog(
+                "Delete Conflict",
+                "Some package/report state could not be synchronized:\n\n" + string.Join("\n", failures),
+                "OK");
+        }
+
+        if (_reportsChanged != null)
+            _reportsChanged();
+        else
+            Refresh();
     }
 
     private void UpdateStatus()

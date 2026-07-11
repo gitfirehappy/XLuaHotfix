@@ -13,10 +13,6 @@ using UnityEngine;
 public class TaskCollectBuiltins : IBuildTask
 {
     public string TaskName => "TaskCollectBuiltins";
-    public string[] DependsOn => new[] { "TaskCollectAssets" };
-    public string[] ReadKeys => new[] { BuildContextKeys.CollectedAssets };
-    public string[] WriteKeys => new[] { BuildContextKeys.CollectedAssets };
-
     /// <summary>可扩展的扫描类别：新增类型只需追加一行</summary>
     private static readonly BuiltinCategory[] Categories = new[]
     {

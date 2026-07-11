@@ -12,16 +12,6 @@ using UnityEngine;
 public class TaskGenerateManifest : IBuildTask
 {
     public string TaskName => "TaskGenerateManifest";
-    public string[] DependsOn => new[] { "TaskBuildBundles" };
-    public string[] ReadKeys => new[]
-    {
-        BuildContextKeys.BuildConfig,
-        BuildContextKeys.CollectedAssets,
-        BuildContextKeys.BundleBuildResults,
-        BuildContextKeys.BundleDependencyGraph
-    };
-    public string[] WriteKeys => new[] { BuildContextKeys.ABManifest };
-
     public BuildTaskResult Execute(BuildContext ctx)
     {
         var cfg = ctx.Require<BuildConfig>(BuildContextKeys.BuildConfig);

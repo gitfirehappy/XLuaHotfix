@@ -55,3 +55,4 @@ with optional preview filtering.
 - No incremental build cache.
 - No preview cache change.
 - No task contract rewrite.
+> 2026-07-11 follow-up: `plan-build-panel-task-slim-20260711.md` removes the public Validate surface and Task dependency/read/write declarations while retaining task resolution, backbone checks, stop-after, and whitelist execution.

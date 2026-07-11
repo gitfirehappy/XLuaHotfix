@@ -317,7 +317,11 @@ Staging diff 是只读诊断能力。它不会提交 HEAD、不会写 `PackageIn
 
 ### RepositoryStatusPanel
 
-Build Pipeline 窗口中不再使用一个总仓库入口；AA 和 AB 各有独立仓库块。`RepositoryStatusPanel` 通过固定 `BackendMode` 构造，AA 仓库始终查看 AA Channel，AB 仓库始终查看 AB Channel，不跟随当前 `UseABBackend` 切换。
+AA 与 AB Build Pipeline 窗口各自注册固定后端的 Repository。`RepositoryStatusPanel` 通过固定 `BackendMode` 构造，AA 仓库始终查看 AA Channel，AB 仓库始终查看 AB Channel，不跟随当前 `UseABBackend` 切换。Repository 左/中/右三栏之间使用两条可拖动分隔线，栏宽按 backend 分别持久化。
+
+AA 的 `ArtifactDigest.Name` 是稳定的 Addressables GUID，不是 BundleName。AA Changes 和 History 会将它解析为 `Address | AssetPath` 供阅读，详情仍显示 GUID；GUID 无法解析时会明确提示未解析状态。该展示不改变仓库 JSON 或差异匹配键。AB 继续显示 BundleName。
+
+AA Repository 右侧另有 `Hotfix Groups` 区域，用于处理尚未还原的 Addressables 热更分组记录。它显示可恢复、会回退 DefaultGroup 与无法恢复的记录数量；恢复后只保留失败项。`Discard Unrestorable` 只删除确认无法恢复的撤销记录，不移动资源、不删除 HotfixGroup，也不影响 Repository、包体或 `Test Reset`。
 
 功能：
 

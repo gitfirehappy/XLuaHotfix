@@ -10,18 +10,6 @@ using System.Text;
 public class TaskOrganizeOutput : IBuildTask
 {
     public string TaskName => "TaskOrganizeOutput";
-    public string[] DependsOn => new[] { "TaskScanABHotfixDiff" };
-    public string[] ReadKeys => new[]
-    {
-        BuildContextKeys.BuildConfig,
-        BuildContextKeys.BuildPackageRequest,
-        BuildContextKeys.BuildType,
-        BuildContextKeys.ABManifest,
-        BuildContextKeys.ABDeliveryBundles,
-        BuildContextKeys.BundleBuildResults
-    };
-    public string[] WriteKeys => new[] { BuildContextKeys.OutputPath };
-
     public BuildTaskResult Execute(BuildContext ctx)
     {
         var cfg = ctx.Require<BuildConfig>(BuildContextKeys.BuildConfig);

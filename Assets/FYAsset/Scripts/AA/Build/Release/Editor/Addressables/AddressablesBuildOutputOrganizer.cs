@@ -1,10 +1,12 @@
 #if UNITY_EDITOR
+using System;
 using System.IO;
+using UnityEditor;
 using UnityEngine;
 
 /// <summary>
 /// Addressables 构建产物整理器。
-/// 将 AA 的 ServerData 构建结果整理为：
+/// 将直接写入最终目录的 AA catalog 规范化为：
 /// OutputRoot/
 ///   ├─ catalog.json
 ///   └─ bundles/
@@ -14,87 +16,70 @@ using UnityEngine;
 public static class AddressablesBuildOutputOrganizer
 {
     /// <summary>
-    /// 整理构建产物
+    /// 规范化 catalog 文件名并移除未发布的 hash 文件。
     /// </summary>
-    /// <param name="buildSourceDir">Addressables 默认输出目录 (ServerData/Platform)</param>
-    /// <param name="finalOutputDir">最终打包输出目录，默认形如 Project/HotfixOutput/Packages/Build_yyyyMMddHHmmss_version</param>
-    public static void OrganizeBuildOutput(string buildSourceDir, string finalOutputDir)
+    /// <param name="finalOutputDir">Addressables 直接写入的最终包目录。</param>
+    public static void NormalizeBuildOutput(string finalOutputDir)
     {
-        buildSourceDir = FYAssetPathUtility.NormalizePath(buildSourceDir);
         finalOutputDir = FYAssetPathUtility.NormalizePath(finalOutputDir);
-
-        if (FileHelper.DirectoryExists(finalOutputDir))
+        string catalogPath = FYAssetPathUtility.JoinFilePath(finalOutputDir, FYAssetSettings.ADDRESSABLES_CATALOG_FILE_NAME);
+        bool catalogFound = FileHelper.Exists(catalogPath);
+        string[] files = FileHelper.GetFiles(finalOutputDir, "*", SearchOption.TopDirectoryOnly);
+        for (int i = 0; i < files.Length; i++)
         {
-            FileHelper.TryDeleteDirectory(finalOutputDir, true);
-        }
-        FileHelper.EnsureDirectory(finalOutputDir);
-
-        string bundleTargetDir = FYAssetPathUtility.JoinFilePath(finalOutputDir, FYAssetSettings.BUNDLES_DIRECTORY_NAME);
-        FileHelper.EnsureDirectory(bundleTargetDir);
-
-        var sourceFiles = Directory.GetFiles(buildSourceDir, "*", SearchOption.AllDirectories);
-
-        foreach (var file in sourceFiles)
-        {
+            string file = files[i];
             string fileName = Path.GetFileName(file);
-            string extension = Path.GetExtension(file).ToLower();
+            string extension = Path.GetExtension(file).ToLowerInvariant();
 
-            // 处理 Catalog (通常是 catalog_hash.json，需重命名为 catalog.json)
             if (fileName.StartsWith("catalog") && extension == ".json")
             {
-                string targetPath = FYAssetPathUtility.JoinFilePath(finalOutputDir, FYAssetSettings.ADDRESSABLES_CATALOG_FILE_NAME);
-                FileHelper.CopyFile(file, targetPath, true);
-                Debug.Log($"[AddressablesBuildOutputOrganizer] Catalog 已复制并重命名: {targetPath}");
+                if (!string.Equals(FYAssetPathUtility.NormalizePath(file), catalogPath, System.StringComparison.OrdinalIgnoreCase))
+                {
+                    FileHelper.CopyFile(file, catalogPath, true);
+                    FileHelper.TryDelete(file);
+                }
+                catalogFound = true;
             }
-            // 架构使用 AAManifest.json 进行版本比对，不需要 AA 自带的 hash 校验
             else if (fileName.StartsWith("catalog") && extension == ".hash")
-            {
-               // 直接跳过，不复制到 finalOutputDir
-                continue;
-            }
-            // 处理 Bundles (.bundle)
-            // 全量导出，下载时再通过 AAManifest.json 优化
-            else if (extension == ".bundle")
-            {
-                string targetPath = FYAssetPathUtility.JoinFilePath(bundleTargetDir, fileName);
-                FileHelper.CopyFile(file, targetPath, true);
-            }
-            // 其他文件 (如 bin 等，Addressable 默认 .bundle 扩展名，如果是 .bin 需自行适配)
-            else if (extension == ".bin") 
-            {
-                string targetPath = FYAssetPathUtility.JoinFilePath(bundleTargetDir, fileName);
-                FileHelper.CopyFile(file, targetPath, true);
-            }
+                FileHelper.TryDelete(file);
         }
-        
-        Debug.Log($"[AddressablesBuildOutputOrganizer] 构建产物整理完毕: {finalOutputDir}");
-    }
-    
-    /// <summary>
-    /// 清理 Addressables 的默认输出目录 (ServerData/[Platform])
-    /// </summary>
-    public static void CleanServerData(string serverDataPath)
-    {
-        serverDataPath = FYAssetPathUtility.NormalizePath(serverDataPath);
 
-        if (FileHelper.DirectoryExists(serverDataPath))
+        if (!catalogFound)
+            throw new FileNotFoundException("Addressables catalog was not generated in the final package directory.", finalOutputDir);
+
+        Debug.Log($"[AddressablesBuildOutputOrganizer] Catalog 已规范化: {catalogPath}");
+    }
+
+    [MenuItem("FYAsset/Tests/AA Output Organizer Self Check")]
+    public static void RunSelfCheck()
+    {
+        string root = Path.Combine(Path.GetTempPath(), nameof(AddressablesBuildOutputOrganizer) + "_" + Guid.NewGuid().ToString("N"));
+        string bundles = Path.Combine(root, FYAssetSettings.BUNDLES_DIRECTORY_NAME);
+        try
         {
-            try 
-            {
-                FileHelper.TryDeleteDirectory(serverDataPath, true);
-                Debug.Log($"[AddressablesBuildOutputOrganizer] 已清空旧构建数据: {serverDataPath}");
-            }
-            catch (System.Exception e)
-            {
-                Debug.LogWarning($"[AddressablesBuildOutputOrganizer] 清空 ServerData 失败 (可能是文件占用)，请手动检查: {e.Message}");
-            }
+            Directory.CreateDirectory(bundles);
+            File.WriteAllText(Path.Combine(root, "catalog_test.json"), "{}");
+            File.WriteAllText(Path.Combine(root, "catalog_test.hash"), "hash");
+            File.WriteAllText(Path.Combine(bundles, "test.bundle"), "bundle");
+
+            NormalizeBuildOutput(root);
+
+            Require(File.Exists(Path.Combine(root, FYAssetSettings.ADDRESSABLES_CATALOG_FILE_NAME)), "catalog.json was not created.");
+            Require(!File.Exists(Path.Combine(root, "catalog_test.json")), "Source catalog was not removed.");
+            Require(!File.Exists(Path.Combine(root, "catalog_test.hash")), "Catalog hash was not removed.");
+            Require(File.Exists(Path.Combine(bundles, "test.bundle")), "Bundle output was changed.");
+            Debug.Log($"[{nameof(AddressablesBuildOutputOrganizer)}] PASS - catalog normalization verified.");
         }
-        
-        // 重新创建空目录（BuildPlayerContent 也会自动创建，为了保险起见）
-        if (!FileHelper.DirectoryExists(serverDataPath))
+        finally
         {
-            FileHelper.EnsureDirectory(serverDataPath);
+            FileHelper.TryDeleteDirectory(root, true);
         }
+    }
+
+    private static void Require(bool condition, string message)
+    {
+        if (!condition)
+            throw new InvalidOperationException(message);
     }
 }
 #endif

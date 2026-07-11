@@ -11,14 +11,6 @@ using UnityEngine;
 public class TaskWriteAAPackageManifest : IBuildTask
 {
     public string TaskName => "TaskWriteAAPackageManifest";
-    public string[] DependsOn => new[] { "TaskOrganizeAAOutput" };
-    public string[] ReadKeys => new[]
-    {
-        BuildContextKeys.BuildPackageRequest,
-        BuildContextKeys.OutputPath
-    };
-    public string[] WriteKeys => new[] { BuildContextKeys.AAManifest };
-
     public BuildTaskResult Execute(BuildContext ctx)
     {
         var request = ctx.Require<BuildPackageRequest>(BuildContextKeys.BuildPackageRequest);
