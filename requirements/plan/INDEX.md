@@ -30,6 +30,7 @@ Shared executable plans live here while active. `requirements/plan.md` remains t
 | `plan-ab-build-report-panel-20260606.md` | Signed off and archived |
 | `plan-repository-git-style-diff-20260606.md` | Signed off and archived |
 | `plan-fyasset-bundle-identity-rawfile-root-fix-20260611.md` | Signed off and archived |
+| `plan-hotfix-url-publish-20260712.md` | Local and Cloudflare verified, signed off, and archived |
 
 ## Active
 | File | Status |

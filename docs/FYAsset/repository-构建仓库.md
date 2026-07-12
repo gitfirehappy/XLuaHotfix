@@ -17,7 +17,7 @@ Build Repository 是构建产物的版本化存储系统，采用类 git 的 HEA
 - **先写 object 再交换 HEAD**，HEAD 交换失败时 object 作为孤立文件保留，不会丢数据
 - **AA / AB 仓库空间隔离**，通过 ChannelKey 中的 BackendMode 段区分
 - **提交级 CommitDiff 固化**：每个 commit 写入时记录它相对上一个同 Channel/Backend HEAD 的 `CommitDelta`，首个 commit 的 diff 是从空集合到当前产物的全量 Added
-- **Push 发布已构建包体**：发布根包含 `PackageIndex.json` 和 `{BuildPackagesFolderName}/{PackageName}`，包体内容由构建 Task 负责
+- **Push 发布已构建包体**：Target Path 是服务总根，AA/AB 分别发布到 `{Path}/AA` 与 `{Path}/AB`，每个后端根独立包含 `PackageIndex.json` 和 `{BuildPackagesFolderName}/{PackageName}`
 - **Diff 不筛 Push 文件**：Repository Diff 负责识别变化、驱动 AA Hotfix Group、展示提交/预览；Push 始终发布已构建包体。AB Hotfix 的实际包体交付列表由 AB 构建 Task 按 Full baseline 计算。
 
 ---
@@ -207,8 +207,9 @@ HEAD 指针文件路径：`{channelRoot}/HEAD.json`。Object 文件路径由目�
 | 字段 | 类型 | JSON | 语义 |
 |------|------|:----:|------|
 | `Id` | string | ✓ | 用户自定义目标标识 |
-| `Type` | PushTargetType | ✓ | 目标类型，当前仅 `LocalDirectory`(0) |
-| `Path` | string | ✓ | 目标路径（目录选择器编辑） |
+| `Type` | PushTargetType | ✓ | `LocalDirectory`(0) 或 `CloudflarePages`(1) |
+| `Path` | string | ✓ | 服务总根；Push 根据 commit BackendMode 追加 `AA` 或 `AB` |
+| `PublicBaseUrl` | string | ✓ | 服务公开根 URL；Repository 显式派生并应用当前后端 URL |
 
 **PushPayload** — 由 Repository 组装，PushTarget 只消费已构建完成的包体目录：
 
@@ -237,7 +238,7 @@ public interface IPushTarget
 }
 ```
 
-当前唯一实现：`LocalDirectoryPushTarget`。
+当前实现：`LocalDirectoryPushTarget` 和 `CloudflarePagesPushTarget`。
 
 ### Push 流程
 
@@ -246,23 +247,34 @@ public interface IPushTarget
 3. `FileBuildRepository.PushHead()` 读取 HEAD commit，并从 `ParentVersion` 推导 `FromCommit`；首个提交的 From 为空。
 4. CLI 仍调用 `FileBuildRepository.Push(channelKey, fromVersion, toVersion, target)`，保留显式 `-from` / `-to` 参数契约。
 5. Repository 组装 `PushPayload` 并调用 `target.Push(payload)`。
-6. `LocalDirectoryPushTarget` 将 `PushTargetConfig.Path` 作为发布根；空路径解析为当前 `BuildPathManager.OutputRoot`
-7. 发布 `{PublishRoot}/PackageIndex.json` 和 `{PublishRoot}/{BuildPackagesFolderName}/{PackageName}/...`
+6. Target 将 `PushTargetConfig.Path` 解析为服务总根，再按 commit BackendMode 得到 `{ServiceRoot}/{AA|AB}` 后端发布根；空 Path 使用当前 `BuildPathManager.OutputRoot`
+7. 发布 `{BackendRoot}/PackageIndex.json` 和 `{BackendRoot}/{BuildPackagesFolderName}/{PackageName}/...`
 8. Push 成功后返回 `PushReceipt`；不写持久化 PushHistory。
-9. **当前状态**：AA/AB Push 均走同一发布根语义。
+9. URL 由 Target 的 `PublicBaseUrl` 加 `AA/` 或 `AB/` 派生；只有显式 `Apply URL` 会写当前后端 Settings，Push 本身不改 URL。
 
 ### LocalDirectoryPushTarget
 
-将产物推送到本地发布根：
+将产物推送到本地服务根下的后端隔离目录：
 - `PushTargetConfig.Path` 为空时使用当前 `BuildPathManager.OutputRoot`
-- `PushTargetConfig.Path` 是发布根语义；相对路径按项目根解析，绝对路径原样规范化，不硬编码 `HotfixOutput`
-- 包体目录固定为 `{PublishRoot}/{BuildPackagesFolderName}/{PackageName}/`
-- 根部 `PackageIndex.json` 根据 `toCommit` 的 PackageName、Version、BackendMode 写入
+- `PushTargetConfig.Path` 是服务总根语义；相对路径按项目根解析，绝对路径原样规范化
+- 后端发布根固定为 `{ServiceRoot}/{AA|AB}`，包体目录固定为 `{BackendRoot}/{BuildPackagesFolderName}/{PackageName}/`
+- 每个后端根的 `PackageIndex.json` 根据 `toCommit` 的 PackageName、Version、BackendMode 独立写入
 - 如果目标包体目录就是当前构建输出包体目录，则通过规范化路径比较识别并跳过自复制，避免删除自身产物
 - 不重新解释、重写或校验 catalog、AAManifest、ABManifest 等包体内容
+- 包目录和 PackageIndex 通过同一事务暂存/备份；失败时恢复旧包和旧指针，不留下 `.fyasset_push` 目录
+
+### CloudflarePagesPushTarget
+
+- 先按同一事务规则更新本地 Cloudflare 服务镜像，再部署整个服务总根，另一后端目录不会被覆盖
+- 只在用户显式选择 Cloudflare Target 并执行 Push 时调用 `wrangler pages deploy`
+- Pages project name 复用 `FYAssetSettings.ProjectName`，生产分支固定为 `main`；该字段同时影响运行时 persistentData 根
+- Wrangler 缺失、未认证或部署失败时 Push 返回失败；预检失败不会创建镜像，部署失败会恢复本地镜像
+- 服务根 `_headers` 禁止缓存 AA/AB 的 PackageIndex，并为版本化 Packages 配置 immutable 缓存
+- 当前生产配置已验证 `https://firehappy-cfy.com/AA/`：`PackageIndex.json`、AAManifest、catalog 和 7 个 Bundle 与本地镜像哈希一致；未发布 AB 时 `/AB/PackageIndex.json` 返回 404
+- Windows 系统代理不会自动传给 Node/Wrangler。使用仅配置在 Windows Internet Settings 的本地代理时，应在启动 Unity 的同一进程环境中设置 `HTTP_PROXY`、`HTTPS_PROXY` 和 Node 24 的 `NODE_USE_ENV_PROXY=1`，否则 Wrangler 可能走直连并在 10 秒连接超时
 
 路径处理规则：
-- 发布根、包体目录、根部 `PackageIndex.json` 都按本地文件系统路径拼接。
+- 服务总根、后端根、包体目录和后端 `PackageIndex.json` 都按本地文件系统路径拼接。
 - 递归复制时通过统一相对路径计算生成目标路径，避免 Windows `\` 与 `/` 混用导致相对路径截取错误。
 - ChannelKey 中的 `/` 是仓库逻辑分隔符，不是本地目录拼接规则；落盘前会映射到隔离目录。
 
@@ -371,7 +383,8 @@ BuildFullPackage / BuildHotfix
 
 ## 注意事项
 
-- **AA/AB Push 同级**：当前 Push 发布根部 `PackageIndex.json` 和已构建 package 目录；不重新解释 catalog、AAManifest 或 ABManifest
+- **AA/AB 发布根隔离**：同一个 Target 下 AA 与 AB 分别使用 `/AA/PackageIndex.json` 和 `/AB/PackageIndex.json`，不会争用远端入口
+- **URL 应用显式执行**：Target 的 PublicBaseUrl 不会因 Push 自动写入运行时设置；Repository 的 Apply URL 只修改当前 AA/AB Settings
 - **Diff 不筛 Push 文件**：Push 不做 delta-copy bundle；AB Hotfix 的交付筛选发生在构建 Task 内，不发生在 Push 阶段
 - **提交 diff 与 staging diff 分离**：History 展示已持久化的 `CommitDelta`；Changes/CLI Diff 才运行当前 preview output vs HEAD 的主动预览
 - **编辑器 Push 只发布 HEAD**：Target 是发布位置；From/To 在 UI 中不再作为人工输入。CLI Push 继续保留显式 from/to 参数。

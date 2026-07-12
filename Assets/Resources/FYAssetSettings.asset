@@ -12,10 +12,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1d371fa61c07467b8ae78af001014c1e, type: 3}
   m_Name: FYAssetSettings
   m_EditorClassIdentifier: 
-  ProjectName: ProjectName1
-  UseABBackend: 1
+  ProjectName: my-game-xlua-hotfix
+  UseABBackend: 0
   BuildOutputRoot: HotfixOutput
   BuildPackagesFolderName: Packages
   VersionDataBasePath: Assets/Build/VersionDataBase.asset
   BuildIndexJsonPath: Assets/Build/Bootstrap/BuildIndex.json
-  PushTargets: []
+  PushTargets:
+  - Id: local
+    Type: 0
+    Path: HotfixPublish/Local
+    PublicBaseUrl: http://127.0.0.1:18080/
+  - Id: cloudflare
+    Type: 1
+    Path: HotfixPublish/Cloudflare
+    PublicBaseUrl: https://firehappy-cfy.com/

@@ -61,7 +61,15 @@ public static class FYAssetBuildSettingsProvider
         {
             Id = "local",
             Type = PushTargetType.LocalDirectory,
-            Path = string.Empty
+            Path = "HotfixPublish/Local",
+            PublicBaseUrl = "http://127.0.0.1:18080/"
+        });
+        settings.PushTargets.Add(new PushTargetConfig
+        {
+            Id = "cloudflare",
+            Type = PushTargetType.CloudflarePages,
+            Path = "HotfixPublish/Cloudflare",
+            PublicBaseUrl = "https://firehappy-cfy.com/"
         });
         return settings;
     }

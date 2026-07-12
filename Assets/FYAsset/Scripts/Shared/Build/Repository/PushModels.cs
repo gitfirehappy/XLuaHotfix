@@ -3,11 +3,11 @@ using System.Collections.Generic;
 
 /// <summary>
 /// Push 目标类型。
-/// 当前只允许 LocalDirectory；CDN 目标留给后续计划。
 /// </summary>
 public enum PushTargetType
 {
-    LocalDirectory = 0
+    LocalDirectory = 0,
+    CloudflarePages = 1
 }
 
 /// <summary>
@@ -20,6 +20,7 @@ public sealed class PushTargetConfig
     public string Id;
     public PushTargetType Type;
     public string Path;
+    public string PublicBaseUrl;
 }
 
 #if UNITY_EDITOR
@@ -50,7 +51,6 @@ public sealed class PushReceipt
 
 /// <summary>
 /// Push 目标抽象。
-/// 当前版本只提供本地目录实现。
 /// </summary>
 public interface IPushTarget
 {

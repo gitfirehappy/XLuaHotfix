@@ -64,7 +64,9 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
     private Label _packageLabel;
     private Label _artifactLabel;
     private Label _messageLabel;
+    private Label _localServerStatusLabel;
     private DropdownField _targetDropdown;
+    private IntegerField _localServerPortField;
     private Toggle _clearPackageIndexToggle;
     private Toggle _deletePackagesToggle;
     private Toggle _clearStartupBaselineToggle;
@@ -143,7 +145,9 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
         _packageLabel = null;
         _artifactLabel = null;
         _messageLabel = null;
+        _localServerStatusLabel = null;
         _targetDropdown = null;
+        _localServerPortField = null;
         _clearPackageIndexToggle = null;
         _deletePackagesToggle = null;
         _clearStartupBaselineToggle = null;
@@ -350,10 +354,9 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
 
     private VisualElement CreateRightPane()
     {
-        var pane = new VisualElement();
+        var pane = new ScrollView(ScrollViewMode.Vertical);
         pane.style.flexGrow = 1f;
         pane.style.minWidth = RightPaneMinWidth;
-        pane.style.flexDirection = FlexDirection.Column;
 
         var detail = BuildPipelineUI.Card();
         detail.style.flexGrow = 1f;
@@ -376,7 +379,7 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
         var panel = BuildPipelineUI.Card();
         panel.style.marginBottom = 0f;
         panel.style.flexShrink = 0f;
-        panel.style.maxHeight = 360f;
+        panel.style.maxHeight = 560f;
 
         var header = new VisualElement();
         header.style.flexDirection = FlexDirection.Row;
@@ -405,10 +408,15 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
         _targetDropdown.style.maxWidth = Length.Percent(100f);
         SetCompactFieldLabel(_targetDropdown, 48f);
         row.Add(_targetDropdown);
+        Button applyUrl = BuildPipelineUI.ToolbarButton("Apply URL", RunApplyTargetUrl, 78f);
+        applyUrl.style.marginLeft = 6f;
+        row.Add(applyUrl);
         panel.Add(row);
 
         panel.Add(BuildPipelineUI.SmallText("Push publishes the current Repository HEAD to the selected Target."));
+        panel.Add(BuildPipelineUI.SmallText("Apply URL explicitly updates only the current backend HotfixUrl; Push never changes it."));
         panel.Add(CreatePushTargetEditor());
+        panel.Add(CreateLocalServerControls());
         return panel;
     }
 
@@ -463,10 +471,13 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
 
     private VisualElement CreatePushTargetRow(PushTargetConfig config, int index)
     {
+        var container = new VisualElement();
+        container.style.marginTop = 6f;
+        container.style.paddingBottom = 6f;
+
         var row = new VisualElement();
         row.style.flexDirection = FlexDirection.Row;
         row.style.alignItems = Align.Center;
-        row.style.marginTop = 4f;
         row.style.width = Length.Percent(100f);
         row.style.minWidth = 0f;
 
@@ -492,6 +503,26 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
         });
         row.Add(idField);
 
+        var typeField = new EnumField("Type", config != null ? config.Type : PushTargetType.LocalDirectory);
+        typeField.RegisterValueChangedCallback(evt =>
+        {
+            if (config == null || evt.newValue is not PushTargetType value)
+                return;
+
+            Undo.RecordObject(FYAssetSettings.Instance, "Edit Push Target Type");
+            config.Type = value;
+            SaveRepositorySettings();
+            Rebuild();
+        });
+
+        Button remove = BuildPipelineUI.ToolbarButton("Remove", () => RemovePushTarget(index), 64f);
+        remove.style.marginLeft = 6f;
+        remove.style.flexShrink = 0f;
+        row.Add(remove);
+        container.Add(row);
+        typeField.style.marginTop = 4f;
+        container.Add(typeField);
+
         SerializedProperty pathProperty = new SerializedObject(FYAssetSettings.Instance)
             .FindProperty(nameof(FYAssetSettings.PushTargets))
             .GetArrayElementAtIndex(index)
@@ -502,13 +533,79 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
         path.style.flexBasis = 0f;
         path.style.minWidth = 0f;
         path.style.maxWidth = Length.Percent(100f);
-        row.Add(path);
+        path.style.marginTop = 4f;
+        container.Add(path);
 
-        Button remove = BuildPipelineUI.ToolbarButton("Remove", () => RemovePushTarget(index), 64f);
-        remove.style.marginLeft = 6f;
-        remove.style.flexShrink = 0f;
-        row.Add(remove);
-        return row;
+        var urlField = new TextField("Public URL")
+        {
+            value = config != null ? config.PublicBaseUrl : string.Empty,
+            isDelayed = true
+        };
+        urlField.style.marginTop = 4f;
+        urlField.RegisterValueChangedCallback(evt =>
+        {
+            if (config == null)
+                return;
+
+            Undo.RecordObject(FYAssetSettings.Instance, "Edit Push Target URL");
+            config.PublicBaseUrl = (evt.newValue ?? string.Empty).Trim();
+            SaveRepositorySettings();
+            Rebuild();
+        });
+        container.Add(urlField);
+
+        string backendName = BackendModeNames.FromBackendMode(_backendMode);
+        string resolvedRoot = config != null
+            ? FYAssetPathUtility.JoinFilePath(config.Path, backendName)
+            : backendName;
+        container.Add(BuildPipelineUI.SmallText($"Current backend publishes under: {resolvedRoot}"));
+        if (config != null && config.Type == PushTargetType.CloudflarePages)
+        {
+            container.Add(BuildPipelineUI.SmallText(
+                "Cloudflare project name uses FYAssetSettings.ProjectName; changing it also changes the runtime persistentData root."));
+        }
+
+        return container;
+    }
+
+    private VisualElement CreateLocalServerControls()
+    {
+        var box = new VisualElement();
+        box.style.marginTop = 8f;
+        box.style.paddingTop = 6f;
+        ApplyBorder(box);
+
+        var row = new VisualElement();
+        row.style.flexDirection = FlexDirection.Row;
+        row.style.alignItems = Align.Center;
+        row.style.paddingLeft = 6f;
+        row.style.paddingRight = 6f;
+
+        _localServerPortField = new IntegerField("Local Port")
+        {
+            value = LocalHotfixServerController.Port,
+            isDelayed = true
+        };
+        _localServerPortField.style.width = 150f;
+        _localServerPortField.RegisterValueChangedCallback(evt =>
+        {
+            LocalHotfixServerController.Port = evt.newValue;
+            _localServerPortField.SetValueWithoutNotify(LocalHotfixServerController.Port);
+            RefreshLocalServerStatus();
+        });
+        row.Add(_localServerPortField);
+        row.Add(BuildPipelineUI.ToolbarButton("Start", RunStartLocalServer, 54f));
+        row.Add(BuildPipelineUI.ToolbarButton("Stop", RunStopLocalServer, 54f));
+        row.Add(BuildPipelineUI.ToolbarButton("Status", RefreshLocalServerStatus, 58f));
+        box.Add(row);
+
+        _localServerStatusLabel = BuildPipelineUI.SmallText(string.Empty);
+        _localServerStatusLabel.style.marginLeft = 6f;
+        _localServerStatusLabel.style.marginRight = 6f;
+        _localServerStatusLabel.style.marginBottom = 6f;
+        box.Add(_localServerStatusLabel);
+        RefreshLocalServerStatus();
+        return box;
     }
 
     private void RefreshRepositoryState()
@@ -988,6 +1085,60 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
         }
     }
 
+    private void RunApplyTargetUrl()
+    {
+        try
+        {
+            PushTargetConfig config = GetSelectedTargetConfig();
+            string url = PushTargetUtility.GetBackendHotfixUrl(config, _backendMode);
+            ScriptableObject settings = _backendMode == BackendMode.ABManifest
+                ? FYAssetBuildSettingsProvider.AB
+                : FYAssetBuildSettingsProvider.AA;
+
+            Undo.RecordObject(settings, "Apply Hotfix URL");
+            if (_backendMode == BackendMode.ABManifest)
+                ((FYAssetABSettings)settings).HotfixUrl = url;
+            else
+                ((FYAssetAASettings)settings).HotfixUrl = url;
+            EditorUtility.SetDirty(settings);
+            AssetDatabase.SaveAssets();
+
+            SetBadge("URL Applied", new Color(0.18f, 0.48f, 0.28f));
+            _messageLabel.text = $"{GetBackendDisplayName(_backendMode)} HotfixUrl -> {url}";
+        }
+        catch (Exception ex)
+        {
+            SetBadge("URL Failed", new Color(0.65f, 0.20f, 0.16f));
+            _messageLabel.text = ex.Message;
+        }
+    }
+
+    private void RunStartLocalServer()
+    {
+        LocalHotfixServerStatus status = LocalHotfixServerController.Start();
+        RefreshLocalServerStatus(status);
+    }
+
+    private void RunStopLocalServer()
+    {
+        LocalHotfixServerStatus status = LocalHotfixServerController.Stop();
+        RefreshLocalServerStatus(status);
+    }
+
+    private void RefreshLocalServerStatus()
+    {
+        RefreshLocalServerStatus(LocalHotfixServerController.GetStatus());
+    }
+
+    private void RefreshLocalServerStatus(LocalHotfixServerStatus status)
+    {
+        if (_localServerStatusLabel == null)
+            return;
+
+        string state = status.IsRunning ? "Running" : "Stopped";
+        _localServerStatusLabel.text = $"{state} | {status.Message}";
+    }
+
     private bool HasFatalHealthIssue(string action)
     {
         _health = BuildRepositoryFacade.GetHealth(_channelKey);
@@ -1134,7 +1285,8 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
         {
             Id = "target" + index,
             Type = PushTargetType.LocalDirectory,
-            Path = string.Empty
+            Path = string.Empty,
+            PublicBaseUrl = string.Empty
         });
         SaveRepositorySettings();
         Rebuild();
@@ -1181,17 +1333,19 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
 
     private IPushTarget CreatePushTarget()
     {
+        return PushTargetUtility.Create(GetSelectedTargetConfig());
+    }
+
+    private PushTargetConfig GetSelectedTargetConfig()
+    {
         FYAssetSettings settings = FYAssetSettings.Instance;
         string targetId = _targetDropdown != null && !string.IsNullOrEmpty(_targetDropdown.value)
             ? _targetDropdown.value
             : (settings.PushTargets != null && settings.PushTargets.Count > 0 ? settings.PushTargets[0].Id : string.Empty);
-        for (int i = 0; settings.PushTargets != null && i < settings.PushTargets.Count; i++)
-        {
-            PushTargetConfig config = settings.PushTargets[i];
-            if (config != null && string.Equals(config.Id, targetId, StringComparison.OrdinalIgnoreCase))
-                return new LocalDirectoryPushTarget(config);
-        }
-        throw new InvalidOperationException("No push target configured.");
+        PushTargetConfig config = PushTargetUtility.FindConfig(targetId);
+        if (config == null)
+            throw new InvalidOperationException("No push target configured.");
+        return config;
     }
 
     private static List<string> GetPushTargetLabels()

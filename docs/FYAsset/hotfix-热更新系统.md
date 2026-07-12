@@ -161,6 +161,10 @@ Bundle 下载阶段由 `HotfixFlowBase` 统一管理重试与校验：
 ## URL 与本地路径规范
 
 - 远端路径统一通过 `FYAssetPathUtility.JoinUrl(...)` 生成，包括 `PackageIndex.json`、包体根、manifest、`catalog.json` 和 bundle 下载 URL；当前后端设置中的 `HotfixUrl` 带不带尾斜杠都应得到相同的单斜杠 URL。
+- 发布 Target 使用服务总根，并将 AA/AB 分别放在 `/AA/` 与 `/AB/`。因此 AA `HotfixUrl` 必须指向含 `AA/PackageIndex.json` 的 `/AA/` 根，AB 同理指向 `/AB/`，不能让两个后端共享一个根部 PackageIndex。
+- Repository 的 `Apply URL` 根据 Target `PublicBaseUrl` 显式写入当前后端设置；Push 不会自动切换客户端 URL。
+- 当前 AA 生产根为 `https://firehappy-cfy.com/AA/`，已通过清缓存的 `TestDialogue` 验证远端 PackageIndex、AAManifest、catalog、7 个 Bundle、外部 catalog 激活和 Lua 对话资源加载。
+- AB 在重新执行 Full、建立 HEAD 和发布 `/AB/PackageIndex.json` 之前仍不可用于远端热更验收；AA 的已发布内容不会作为 AB fallback。
 - 本地热更目录、目标包体目录、bundle 保存路径、manifest 写入路径和本地 `PackageIndex.json` 使用本地文件系统路径规则拼接。
 - Unity `StreamingAssets` 读取路径通过共享路径工具拼接，但 Android `jar:` URI-like 路径保持 `/` 分隔符，不会被规范化成 Windows 本地路径。
 - `bundles`、`catalog.json`、`BuildIndex.json` 等跨模块目录/文件名来自 `FYAssetSettings` 常量，不在热更主链路中重复写字符串字面量。

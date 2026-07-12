@@ -91,14 +91,10 @@ public static class BuildRepositoryCLI
 
     private static IPushTarget CreatePushTarget(string targetId)
     {
-        var settings = FYAssetSettings.Instance;
-        for (int i = 0; i < settings.PushTargets.Count; i++)
-        {
-            var config = settings.PushTargets[i];
-            if (config != null && string.Equals(config.Id, targetId, StringComparison.OrdinalIgnoreCase))
-                return new LocalDirectoryPushTarget(config);
-        }
-        throw new InvalidOperationException($"Unknown push target: {targetId}");
+        PushTargetConfig config = PushTargetUtility.FindConfig(targetId);
+        if (config == null)
+            throw new InvalidOperationException($"Unknown push target: {targetId}");
+        return PushTargetUtility.Create(config);
     }
 
     private static BackendMode GetBackend(Dictionary<string, string> args)
