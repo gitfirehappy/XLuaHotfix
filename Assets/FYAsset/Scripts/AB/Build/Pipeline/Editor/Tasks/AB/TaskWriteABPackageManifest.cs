@@ -33,8 +33,14 @@ public class TaskWriteABPackageManifest : IBuildTask
         ManifestOutputFormat outputFormat = FYAssetBuildSettingsProvider.GetManifestOutputFormat(request.BackendMode);
         string manifestPath = FYAssetPathUtility.JoinFilePath(request.OutputDir, FYAssetSettings.MANIFEST_FILE_NAME);
         string manifestBinPath = FYAssetPathUtility.JoinFilePath(request.OutputDir, FYAssetSettings.MANIFEST_FILE_NAME_BIN);
+        string tempManifestPath = manifestPath + ".tmp";
 
         FileHelper.EnsureDirectory(request.OutputDir);
+        manifest.FileHash = string.Empty;
+        FileHelper.TryDelete(tempManifestPath);
+        SerializationUtility.WriteToFile(tempManifestPath, manifest);
+        manifest.FileHash = HashGenerator.GenerateFileHash(tempManifestPath);
+        FileHelper.TryDelete(tempManifestPath);
 
         if (outputFormat != ManifestOutputFormat.BinaryOnly)
         {
@@ -56,7 +62,7 @@ public class TaskWriteABPackageManifest : IBuildTask
 
         return BuildTaskResult.Ok(new List<string>
         {
-            $"[AB MANIFEST] JSON: {outputFormat != ManifestOutputFormat.BinaryOnly}, Binary: {outputFormat != ManifestOutputFormat.JsonOnly}"
+            $"[AB MANIFEST] JSON: {outputFormat != ManifestOutputFormat.BinaryOnly}, Binary: {outputFormat != ManifestOutputFormat.JsonOnly}, Hash: {manifest.FileHash}"
         });
     }
 }

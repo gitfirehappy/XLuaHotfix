@@ -10,7 +10,7 @@ using UnityEngine;
 using UnityEngine.UIElements;
 
 /// <summary>
-/// Build Repository status, git-style commit diff, staging diff, and push panel.
+/// Build Repository 状态、git 风格 commit diff、staging diff 与 Push 面板。
 /// </summary>
 public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
 {
@@ -379,7 +379,6 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
         var panel = BuildPipelineUI.Card();
         panel.style.marginBottom = 0f;
         panel.style.flexShrink = 0f;
-        panel.style.maxHeight = 560f;
 
         var header = new VisualElement();
         header.style.flexDirection = FlexDirection.Row;
@@ -449,6 +448,7 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
     private VisualElement CreatePushTargetEditor()
     {
         var box = new VisualElement();
+        box.style.flexShrink = 0f;
         box.style.marginTop = 8f;
         box.style.marginBottom = 4f;
         box.style.paddingLeft = 6f;
@@ -472,6 +472,7 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
     private VisualElement CreatePushTargetRow(PushTargetConfig config, int index)
     {
         var container = new VisualElement();
+        container.style.flexShrink = 0f;
         container.style.marginTop = 6f;
         container.style.paddingBottom = 6f;
 
@@ -480,15 +481,18 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
         row.style.alignItems = Align.Center;
         row.style.width = Length.Percent(100f);
         row.style.minWidth = 0f;
+        row.style.minHeight = 20f;
 
         var idField = new TextField("Id")
         {
             value = config != null ? config.Id : string.Empty,
             isDelayed = true
         };
-        idField.style.width = 104f;
-        idField.style.minWidth = 72f;
+        idField.style.width = 0f;
+        idField.style.minWidth = 120f;
+        idField.style.flexGrow = 1f;
         idField.style.flexShrink = 1f;
+        idField.style.flexBasis = 0f;
         idField.style.marginRight = 6f;
         SetCompactFieldLabel(idField, 22f);
         idField.RegisterValueChangedCallback(evt =>
@@ -571,6 +575,7 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
     private VisualElement CreateLocalServerControls()
     {
         var box = new VisualElement();
+        box.style.flexShrink = 0f;
         box.style.marginTop = 8f;
         box.style.paddingTop = 6f;
         ApplyBorder(box);
@@ -909,7 +914,7 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
         text.Add(name);
 
         ArtifactDigest meta = item.NewArtifact ?? item.OldArtifact;
-        text.Add(BuildPipelineUI.SmallText(meta != null ? $"{FormatBytes(meta.Size)}  |  {ShortHash(meta.Hash)}" : "metadata unavailable"));
+        text.Add(BuildPipelineUI.SmallText(meta != null ? $"{FileHelper.FormatBytes(meta.Size)}  |  {ShortHash(meta.Hash)}" : "metadata unavailable"));
         row.Add(text);
         return row;
     }
@@ -985,7 +990,7 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
         }
         catch (Exception ex)
         {
-            Debug.LogError($"[RepositoryStatusPanel] Refresh Changes failed: {ex}");
+            Debug.LogError($"[RepositoryStatusPanel] 刷新 Changes 失败：{ex}");
             ClearStagingState();
             _viewMode = RepositoryViewMode.Changes;
             SetBadge("Changes Failed", new Color(0.65f, 0.20f, 0.16f));
@@ -1005,7 +1010,7 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
         }
         catch (Exception ex)
         {
-            Debug.LogError($"[RepositoryStatusPanel] Health check failed: {ex}");
+            Debug.LogError($"[RepositoryStatusPanel] Health 检查失败：{ex}");
             SetBadge("Health Failed", new Color(0.65f, 0.20f, 0.16f));
             _messageLabel.text = ex.Message;
         }
@@ -1033,7 +1038,7 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
         }
         catch (Exception ex)
         {
-            Debug.LogError($"[RepositoryStatusPanel] Preview Delivery failed: {ex}");
+            Debug.LogError($"[RepositoryStatusPanel] Delivery 预览失败：{ex}");
             _viewMode = RepositoryViewMode.Changes;
             _stagingABPreview = new ABRepositoryPreviewResult
             {
@@ -1079,7 +1084,7 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
         }
         catch (Exception ex)
         {
-            Debug.LogError($"[RepositoryStatusPanel] Push failed: {ex}");
+            Debug.LogError($"[RepositoryStatusPanel] Push 失败：{ex}");
             SetBadge("Push Failed", new Color(0.65f, 0.20f, 0.16f));
             _messageLabel.text = ex.Message;
         }
@@ -1185,7 +1190,7 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
         }
         catch (Exception ex)
         {
-            Debug.LogError($"[RepositoryStatusPanel] Clear channel failed: {ex}");
+            Debug.LogError($"[RepositoryStatusPanel] 清理 Channel 失败：{ex}");
             SetBadge("Clear Failed", new Color(0.65f, 0.20f, 0.16f));
             _messageLabel.text = ex.Message;
         }
@@ -1235,7 +1240,7 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
         {
             if (!IsSafeChildPath(root, dirs[i]))
             {
-                Debug.LogError($"[RepositoryStatusPanel] Refused to delete path outside PackagesDir: {dirs[i]}");
+                Debug.LogError($"[RepositoryStatusPanel] 拒绝删除 PackagesDir 外的路径：{dirs[i]}");
                 continue;
             }
 
@@ -1315,7 +1320,7 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
         if (health == null)
             return;
 
-        Debug.Log($"[RepositoryStatusPanel] Health: {health.Summary}");
+        Debug.Log($"[RepositoryStatusPanel] Health：{health.Summary}");
         for (int i = 0; i < health.FatalIssues.Count; i++)
             Debug.LogError($"[RepositoryStatusPanel] {health.FatalIssues[i]}");
         for (int i = 0; i < health.Warnings.Count; i++)
@@ -1344,7 +1349,7 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
             : (settings.PushTargets != null && settings.PushTargets.Count > 0 ? settings.PushTargets[0].Id : string.Empty);
         PushTargetConfig config = PushTargetUtility.FindConfig(targetId);
         if (config == null)
-            throw new InvalidOperationException("No push target configured.");
+            throw new InvalidOperationException("未配置 Push Target。");
         return config;
     }
 
@@ -1605,7 +1610,7 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
         }
 
         _deliverySummary.Add(CreateBadge($"Hotfix Delivery {count}", new Color(0.17f, 0.36f, 0.53f)));
-        _deliverySummary.Add(BuildPipelineUI.SmallText($"Full baseline -> current output, {FormatBytes(_stagingABPreview.DeliverySizeBytes)}"));
+        _deliverySummary.Add(BuildPipelineUI.SmallText($"Full baseline -> current output, {FileHelper.FormatBytes(_stagingABPreview.DeliverySizeBytes)}"));
     }
 
     private void AddDiffStat(string title, int count, Color color)
@@ -1694,7 +1699,7 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
 
         parent.Add(CreateDetailLine("Hash", SafeText(artifact.Hash)));
         parent.Add(CreateDetailLine("CRC", FormatCrc(artifact.CRC)));
-        parent.Add(CreateDetailLine("Size", FormatBytes(artifact.Size)));
+        parent.Add(CreateDetailLine("Size", FileHelper.FormatBytes(artifact.Size)));
     }
 
     private static Label CreateBadge(string text, Color color)
@@ -1889,20 +1894,6 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
         return value;
     }
 
-    private static string FormatBytes(long bytes)
-    {
-        if (bytes < 1024L)
-            return bytes.ToString("N0", CultureInfo.InvariantCulture) + " B";
-        double value = bytes / 1024d;
-        if (value < 1024d)
-            return value.ToString("N1", CultureInfo.InvariantCulture) + " KB";
-        value /= 1024d;
-        if (value < 1024d)
-            return value.ToString("N1", CultureInfo.InvariantCulture) + " MB";
-        value /= 1024d;
-        return value.ToString("N1", CultureInfo.InvariantCulture) + " GB";
-    }
-
     private static string FormatCrc(uint crc)
     {
         return "0x" + crc.ToString("X8", CultureInfo.InvariantCulture);
@@ -1927,7 +1918,7 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
 }
 
 /// <summary>
-/// Backend-owned maintenance content hosted by the shared Repository panel.
+/// 由后端维护、显示在共享 Repository 面板中的内容。
 /// </summary>
 public interface IRepositoryMaintenancePanel
 {

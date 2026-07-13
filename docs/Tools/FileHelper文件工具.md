@@ -4,9 +4,9 @@
 
 ## 概述
 
-跨平台文件 I/O 工具类，提供异步读写、原子写入、跨平台存在性检查、安全删除等文件操作。定位为 FYAsset 基础设施层，与 `NetworkDownloader`（网络下载）、`PathManager`（路径管理）、`SerializationUtility`（序列化工具）同级。
+跨平台文件 I/O 工具类，提供同步/异步读取、原子写入、复制/替换、目录枚举、跨平台存在性检查和安全删除。定位为 FYAsset 基础设施层，与 `NetworkDownloader`、`FYAssetPathUtility`、`SerializationUtility` 同级。
 
-所有异步读 API 对 Android StreamingAssets 路径自动走 `UnityWebRequest`，其他平台走 `System.IO`。所有写 API 保证不会产生半截文件。删除 API 绝不抛异常。
+异步读 API 对 Android StreamingAssets 路径自动走 `UnityWebRequest`，其他平台走 `System.IO`。`WriteAll*Atomic` 与 `ReplaceFile` 用临时/替换语义避免半截目标文件；普通复制 API 不承诺事务性。`TryDelete*` 不抛异常。
 
 ---
 
@@ -19,13 +19,7 @@
 | `ReadAllBytesAsync(string path)` | `Task<byte[]>` | 异步读取文件全部字节 |
 | `ReadAllTextAsync(string path)` | `Task<string>` | 异步读取文件全部文本（UTF-8） |
 
-平台分支逻辑（两个方法一致）：
-
-```
-路径以 Application.streamingAssetsPath 开头？
-  ├─ Android (非 Editor) → UnityWebRequest.Get() → downloadHandler.data/text
-  └─ 其他平台           → Task.Run(File.ReadAllBytes/ReadAllText)
-```
+两个异步读取方法使用同一平台策略：Android Player 的 StreamingAssets 通过 `UnityWebRequest` 读取，其余路径使用 `System.IO`。
 
 - **必须在主线程调用**（Android StreamingAssets 路径需要 `UnityWebRequest.SendWebRequest()`）
 - 参数为 null/空时抛 `ArgumentNullException`
@@ -39,15 +33,7 @@
 | `WriteAllBytesAtomic(string path, byte[] data)` | 原子写入字节数组 |
 | `WriteAllTextAtomic(string path, string text)` | 原子写入字符串（UTF-8） |
 
-原子写入流程：
-
-```
-1. EnsureDirectoryForFile(path)        — 确保父目录存在
-2. 生成临时路径（path + ".tmp." + GUID前8位）
-3. File.WriteAllBytes/Text(tempPath)   — 写入临时文件
-4. File.Delete(path)                   — 删除旧文件（如存在）
-5. File.Move(tempPath → path)          — rename 到目标路径
-```
+原子写入先确保父目录存在，再写入唯一临时文件，最后替换目标。调用方只会看到完整旧文件或完整新文件。
 
 **保证**：目标文件要么是旧版本（完整），要么是新版本（完整），不会出现写入中断导致的半截文件。可用于热更新下载完成后替换本地文件。
 
@@ -61,6 +47,13 @@
 | `TryDelete(string path)` | `bool` | 安全删除文件，失败返回 false + 警告日志 |
 | `TryDeleteDirectory(string path, bool recursive)` | `bool` | 递归删除目录，失败返回 false + 警告日志 |
 | `EnsureDirectoryForFile(string filePath)` | `void` | 确保文件路径的父目录存在，不存在则创建 |
+| `EnsureDirectory(string dirPath)` / `DirectoryExists(string path)` | `void` / `bool` | 创建目录与检查目录 |
+| `CopyFile(...)` / `TryCopyFile(...)` | `void` / `bool` | 复制文件；Try 版本失败时返回 false |
+| `ReplaceFile(sourcePath, targetPath)` | `void` | 用 source 替换 target |
+| `ReadAllText/ReadAllBytes` | `string` / `byte[]` | 同步读取 |
+| `GetFiles/GetDirectories` | `string[]` | 目录枚举 |
+| `GetDirectorySize(string path)` | `long` | 递归统计目录大小；失败文件跳过并记录警告 |
+| `FormatBytes(long bytes)` | `string` | 按 1024 进制输出 B/KB/MB/GB/TB，最多两位小数 |
 
 **Exists 平台行为**：
 - Android StreamingAssets 路径（jar: URI）无法用 `File.Exists` 检测 → 直接返回 `false`

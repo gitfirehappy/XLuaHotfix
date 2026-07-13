@@ -29,6 +29,7 @@ public static class ABManifestRoundTripTest
             PackageName = "TestPackage",
             PackageVersion = new VersionNumber { Major = 1, Minor = 2, Patch = 3 },
             BuildTimestamp = "2026-04-19T12:00:00Z",
+            FileHash = "manifest-hash-v4",
             AssetEntries = new List<ManifestAssetEntry>
             {
                 new ManifestAssetEntry
@@ -126,6 +127,9 @@ public static class ABManifestRoundTripTest
 
         if (source.BuildTimestamp != target.BuildTimestamp)
             throw new InvalidOperationException($"BuildTimestamp mismatch");
+
+        if (source.FileHash != target.FileHash)
+            throw new InvalidOperationException($"FileHash mismatch: {source.FileHash} vs {target.FileHash}");
 
         if (source.AssetEntries.Count != target.AssetEntries.Count)
             throw new InvalidOperationException($"AssetEntries count mismatch: {source.AssetEntries.Count} vs {target.AssetEntries.Count}");

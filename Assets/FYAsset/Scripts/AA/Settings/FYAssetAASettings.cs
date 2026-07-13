@@ -9,6 +9,8 @@ public sealed class FYAssetAASettings : ScriptableObject
     public string HotfixUrl = "https://firehappy-cfy.com/";
     public int HotfixMaxRetryCount = 3;
     public float HotfixRetryBaseDelaySeconds = 1f;
+    public int HotfixMetadataTimeoutSeconds = 15;
+    public int HotfixBundleTimeoutSeconds = 300;
 
     [Header("Build")]
     public string BuildPipelineConfigPath = "Assets/Build/AABuildPipelineConfig.asset";

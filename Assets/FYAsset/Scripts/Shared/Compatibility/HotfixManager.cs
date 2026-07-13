@@ -2,8 +2,8 @@ using System;
 using System.Threading.Tasks;
 
 /// <summary>
-/// Compatibility facade for old startup callers.
-/// New backend-specific code should call AAHotfixManager or ABHotfixManager directly.
+/// 旧启动调用方的兼容门面。
+/// 新增后端特定代码应直接调用 AAHotfixManager 或 ABHotfixManager。
 /// </summary>
 public static class HotfixManager
 {
@@ -46,6 +46,34 @@ public static class HotfixManager
         {
             AAHotfixManager.OnError -= value;
             ABHotfixManager.OnError -= value;
+        }
+    }
+
+    public static event Action<string> OnWarning
+    {
+        add
+        {
+            AAHotfixManager.OnWarning += value;
+            ABHotfixManager.OnWarning += value;
+        }
+        remove
+        {
+            AAHotfixManager.OnWarning -= value;
+            ABHotfixManager.OnWarning -= value;
+        }
+    }
+
+    public static event Action<ClientUpdateRequiredInfo> OnClientUpdateRequired
+    {
+        add
+        {
+            AAHotfixManager.OnClientUpdateRequired += value;
+            ABHotfixManager.OnClientUpdateRequired += value;
+        }
+        remove
+        {
+            AAHotfixManager.OnClientUpdateRequired -= value;
+            ABHotfixManager.OnClientUpdateRequired -= value;
         }
     }
 

@@ -5,7 +5,7 @@
 > `Assets/FYAsset/Scripts/AA/Settings/FYAssetAASettings.cs`
 > `Assets/FYAsset/Scripts/AB/Settings/FYAssetABSettings.cs`
 > `Assets/FYAsset/Scripts/Shared/Build/Editor/Settings/SettingsPanel.cs`
-> `Assets/FYAsset/Scripts/Shared/Build/Editor/Manage/VersionPanel.cs`
+> `Assets/FYAsset/Scripts/Shared/Build/Repository/Editor/RepositoryStatusPanel.cs`
 > `Assets/FYAsset/Scripts/Shared/Helpers/Editor/SOAddressableTagger.cs`
 > `Assets/FYAsset/Scripts/AB/Build/Editor/ABPipeline/AssetsCollectionPanel.cs`
 > `Assets/FYAsset/Scripts/AB/Build/Editor/ABPipeline/PipelinePanel.cs`
@@ -33,13 +33,15 @@
 | `FYAssetSettings` | `SettingsPanel` 中的创建按钮 / 自动补齐 | 默认路径为 `Assets/Resources/FYAssetSettings.asset`，保存全局项目、构建输出、版本路径和 PushTargets |
 | `FYAssetAASettings` | `AAConfigPanel` 自动创建/编辑 | 默认路径为 `Assets/Resources/FYAssetAASettings.asset`，保存 AA 热更与构建参数 |
 | `FYAssetABSettings` | `ABConfigPanel` 自动创建/编辑 | 默认路径为 `Assets/Resources/FYAssetABSettings.asset`，保存 AB 热更、构建参数与 AssetCollection 配置 |
-| `VersionDataBase` | `VersionPanel` 中的创建按钮 | 路径由 `FYAssetSettings.VersionDataBasePath` 决定 |
+| `VersionDataBase` | 使用项目已提交资产 | 路径由 `FYAssetSettings.VersionDataBasePath` 决定；当前没有独立创建 UI，Repository 只提供测试重置 |
 | `ScriptObjectDataBase` | `SOAddressableTagger` 中的“创建新数据库” | 用于 SO 标签管理，不建议从菜单重复创建 |
 | `ScriptObjectContainer` | `LuaFileCreatorWindow` / `LuaDirectoryScanner` / `LuaAddressableTagger` 的创建流程 | 由工具根据数据库和目录自动创建 |
 | `AssetCollectionSetting` | `AssetsCollectionPanel` 中的创建按钮 | 资产收集配置资产，走 AB Pipeline 的 AssetsCollection 面板入口 |
 | `BuildPipelineConfig` | `PipelinePanel` 中的创建按钮 | 由构建管线窗口创建并立即加载 |
 | `LuaDataBase` | `LuaFileCreatorWindow` / `LuaBatchConverterWindow` 内部创建流程 | 作为 Lua 工具的数据库资产 |
 | `LuaScriptContainer` | `LuaFileCreatorWindow` / `LuaDirectoryScanner` 内部创建流程 | 作为 Lua 脚本容器资产 |
+
+> 代码当前也为 `LuaDataBase` / `LuaScriptContainer` 暴露了 `CreateAssetMenu`。工具流程仍是推荐入口；是否移除这两个兼容菜单需人工决定。
 
 ---
 
@@ -58,6 +60,8 @@
 - `ConfigConvertChannel`
 - `CharacterConfig`
 - `PlayerControllerSO`
+- `LuaDataBase`（当前代码仍暴露兼容菜单）
+- `LuaScriptContainer`（当前代码仍暴露兼容菜单）
 
 ---
 

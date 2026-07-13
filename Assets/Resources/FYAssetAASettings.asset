@@ -15,6 +15,8 @@ MonoBehaviour:
   HotfixUrl: https://firehappy-cfy.com/AA/
   HotfixMaxRetryCount: 3
   HotfixRetryBaseDelaySeconds: 1
+  HotfixMetadataTimeoutSeconds: 15
+  HotfixBundleTimeoutSeconds: 300
   BuildPipelineConfigPath: Assets/Build/AABuildPipelineConfig.asset
   ManifestOutputFormat: 2
   MaxHotfixSizeBytes: 1073741824

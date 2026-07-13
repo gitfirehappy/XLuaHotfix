@@ -2,7 +2,7 @@ using System;
 using System.Threading.Tasks;
 
 /// <summary>
-/// AB concrete hotfix entrypoint.
+/// AB 热更入口。
 /// </summary>
 public static class ABHotfixManager
 {
@@ -26,6 +26,18 @@ public static class ABHotfixManager
         remove => Flow.OnError -= value;
     }
 
+    public static event Action<string> OnWarning
+    {
+        add => Flow.OnWarning += value;
+        remove => Flow.OnWarning -= value;
+    }
+
+    public static event Action<ClientUpdateRequiredInfo> OnClientUpdateRequired
+    {
+        add => Flow.OnClientUpdateRequired += value;
+        remove => Flow.OnClientUpdateRequired -= value;
+    }
+
     public static event Action OnFinished
     {
         add => Flow.OnFinished += value;
@@ -43,15 +55,17 @@ public static class ABHotfixManager
         protected override string BackendModeName => BackendModeNames.AB;
         protected override int HotfixMaxRetryCount => FYAssetABSettings.Instance.HotfixMaxRetryCount;
         protected override float HotfixRetryBaseDelaySeconds => FYAssetABSettings.Instance.HotfixRetryBaseDelaySeconds;
+        protected override int HotfixMetadataTimeoutSeconds => FYAssetABSettings.Instance.HotfixMetadataTimeoutSeconds;
+        protected override int HotfixBundleTimeoutSeconds => FYAssetABSettings.Instance.HotfixBundleTimeoutSeconds;
 
         protected override IHotfixPipeline CreatePipeline()
         {
             return new ABHotfixBackend();
         }
 
-        protected override Task FinishHotfix()
+        protected override Task<bool> FinishHotfix()
         {
-            return ABPackageManager.Instance.Initialize();
+            return ABPackageManager.Instance.InitializePackageAsync();
         }
     }
 }

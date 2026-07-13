@@ -1,156 +1,167 @@
 using System;
-using System.IO;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Networking;
 
 /// <summary>
-/// 对接 Netlify / CDN / 任意服务器
-/// 下载版本文件、catalog、bundle 等文件
+/// 热更元数据与包文件共用的 HTTP 下载器。
 /// </summary>
 public static class NetworkDownloader
 {
-    // 配置重试参数
-    private const int MAX_RETRIES = 3;
-    private const int RETRY_INTERVAL_MS = 1000; // 1秒
-
-    /// <summary>
-    /// 下载文件
-    /// </summary>
-    public static async Task<bool> DownloadFile(string url, string savePath)
+    public static async Task<bool> DownloadFile(
+        string url,
+        string savePath,
+        HotfixDownloadOptions options)
     {
-        return await DownloadFileInternal(url, savePath, MAX_RETRIES, true);
-    }
-
-    /// <summary>
-    /// 下载文件一次，不做内部重试。用于由上层统一控制重试策略的流程。
-    /// </summary>
-    public static async Task<bool> DownloadFileOnce(string url, string savePath)
-    {
-        return await DownloadFileInternal(url, savePath, 0, false);
-    }
-
-    private static async Task<bool> DownloadFileInternal(string url, string savePath, int maxRetries, bool logFinalError)
-    {
-        for (int i = 0; i <= maxRetries; i++)
+        int totalAttempts = options.MaxRetryCount + 1;
+        for (int attempt = 1; attempt <= totalAttempts; attempt++)
         {
-            if (i > 0)
-            {
-                Debug.LogWarning($"[NetworkDownloader] 开始第 {i} 次重试下载: {url}");
-                FileHelper.TryDelete(savePath);
-            }
-
-            using var uwr = UnityWebRequest.Get(url);
-
-            uwr.downloadHandler = new DownloadHandlerFile(savePath) {removeFileOnAbort = true};
-            var operation = uwr.SendWebRequest();
-
-            while (!operation.isDone)
-            {
-                await Task.Yield();
-            }
-
-            if (uwr.result == UnityWebRequest.Result.Success)
-            {
-                Debug.Log($"[NetworkDownloader] 下载文件成功: {url}");
+            FileHelper.TryDelete(savePath);
+            NetworkDownloadResult result = await DownloadFileAttempt(url, savePath, options.TimeoutSeconds);
+            if (result.Success)
                 return true;
-            }
-
-            if (uwr.responseCode == 404)
+            if (result.NotFound)
             {
-                if (logFinalError)
-                    Debug.LogError($"[NetworkDownloader] 文件未找到 (404)，停止重试: {url}");
+                Debug.LogWarning($"[NetworkDownloader] 文件不存在（404）：{url}");
                 return false;
             }
 
-            if (i == maxRetries)
+            if (attempt < totalAttempts)
             {
-                if (logFinalError)
-                    Debug.LogError($"[NetworkDownloader] 下载文件失败 (已重试{maxRetries}次): {url}\n错误: {uwr.error}");
-                return false;
+                Debug.LogWarning(
+                    $"[NetworkDownloader] 文件请求失败，准备重试：{url}，次数={attempt}/{totalAttempts}，错误={result.Error}");
+                await DelayBeforeRetry(options, attempt);
             }
-
-            // 等待一段时间后重试
-            await Task.Delay(RETRY_INTERVAL_MS);
+            else
+            {
+                Debug.LogWarning(
+                    $"[NetworkDownloader] 文件请求失败：{url}，总次数={totalAttempts}，错误={result.Error}");
+            }
         }
+
         return false;
     }
 
-    /// <summary>
-    /// 下载文本
-    /// </summary>
-    public static async Task<string> DownloadText(string url)
+    public static async Task<bool> DownloadFileOnce(
+        string url,
+        string savePath,
+        HotfixDownloadOptions options)
     {
-        for (int i = 0; i <= MAX_RETRIES; i++)
+        NetworkDownloadResult result = await DownloadFileAttempt(url, savePath, options.TimeoutSeconds);
+        return result.Success;
+    }
+
+    public static async Task<string> DownloadText(string url, HotfixDownloadOptions options)
+    {
+        int totalAttempts = options.MaxRetryCount + 1;
+        for (int attempt = 1; attempt <= totalAttempts; attempt++)
         {
-            if(i > 0) Debug.LogWarning($"[NetworkDownloader] 开始第 {i} 次重试获取文本: {url}");
-
-            using var uwr = UnityWebRequest.Get(url);
-            var operation = uwr.SendWebRequest();
-
-            while (!operation.isDone)
+            using var request = UnityWebRequest.Get(url);
+            request.timeout = options.TimeoutSeconds;
+            await SendAsync(request);
+            if (request.result == UnityWebRequest.Result.Success)
+                return request.downloadHandler.text;
+            if (request.responseCode == 404)
             {
-                await Task.Yield();
-            }
-
-            if (uwr.result == UnityWebRequest.Result.Success)
-            {
-                return uwr.downloadHandler.text;
-            }
-
-            if (uwr.responseCode == 404)
-            {
-                Debug.LogError($"[NetworkDownloader] 文本未找到 (404): {url}");
+                Debug.LogWarning($"[NetworkDownloader] 文本不存在（404）：{url}");
                 return null;
             }
 
-            if (i == MAX_RETRIES)
+            if (attempt < totalAttempts)
             {
-                Debug.LogError($"[NetworkDownloader] 下载文本失败: {url}\n{uwr.error}");
-                return null;
+                Debug.LogWarning(
+                    $"[NetworkDownloader] 文本请求失败，准备重试：{url}，次数={attempt}/{totalAttempts}，错误={request.error}");
+                await DelayBeforeRetry(options, attempt);
             }
-
-            await Task.Delay(RETRY_INTERVAL_MS);
+            else
+            {
+                Debug.LogWarning(
+                    $"[NetworkDownloader] 文本请求失败：{url}，总次数={totalAttempts}，错误={request.error}");
+            }
         }
+
         return null;
     }
 
-    /// <summary>
-    /// 下载二进制数据，带重试机制
-    /// </summary>
-    public static async Task<byte[]> DownloadBytes(string url)
+    public static async Task<byte[]> DownloadBytes(string url, HotfixDownloadOptions options)
     {
-        for (int i = 0; i <= MAX_RETRIES; i++)
+        int totalAttempts = options.MaxRetryCount + 1;
+        for (int attempt = 1; attempt <= totalAttempts; attempt++)
         {
-            if (i > 0) Debug.LogWarning($"[NetworkDownloader] 开始第 {i} 次重试获取字节: {url}");
-
-            using var uwr = UnityWebRequest.Get(url);
-            var operation = uwr.SendWebRequest();
-
-            while (!operation.isDone)
+            using var request = UnityWebRequest.Get(url);
+            request.timeout = options.TimeoutSeconds;
+            await SendAsync(request);
+            if (request.result == UnityWebRequest.Result.Success)
+                return request.downloadHandler.data;
+            if (request.responseCode == 404)
             {
-                await Task.Yield();
-            }
-
-            if (uwr.result == UnityWebRequest.Result.Success)
-            {
-                return uwr.downloadHandler.data;
-            }
-
-            if (uwr.responseCode == 404)
-            {
-                Debug.LogError($"[NetworkDownloader] 资源未找到 (404): {url}");
+                Debug.LogWarning($"[NetworkDownloader] 字节数据不存在（404）：{url}");
                 return null;
             }
 
-            if (i == MAX_RETRIES)
+            if (attempt < totalAttempts)
             {
-                Debug.LogError($"[NetworkDownloader] 下载字节失败: {url}\n{uwr.error}");
-                return null;
+                Debug.LogWarning(
+                    $"[NetworkDownloader] 字节数据请求失败，准备重试：{url}，次数={attempt}/{totalAttempts}，错误={request.error}");
+                await DelayBeforeRetry(options, attempt);
             }
-
-            await Task.Delay(RETRY_INTERVAL_MS);
+            else
+            {
+                Debug.LogWarning(
+                    $"[NetworkDownloader] 字节数据请求失败：{url}，总次数={totalAttempts}，错误={request.error}");
+            }
         }
+
         return null;
+    }
+
+    private static async Task<NetworkDownloadResult> DownloadFileAttempt(
+        string url,
+        string savePath,
+        int timeoutSeconds)
+    {
+        FileHelper.EnsureDirectoryForFile(savePath);
+        using var request = UnityWebRequest.Get(url);
+        request.timeout = timeoutSeconds;
+        request.downloadHandler = new DownloadHandlerFile(savePath) { removeFileOnAbort = true };
+        await SendAsync(request);
+        if (request.result == UnityWebRequest.Result.Success)
+            return NetworkDownloadResult.Ok;
+
+        FileHelper.TryDelete(savePath);
+        return new NetworkDownloadResult(false, request.responseCode == 404, request.error);
+    }
+
+    private static async Task SendAsync(UnityWebRequest request)
+    {
+        UnityWebRequestAsyncOperation operation = request.SendWebRequest();
+        while (!operation.isDone)
+            await Task.Yield();
+    }
+
+    private static Task DelayBeforeRetry(HotfixDownloadOptions options, int completedAttempt)
+    {
+        if (options.RetryBaseDelaySeconds <= 0f)
+            return Task.CompletedTask;
+
+        int delayMs = Mathf.RoundToInt(
+            options.RetryBaseDelaySeconds * 1000f * Mathf.Pow(2f, completedAttempt - 1));
+        return Task.Delay(delayMs);
+    }
+
+    private readonly struct NetworkDownloadResult
+    {
+        public static NetworkDownloadResult Ok => new(true, false, string.Empty);
+
+        public bool Success { get; }
+        public bool NotFound { get; }
+        public string Error { get; }
+
+        public NetworkDownloadResult(bool success, bool notFound, string error)
+        {
+            Success = success;
+            NotFound = notFound;
+            Error = error ?? string.Empty;
+        }
     }
 }

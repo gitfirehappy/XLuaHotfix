@@ -3,7 +3,7 @@ using System;
 using UnityEngine;
 
 /// <summary>
-/// Publishes a complete package under {service root}/{AA|AB}.
+/// 将完整包发布到 {service root}/{AA|AB}。
 /// </summary>
 public sealed class LocalDirectoryPushTarget : IPushTarget
 {
@@ -54,7 +54,7 @@ public sealed class LocalDirectoryPushTarget : IPushTarget
         }
         catch (Exception ex)
         {
-            Debug.LogError($"[LocalDirectoryPushTarget] Push failed: {ex}");
+            Debug.LogError($"[LocalDirectoryPushTarget] Push 失败：{ex}");
             return Fail(ex.Message, publishRoot);
         }
     }

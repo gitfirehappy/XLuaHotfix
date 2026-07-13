@@ -188,6 +188,7 @@ public static class BuildPipelineUI
         row.style.alignItems = Align.Center;
         row.style.width = Length.Percent(100f);
         row.style.minWidth = 0f;
+        row.style.minHeight = 20f;
         row.style.marginBottom = 2f;
 
         if (!string.IsNullOrEmpty(label))

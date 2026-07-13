@@ -11,6 +11,7 @@ public static class BinarySerializerInitializer
 {
     /// <summary>ABManifest 的二进制魔数（ASCII: 'ABMF' = 0x41424D46）</summary>
     public const uint ABManifestMagic = 0x41424D46;
+    public const ushort ABManifestSchemaVersion = 4;
 
     /// <summary>AAManifest 的二进制魔数（ASCII: 'AAMF' = 0x41414D46）</summary>
     public const uint AAManifestMagic = 0x41414D46;
@@ -24,7 +25,7 @@ public static class BinarySerializerInitializer
         var codec = SerializationUtility.GetBinaryCodec();
         codec.Register<ABManifest>(
             ABManifestMagic,
-            3,
+            ABManifestSchemaVersion,
             (writer, obj) => ABManifest_BinarySerializer.WriteWithHeader(writer, obj),
             reader => (ABManifest)ABManifest_BinarySerializer.ReadWithHeader(reader));
 

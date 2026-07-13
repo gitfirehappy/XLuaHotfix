@@ -3,7 +3,7 @@ using System;
 using System.IO;
 
 /// <summary>
-/// Transactionally replaces one backend package and its root PackageIndex.
+/// 以事务方式替换单个后端包及其根目录 PackageIndex。
 /// </summary>
 internal sealed class PackagePublishTransaction : IDisposable
 {

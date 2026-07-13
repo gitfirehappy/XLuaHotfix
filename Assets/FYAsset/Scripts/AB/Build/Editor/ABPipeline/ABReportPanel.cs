@@ -321,8 +321,8 @@ public sealed class ABReportPanel : BuildPipelineUIToolkitPanel
             ("Assets", _report.Summary.AssetCount.ToString()),
             ("Groups", _report.Summary.GroupCount.ToString()),
             ("Labels", _report.Summary.LabelCount.ToString()),
-            ("Total Size", FormatBytes(_report.Summary.TotalBundleSize)),
-            ("Delivery", $"{_report.Summary.DeliveryBundleCount} / {FormatBytes(_report.Summary.DeliveryBundleSize)}"),
+            ("Total Size", FileHelper.FormatBytes(_report.Summary.TotalBundleSize)),
+            ("Delivery", $"{_report.Summary.DeliveryBundleCount} / {FileHelper.FormatBytes(_report.Summary.DeliveryBundleSize)}"),
             ("Tasks", $"{_report.Summary.CompletedTasks}/{_report.Summary.TotalTasks} completed"),
             ("Issues", $"{_report.Issues.Count}")
         });
@@ -408,7 +408,7 @@ public sealed class ABReportPanel : BuildPipelineUIToolkitPanel
             foldout.style.width = 260f;
             foldout.style.flexShrink = 0f;
             row.Add(foldout);
-            row.Add(CreateCell(FormatBytes(bundle.FileSize), 92f));
+            row.Add(CreateCell(FileHelper.FormatBytes(bundle.FileSize), 92f));
             row.Add(CreateCell(bundle.BundleType, 90f));
             row.Add(CreateCell(bundle.Group, 130f));
             row.Add(CreateCell(bundle.AssetCount.ToString(), 56f));
@@ -479,7 +479,7 @@ public sealed class ABReportPanel : BuildPipelineUIToolkitPanel
             row.Add(CreateCell(group.Group, 260f));
             row.Add(CreateCell(group.AssetCount.ToString(), 80f));
             row.Add(CreateCell(group.BundleCount.ToString(), 80f));
-            row.Add(CreateCell(FormatBytes(group.TotalSize), 120f));
+            row.Add(CreateCell(FileHelper.FormatBytes(group.TotalSize), 120f));
             row.RegisterCallback<PointerDownEvent>(_ => DrawAggregateDetails("Group", group.Group, group.AssetCount, group.BundleCount, group.TotalSize));
             parent.Add(row);
         }
@@ -498,7 +498,7 @@ public sealed class ABReportPanel : BuildPipelineUIToolkitPanel
             row.Add(CreateCell(label.Label, 260f));
             row.Add(CreateCell(label.AssetCount.ToString(), 80f));
             row.Add(CreateCell(label.BundleCount.ToString(), 80f));
-            row.Add(CreateCell(FormatBytes(label.TotalSize), 120f));
+            row.Add(CreateCell(FileHelper.FormatBytes(label.TotalSize), 120f));
             row.RegisterCallback<PointerDownEvent>(_ => DrawAggregateDetails("Label", label.Label, label.AssetCount, label.BundleCount, label.TotalSize));
             parent.Add(row);
         }
@@ -514,7 +514,7 @@ public sealed class ABReportPanel : BuildPipelineUIToolkitPanel
         _details.Add(BuildPipelineUI.Header("Bundle"));
         AddKeyValue(_details, "Name", bundle.BundleName);
         AddKeyValue(_details, "File Path", GetBundleFilePath(bundle.BundleName));
-        AddKeyValue(_details, "Size", FormatBytes(bundle.FileSize));
+        AddKeyValue(_details, "Size", FileHelper.FormatBytes(bundle.FileSize));
         AddKeyValue(_details, "Hash", bundle.FileHash);
         AddKeyValue(_details, "CRC", bundle.FileCRC.ToString());
         AddKeyValue(_details, "Type", bundle.BundleType);
@@ -568,7 +568,7 @@ public sealed class ABReportPanel : BuildPipelineUIToolkitPanel
         AddKeyValue(_details, "Name", name);
         AddKeyValue(_details, "Assets", assetCount.ToString());
         AddKeyValue(_details, "Bundles", bundleCount.ToString());
-        AddKeyValue(_details, "Total Size", FormatBytes(totalSize));
+        AddKeyValue(_details, "Total Size", FileHelper.FormatBytes(totalSize));
     }
 
     private void DrawDetailsText(string text)
@@ -685,19 +685,6 @@ public sealed class ABReportPanel : BuildPipelineUIToolkitPanel
 
         for (int i = 0; i < values.Count; i++)
             parent.Add(BuildPipelineUI.SmallText(values[i]));
-    }
-
-    private static string FormatBytes(long bytes)
-    {
-        string[] units = { "B", "KB", "MB", "GB" };
-        double value = bytes;
-        int unit = 0;
-        while (value >= 1024d && unit < units.Length - 1)
-        {
-            value /= 1024d;
-            unit++;
-        }
-        return $"{value:F2} {units[unit]}";
     }
 
     private static string FormatIssueText(string code, string message)

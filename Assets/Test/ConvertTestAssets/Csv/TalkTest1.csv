@@ -1,5 +1,5 @@
 ﻿Sign,ID,Character,PosAndOp,Content,NextID,Func,Params
-#,0,测试NPC,left,这是一个基于Lua文本的对话框架测试，请点击继续,1,>TestImmediateFunc,param1
+#,0,测试NPC,left,AA-4.0.1-LOCAL 这是一个基于Lua文本的对话框架测试，请点击继续,1,>TestImmediateFunc,param1
 #,1,测试NPC,left&diff1,现在测试选项功能，请选择一个选项,2;3;4;12,,
 %,2,,,选项1：测试角色差分和继续对话,5,<TestInteractiveFunc,option1
 %,3,,,选项2：多角色显示，条件分支,6,<TestInteractiveFunc,option2

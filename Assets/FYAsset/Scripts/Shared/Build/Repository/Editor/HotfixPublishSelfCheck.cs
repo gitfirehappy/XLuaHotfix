@@ -5,7 +5,7 @@ using UnityEditor;
 using UnityEngine;
 
 /// <summary>
-/// Safe temp-directory checks for publish isolation and transaction behavior.
+/// 在临时目录中安全检查发布隔离与事务行为。
 /// </summary>
 public static class HotfixPublishSelfCheck
 {
@@ -45,7 +45,7 @@ public static class HotfixPublishSelfCheck
             if (!arguments.Contains("pages deploy") || !arguments.Contains("--project-name \"ProjectName1\"") || !arguments.Contains("--branch main"))
                 throw new InvalidOperationException($"Unexpected Wrangler arguments: {arguments}");
 
-            Debug.Log($"[{nameof(HotfixPublishSelfCheck)}] PASS - backend isolation, URLs, rollback, and Wrangler command verified.");
+            Debug.Log($"[{nameof(HotfixPublishSelfCheck)}] 通过 - 后端隔离、URL、回滚与 Wrangler 命令均已验证。");
         }
         finally
         {

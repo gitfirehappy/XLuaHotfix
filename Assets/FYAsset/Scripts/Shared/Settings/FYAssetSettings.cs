@@ -15,6 +15,10 @@ public class FYAssetSettings : ScriptableObject
     [Header("Backend")]
     public bool UseABBackend = false;
 
+    [Header("Hotfix Policies")]
+    public HotfixRemoteFailurePolicy RemoteFailurePolicy = HotfixRemoteFailurePolicy.ContinueWithLocal;
+    public HotfixMajorVersionMismatchPolicy MajorVersionMismatchPolicy = HotfixMajorVersionMismatchPolicy.ContinueWithLocal;
+
     [Header("Build")]
     public string BuildOutputRoot = "HotfixOutput";
     public string BuildPackagesFolderName = "Packages";

@@ -3,7 +3,7 @@ using System;
 using System.IO;
 
 /// <summary>
-/// Push target creation, backend-root resolution, and public URL derivation.
+/// 负责创建 Push Target、解析后端根目录并推导公开 URL。
 /// </summary>
 public static class PushTargetUtility
 {

@@ -2,7 +2,7 @@ using System;
 using System.Threading.Tasks;
 
 /// <summary>
-/// AA concrete hotfix entrypoint.
+/// AA 热更入口。
 /// </summary>
 public static class AAHotfixManager
 {
@@ -26,6 +26,18 @@ public static class AAHotfixManager
         remove => Flow.OnError -= value;
     }
 
+    public static event Action<string> OnWarning
+    {
+        add => Flow.OnWarning += value;
+        remove => Flow.OnWarning -= value;
+    }
+
+    public static event Action<ClientUpdateRequiredInfo> OnClientUpdateRequired
+    {
+        add => Flow.OnClientUpdateRequired += value;
+        remove => Flow.OnClientUpdateRequired -= value;
+    }
+
     public static event Action OnFinished
     {
         add => Flow.OnFinished += value;
@@ -43,15 +55,17 @@ public static class AAHotfixManager
         protected override string BackendModeName => BackendModeNames.AA;
         protected override int HotfixMaxRetryCount => FYAssetAASettings.Instance.HotfixMaxRetryCount;
         protected override float HotfixRetryBaseDelaySeconds => FYAssetAASettings.Instance.HotfixRetryBaseDelaySeconds;
+        protected override int HotfixMetadataTimeoutSeconds => FYAssetAASettings.Instance.HotfixMetadataTimeoutSeconds;
+        protected override int HotfixBundleTimeoutSeconds => FYAssetAASettings.Instance.HotfixBundleTimeoutSeconds;
 
         protected override IHotfixPipeline CreatePipeline()
         {
             return new AAHotfixBackend();
         }
 
-        protected override Task FinishHotfix()
+        protected override Task<bool> FinishHotfix()
         {
-            return AAPackageManager.Instance.Initialize();
+            return AAPackageManager.Instance.InitializePackageAsync();
         }
     }
 }

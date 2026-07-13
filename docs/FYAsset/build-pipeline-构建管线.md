@@ -10,7 +10,7 @@
 
 ## 概述
 
-Build Pipeline 采用 **Task + 线性执行列表** 模型。每个构建步骤（采集资产、分析依赖、打包 Bundle、生成清单等）实现为独立的 `IBuildTask`，通过 `BuildPipelineRunner` 按 `BuildPipelineConfig.Tasks` 中的启用顺序执行。配置集中在 `BuildPipelineConfig` ScriptableObject 中。
+Build Pipeline 采用 **Task + 线性执行列表** 模型。每个构建步骤（采集资产、分析依赖、打包 Bundle、生成清单等）实现为独立的 `IBuildTask`，通过 `BuildPipelineRunner` 按 `BuildPipelineConfig.Tasks` 的列表顺序执行。配置集中在 `BuildPipelineConfig` ScriptableObject 中。
 
 ---
 
@@ -18,18 +18,7 @@ Build Pipeline 采用 **Task + 线性执行列表** 模型。每个构建步骤�
 
 ### IBuildTask — Task 接口
 
-每个 Task 实现 `IBuildTask`，声明自己的身份、依赖关系和数据流：
-
-```csharp
-public interface IBuildTask
-{
-    string TaskName { get; }        // 唯一标识，如 "TaskBuildBundles"
-    string[] DependsOn { get; }     // 前置依赖的 TaskName 列表
-    string[] ReadKeys { get; }      // 从 BuildContext 读取的 Key
-    string[] WriteKeys { get; }     // 向 BuildContext 写入的 Key
-    BuildTaskResult Execute(BuildContext ctx);
-}
-```
+每个 Task 只声明唯一的 `TaskName`，并通过 `Execute(BuildContext)` 完成一个构建步骤。
 
 实现要求：
 - 无参公共构造函数（由 `BuildTaskResolver` 反射实例化）
@@ -40,33 +29,23 @@ public interface IBuildTask
 
 Task 之间不直接通信，所有数据通过 `BuildContext` 传递。内部是 `Dictionary<string, object>`，提供类型安全的 `Set<T>` / `Get<T>` / `Require<T>` / `Has` 方法。
 
-```
-TaskA (WriteKeys: ["CollectedAssets"])     TaskB (ReadKeys: ["CollectedAssets"], WriteKeys: ["BundleGraph"])
-    ↓                                            ↓
-    ctx.Set("CollectedAssets", list)              list = ctx.Get<List<CollectedAssetInfo>>("CollectedAssets")
-```
-
 - `Get<T>` — Key 不存在返回 `default(T)`
 - `Require<T>` — Key 不存在抛出 `KeyNotFoundException`
 - `Has` — 检查 Key 是否存在
 
-`ReadKeys` / `WriteKeys` 声明用于 runner 静态校验和诊断展示，不是运行时强制。`WriteKeys` 表示 Task 会写入或更新该 Key，不表示独占写锁；runner 在执行前检查依赖存在性、stop/whitelist 有效任务集和 Read-before-Write 警告。
+Task 的输入输出契约直接体现在 `Get/Require/Set` 调用和固定主干顺序中，不再维护重复的 `ReadKeys` / `WriteKeys` 声明。
 
 ### BuildPipelineRunner — 线性执行器
 
-按配置列表顺序实现两阶段模型：
+执行前先解析列表，再线性执行：
 
-**Validate（校验阶段）**：
-1. 依赖顺序 — 所有 `IBuildTask.DependsOn` 指向的 Task 必须存在、已启用，并且出现在当前 Task 之前
-2. stop-after / whitelist 校验 — 只校验本次实际会执行的有效任务集
-3. Read-before-Write 警告 — Task 读取的 Key 没有任何前序 Task 写入 → 报告 `UNSATISFIED_READ_KEY`（Warning，不阻断）
-
-**Execute（执行阶段）**：
+- 非 whitelist 模式检查 AA/AB 必需主干 Task 是否缺失
+- 拒绝空、重复或无法解析的 `TaskName`
 - 按 `BuildPipelineConfig.Tasks` 顺序逐个执行
 - 执行运行在 Unity Editor 主线程上，确定性串行执行；不存在额外的并行/串行切换开关
 - Fatal 错误立即中止所有后续 Task
 - `stopAfterTaskName` 命中后提前停止，已执行 Task 产出的 `BuildContext` 数据可被调用方读取
-- `taskWhitelist` 可限制本次只执行指定 Task 集合，常用于 Diff Preview
+- `taskWhitelist` 在解析前过滤列表，常用于 Diff Preview
 - `BuildContextKeys` 常量类存储标准 Key 名称
 
 ### BackendMode — 后端模式
@@ -84,8 +63,8 @@ TaskA (WriteKeys: ["CollectedAssets"])     TaskB (ReadKeys: ["CollectedAssets"],
 
 Build Pipeline 编辑器现在提供两个可同时打开的独立窗口：
 
-- `Tools/Build/AA Build Pipeline`：Settings、AA Config、AA Build、AA Build Results、AA Repository、Version。
-- `Tools/Build/AB Build Pipeline`：Settings、AB Config、AssetsCollection、AB Build、AB Build Results、AB Repository、Version。
+- `Tools/Build/AA Build Pipeline`：Settings、AA Config、AA Build、AA Build Results、AA Repository。
+- `Tools/Build/AB Build Pipeline`：Settings、AB Config、AssetsCollection、AB Build、AB Build Results、AB Repository。
 - 旧 `Tools/Build/Build Pipeline` 菜单保留为兼容入口，根据 `UseABBackend` 打开 AA 或 AB 窗口。
 
 两个窗口中的构建按钮分别直达 `AABuildProjectManager` 和 `ABBuildProjectManager`，不再由 `UseABBackend` 互斥置灰。`UseABBackend` 只保留给旧兼容入口与命令行路由。AA/AB Repository 都使用可拖动的左/中/右三栏布局，两条分隔线宽度按 backend 分别保存在 EditorPrefs 中。
@@ -94,15 +73,14 @@ Build Pipeline 编辑器现在提供两个可同时打开的独立窗口：
 
 ## BuildPipelineConfig — 配置资产
 
-ScriptableObject，存储路径 `Assets/Build/BuildPipelineConfig.asset`。
+AB 配置默认位于 `Assets/Build/BuildPipelineConfig.asset`，AA 配置默认位于 `Assets/Build/AABuildPipelineConfig.asset`。
 
 ```
 BuildPipelineConfig
 ├─ FileNameStyle         (BundleName / HashName / BundleName_HashName)
 ├─ BundleCompression     (LZ4 / LZMA / Uncompressed，默认 LZ4)
-└─ Tasks[]               (TaskEntry 列表)
-     ├─ TaskName         ("TaskPrepareContext")
-     └─ Enabled          (true / false)
+└─ Tasks[]               (TaskEntry 顺序列表)
+     └─ TaskName         ("TaskPrepareContext")
 ```
 
 ### BundleFileNameStyle
@@ -113,11 +91,9 @@ BuildPipelineConfig
 | `HashName` | `{MD5}.bundle` |
 | `BundleName_HashName` | `{pkg}_{group}_{packKey}_{MD5}.bundle`（默认） |
 
-### DependsOn 顺序护栏
+### 主干顺序护栏
 
-`TaskEntry` 不再保存 SO 面板级依赖。执行顺序只由 `BuildPipelineConfig.Tasks` 的列表顺序决定。
-
-`IBuildTask.DependsOn` 保留为最小校验护栏：如果某个 Task 声明依赖另一个 Task，runner 会要求该依赖存在、已启用，并且位于当前 Task 之前。它不做拓扑排序，也不会改变执行顺序。
+`TaskEntry` 只保存 `TaskName`，执行顺序只由列表位置决定。`BuildPipelineBackbone` 提供 AA/AB 默认主干列表、缺失检查和编辑器展示顺序；runner 不做拓扑排序，也不维护第二套依赖声明。
 
 ---
 
@@ -133,28 +109,13 @@ BuildPipelineConfig
 
 ### BuildTaskResult — 单 Task 结果
 
-通过静态工厂方法构造：
-
-```csharp
-// 成功
-BuildTaskResult.Ok(warnings: new List<string> { "..." });
-
-// 失败
-BuildTaskResult.Fail("ERROR_CODE", "description", fatal: true);
-```
+Task 通过 `Ok` 或 `Fail` 工厂返回结构化结果。
 
 `IsFatal = true` 的失败会中止 runner 后续 Task。`IsFatal = false` 仅记录错误，调度继续。
 
 ### BuildResult — 管线汇总
 
-```
-BuildResult
-├─ Success        (所有 Task 成功且无 Fatal 中止)
-├─ TotalTasks     (参与调度的 Task 总数)
-├─ CompletedTasks (成功数)
-├─ SkippedTasks   (因 Fatal 或 stop-after 未执行的 Task 数)
-└─ TaskResults[]  (逐个 Task 结果，按执行顺序)
-```
+`BuildResult` 汇总整体成功状态、参与/完成/跳过数量和按执行顺序排列的 Task 结果。
 
 ---
 
@@ -191,19 +152,9 @@ BuildResult
 
 ## 执行流程
 
-```
-Validate
-  ├─ 1. IBuildTask.DependsOn 顺序校验
-  ├─ 2. stop-after / whitelist 有效任务集校验
-  └─ 3. Read-before-Write 警告
-         ↓ 全部通过
-Execute
-  └─ 按配置顺序遍历 Enabled Task:
-       ├─ whitelist 不包含 → 跳过
-       ├─ 逐 Task 执行
-       ├─ stop-after 命中 → 停止
-       └─ Fatal → 中止
-```
+1. 解析阶段先应用 whitelist，再检查必需主干及空、重复、未注册的 TaskName。
+2. 解析成功后严格按配置顺序执行。
+3. `stop-after` 正常提前结束；Fatal 失败中止并将后续 Task 标为跳过。
 
 ---
 
@@ -225,41 +176,24 @@ Execute
 | `OutputPath` | `string` | TaskOrganizeOutput / TaskOrganizeAAOutput | TaskWrite*Manifest, TaskExportLocalBuildData |
 | `ArtifactDelta` | `ArtifactDelta` | TaskScan*HotfixDiff | TaskMoveAddressableHotfixGroups, BuildProjectRunner |
 | `RepositoryArtifacts` | `List<ArtifactDigest>` | TaskScan*HotfixDiff | AB/AA Backend (for commit) |
-| `AAServerDataPath` | `string` | TaskBuildAddressablesContent | TaskOrganizeAAOutput |
 | `AAManifest` | `AAManifest` | TaskWriteAAPackageManifest | (context) |
 | `RepositoryPreviewOutput` | `string` | RepositoryPreviewRunner | TaskPrepareContext (预览模式) |
+| `RepositoryPreviewMode` | `bool` | RepositoryPreviewRunner | TaskScan*HotfixDiff |
+| `ABDeliveryPreviewMode` | `bool` | RepositoryPreviewRunner | TaskScanABHotfixDiff |
 
 ---
 
 ## 现有 Task 列表
 
-### AB 管线（12 个 Task）
+这里按阶段说明，不复制完整类清单；精确 TaskName 和顺序以各自 `BuildPipelineConfig` 资产为准。
 
-| TaskName | 职责 | 依赖 |
-|----------|------|------|
-| `TaskPrepareContext` | 初始化 BuildContext（读取 BackendMode、Version、OutputRoot、TargetPlatform；正式构建后端来自 BuildPackageRequest） | — |
-| `TaskCollectAssets` | 加载 AssetCollectionSetting、运行 CollectionScanner、写入 CollectedAssets 和 SharePolicies | TaskPrepareContext |
-| `TaskAnalyzeDependencies` | BFS 依赖扫描、共享资产提取、构建 BundleDependencyGraph | TaskCollectAssets |
-| `TaskCollectBuiltins` | 自动收集 Shader 和 Resources 内置资源，追加到 CollectedAssets | TaskCollectAssets |
-| `TaskBuildBundles` | 按 PayloadKind 分流构建（Serialized → AB, Scene → 独立, RawFile → 拷贝），输出 BundleBuildResults | TaskAnalyzeDependencies |
-| `TaskGenerateManifest` | 生成 ABManifest（AssetEntries + BundleEntries + 依赖索引 + BundleType 推断），调用 Initialize() | TaskBuildBundles |
-| `TaskVerifyBuildResult` | 6 项校验：文件存在性、UnityFS 魔数完整性、孤立文件、Hash 重算、大小异常、计数交叉检查 | TaskGenerateManifest |
-| `TaskScanABHotfixDiff` | 对比 AB Bundle 产物与 Repository HEAD，计算 `ArtifactDelta`；Hotfix 还对比同 Major Full baseline，计算 `ABDeliveryBundles` 并校验 baseline fallback | TaskVerifyBuildResult |
-| `TaskOrganizeOutput` | Full 拷贝全部 `BundleEntries`；Hotfix 只拷贝 `ABDeliveryBundles`；生成 build_summary.txt、清理临时目录 | TaskScanABHotfixDiff |
-| `TaskWriteABPackageManifest` | 发布完整 ABManifest（JSON + Binary）；Full 按全部 bundle、Hotfix 按 delivery bundle 校验热更包体大小 | TaskOrganizeOutput |
-| `TaskWritePackageIndex` | 写入远端包体指针 PackageIndex.json | TaskWriteABPackageManifest |
-| `TaskExportLocalBuildData` | Full Build 时导出 BuildIndexData、ABManifest 和 bundles 到 StreamingAssets；Hotfix 跳过 | TaskWritePackageIndex |
+| 阶段 | AB | AA |
+|------|----|----|
+| 准备与采集 | 初始化上下文，采集普通资产、Shader 和 Resources | 扫描 Addressables 源资产差异 |
+| 依赖与分组 | BFS 分析依赖并抽取共享 Bundle | Hotfix 时临时移动变更资产到 Hotfix Group |
+| 构建 | 按 PayloadKind 构建 Bundle/Scene/RawFile | 调用 Addressables BuildPlayerContent |
+| 校验与差异 | 生成并校验 ABManifest；计算 HEAD Diff 与 Full-baseline Delivery | 整理输出并生成 AAManifest |
+| 发布 | 整理 Full/Hotfix 交付文件，写 manifest 与 PackageIndex | 写 manifest 与 PackageIndex |
+| 本地基线 | Full 导出 BuildIndex、manifest 和 bundles；Hotfix 跳过 | Full 导出 BuildIndex 与查询索引；Hotfix 跳过 |
 
-### AA 管线（7 个 Task）
-
-| TaskName | 职责 | 依赖 |
-|----------|------|------|
-| `TaskScanAddressableHotfixDiff` | 对比 AA 源资产（GUID 粒度，含 .meta）与 Repository HEAD，计算 ArtifactDelta | — |
-| `TaskMoveAddressableHotfixGroups` | 将 Added/Modified 资产移入 Hotfix Group，写 undo log；检测 pending move 阻断 | TaskScanAddressableHotfixDiff |
-| `TaskBuildAddressablesContent` | 配置 Addressables（RemoteCatalog + PackTogetherByLabel）、清理 ServerData、调用 BuildPlayerContent | TaskMoveAddressableHotfixGroups |
-| `TaskOrganizeAAOutput` | 整理 ServerData 输出到最终包目录 | TaskBuildAddressablesContent |
-| `TaskWriteAAPackageManifest` | 扫描 .bundle 文件、构建 AAManifest（含 AAAssetIndex）、发布 JSON + Binary | TaskOrganizeAAOutput |
-| `TaskWritePackageIndex` | 写入远端包体指针 PackageIndex.json | TaskWriteAAPackageManifest |
-| `TaskExportLocalBuildData` | Full Build 时写 BuildIndexData、复制 AAManifest 查询索引、清理 stale AB baseline；Hotfix 跳过 | TaskWritePackageIndex |
-
-> 两条管线共享 `TaskWritePackageIndex` 和 `TaskExportLocalBuildData`。PipelinePanel 按当前 BackendMode 加载对应的 BuildPipelineConfig 资产（AB: `BuildPipelineConfig.asset`，AA: `AABuildPipelineConfig.asset`）。
+两条管线共享 PackageIndex 写入和 Full 本地基线导出语义，但配置资产、后端实现和 Repository 通道彼此独立。

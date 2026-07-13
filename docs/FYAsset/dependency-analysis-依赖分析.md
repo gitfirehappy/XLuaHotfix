@@ -145,12 +145,7 @@ BundleDependencyGraph
 
 实现 `IBuildTask`，将依赖分析接入构建管线。
 
-```
-TaskName:     "TaskAnalyzeDependencies"
-DependsOn:    ["TaskCollectAssets"]
-ReadKeys:     [CollectedAssets, SharePolicies]
-WriteKeys:    [CollectedAssets, BundleDependencyGraph]
-```
+`TaskName` 为 `TaskAnalyzeDependencies`。它位于 `TaskCollectBuiltins` 之后，通过 `BuildContext` 读取 `CollectedAssets` / `SharePolicies`，再写回增强后的 `CollectedAssets` 与 `BundleDependencyGraph`。`IBuildTask` 不再重复声明 `DependsOn`、`ReadKeys` 或 `WriteKeys`。
 
 执行流程：
 1. 从 `BuildContext` 读取 `CollectedAssets`（由前置 Task 写入）

@@ -1,5 +1,5 @@
 /// <summary>
-/// 跨后端统一的 Bundle 下载项。
+/// 统一的 Bundle 下载项。
 /// 包含下载和校验所需的最小信息集。
 /// </summary>
 public struct BundleDownloadItem

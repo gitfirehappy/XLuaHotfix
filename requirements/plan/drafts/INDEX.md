@@ -22,6 +22,7 @@ Promoted, superseded, or deprecated drafts go to `archive/`.
 | draft-docs-synchronization-20260707.md | Draft | Documentation synchronization audit and update proposal |
 | draft-fyasset-architecture-review-20260707.md | Draft / Partially promoted | FYAsset architecture optimization — A10/A2/A4/A1+A3+A5+A9 extracted, implemented, and verified in active plans 2026-07-09; A0/A6/A8 remain deferred |
 | draft-broken-pptr-scene-validation-20260707.md | Draft | Scene broken reference detection and cleanup (3 solutions) |
+| draft-hotfix-publish-integrity-20260712.md | Draft | Strong package validation and post-deploy immutable-content auditing |
 
 ## Discussion Order
 

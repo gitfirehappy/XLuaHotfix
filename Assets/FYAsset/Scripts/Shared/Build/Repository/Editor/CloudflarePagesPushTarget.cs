@@ -7,7 +7,7 @@ using UnityEngine;
 using Debug = UnityEngine.Debug;
 
 /// <summary>
-/// Publishes the backend mirror locally, then deploys the complete service root through Wrangler.
+/// 先在本地发布后端镜像，再通过 Wrangler 部署完整服务根目录。
 /// </summary>
 public sealed class CloudflarePagesPushTarget : IPushTarget
 {
@@ -84,7 +84,7 @@ public sealed class CloudflarePagesPushTarget : IPushTarget
         catch (Exception ex)
         {
             RestoreHeaders(headersPath, headersExisted, oldHeaders);
-            Debug.LogError($"[CloudflarePagesPushTarget] Push failed: {ex}");
+            Debug.LogError($"[CloudflarePagesPushTarget] Push 失败：{ex}");
             return Fail(ex.Message, backendRoot);
         }
     }

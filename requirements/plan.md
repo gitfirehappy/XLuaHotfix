@@ -3,7 +3,7 @@
 > **Status**: In progress (Phase 1-4 completed, Phase 5 E1-1/E1-2/E1-3/E1-4/E2 realized, Phase 6 E4/E5-1/E5-2a/E5-2b/E6/E7/E9/E10/E11 main path realized, Build Repository AA Push signed off and archived, AssetsCollection address/settings/follow-up plans signed off and archived, AB cumulative hotfix delivery signed off and archived, AB Build Result panel signed off and archived, Repository git-style diff signed off and archived, review build-chain blocker fixes signed off and archived, FYAsset bundle identity + RawFile root fix signed off and archived, build state cleanup tools implemented/verified pending sign-off, FYAsset architecture simplification plans implemented/verified pending sign-off, Pipeline sequence list editor simplification implemented/verified pending sign-off)
 > **Ultimate Goal**: Fully replace Addressables with custom runtime + build-time resource management system (referencing YooAsset architecture)
 > **Created**: 2026-03-16
-> **Updated**: 2026-07-12 — AA/AB-isolated publish targets, local HTTP server, explicit URL application, and Cloudflare Pages deployment plan approved for implementation
+> **Updated**: 2026-07-12 — Hotfix runtime state machine, same-package local activation, repair, and AA 4.0.1 localhost acceptance approved for implementation
 
 ---
 
@@ -201,6 +201,7 @@ Phase 4 and Phase 6 must be coordinated (ABManifest runtime consumption + build-
 | plan-repository-slim-20260709.md | A4: Repository keeps Health/build-push blocking/PushHead, removes Repair/quarantine/persistent PushHistory | Implemented / Verified / Pending developer sign-off |
 | plan-aa-ab-shared-split-20260709.md | A1/A3/A5+A9: strict AA/AB ownership including independent build windows, shared shell, draggable Repository layout, and AA-only HotfixGroup recovery UI | Implemented / Static Verified / Editor acceptance pending |
 | plan-build-panel-task-slim-20260711.md | Version-to-Repository merge, persistent AA final Build Path injection with official report entry, AB report references/tree, and Pipeline/Task declaration cleanup | Implemented / Static Verified / Editor acceptance pending |
+| plan-hotfix-runtime-state-machine-20260712.md | Deterministic local activation/repair/update/fallback state machine, configurable failure policies, checked finalization, and AA 4.0.1 localhost acceptance | Implemented / Verified / Pending developer sign-off |
 
 ### Phase 5: Build-Time - Asset Collection & Indexing
 

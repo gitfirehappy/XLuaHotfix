@@ -134,7 +134,7 @@ public sealed class BuildPackageResultsView
         row.Add(CreateCell(entry.PackageName, 260f));
         row.Add(CreateCell(entry.Version.GetReleaseVersionString(), 92f));
         row.Add(CreateCell(entry.BuildTimeUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture), 150f));
-        row.Add(CreateCell(FormatBytes(entry.SizeBytes), 90f));
+        row.Add(CreateCell(FileHelper.FormatBytes(entry.SizeBytes), 90f));
         row.Add(CreateCell(entry.FullPath, 0f, true));
         return row;
     }
@@ -175,7 +175,7 @@ public sealed class BuildPackageResultsView
                 + string.Join("\n", names)
                 + "\n\nPackages: " + selected.Count
                 + reportMessage
-                + "\nTotal: " + FormatBytes(totalBytes),
+                + "\nTotal: " + FileHelper.FormatBytes(totalBytes),
                 "Delete",
                 "Cancel"))
             return;
@@ -241,7 +241,7 @@ public sealed class BuildPackageResultsView
             selectedBytes += _entries[i].SizeBytes;
         }
 
-        _statusLabel.text = $"{_entries.Count} packages / {FormatBytes(totalBytes)}    Selected {selectedCount} / {FormatBytes(selectedBytes)}";
+        _statusLabel.text = $"{_entries.Count} packages / {FileHelper.FormatBytes(totalBytes)}    Selected {selectedCount} / {FileHelper.FormatBytes(selectedBytes)}";
     }
 
     private static bool TryParsePackageFolder(string path, out PackageEntry entry)
@@ -279,7 +279,7 @@ public sealed class BuildPackageResultsView
             PackageName = name,
             Version = version,
             BuildTimeUtc = buildTimeUtc,
-            SizeBytes = CalculateDirectorySize(path),
+            SizeBytes = FileHelper.GetDirectorySize(path),
             FullPath = Path.GetFullPath(path)
         };
         return true;
@@ -296,24 +296,6 @@ public sealed class BuildPackageResultsView
             + Path.DirectorySeparatorChar;
         return candidate.StartsWith(root, StringComparison.OrdinalIgnoreCase)
             && !string.Equals(candidate, root, StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static long CalculateDirectorySize(string path)
-    {
-        long total = 0;
-        string[] files = FileHelper.GetFiles(path, "*", SearchOption.AllDirectories);
-        for (int i = 0; i < files.Length; i++)
-        {
-            try
-            {
-                total += new FileInfo(files[i]).Length;
-            }
-            catch (Exception ex)
-            {
-                Debug.LogWarning($"[BuildPackageResultsView] Failed to read file size: {files[i]}, {ex.Message}");
-            }
-        }
-        return total;
     }
 
     private static void RevealPackagesFolder()
@@ -371,19 +353,6 @@ public sealed class BuildPackageResultsView
         label.style.paddingBottom = 8f;
         label.style.backgroundColor = new Color(0f, 0f, 0f, 0.08f);
         return label;
-    }
-
-    private static string FormatBytes(long bytes)
-    {
-        string[] units = { "B", "KB", "MB", "GB", "TB" };
-        double value = bytes;
-        int unit = 0;
-        while (value >= 1024d && unit < units.Length - 1)
-        {
-            value /= 1024d;
-            unit++;
-        }
-        return $"{value:F1} {units[unit]}";
     }
 
     private sealed class PackageEntry

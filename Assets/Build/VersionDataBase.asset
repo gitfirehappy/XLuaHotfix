@@ -15,8 +15,8 @@ MonoBehaviour:
   CurrentVersion:
     Major: 4
     Minor: 0
-    Patch: 0
-    Build: 3
+    Patch: 1
+    Build: 4
     Channel: 
-  LastBuildTime: 2026-07-11 21:08:40
-  DailyBuildCount: 3
+  LastBuildTime: 2026-07-13 00:14:55
+  DailyBuildCount: 4

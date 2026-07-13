@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.IO;
 using System.Threading.Tasks;
 using UnityEngine;
@@ -318,5 +319,53 @@ public static class FileHelper
         if (string.IsNullOrEmpty(path) || !Directory.Exists(path))
             return new string[0];
         return Directory.GetFiles(path, searchPattern, searchOption);
+    }
+
+    /// <summary>
+    /// 递归统计目录内文件总大小。无法读取的文件会记录警告并跳过。
+    /// </summary>
+    public static long GetDirectorySize(string path)
+    {
+        if (!DirectoryExists(path))
+            return 0L;
+
+        long total = 0L;
+        try
+        {
+            foreach (string file in Directory.EnumerateFiles(path, "*", SearchOption.AllDirectories))
+            {
+                try
+                {
+                    total += new FileInfo(file).Length;
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogWarning($"[FileHelper] 读取文件大小失败：{file}，原因：{ex.Message}");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.LogWarning($"[FileHelper] 统计目录大小失败：{path}，已返回部分结果。原因：{ex.Message}");
+        }
+
+        return total;
+    }
+
+    /// <summary>
+    /// 将字节数格式化为最多两位小数的可读文本。
+    /// </summary>
+    public static string FormatBytes(long bytes)
+    {
+        string[] units = { "B", "KB", "MB", "GB", "TB" };
+        double value = bytes;
+        int unit = 0;
+        while (Math.Abs(value) >= 1024d && unit < units.Length - 1)
+        {
+            value /= 1024d;
+            unit++;
+        }
+
+        return value.ToString("0.##", CultureInfo.InvariantCulture) + " " + units[unit];
     }
 }

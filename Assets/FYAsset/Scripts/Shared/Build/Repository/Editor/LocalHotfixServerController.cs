@@ -10,7 +10,7 @@ using UnityEngine;
 using Debug = UnityEngine.Debug;
 
 /// <summary>
-/// Controls the local-only Python server used to test published hotfix files.
+/// 控制仅限本机访问的 Python 服务，用于测试已发布的热更文件。
 /// </summary>
 [InitializeOnLoad]
 public static class LocalHotfixServerController
@@ -114,7 +114,7 @@ public static class LocalHotfixServerController
             if (process != null && !process.HasExited)
                 process.Kill();
             FileHelper.TryDelete(GetStatePath());
-            Debug.LogError($"[LocalHotfixServerController] Start failed: {ex}");
+            Debug.LogError($"[LocalHotfixServerController] 启动失败：{ex}");
             return LocalHotfixServerStatus.Stopped(ex.Message);
         }
         finally
@@ -241,7 +241,7 @@ public static class LocalHotfixServerController
         }
         catch (Exception ex)
         {
-            Debug.LogWarning($"[LocalHotfixServerController] State read failed: {ex.Message}");
+            Debug.LogWarning($"[LocalHotfixServerController] 状态读取失败：{ex.Message}");
             return null;
         }
     }

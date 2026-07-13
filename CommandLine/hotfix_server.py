@@ -24,12 +24,23 @@ METADATA_NAMES = {
 class HotfixRequestHandler(SimpleHTTPRequestHandler):
     server_version = "FYAssetHotfixServer/1.0"
 
-    def __init__(self, *args, directory: str, token: str, **kwargs):
+    _log_lock = threading.Lock()
+
+    def __init__(
+        self,
+        *args,
+        directory: str,
+        token: str,
+        request_log: str | None,
+        **kwargs,
+    ):
         self._token = token
+        self._request_log = request_log
         super().__init__(*args, directory=directory, **kwargs)
 
     def do_GET(self) -> None:
         parsed = urlparse(self.path)
+        self._append_request_log(parsed.path)
         if parsed.path == "/__fyasset_health":
             self._write_json(
                 200,
@@ -62,6 +73,13 @@ class HotfixRequestHandler(SimpleHTTPRequestHandler):
     def log_message(self, _format: str, *args) -> None:
         return
 
+    def _append_request_log(self, path: str) -> None:
+        if not self._request_log:
+            return
+        with self._log_lock:
+            with Path(self._request_log).open("a", encoding="utf-8") as stream:
+                stream.write(path + "\n")
+
     def _write_json(self, status: int, payload: dict) -> None:
         data = json.dumps(payload).encode("utf-8")
         self.send_response(status)
@@ -77,6 +95,7 @@ def main() -> None:
     parser.add_argument("--root", required=True)
     parser.add_argument("--port", type=int, required=True)
     parser.add_argument("--token", required=True)
+    parser.add_argument("--request-log")
     args = parser.parse_args()
 
     root = Path(args.root).resolve()
@@ -87,6 +106,7 @@ def main() -> None:
             *handler_args,
             directory=str(root),
             token=args.token,
+            request_log=args.request_log,
             **handler_kwargs,
         )
 

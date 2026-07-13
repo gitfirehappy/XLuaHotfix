@@ -45,14 +45,14 @@ AB 运行时加载系统负责从磁盘加载 AssetBundle 文件、从 Bundle �
 
 ## 资源索引
 
-`ABAssetIndex` 实现 `IAssetIndex`，基于 `ABManifest` 构建四个运行时查询索引：
+`ABAssetIndex` 实现 `IAssetIndex`，基于 `ABManifest` 预建运行时查询结果：
 
 | 索引 | 类型 | 查询方法 |
 |------|------|---------|
-| Address → Entry | `Dict<string, List<int>>` | `GetByAddress` |
-| EntryId → Entry | `Dict<string, int>` | `GetByEntryId` |
-| PrimaryType → Entry | `Dict<string, List<int>>` | `GetByType` |
-| Label → Entry | `Dict<string, List<int>>` | `GetByLabel` |
+| Address → Entries | `Dictionary<string, RuntimeAssetEntry[]>` | `GetEntriesByAddress` |
+| Address + PrimaryType → Entries | `Dictionary<(string,string), RuntimeAssetEntry[]>` | `GetEntriesByAddressAndType` |
+| EntryId → Entry | `Dictionary<string, int>` | `GetEntryById` |
+| 全部条目 | `RuntimeAssetEntry[]` | `GetAllEntries` |
 
 初始化时遍历 `ABManifest.AssetEntries`，调用 `ToRuntimeEntry()` 转换为 `RuntimeAssetEntry` 数组并预缓存。所有查询方法返回缓存的 `RuntimeAssetEntry` 引用，热路径零分配。
 
@@ -103,7 +103,7 @@ flowchart TD
 
 `_inflightLoads` 字典做并发去重：同一 EntryId 的并发加载请求共享同一个 Task。依赖关系从 `ABManifest.BundleEntries[].DependBundleIndices` 获取，加载依赖失败时回滚已加载的 Bundle。
 
-## 卸载流程
+## 卸载总览
 
 ```mermaid
 flowchart TD
@@ -125,41 +125,21 @@ flowchart TD
     N --> F
 ```
 
-### 安全保护
-
 ---
 
 ## 卸载流程
 
 ### 1. 用户调用 Release
 
-```
-handle.Release()
-    → HandleRegistry.Release(handleId, generation)
-    → 校验 Generation 是否匹配
-    ├─ 不匹配：输出 Warning，安全空操作（防止过期 Handle 或拷贝体误释放）
-    └─ 匹配：Slot.RefCount--
-```
+`handle.Release()` 先校验 Generation。过期 Handle 或拷贝体误释放只记录 Warning；有效 Handle 才减少槽位引用计数。
 
 ### 2. Handle 引用归零
 
-```
-RefCount 归零时：
-    → 执行 ReleaseCallback（即 ABPackageBackend.UnloadByEntryId）
-    → _entryActiveCounts[entryId]--
-    → 归零时：移除 Asset 缓存 → 调用 _bundleLoader.UnloadBundle(bundleName)
-    → 清理 Slot，Generation++
-    → 归还 FreeList
-```
+Handle 引用归零后执行 ReleaseCallback；同一 EntryId 的活动计数也归零时，才移除 Asset 缓存并释放其 Bundle。随后槽位递增 Generation 并归还 FreeList。
 
 ### 3. Bundle 层卸载
 
-```
-ABBundleLoader.UnloadBundle(bundleName)
-    → BundleCacheEntry.RefCount--
-    → 归零时：AssetBundle.Unload(true)（连同内部所有 Asset 一起卸载）
-    → 递归调用 UnloadBundle 处理依赖 Bundle
-```
+Bundle 引用归零时调用 `AssetBundle.Unload(true)`，再递归释放依赖 Bundle；仍有引用则保持加载。
 
 ### 安全保护
 
@@ -175,10 +155,11 @@ ABBundleLoader.UnloadBundle(bundleName)
 
 | 方法 | 查询依据 | 返回 |
 |------|---------|------|
-| `ResolveByAddress<T>` | Address 字符串 + 类型约束 | `ResolveResult` |
-| `ResolveByTypeKey<T>` | PrimaryType + 可选 Label | `ResolveResult` |
+| `ResolveByAddress<T>` / `ResolveByAddressExact<T>` | Address + 可赋值/精确类型约束 | `ResolveResult` |
+| `ResolveByTypeKey<T>` | Address Key + PrimaryType + 可选 Labels | `ResolveResult` |
+| `ResolveRawByAddress` | Address + 可选 Labels + RawFile PayloadKind | `ResolveResult` |
 
-`ResolveResult` 有四种状态：
+`ResolveResult` 的公开状态为四种；`InvalidPayloadKind` 与 `IndexNotSupported` 通过现有状态配合结构化 `RuntimeMessage` 表达：
 
 | 状态 | 含义 |
 |------|------|
@@ -209,20 +190,7 @@ ABBundleLoader.UnloadBundle(bundleName)
 
 ## ABPackageManager — 上层入口
 
-`ABPackageManager` 是 AB concrete 入口。旧 `AssetPackageManager` 仍作为兼容门面存在，会根据 `UseABBackend` 路由到 AA 或 AB。AB 主要 API：
-
-```csharp
-// 初始化
-await ABPackageManager.Instance.Initialize();
-
-// 加载
-var handle = await ABPackageManager.Instance.LoadByAddress<Texture2D>("myTex");
-var handle = await ABPackageManager.Instance.LoadByTypeKey<GameObject>("prefab", "ui");
-
-// 卸载
-handle.Release();
-ABPackageManager.Instance.UnloadByLabel("ui");
-```
+`ABPackageManager` 是 AB concrete 入口，提供初始化、按 Address/TypeKey 加载和按 Label 卸载。旧 `AssetPackageManager` 仍作为兼容门面，根据 `UseABBackend` 路由到 AA 或 AB。
 
 Resolve-And-Handle API 返回 `AssetHandle<T>`；兼容的 `LoadAssetAsync<T>` / `LoadAssetSync<T>` 仍直接返回资源对象。AB concrete 入口固定使用 `ABPackageBackend`。
 
