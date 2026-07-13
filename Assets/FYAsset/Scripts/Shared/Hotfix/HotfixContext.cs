@@ -16,7 +16,7 @@ public class HotfixContext
     /// <summary>针对 LocalPackageIndex 的精确本地包检查结果。</summary>
     public HotfixPackageInspection LocalPackageInspection;
 
-    /// <summary>已下载的远端包指针，仅在激活成功后持久化。</summary>
+    /// <summary>已下载的远端包指针，仅在激活和 runtime manager 初始化成功后持久化。</summary>
     public PackageIndex RemotePackageIndex;
 
     /// <summary>目标包名（如 "hotfix"）</summary>

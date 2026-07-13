@@ -15,7 +15,6 @@ MonoBehaviour:
   ProjectName: my-game-xlua-hotfix
   UseABBackend: 0
   RemoteFailurePolicy: 0
-  MajorVersionMismatchPolicy: 0
   BuildOutputRoot: HotfixOutput
   BuildPackagesFolderName: Packages
   VersionDataBasePath: Assets/Build/VersionDataBase.asset

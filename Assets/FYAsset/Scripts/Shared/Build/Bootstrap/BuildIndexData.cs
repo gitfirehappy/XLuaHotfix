@@ -7,7 +7,7 @@ using UnityEngine;
 [Serializable]
 public class BuildIndexData
 {
-    /// <summary>构建唯一标识 (每次构建整包时更新)</summary>
+    /// <summary>Full baseline 唯一身份与目录名，不参与版本兼容判断</summary>
     public string BuildGUID;
 
     /// <summary>构建时间</summary>

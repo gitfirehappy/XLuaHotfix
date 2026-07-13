@@ -72,7 +72,7 @@ public static class FileHelper
 
     /// <summary>
     /// 原子写入字节数组。
-    /// 先写临时文件，再 rename 到目标路径。
+    /// 先写同目录临时文件，再原子替换到目标路径。
     /// 保证：目标文件要么是旧版本（完整），要么是新版本（完整），不会出现半截文件。
     /// </summary>
     public static void WriteAllBytesAtomic(string path, byte[] data)
@@ -84,12 +84,15 @@ public static class FileHelper
 
         EnsureDirectoryForFile(path);
         string tempPath = path + ".tmp." + Guid.NewGuid().ToString("N").Substring(0, 8);
-
-        File.WriteAllBytes(tempPath, data);
-
-        if (File.Exists(path))
-            File.Delete(path);
-        File.Move(tempPath, path);
+        try
+        {
+            File.WriteAllBytes(tempPath, data);
+            ReplaceFile(tempPath, path);
+        }
+        finally
+        {
+            TryDelete(tempPath);
+        }
     }
 
     /// <summary>
@@ -105,12 +108,15 @@ public static class FileHelper
 
         EnsureDirectoryForFile(path);
         string tempPath = path + ".tmp." + Guid.NewGuid().ToString("N").Substring(0, 8);
-
-        File.WriteAllText(tempPath, text, Utf8NoBom);
-
-        if (File.Exists(path))
-            File.Delete(path);
-        File.Move(tempPath, path);
+        try
+        {
+            File.WriteAllText(tempPath, text, Utf8NoBom);
+            ReplaceFile(tempPath, path);
+        }
+        finally
+        {
+            TryDelete(tempPath);
+        }
     }
 
     /// <summary>
@@ -234,7 +240,7 @@ public static class FileHelper
     }
 
     /// <summary>
-    /// 替换文件。目标存在时先删除，再移动源文件到目标路径。
+    /// 原子替换同一文件系统中的文件；目标不存在时直接移动。
     /// </summary>
     public static void ReplaceFile(string sourcePath, string targetPath)
     {
@@ -247,8 +253,9 @@ public static class FileHelper
 
         EnsureDirectoryForFile(targetPath);
         if (File.Exists(targetPath))
-            File.Delete(targetPath);
-        File.Move(sourcePath, targetPath);
+            File.Replace(sourcePath, targetPath, null);
+        else
+            File.Move(sourcePath, targetPath);
     }
 
     /// <summary>

@@ -43,3 +43,4 @@ Shared executable plans live here while active. `requirements/plan.md` remains t
 | `plan-aa-ab-shared-split-20260709.md` | Implemented / Static Verified / Editor acceptance pending |
 | `plan-build-panel-task-slim-20260711.md` | Implemented / Static Verified / Editor acceptance pending |
 | `plan-hotfix-runtime-state-machine-20260712.md` | Implemented / Verified / Pending developer sign-off |
+| `plan-hotfix-major-baseline-pointer-20260713.md` | Implemented / Verified / Pending developer sign-off |

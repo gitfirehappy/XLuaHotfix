@@ -33,7 +33,7 @@
 | `WriteAllBytesAtomic(string path, byte[] data)` | 原子写入字节数组 |
 | `WriteAllTextAtomic(string path, string text)` | 原子写入字符串（UTF-8） |
 
-原子写入先确保父目录存在，再写入唯一临时文件，最后替换目标。调用方只会看到完整旧文件或完整新文件。
+原子写入先确保父目录存在，再在目标旁写入唯一临时文件；目标存在时通过 `File.Replace` 同卷替换，不存在时通过 `File.Move` 就位。调用方只会看到完整旧文件或完整新文件。
 
 **保证**：目标文件要么是旧版本（完整），要么是新版本（完整），不会出现写入中断导致的半截文件。可用于热更新下载完成后替换本地文件。
 
@@ -49,7 +49,7 @@
 | `EnsureDirectoryForFile(string filePath)` | `void` | 确保文件路径的父目录存在，不存在则创建 |
 | `EnsureDirectory(string dirPath)` / `DirectoryExists(string path)` | `void` / `bool` | 创建目录与检查目录 |
 | `CopyFile(...)` / `TryCopyFile(...)` | `void` / `bool` | 复制文件；Try 版本失败时返回 false |
-| `ReplaceFile(sourcePath, targetPath)` | `void` | 用 source 替换 target |
+| `ReplaceFile(sourcePath, targetPath)` | `void` | 同文件系统原子替换；目标不存在时移动 source |
 | `ReadAllText/ReadAllBytes` | `string` / `byte[]` | 同步读取 |
 | `GetFiles/GetDirectories` | `string[]` | 目录枚举 |
 | `GetDirectorySize(string path)` | `long` | 递归统计目录大小；失败文件跳过并记录警告 |
@@ -82,6 +82,6 @@
 
 1. **Android StreamingAssets 只能读不能写**：`Exists` 返回 false、写入不支持此路径
 2. **异步方法需要主线程**：Android StreamingAssets 路径的 `UnityWebRequest` 依赖 Unity 主线程调度
-3. **原子写入的临时文件**：暂未主动清理——正常流程会 rename 走，仅在 rename 前崩溃时残留 `.tmp.xxx` 文件。可在清理逻辑中按 `*.tmp.*` 模式统一清理
+3. **原子替换必须同卷**：临时文件与目标位于同一目录；写入或替换失败时会立即尝试删除临时文件，进程崩溃仍可能留下 `.tmp.xxx`
 4. **`EnsureDirectoryForFile` 是写入前的安全网**：`WriteAllBytesAtomic` / `WriteAllTextAtomic` 内部已自动调用，外部直接使用 `File.WriteAllBytes` 时需手动调用
 5. **`TryDeleteDirectory` 默认递归**：`recursive` 参数默认 `true`，非递归删除非空目录会失败

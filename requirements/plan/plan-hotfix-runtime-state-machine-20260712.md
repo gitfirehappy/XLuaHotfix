@@ -2,7 +2,7 @@
 
 ## Status
 
-Implemented and verified; package-cleanup simplification follow-up is implemented with automated verification as of 2026-07-13. Local Unity cleanup E2E remains pending developer acceptance.
+Implemented and verified; the 2026-07-13 Major-baseline follow-up supersedes the original configurable Major-mismatch policy and pointer timing. Local Unity cleanup E2E remains pending developer acceptance.
 
 ## Goal
 
@@ -15,17 +15,17 @@ Make the remote `PackageIndex.json` a stable package locator while keeping the l
 3. A package is locally complete when its exact package manifest parses, its backend/version matches the local pointer, the AA catalog exists when applicable, and every expected Bundle exists with the expected size.
 4. Same remote/local pointer plus a complete local package activates local content without downloading the remote manifest, catalog, or Bundles.
 5. Same pointer plus an incomplete local package fetches the cumulative remote manifest and repairs only missing or invalid files.
-6. A different pointer fetches the remote manifest, reuses unchanged hash-matching Bundles from the active package, downloads changed files through temporary files, activates the target package, and only then atomically persists the new local PackageIndex.
+6. A different pointer fetches the remote manifest, reuses unchanged hash-matching Bundles from the active package, downloads changed files through temporary files, activates and initializes the target package, and only then atomically persists the new local PackageIndex.
 7. Remote rollback is followed even when the selected same-Major package version is lower than the active local package.
 
 ## Failure Policies
 
 - Add `HotfixRemoteFailurePolicy` with `ContinueWithLocal` and `FailStartup`.
-- Add `HotfixMajorVersionMismatchPolicy` with `ContinueWithLocal` and `RequireClientUpdate`.
+- Major handling now follows fixed direction rules; `HotfixMajorVersionMismatchPolicy` was removed by the approved follow-up.
 - Defaults continue with the last complete local package or built-in baseline.
 - Recoverable fallback emits `OnWarning`, activates local/baseline content, finalizes, and emits `OnFinished` exactly once.
 - Fatal failure emits `OnError` and faults `InitializeAsync` with `HotfixFatalException`.
-- Major mismatch emits `OnClientUpdateRequired(ClientUpdateRequiredInfo)`; the framework does not create UI.
+- A newer remote Major or a client older than its local active package emits `OnClientUpdateRequired(ClientUpdateRequiredInfo)`; the framework does not create UI.
 - Compare the remote Major against the app `BuildIndex`, not the local hotfix manifest.
 
 ## Network Policy
@@ -45,7 +45,7 @@ Make the remote `PackageIndex.json` a stable package locator while keeping the l
 
 ## Acceptance
 
-1. Static decision self-checks cover same-package local activation, incomplete repair, pointer changes/rollback, remote failure policies, and Major mismatch policies; Unity smoke acceptance asserts exactly-once finalization.
+1. Static decision self-checks cover same-package local activation, incomplete repair, pointer changes/rollback, remote failure policy, and directional remote Major handling; Unity smoke acceptance asserts exactly-once finalization.
 2. Build and Unity compilation pass after serializer regeneration.
 3. Current AA 4.0.0 local publish supports a clean first install.
 4. A second launch for the same complete package requests only `PackageIndex.json`.

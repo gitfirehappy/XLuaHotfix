@@ -1,5 +1,5 @@
 /// <summary>
-/// 描述从远端 PackageIndex 检测到的 App Major 版本不匹配。
+/// 描述需要更新客户端的 Major 版本不兼容信息。
 /// </summary>
 public sealed class ClientUpdateRequiredInfo
 {

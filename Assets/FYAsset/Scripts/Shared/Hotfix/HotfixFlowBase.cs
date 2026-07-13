@@ -190,14 +190,14 @@ public abstract class HotfixFlowBase
             return;
         }
 
-        bool applied = await ApplyUpdateAsync(
-            pipeline,
-            ctx,
-            decision.Action == HotfixStateAction.UpdateTarget);
+        bool applied = await ApplyUpdateAsync(pipeline, ctx);
         if (!applied)
             return;
 
-        await FinalizeAsync(ctx.TargetGUIDRoot);
+        PackageIndex packageIndexToPersist = decision.Action == HotfixStateAction.UpdateTarget
+            ? ctx.RemotePackageIndex
+            : null;
+        await FinalizeAsync(ctx.TargetGUIDRoot, packageIndexToPersist);
     }
 
     #endregion
@@ -217,13 +217,36 @@ public abstract class HotfixFlowBase
         ctx.BuildIndex = buildIndex;
         ctx.BaselinePackageName = buildIndex.BuildGUID;
         RuntimePathManager.Initialize(buildIndex);
-        CheckAndCleanIfNewBuild(buildIndex);
 
         ctx.LocalPackageIndex = ReadTrustedLocalPackageIndex();
         if (ctx.LocalPackageIndex != null)
         {
-            RuntimePathManager.SwitchToNewBuild(ctx.LocalPackageIndex.LatestPackage);
-            Debug.Log($"[HotfixManager] 本地活动包指针：{ctx.LocalPackageIndex.LatestPackage}");
+            int buildMajor = buildIndex.Version.Major;
+            int localMajor = ctx.LocalPackageIndex.LatestVersion.Major;
+            if (buildMajor > localMajor)
+            {
+                ReportWarning(
+                    $"[HotfixManager] 检测到整包 Major 升级，清理旧热更包。整包={buildMajor}，本地={localMajor}。");
+                ClearHotfixRoot();
+                ctx.LocalPackageIndex = null;
+            }
+            else if (buildMajor < localMajor)
+            {
+                PackageIndex incompatibleIndex = ctx.LocalPackageIndex;
+                ClearHotfixRoot();
+                ctx.LocalPackageIndex = null;
+                OnClientUpdateRequired?.Invoke(new ClientUpdateRequiredInfo(
+                    buildIndex.Version,
+                    incompatibleIndex.LatestVersion,
+                    incompatibleIndex.LatestPackage));
+                ThrowFatal(
+                    $"[HotfixManager] 客户端 Major 低于本地活动包，请安装最新整包。客户端={buildMajor}，本地={localMajor}。");
+            }
+            else
+            {
+                RuntimePathManager.SwitchToNewBuild(ctx.LocalPackageIndex.LatestPackage);
+                Debug.Log($"[HotfixManager] 本地活动包指针：{ctx.LocalPackageIndex.LatestPackage}");
+            }
         }
 
         RuntimePathManager.EnsureDirectories();
@@ -389,12 +412,11 @@ public abstract class HotfixFlowBase
     }
 
     /// <summary>
-    /// 激活目标包，并在活动包变化时持久化 PackageIndex。
+    /// 激活已经完整校验的目标包。
     /// </summary>
     private async Task<bool> ApplyUpdateAsync(
         IHotfixPipeline pipeline,
-        HotfixContext ctx,
-        bool persistPackageIndex)
+        HotfixContext ctx)
     {
         BeginStep("应用更新");
         RuntimePathManager.SwitchToNewBuild(ctx.TargetPackageName);
@@ -408,43 +430,24 @@ public abstract class HotfixFlowBase
             return false;
         }
 
-        if (!persistPackageIndex)
-        {
-            CompleteStep();
-            return true;
-        }
-
-        try
-        {
-            string indexPath = FYAssetPathUtility.JoinFilePath(
-                RuntimePathManager.HotfixRoot,
-                FYAssetSettings.PACKAGE_INDEX_FILE_NAME);
-            string json = SerializationUtility.SerializeToJson(ctx.RemotePackageIndex, true);
-            FileHelper.WriteAllTextAtomic(indexPath, json);
-            ctx.LocalPackageIndex = ctx.RemotePackageIndex;
-            CompleteStep();
-            return true;
-        }
-        catch (Exception ex)
-        {
-            string message = $"[HotfixManager] 本地 PackageIndex 持久化失败：{ex.Message}";
-            if (ctx.LocalPackageInspection?.IsComplete == true)
-                await HandleRemoteFailureAsync(pipeline, ctx, message);
-            else
-                ThrowFatal(message, ex);
-            return false;
-        }
+        CompleteStep();
+        return true;
     }
 
     /// <summary>
     /// 初始化运行时资源管理器，按需清理旧包并触发完成事件。
     /// </summary>
-    private async Task FinalizeAsync(string activePackageRootToKeep = null)
+    private async Task FinalizeAsync(
+        string activePackageRootToKeep = null,
+        PackageIndex packageIndexToPersist = null)
     {
         BeginStep("完成初始化");
         bool initialized = await FinishHotfix();
         if (!initialized)
             ThrowFatal("[HotfixManager] PackageManager 初始化失败。");
+
+        if (packageIndexToPersist != null)
+            PersistLocalPackageIndex(packageIndexToPersist);
 
         if (!string.IsNullOrEmpty(activePackageRootToKeep))
             CleanupInactivePackages(activePackageRootToKeep);
@@ -500,21 +503,24 @@ public abstract class HotfixFlowBase
     /// </summary>
     private async Task HandleMajorMismatchAsync(IHotfixPipeline pipeline, HotfixContext ctx)
     {
-        var info = new ClientUpdateRequiredInfo(
-            ctx.BuildIndex.Version,
-            ctx.RemotePackageIndex.LatestVersion,
-            ctx.RemotePackageIndex.LatestPackage);
-        OnClientUpdateRequired?.Invoke(info);
-
-        string message =
-            $"[HotfixManager] 发布包要求其他客户端 Major 版本。客户端={ctx.BuildIndex.Version.GetVersionString()}，远端={ctx.RemotePackageIndex.LatestVersion.GetVersionString()}。";
-        ReportWarning(message);
+        int clientMajor = ctx.BuildIndex.Version.Major;
+        int remoteMajor = ctx.RemotePackageIndex.LatestVersion.Major;
         HotfixStateDecision decision = HotfixStateDecider.DecideMajorMismatch(
-            FYAssetSettings.Instance.MajorVersionMismatchPolicy,
+            clientMajor,
+            remoteMajor,
             ctx.LocalPackageInspection?.IsComplete == true);
-        if (decision.Action == HotfixStateAction.FailStartup)
-            ThrowFatal(message);
+        if (decision.NotifyClientUpdate)
+        {
+            OnClientUpdateRequired?.Invoke(new ClientUpdateRequiredInfo(
+                ctx.BuildIndex.Version,
+                ctx.RemotePackageIndex.LatestVersion,
+                ctx.RemotePackageIndex.LatestPackage));
+        }
 
+        string message = remoteMajor > clientMajor
+            ? $"[HotfixManager] 远端 Major 更高，跳过热更并继续当前客户端内容。客户端={clientMajor}，远端={remoteMajor}。"
+            : $"[HotfixManager] 远端 Major 低于客户端，可能存在发布或 Channel 配置异常。客户端={clientMajor}，远端={remoteMajor}。";
+        ReportWarning(message);
         await ActivateFallbackAsync(pipeline, ctx, decision.Action);
         await FinalizeAsync();
     }
@@ -551,6 +557,25 @@ public abstract class HotfixFlowBase
     /// 完成 AA 或 AB 运行时资源管理器初始化。
     /// </summary>
     protected abstract Task<bool> FinishHotfix();
+
+    /// <summary>
+    /// 在运行时初始化成功后持久化新的本地活动包指针。
+    /// </summary>
+    private void PersistLocalPackageIndex(PackageIndex packageIndex)
+    {
+        try
+        {
+            string indexPath = FYAssetPathUtility.JoinFilePath(
+                RuntimePathManager.HotfixRoot,
+                FYAssetSettings.PACKAGE_INDEX_FILE_NAME);
+            string json = SerializationUtility.SerializeToJson(packageIndex, true);
+            FileHelper.WriteAllTextAtomic(indexPath, json);
+        }
+        catch (Exception ex)
+        {
+            ThrowFatal($"[HotfixManager] 本地 PackageIndex 持久化失败：{ex.Message}", ex);
+        }
+    }
 
     /// <summary>
     /// 读取并校验本地活动包指针。
@@ -854,55 +879,9 @@ public abstract class HotfixFlowBase
     }
 
     /// <summary>
-    /// 检测整包 BuildGUID 变化并清理旧热更缓存
-    /// </summary>
-    private void CheckAndCleanIfNewBuild(BuildIndexData currentBuildIndex)
-    {
-        string guidFilePath = FYAssetPathUtility.JoinFilePath(Application.persistentDataPath, "build_guid.txt");
-        string lastGuid = string.Empty;
-        if (FileHelper.Exists(guidFilePath))
-        {
-            try
-            {
-                lastGuid = FileHelper.ReadAllText(guidFilePath).Trim();
-            }
-            catch (Exception ex)
-            {
-                Debug.LogWarning($"[HotfixManager] build_guid.txt 读取失败：{ex.Message}");
-            }
-        }
-
-        if (string.Equals(lastGuid, currentBuildIndex.BuildGUID, StringComparison.Ordinal))
-            return;
-
-        Caching.ClearCache();
-        try
-        {
-            ClearHotfixForNewBuild();
-        }
-        catch (Exception ex)
-        {
-            Debug.LogWarning($"[HotfixManager] 热更缓存清理失败：{ex.Message}");
-        }
-
-        string aaCachePath = FYAssetPathUtility.JoinFilePath(
-            Application.persistentDataPath,
-            "com.unity.addressables");
-        FileHelper.TryDeleteDirectory(aaCachePath);
-        try
-        {
-            FileHelper.WriteAllTextAtomic(guidFilePath, currentBuildIndex.BuildGUID);
-        }
-        catch (Exception ex)
-        {
-            Debug.LogWarning($"[HotfixManager] build_guid.txt 写入失败：{ex.Message}");
-        }
-    }
-
-    /// <summary>
     /// 清空 HotfixRoot 并重建当前运行目录。
     /// </summary>
-    private static void ClearHotfixForNewBuild()
+    private static void ClearHotfixRoot()
     {
         string hotfixRoot = RuntimePathManager.HotfixRoot;
         if (FileHelper.DirectoryExists(hotfixRoot)

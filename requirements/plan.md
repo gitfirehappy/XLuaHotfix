@@ -202,6 +202,7 @@ Phase 4 and Phase 6 must be coordinated (ABManifest runtime consumption + build-
 | plan-aa-ab-shared-split-20260709.md | A1/A3/A5+A9: strict AA/AB ownership including independent build windows, shared shell, draggable Repository layout, and AA-only HotfixGroup recovery UI | Implemented / Static Verified / Editor acceptance pending |
 | plan-build-panel-task-slim-20260711.md | Version-to-Repository merge, persistent AA final Build Path injection with official report entry, AB report references/tree, and Pipeline/Task declaration cleanup | Implemented / Static Verified / Editor acceptance pending |
 | plan-hotfix-runtime-state-machine-20260712.md | Deterministic local activation/repair/update/fallback state machine, configurable failure policies, checked finalization, and AA 4.0.1 localhost acceptance | Implemented / Verified / Pending developer sign-off |
+| plan-hotfix-major-baseline-pointer-20260713.md | Remove legacy BuildGUID marker cleanup, use directional Major rules, verify same-package CRC, and commit the local pointer only after runtime initialization | Implemented / Verified / Pending developer sign-off |
 
 ### Phase 5: Build-Time - Asset Collection & Indexing
 

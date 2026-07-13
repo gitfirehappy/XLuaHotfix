@@ -57,7 +57,14 @@ Channel 排序：`alpha(0) < beta(1) < rc(2) < release("", 3)`
 
 ### 强制更新判断
 
-这个判断表达 Major 版本不兼容。当前热更状态机在远端 `PackageIndex.LatestVersion.Major` 与 `BuildIndex.Version.Major` 不同时触发 `OnClientUpdateRequired`，再按 `MajorVersionMismatchPolicy` 继续本地内容或终止启动。
+Major 是客户端兼容边界，判断必须区分方向：
+
+- `BuildIndex.Major > 本地 PackageIndex.Major`：已经安装新整包，删除旧 Major 热更目录后继续当前 Major 的远端流程。
+- `BuildIndex.Major < 本地 PackageIndex.Major`：旧客户端或错误安装，删除不兼容目录、触发 `OnClientUpdateRequired` 并停止启动。
+- `Remote PackageIndex.Major > BuildIndex.Major`：提示存在新客户端，跳过远端包内容并启动当前 Major 本地内容。
+- `Remote PackageIndex.Major < BuildIndex.Major`：视为发布或 Channel 异常，告警后启动当前 Major 本地内容。
+
+`BuildGUID` 是 Full baseline 的唯一包身份和路径名称，不参与兼容判断。
 
 ---
 
@@ -97,4 +104,4 @@ Channel 排序：`alpha(0) < beta(1) < rc(2) < release("", 3)`
 
 1. **构建时**：预计算候选版本，写入当前后端 manifest 与 `PackageIndex`；成功 commit 后再更新 `VersionDataBase`
 2. **整包启动**：`BuildIndex.Version` 表示客户端基线 Major
-3. **热更时**：远端 `PackageIndex` 是目标指针，本地 `PackageIndex` 是最近成功激活指针；Major 不匹配时发出客户端更新事件并执行配置策略
+3. **热更时**：远端 `PackageIndex` 是目标指针，本地 `PackageIndex` 只记录完成激活、runtime manager 初始化和指针持久化的活动包

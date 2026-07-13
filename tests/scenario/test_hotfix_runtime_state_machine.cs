@@ -6,7 +6,7 @@ internal static class HotfixRuntimeStateMachineTests
     {
         VerifyTargetDecisions();
         VerifyRemoteFailurePolicies();
-        VerifyMajorMismatchPolicies();
+        VerifyMajorDirections();
         Console.WriteLine("PASS - hotfix runtime state decisions verified.");
         return 0;
     }
@@ -44,17 +44,23 @@ internal static class HotfixRuntimeStateMachineTests
         AssertEqual(HotfixStateAction.FailStartup, fatal.Action, "remote failure fatal policy");
     }
 
-    private static void VerifyMajorMismatchPolicies()
+    private static void VerifyMajorDirections()
     {
-        HotfixStateDecision continueLocal = HotfixStateDecider.DecideMajorMismatch(
-            HotfixMajorVersionMismatchPolicy.ContinueWithLocal, true);
-        AssertEqual(HotfixStateAction.ActivateLocal, continueLocal.Action, "major mismatch local fallback");
-        AssertTrue(continueLocal.NotifyClientUpdate, "major mismatch notification");
+        HotfixStateDecision remoteNewerLocal = HotfixStateDecider.DecideMajorMismatch(4, 5, true);
+        AssertEqual(HotfixStateAction.ActivateLocal, remoteNewerLocal.Action, "remote newer local fallback");
+        AssertTrue(remoteNewerLocal.NotifyClientUpdate, "remote newer notification");
 
-        HotfixStateDecision requireUpdate = HotfixStateDecider.DecideMajorMismatch(
-            HotfixMajorVersionMismatchPolicy.RequireClientUpdate, false);
-        AssertEqual(HotfixStateAction.FailStartup, requireUpdate.Action, "major mismatch fatal policy");
-        AssertTrue(requireUpdate.NotifyClientUpdate, "required update notification");
+        HotfixStateDecision remoteNewerBaseline = HotfixStateDecider.DecideMajorMismatch(4, 5, false);
+        AssertEqual(HotfixStateAction.ActivateBaseline, remoteNewerBaseline.Action, "remote newer baseline fallback");
+        AssertTrue(remoteNewerBaseline.NotifyClientUpdate, "remote newer baseline notification");
+
+        HotfixStateDecision remoteOlderLocal = HotfixStateDecider.DecideMajorMismatch(5, 4, true);
+        AssertEqual(HotfixStateAction.ActivateLocal, remoteOlderLocal.Action, "remote older local fallback");
+        AssertFalse(remoteOlderLocal.NotifyClientUpdate, "remote older notification");
+
+        HotfixStateDecision remoteOlderBaseline = HotfixStateDecider.DecideMajorMismatch(5, 4, false);
+        AssertEqual(HotfixStateAction.ActivateBaseline, remoteOlderBaseline.Action, "remote older baseline fallback");
+        AssertFalse(remoteOlderBaseline.NotifyClientUpdate, "remote older baseline notification");
     }
 
     private static void AssertTrue(bool value, string label)

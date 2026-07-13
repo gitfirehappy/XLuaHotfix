@@ -10,15 +10,6 @@ public enum HotfixRemoteFailurePolicy
 }
 
 /// <summary>
-/// 控制发布包面向其他 App Major 版本时的启动策略。
-/// </summary>
-public enum HotfixMajorVersionMismatchPolicy
-{
-    ContinueWithLocal = 0,
-    RequireClientUpdate = 1
-}
-
-/// <summary>
 /// 执行后端特定热更步骤前选定的高层动作。
 /// </summary>
 public enum HotfixStateAction
@@ -83,14 +74,12 @@ public static class HotfixStateDecider
     }
 
     public static HotfixStateDecision DecideMajorMismatch(
-        HotfixMajorVersionMismatchPolicy policy,
+        int clientMajor,
+        int remoteMajor,
         bool localPackageComplete)
     {
-        if (policy == HotfixMajorVersionMismatchPolicy.RequireClientUpdate)
-            return new HotfixStateDecision(HotfixStateAction.FailStartup, notifyClientUpdate: true);
-
         return new HotfixStateDecision(
             localPackageComplete ? HotfixStateAction.ActivateLocal : HotfixStateAction.ActivateBaseline,
-            notifyClientUpdate: true);
+            notifyClientUpdate: remoteMajor > clientMajor);
     }
 }

@@ -57,15 +57,115 @@ AA 和 AB 后端各自读取 AAManifest / ABManifest，但统一输出 manifest 
 
 ## 完整热更流程（11 步）
 
-| 阶段 | 核心动作 | 关键约束 |
-|------|----------|----------|
-| 0–2 本地基线 | 读取 BuildIndex、初始化后端、精确检查本地活动包 | 不从其他目录偷偷回退 |
-| 3–4 目标决策 | 下载 PackageIndex，决定直接激活、同包修复、更新或 Major 策略 | 同指针且完整时不再请求 manifest/catalog/Bundle |
-| 5–6 元数据 | 获取远端 manifest，形成待准备 Bundle 列表 | 二进制优先，JSON 回退 |
-| 7 下载 | 最多 6 并发；依次检查目标目录、上一个活动包，再决定网络下载 | 全部经过大小/CRC 校验；复制与下载使用 `.tmp` |
-| 8 持久化 | 写入 manifest；AA 按需原子替换 catalog | 未完整内容不得激活 |
-| 9 激活 | 复查完整性后激活目标包 | 仅不同指针在成功后更新本地 PackageIndex |
-| 10 完成 | 初始化 AA/AB runtime manager，成功更新时删除非活动包 | 清理失败不阻断启动；`OnFinished` 只触发一次 |
+```mermaid
+flowchart TD
+    START(["InitializeAsync"]) --> BUILD["读取整包 BuildIndex"]
+    BUILD --> BUILD_OK{"BuildIndex、Version、BuildGUID 有效？"}
+    BUILD_OK -- "否" --> FATAL["OnError + HotfixFatalException"]
+    BUILD_OK -- "是" --> PATH["初始化 RuntimePathManager<br/>记录 baseline 包身份"]
+
+    PATH --> LOCAL_INDEX{"本地 PackageIndex 可信？"}
+    LOCAL_INDEX -- "否／不存在" --> NO_LOCAL["无本地活动包"]
+    LOCAL_INDEX -- "是" --> LOCAL_MAJOR{"Build Major 与本地活动包 Major"}
+    LOCAL_MAJOR -- "Build > Local<br/>整包升级" --> CLEAR_OLD["删除旧 HotfixRoot<br/>重建 baseline 目录"]
+    CLEAR_OLD --> NO_LOCAL
+    LOCAL_MAJOR -- "Build < Local<br/>旧客户端或错误安装" --> CLEAR_INVALID["删除不兼容 HotfixRoot"]
+    CLEAR_INVALID --> LOCAL_UPDATE_EVENT["OnClientUpdateRequired"]
+    LOCAL_UPDATE_EVENT --> FATAL
+    LOCAL_MAJOR -- "相等" --> SWITCH_LOCAL["CurrentGUIDRoot 切到本地活动包"]
+
+    NO_LOCAL --> BACKEND["初始化 AA／AB 后端"]
+    SWITCH_LOCAL --> BACKEND
+    BACKEND --> BACKEND_OK{"后端初始化成功？"}
+    BACKEND_OK -- "否" --> FATAL
+    BACKEND_OK -- "是" --> INSPECT_LOCAL["精确检查本地活动包<br/>manifest／catalog／Bundle 大小与 CRC"]
+    INSPECT_LOCAL --> REMOTE_INDEX["下载并校验远端 PackageIndex"]
+
+    REMOTE_INDEX --> REMOTE_OK{"远端 PackageIndex 可用？"}
+    REMOTE_OK -- "否" --> REMOTE_FAILURE["OnWarning<br/>执行 RemoteFailurePolicy"]
+    REMOTE_FAILURE --> REMOTE_POLICY{"策略"}
+    REMOTE_POLICY -- "FailStartup" --> FATAL
+    REMOTE_POLICY -- "ContinueWithLocal" --> FALLBACK_SELECT
+
+    REMOTE_OK -- "是" --> REMOTE_MAJOR{"Remote Major 与 Build Major"}
+    REMOTE_MAJOR -- "Remote > Build" --> REMOTE_NEWER["OnClientUpdateRequired + OnWarning<br/>跳过远端包内容"]
+    REMOTE_NEWER --> FALLBACK_SELECT
+    REMOTE_MAJOR -- "Remote < Build" --> REMOTE_OLDER["OnWarning：发布或 Channel 异常<br/>跳过远端包内容"]
+    REMOTE_OLDER --> FALLBACK_SELECT
+    REMOTE_MAJOR -- "相等" --> TARGET_DECISION{"远端与本地活动包关系"}
+
+    TARGET_DECISION -- "同包且完整" --> ACTIVATE_LOCAL["激活本地活动包<br/>不请求远端 manifest／catalog／Bundle"]
+    ACTIVATE_LOCAL --> ACTIVATE_LOCAL_OK{"激活成功？"}
+    ACTIVATE_LOCAL_OK -- "否" --> REMOTE_FAILURE
+    ACTIVATE_LOCAL_OK -- "是" --> FINISH_LOCAL["FinishHotfix"]
+
+    TARGET_DECISION -- "同包但不完整<br/>RepairTarget" --> FETCH_MANIFEST["下载目标 manifest<br/>binary 优先，JSON 回退"]
+    TARGET_DECISION -- "不同包／前向更新／回滚<br/>UpdateTarget" --> FETCH_MANIFEST
+    FETCH_MANIFEST --> MANIFEST_OK{"manifest 与 PackageIndex 一致？"}
+    MANIFEST_OK -- "否" --> REMOTE_FAILURE
+    MANIFEST_OK -- "是" --> BUNDLE_LIST["生成完整 Bundle 准备列表"]
+
+    BUNDLE_LIST --> TARGET_FILE{"目标目录已有文件<br/>大小与 CRC 正确？"}
+    TARGET_FILE -- "是" --> NEXT_BUNDLE["保留目标文件"]
+    TARGET_FILE -- "否" --> PREVIOUS_FILE{"上一个活动包存在<br/>同 Hash Bundle？"}
+    PREVIOUS_FILE -- "是" --> COPY_TEMP["复制到 .tmp<br/>校验大小与 CRC 后替换"]
+    COPY_TEMP --> COPY_OK{"复制与校验成功？"}
+    COPY_OK -- "是" --> NEXT_BUNDLE
+    COPY_OK -- "否" --> DOWNLOAD_BUNDLE
+    PREVIOUS_FILE -- "否" --> DOWNLOAD_BUNDLE["最多 6 并发网络下载<br/>重试 + .tmp + 大小／CRC 校验"]
+    DOWNLOAD_BUNDLE --> DOWNLOAD_OK{"下载成功？"}
+    DOWNLOAD_OK -- "否" --> REMOTE_FAILURE
+    DOWNLOAD_OK -- "是" --> NEXT_BUNDLE
+    NEXT_BUNDLE --> ALL_BUNDLES{"全部 Bundle 已准备？"}
+    ALL_BUNDLES -- "否" --> TARGET_FILE
+    ALL_BUNDLES -- "是" --> PERSIST_META["持久化 manifest<br/>AA 按需下载并替换 catalog"]
+
+    PERSIST_META --> META_OK{"元数据持久化成功？"}
+    META_OK -- "否" --> REMOTE_FAILURE
+    META_OK -- "是" --> INSPECT_TARGET["复查目标包<br/>目录、版本、元数据、大小与 CRC"]
+    INSPECT_TARGET --> TARGET_OK{"目标包完整？"}
+    TARGET_OK -- "否" --> REMOTE_FAILURE
+    TARGET_OK -- "是" --> SWITCH_TARGET["CurrentGUIDRoot 切到目标包"]
+    SWITCH_TARGET --> ACTIVATE_TARGET["ActivatePackageAsync"]
+    ACTIVATE_TARGET --> ACTIVATE_TARGET_OK{"激活成功？"}
+    ACTIVATE_TARGET_OK -- "否" --> REMOTE_FAILURE
+    ACTIVATE_TARGET_OK -- "是" --> FINISH_TARGET["FinishHotfix"]
+
+    FALLBACK_SELECT{"当前 Major 本地包完整？"}
+    FALLBACK_SELECT -- "是" --> ACTIVATE_FALLBACK["激活本地活动包"]
+    ACTIVATE_FALLBACK --> FALLBACK_ACTIVATE_OK{"激活成功？"}
+    FALLBACK_ACTIVATE_OK -- "是" --> FINISH_FALLBACK["FinishHotfix"]
+    FALLBACK_ACTIVATE_OK -- "否" --> BASELINE["切到整包 baseline"]
+    FALLBACK_SELECT -- "否" --> BASELINE
+    BASELINE --> FINISH_FALLBACK
+
+    FINISH_LOCAL --> FINISH_LOCAL_OK{"初始化成功？"}
+    FINISH_FALLBACK --> FINISH_FALLBACK_OK{"初始化成功？"}
+    FINISH_TARGET --> FINISH_TARGET_OK{"初始化成功？"}
+    FINISH_LOCAL_OK -- "否" --> FATAL
+    FINISH_FALLBACK_OK -- "否" --> FATAL
+    FINISH_TARGET_OK -- "否" --> FATAL
+    FINISH_LOCAL_OK -- "是" --> FINISHED
+    FINISH_FALLBACK_OK -- "是" --> FINISHED
+
+    FINISH_TARGET_OK -- "是" --> POINTER_CHANGED{"活动包指针变化？"}
+    POINTER_CHANGED -- "否／同包修复" --> CLEANUP["删除除当前活动包外的直接子级 Build_*"]
+    POINTER_CHANGED -- "是／更新或回滚" --> WRITE_INDEX["原子替换本地 PackageIndex"]
+    WRITE_INDEX --> WRITE_OK{"写入成功？"}
+    WRITE_OK -- "否" --> FATAL
+    WRITE_OK -- "是" --> CLEANUP
+    CLEANUP --> CLEANUP_RESULT["删除失败仅警告<br/>不阻断已成功启动"]
+    CLEANUP_RESULT --> FINISHED(["OnFinished，仅一次"])
+
+    classDef fatal fill:#f8d7da,stroke:#9f2d36,color:#4a1116;
+    classDef success fill:#d9ead3,stroke:#4f7d43,color:#20351c;
+    classDef warning fill:#fff2cc,stroke:#a67c00,color:#4d3900;
+    class FATAL fatal;
+    class FINISHED success;
+    class REMOTE_FAILURE,REMOTE_NEWER,REMOTE_OLDER,CLEANUP_RESULT warning;
+```
+
+关键时序：不同包只有在目标激活、`FinishHotfix()` 和本地 PackageIndex 原子替换全部成功后，才会清理旧包并触发 `OnFinished`。同包修复不重写未变化的活动指针；所有回退链路均不清理旧包。
 
 ### 进度回调
 
@@ -80,8 +180,8 @@ AA 和 AB 后端各自读取 AAManifest / ABManifest，但统一输出 manifest 
 
 - `OnWarning(string message)` — 可恢复问题，例如远端不可用后按策略使用完整本地包或内置基线
 - `OnError(string message)` — 致命问题；随后抛出 `HotfixFatalException` 终止启动
-- `OnClientUpdateRequired(ClientUpdateRequiredInfo)` — 远端 Major 不匹配时通知上层
-- `RemoteFailurePolicy` 与 `MajorVersionMismatchPolicy` 决定继续本地内容还是终止启动
+- `OnClientUpdateRequired(ClientUpdateRequiredInfo)` — 远端 Major 更高或客户端低于本地活动包时通知上层
+- `RemoteFailurePolicy` 只控制普通远端失败；Major 分支采用固定方向规则
 - Bundle 准备失败会进入同一远端失败策略，不会把未完整验证的目标包写成本地活动指针
 
 ### Bundle 下载安全策略
@@ -126,7 +226,8 @@ Bundle 下载阶段由 `HotfixFlowBase` 统一管理重试与校验：
 
 ## 包体清理
 
-- 新整包 BuildGUID 变化时，`HotfixFlowBase` 清空 HotfixRoot 并重建目录；Unity/Addressables 缓存仍按 best-effort 清理。
+- `BuildIndex.Major` 高于本地活动包 Major 时，`HotfixFlowBase` 清空 HotfixRoot 后继续当前 Major 的远端流程；`BuildGUID` 只标识整包 baseline，不参与兼容判断。
+- `BuildIndex.Major` 低于本地活动包 Major 时视为旧客户端或错误安装，清理不兼容目录、通知更新并停止启动。
 - 更新、回滚或同包修复完成，并且 PackageManager 初始化成功后，删除 HotfixRoot 下除活动包外的全部直接子级 `Build_*`。
 - 普通同包启动、远端失败回退和 Major 不匹配回退不触发旧包清理。
 - 不保留数量配置，不按修改时间排序；删除失败只记录警告。

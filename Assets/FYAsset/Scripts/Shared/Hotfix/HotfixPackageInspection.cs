@@ -51,6 +51,8 @@ public sealed class HotfixPackageInspection
                 return Incomplete(versionInfo, $"缺少 Bundle：{bundle.BundleName}");
             if (bundle.FileSize >= 0 && new FileInfo(path).Length != bundle.FileSize)
                 return Incomplete(versionInfo, $"Bundle 大小不匹配：{bundle.BundleName}");
+            if (bundle.FileCRC != 0 && HashGenerator.GenerateFileCRC(path) != bundle.FileCRC)
+                return Incomplete(versionInfo, $"Bundle CRC 不匹配：{bundle.BundleName}");
         }
 
         return new HotfixPackageInspection(versionInfo, true, string.Empty);
