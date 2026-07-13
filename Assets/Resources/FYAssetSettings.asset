@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1d371fa61c07467b8ae78af001014c1e, type: 3}
   m_Name: FYAssetSettings
   m_EditorClassIdentifier: 
-  ProjectName: my-game-xlua-hotfix
+  ProjectName: fyasset
   UseABBackend: 0
   RemoteFailurePolicy: 0
   BuildOutputRoot: HotfixOutput

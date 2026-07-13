@@ -65,20 +65,20 @@ flowchart TD
     BUILD_OK -- "是" --> PATH["初始化 RuntimePathManager<br/>记录 baseline 包身份"]
 
     PATH --> LOCAL_INDEX{"本地 PackageIndex 可信？"}
-    LOCAL_INDEX -- "否／不存在" --> NO_LOCAL["无本地活动包"]
-    LOCAL_INDEX -- "是" --> LOCAL_MAJOR{"Build Major 与本地活动包 Major"}
+    LOCAL_INDEX -- "否／不存在" --> NO_LOCAL["无本地 Hotfix 包"]
+    LOCAL_INDEX -- "是" --> LOCAL_MAJOR{"Build Major 与本地 Hotfix 包 Major"}
     LOCAL_MAJOR -- "Build > Local<br/>整包升级" --> CLEAR_OLD["删除旧 HotfixRoot<br/>重建 baseline 目录"]
     CLEAR_OLD --> NO_LOCAL
     LOCAL_MAJOR -- "Build < Local<br/>旧客户端或错误安装" --> CLEAR_INVALID["删除不兼容 HotfixRoot"]
     CLEAR_INVALID --> LOCAL_UPDATE_EVENT["OnClientUpdateRequired"]
     LOCAL_UPDATE_EVENT --> FATAL
-    LOCAL_MAJOR -- "相等" --> SWITCH_LOCAL["CurrentGUIDRoot 切到本地活动包"]
+    LOCAL_MAJOR -- "相等" --> SWITCH_LOCAL["CurrentGUIDRoot 切到本地 Hotfix 包"]
 
     NO_LOCAL --> BACKEND["初始化 AA／AB 后端"]
     SWITCH_LOCAL --> BACKEND
     BACKEND --> BACKEND_OK{"后端初始化成功？"}
     BACKEND_OK -- "否" --> FATAL
-    BACKEND_OK -- "是" --> INSPECT_LOCAL["精确检查本地活动包<br/>manifest／catalog／Bundle 大小与 CRC"]
+    BACKEND_OK -- "是" --> INSPECT_LOCAL["精确检查本地 Hotfix 包<br/>manifest／catalog／Bundle 大小与 CRC"]
     INSPECT_LOCAL --> REMOTE_INDEX["下载并校验远端 PackageIndex"]
 
     REMOTE_INDEX --> REMOTE_OK{"远端 PackageIndex 可用？"}
@@ -92,9 +92,9 @@ flowchart TD
     REMOTE_NEWER --> FALLBACK_SELECT
     REMOTE_MAJOR -- "Remote < Build" --> REMOTE_OLDER["OnWarning：发布或 Channel 异常<br/>跳过远端包内容"]
     REMOTE_OLDER --> FALLBACK_SELECT
-    REMOTE_MAJOR -- "相等" --> TARGET_DECISION{"远端与本地活动包关系"}
+    REMOTE_MAJOR -- "相等" --> TARGET_DECISION{"远端与本地 Hotfix 包关系"}
 
-    TARGET_DECISION -- "同包且完整" --> ACTIVATE_LOCAL["激活本地活动包<br/>不请求远端 manifest／catalog／Bundle"]
+    TARGET_DECISION -- "同包且完整" --> ACTIVATE_LOCAL["激活本地 Hotfix 包<br/>不请求远端 manifest／catalog／Bundle"]
     ACTIVATE_LOCAL --> ACTIVATE_LOCAL_OK{"激活成功？"}
     ACTIVATE_LOCAL_OK -- "否" --> REMOTE_FAILURE
     ACTIVATE_LOCAL_OK -- "是" --> FINISH_LOCAL["FinishHotfix"]
@@ -107,7 +107,7 @@ flowchart TD
 
     BUNDLE_LIST --> TARGET_FILE{"目标目录已有文件<br/>大小与 CRC 正确？"}
     TARGET_FILE -- "是" --> NEXT_BUNDLE["保留目标文件"]
-    TARGET_FILE -- "否" --> PREVIOUS_FILE{"上一个活动包存在<br/>同 Hash Bundle？"}
+    TARGET_FILE -- "否" --> PREVIOUS_FILE{"上一个本地 Hotfix 包存在<br/>同 Hash Bundle？"}
     PREVIOUS_FILE -- "是" --> COPY_TEMP["复制到 .tmp<br/>校验大小与 CRC 后替换"]
     COPY_TEMP --> COPY_OK{"复制与校验成功？"}
     COPY_OK -- "是" --> NEXT_BUNDLE
@@ -132,7 +132,7 @@ flowchart TD
     ACTIVATE_TARGET_OK -- "是" --> FINISH_TARGET["FinishHotfix"]
 
     FALLBACK_SELECT{"当前 Major 本地包完整？"}
-    FALLBACK_SELECT -- "是" --> ACTIVATE_FALLBACK["激活本地活动包"]
+    FALLBACK_SELECT -- "是" --> ACTIVATE_FALLBACK["激活本地 Hotfix 包"]
     ACTIVATE_FALLBACK --> FALLBACK_ACTIVATE_OK{"激活成功？"}
     FALLBACK_ACTIVATE_OK -- "是" --> FINISH_FALLBACK["FinishHotfix"]
     FALLBACK_ACTIVATE_OK -- "否" --> BASELINE["切到整包 baseline"]
@@ -148,8 +148,8 @@ flowchart TD
     FINISH_LOCAL_OK -- "是" --> FINISHED
     FINISH_FALLBACK_OK -- "是" --> FINISHED
 
-    FINISH_TARGET_OK -- "是" --> POINTER_CHANGED{"活动包指针变化？"}
-    POINTER_CHANGED -- "否／同包修复" --> CLEANUP["删除除当前活动包外的直接子级 Build_*"]
+    FINISH_TARGET_OK -- "是" --> POINTER_CHANGED{"本地 PackageIndex 需要更新？"}
+    POINTER_CHANGED -- "否／同包修复" --> CLEANUP["删除除目标 Hotfix 包外的直接子级 Build_*"]
     POINTER_CHANGED -- "是／更新或回滚" --> WRITE_INDEX["原子替换本地 PackageIndex"]
     WRITE_INDEX --> WRITE_OK{"写入成功？"}
     WRITE_OK -- "否" --> FATAL
@@ -165,7 +165,7 @@ flowchart TD
     class REMOTE_FAILURE,REMOTE_NEWER,REMOTE_OLDER,CLEANUP_RESULT warning;
 ```
 
-关键时序：不同包只有在目标激活、`FinishHotfix()` 和本地 PackageIndex 原子替换全部成功后，才会清理旧包并触发 `OnFinished`。同包修复不重写未变化的活动指针；所有回退链路均不清理旧包。
+关键时序：不同包只有在目标激活、`FinishHotfix()` 和本地 PackageIndex 原子替换全部成功后，才会清理旧包并触发 `OnFinished`。同包修复不重写未变化的本地 PackageIndex；所有回退链路均不清理旧包。
 
 ### 进度回调
 
@@ -180,9 +180,9 @@ flowchart TD
 
 - `OnWarning(string message)` — 可恢复问题，例如远端不可用后按策略使用完整本地包或内置基线
 - `OnError(string message)` — 致命问题；随后抛出 `HotfixFatalException` 终止启动
-- `OnClientUpdateRequired(ClientUpdateRequiredInfo)` — 远端 Major 更高或客户端低于本地活动包时通知上层
+- `OnClientUpdateRequired(ClientUpdateRequiredInfo)` — 远端 Major 更高或客户端低于本地 Hotfix 包时通知上层
 - `RemoteFailurePolicy` 只控制普通远端失败；Major 分支采用固定方向规则
-- Bundle 准备失败会进入同一远端失败策略，不会把未完整验证的目标包写成本地活动指针
+- Bundle 准备失败会进入同一远端失败策略，不会把未完整验证的目标 Hotfix 包写入本地 PackageIndex
 
 ### Bundle 下载安全策略
 
@@ -226,9 +226,9 @@ Bundle 下载阶段由 `HotfixFlowBase` 统一管理重试与校验：
 
 ## 包体清理
 
-- `BuildIndex.Major` 高于本地活动包 Major 时，`HotfixFlowBase` 清空 HotfixRoot 后继续当前 Major 的远端流程；`BuildGUID` 只标识整包 baseline，不参与兼容判断。
-- `BuildIndex.Major` 低于本地活动包 Major 时视为旧客户端或错误安装，清理不兼容目录、通知更新并停止启动。
-- 更新、回滚或同包修复完成，并且 PackageManager 初始化成功后，删除 HotfixRoot 下除活动包外的全部直接子级 `Build_*`。
+- `BuildIndex.Major` 高于本地 Hotfix 包 Major 时，`HotfixFlowBase` 清空 HotfixRoot 后继续当前 Major 的远端流程；`BuildGUID` 只标识整包 baseline，不参与兼容判断。
+- `BuildIndex.Major` 低于本地 Hotfix 包 Major 时视为旧客户端或错误安装，清理不兼容目录、通知更新并停止启动。
+- 更新、回滚或同包修复完成，并且 PackageManager 初始化成功后，删除 HotfixRoot 下除目标 Hotfix 包外的全部直接子级 `Build_*`。
 - 普通同包启动、远端失败回退和 Major 不匹配回退不触发旧包清理。
 - 不保留数量配置，不按修改时间排序；删除失败只记录警告。
 
@@ -239,8 +239,8 @@ Bundle 下载阶段由 `HotfixFlowBase` 统一管理重试与校验：
 下载阶段只把上一个成功激活包作为跨包复用来源，不扫描其他历史目录：
 
 1. 目标目录已有文件通过大小/CRC 校验时直接保留。
-2. 否则从上一个活动包的 manifest 建立 `Hash → BundleName` 索引并尝试复制。
+2. 否则从上一个本地 Hotfix 包的 manifest 建立 `Hash → BundleName` 索引并尝试复制。
 3. 复制到 `.tmp`，校验通过后替换目标文件；失败则回退网络下载。
-4. 新包完成激活和初始化后，上一个包与其他历史包一起删除。
+4. 目标 Hotfix 包完成激活和初始化后，上一个本地 Hotfix 包与其他历史 Hotfix 包一起删除。
 
 这个优化在"少量资源变更"的热更场景下效果显著——大部分 Bundle 根本没变。

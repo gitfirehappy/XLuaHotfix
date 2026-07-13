@@ -14,9 +14,9 @@
 - Case 4：远端元数据失败时，按策略继续使用完整本地包或抛出致命异常。
 - Case 5：远端 Major 高于 BuildIndex 时发出客户端更新信号并启动当前 Major 本地内容；远端较低时只告警并本地启动。
 - Case 6：AA 4.0.0 首装、同包二次启动、离线启动、缺失 Bundle 修复及 4.0.1 本地增量均通过真实 Unity 验证。
-- Case 7：BuildIndex Major 高于本地活动包时清理旧 HotfixRoot 后继续远端流程；反向关系清理并终止启动。
+- Case 7：BuildIndex Major 高于本地 Hotfix 包时清理旧 HotfixRoot 后继续远端流程；反向关系清理并终止启动。
 - Case 8：同尺寸但 CRC 不匹配的 Bundle 被判定为不完整并进入同包修复。
-- Case 9：FinishHotfix 或活动指针写入失败时不清理旧包、不触发 OnFinished。
+- Case 9：FinishHotfix 或本地 PackageIndex 写入失败时不清理旧包、不触发 OnFinished。
 
 ## Status
 

@@ -104,4 +104,4 @@ Major 是客户端兼容边界，判断必须区分方向：
 
 1. **构建时**：预计算候选版本，写入当前后端 manifest 与 `PackageIndex`；成功 commit 后再更新 `VersionDataBase`
 2. **整包启动**：`BuildIndex.Version` 表示客户端基线 Major
-3. **热更时**：远端 `PackageIndex` 是目标指针，本地 `PackageIndex` 只记录完成激活、runtime manager 初始化和指针持久化的活动包
+3. **热更时**：远端 `PackageIndex` 指向目标 Hotfix 包，本地 `PackageIndex` 只记录完成激活、runtime manager 初始化和指针持久化的本地 Hotfix 包

@@ -58,11 +58,16 @@ PackageIndex persistence failure is fatal and must not clean old packages or rai
 - Disposable directories verified atomic replacement, missing-source safety, temporary-file cleanup, and same-size CRC mismatch detection with `FileCRC == 0` compatibility.
 - All 19 Markdown documents passed link and fence checks; the Hotfix Mermaid chart passed required-branch and node-reference checks.
 - Static checks confirmed the marker, configurable Major policy, startup cache clearing, and obsolete cleanup symbols are absent from runtime code.
-- Unity update/rollback/repair cleanup E2E remains pending because this pass did not start a localhost server or mutate Unity persistentData.
+- A real AA Hotfix build exported `Build_20260713094638_4.0.2`, advanced Repository HEAD to 4.0.2, and produced AAManifest, catalog, and 7 Bundles.
+- Local publication and clean PlayMode smoke passed for 4.0.2; the source and Local mirror matched byte-for-byte across all 9 package files.
+- The existing Pages 4.0.0 publication passed a clean remote PlayMode smoke and byte-for-byte SHA-256 verification for PackageIndex, AAManifest, catalog, and all 7 Bundles. Cache headers remained correct.
+- After the localhost proxy recovered, Pages publication of 4.0.2 succeeded. A clean remote PlayMode smoke passed, and PackageIndex plus all 9 package files matched the cloud mirror by SHA-256 with the expected cache headers.
+- Test cleanup restored Pages and the cloud mirror to 4.0.0, Local publication and build/repository/version state to 4.0.1, removed the generated 4.0.2 package/object, and deleted the `fyasset` persistentData test root.
+- The cleaned Pages deployment preview returns 404 for the 4.0.2 package. The custom domain can still return cached immutable 4.0.2 files until Cloudflare cache expiry or an explicit cache purge; PackageIndex is restored to 4.0.0 and does not reference them.
 
 ## Cloudflare CLI Result
 
-Wrangler 4.110.0 exposes Pages project `list`, `create`, and `delete`, but no rename operation. The existing project remains `my-game-xlua-hotfix`; no create/delete workaround or cloud mutation was performed. Rename to `FYAsset` remains a manual Cloudflare follow-up, and `FYAssetSettings.ProjectName` must continue matching the actual project slug until then.
+The developer renamed the existing Pages project externally. Wrangler now reports project slug `fyasset` while retaining `my-game-xlua-hotfix.pages.dev` and `firehappy-cfy.com`; `FYAssetSettings.ProjectName` is aligned to `fyasset`. Wrangler still exposes no rename command, so no create/delete workaround was used.
 
 ## Boundaries
 
