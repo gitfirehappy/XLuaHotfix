@@ -119,7 +119,8 @@ public static class E2ETestEngine
             BuildTestAcceptance.AcceptFull(accept, result);
 
             BackendMode mode = BuildTestState.ToBackendMode(request.Backend);
-            string channelKey = BuildBaselineStore.GetChannelKey(string.Empty, mode);
+            string channelKey = BuildBaselineStore.GetChannelKey(
+                string.Empty, BackendModeNames.FromBackendMode(mode));
             BuildBaseline head = BuildBaselineStore.LoadLatest(channelKey);
 
             bool allOk = true;
@@ -521,7 +522,8 @@ public static class E2ETestEngine
             BuildTestAcceptance.AcceptHotfix(hotfixAccept, result);
 
             BackendMode mode = BuildTestState.ToBackendMode(request.Backend);
-            string channelKey = BuildBaselineStore.GetChannelKey(string.Empty, mode);
+            string channelKey = BuildBaselineStore.GetChannelKey(
+                string.Empty, BackendModeNames.FromBackendMode(mode));
             BuildBaseline hotfixHead = BuildBaselineStore.LoadLatest(channelKey);
             string hotfixVersion = hotfixHead.Version.GetReleaseVersionString();
 
@@ -696,7 +698,7 @@ public static class E2ETestEngine
         string isolatedPersistentRoot = ResolveLocalLowProjectRoot(isolatedProjectName);
         string exe = FYAssetPathUtility.JoinFilePath(playerDir, "FYAssetE2E.exe");
 
-        bool oldUseAb = FYAssetSettings.Instance.UseABBackend;
+        BackendMode oldBackend = BuildTestState.GetBackendSettings().Backend;
         bool oldStandalone = FYAssetSettings.Instance.StandaloneBuild;
         string oldAaUrl = FYAssetAASettings.Instance.HotfixUrl;
         string oldAbUrl = FYAssetABSettings.Instance.HotfixUrl;
@@ -705,14 +707,16 @@ public static class E2ETestEngine
         bool added = false;
         try
         {
-            FYAssetSettings.Instance.UseABBackend = backend == BuildTestBackend.AB;
+            BuildTestState.GetBackendSettings().Backend = backend == BuildTestBackend.AB
+                ? BackendMode.ABManifest
+                : BackendMode.AA;
             // 保留调用方已设置的 StandaloneBuild（Standalone E2E bake 时为 true）
             FYAssetSettings.Instance.ProjectName = isolatedProjectName;
             if (backend == BuildTestBackend.AB)
                 FYAssetABSettings.Instance.HotfixUrl = target.RuntimeUrl;
             else
                 FYAssetAASettings.Instance.HotfixUrl = target.RuntimeUrl;
-            EditorUtility.SetDirty(FYAssetSettings.Instance);
+            EditorUtility.SetDirty(BuildTestState.GetBackendSettings());
             EditorUtility.SetDirty(FYAssetAASettings.Instance);
             EditorUtility.SetDirty(FYAssetABSettings.Instance);
             AssetDatabase.SaveAssets();
@@ -752,12 +756,12 @@ public static class E2ETestEngine
                 PlayerSettings.SetScriptingDefineSymbolsForGroup(BuildTargetGroup.Standalone, current);
             }
 
-            FYAssetSettings.Instance.UseABBackend = oldUseAb;
+            BuildTestState.GetBackendSettings().Backend = oldBackend;
             FYAssetSettings.Instance.StandaloneBuild = oldStandalone;
             FYAssetSettings.Instance.ProjectName = oldProjectName;
             FYAssetAASettings.Instance.HotfixUrl = oldAaUrl;
             FYAssetABSettings.Instance.HotfixUrl = oldAbUrl;
-            EditorUtility.SetDirty(FYAssetSettings.Instance);
+            EditorUtility.SetDirty(BuildTestState.GetBackendSettings());
             EditorUtility.SetDirty(FYAssetAASettings.Instance);
             EditorUtility.SetDirty(FYAssetABSettings.Instance);
             AssetDatabase.SaveAssets();

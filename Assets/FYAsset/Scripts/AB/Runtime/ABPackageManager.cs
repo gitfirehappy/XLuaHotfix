@@ -61,9 +61,8 @@ public sealed class ABPackageManager
         _addressSet.Clear();
 
 #if UNITY_EDITOR
-        // Editor PlayMode：Collector 扫描 + AssetDatabase，不读磁盘 AB
-        if (FYAssetSettings.Instance.UseABBackend
-            && FYAssetSettings.Instance.PlayMode == EPlayMode.Editor)
+        // ABPackageManager 只能由 Compat facade 在选择 AB 后调用；PlayMode 只描述 AB 的加载方式。
+        if (FYAssetSettings.Instance.PlayMode == EPlayMode.Editor)
         {
             return InitializeEditorPlayMode();
         }

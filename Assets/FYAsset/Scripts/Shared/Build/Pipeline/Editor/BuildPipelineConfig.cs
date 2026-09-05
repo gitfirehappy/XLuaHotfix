@@ -34,7 +34,7 @@ public enum BundleFileNameStyle
 
 /// <summary>
 /// 构建管线配置 ScriptableObject —— 定义 Task 编排、文件名风格等管线执行选项。
-/// 后端模式由 concrete build manager 的 BuildPackageRequest 决定；UseABBackend 只保留为兼容/UI glue。
+/// 后端键由 concrete build manager 的 BuildPackageRequest 决定；Shared 不读取项目级后端选择配置。
 /// 存储路径：Assets/Build/BuildPipelineConfig.asset。
 /// </summary>
 public class BuildPipelineConfig : ScriptableObject

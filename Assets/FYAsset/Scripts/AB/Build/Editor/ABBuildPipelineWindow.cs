@@ -39,7 +39,7 @@ public sealed class ABBuildPipelineWindow : BuildPipelineWindowBase
                     LastBuildSuccess = () => ABBuildProjectManager.LastBuildSuccess,
                 }),
             new ABReportPanel(),
-            new RepositoryStatusPanel(BackendMode.ABManifest, "AB Repository", null, new ABRepositorySettingsSink(), new ABRepositoryPreviewProvider(), null, new ABRepositoryDataCleaner())
+            new RepositoryStatusPanel("AB", "AB Repository", null, new ABRepositorySettingsSink(), new ABRepositoryPreviewProvider(), null, new ABRepositoryDataCleaner())
         };
     }
 }

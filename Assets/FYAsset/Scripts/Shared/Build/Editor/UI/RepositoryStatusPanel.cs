@@ -34,7 +34,7 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
     }
 
 
-    private readonly BackendMode _backendMode;
+    private readonly string _backendKey;
     private readonly string _panelName;
     private readonly IRepositoryMaintenancePanel _maintenancePanel;
     private readonly IRepositorySettingsSink _settingsSink;
@@ -83,13 +83,13 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
     private const float RightPaneMinWidth = 360f;
     private const float MaxRememberedPaneWidth = 1200f;
 
-    public RepositoryStatusPanel(BackendMode backendMode, string panelName)
-        : this(backendMode, panelName, null)
+    public RepositoryStatusPanel(string backendKey, string panelName)
+        : this(backendKey, panelName, null)
     {
     }
 
     public RepositoryStatusPanel(
-        BackendMode backendMode,
+        string backendKey,
         string panelName,
         IRepositoryMaintenancePanel maintenancePanel,
         IRepositorySettingsSink settingsSink = null,
@@ -97,7 +97,7 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
         IRepositoryArtifactPresenter artifactPresenter = null,
         IRepositoryDataCleaner dataCleaner = null)
     {
-        _backendMode = backendMode;
+        _backendKey = backendKey;
         _panelName = string.IsNullOrEmpty(panelName) ? "Repository" : panelName;
         _maintenancePanel = maintenancePanel;
         _settingsSink = settingsSink;
@@ -172,7 +172,7 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
         _request = CreatePreviewRequest();
         _channelKey = BuildBaselineStore.GetChannelKey(
             _request != null ? _request.Version : null,
-            _request != null ? _request.BackendMode : BackendMode.AA);
+            _request != null ? _request.BackendKey : _backendKey);
 
         _root.Add(CreateHeader());
         _root.Add(CreateBody());
@@ -343,7 +343,7 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
 
     private string GetPaneWidthKey(string paneName)
     {
-        return $"FYAsset.Repository.{_backendMode}.{paneName}PaneWidth";
+        return $"FYAsset.Repository.{_backendKey}.{paneName}PaneWidth";
     }
 
     private VisualElement CreateRightPane()
@@ -551,7 +551,7 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
         });
         container.Add(urlField);
 
-        string backendName = BackendModeNames.FromBackendMode(_backendMode);
+        string backendName = _backendKey;
         string resolvedRoot = config != null
             ? "(resolved at publish; empty Path falls back to OutputRoot)" + "/" + backendName
             : backendName;
@@ -623,7 +623,7 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
         _request = CreatePreviewRequest();
         _channelKey = BuildBaselineStore.GetChannelKey(
             _request != null ? _request.Version : null,
-            _request != null ? _request.BackendMode : BackendMode.AA);
+            _request != null ? _request.BackendKey : _backendKey);
         _baselineError = null;
         try
         {
@@ -648,7 +648,7 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
             // baseline.txt/json 损坏：保留错误呈现实，不被下方的默认 badge 逻辑覆盖。
             SetBadge("Baseline Error", new Color(0.65f, 0.20f, 0.16f));
             _messageLabel.text = _baselineError;
-            _channelLabel.text = $"Channel: {_channelKey}    Backend: {GetBackendDisplayName(_request.BackendMode)}";
+            _channelLabel.text = $"Channel: {_channelKey}    Backend: {GetBackendDisplayName(_request.BackendKey)}";
             _headLabel.text = "-";
             _versionLabel.text = _request?.Version != null ? _request.Version.GetReleaseVersionString() : "-";
             _packageLabel.text = "-";
@@ -657,7 +657,7 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
         }
 
         BuildBaseline latest = _baselineState?.Latest;
-        _channelLabel.text = $"Channel: {_channelKey}    Backend: {GetBackendDisplayName(_request.BackendMode)}";
+        _channelLabel.text = $"Channel: {_channelKey}    Backend: {GetBackendDisplayName(_request.BackendKey)}";
         _headLabel.text = latest?.Version != null ? SafeText(latest.Version.GetReleaseVersionString()) : "-";
         _versionLabel.text = _request?.Version != null ? _request.Version.GetReleaseVersionString() : "-";
         _packageLabel.text = latest != null ? SafeText(latest.PackageName) : "-";
@@ -977,11 +977,11 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
             if (_settingsSink == null)
                 throw new InvalidOperationException("No settings sink injected; cannot persist HotfixUrl.");
             PushTargetConfig config = GetSelectedTargetConfig();
-            string url = PushTargetUtility.GetBackendHotfixUrl(config, _backendMode);
+            string url = PushTargetUtility.GetBackendHotfixUrl(config, _backendKey);
             _settingsSink.ApplyHotfixUrl(url);
 
             SetBadge("URL Applied", new Color(0.18f, 0.48f, 0.28f));
-            _messageLabel.text = $"{GetBackendDisplayName(_backendMode)} HotfixUrl -> {url}";
+            _messageLabel.text = $"{GetBackendDisplayName(_backendKey)} HotfixUrl -> {url}";
         }
         catch (Exception ex)
         {
@@ -1022,7 +1022,7 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
         bool deletePackages = _deletePackagesToggle?.value == true;
         bool clearStartupBaseline = _clearStartupBaselineToggle?.value == true;
 
-        string message = $"Clear Repository channel for test?\n\nChannel: {_channelKey}\nBackend: {GetBackendDisplayName(_backendMode)}\n\nThis deletes the baseline.json for this channel.";
+        string message = $"Clear Repository channel for test?\n\nChannel: {_channelKey}\nBackend: {GetBackendDisplayName(_backendKey)}\n\nThis deletes the baseline.json for this channel.";
         if (clearPackageIndex)
             message += "\n- Clear output PackageIndex.json";
         if (deletePackages)
@@ -1178,7 +1178,7 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
         VersionNumber version = versionDB != null && versionDB.CurrentVersion != null
             ? versionDB.CurrentVersion
             : new VersionNumber { Major = 0, Minor = 0, Patch = 0 };
-        return BuildPackageRequest.Create(version, BuildType.Full, _backendMode);
+        return BuildPackageRequest.Create(version, BuildType.Full, _backendKey);
     }
 
     private IPushTarget CreatePushTarget()
@@ -1650,9 +1650,9 @@ public sealed class RepositoryStatusPanel : IBuildPipelinePanel, IBuildPipelineP
         return string.IsNullOrEmpty(value) ? "-" : value;
     }
 
-    private static string GetBackendDisplayName(BackendMode backendMode)
+    private static string GetBackendDisplayName(string backendKey)
     {
-        return backendMode == BackendMode.ABManifest ? "AB" : "AA";
+        return backendKey;
     }
 }
 

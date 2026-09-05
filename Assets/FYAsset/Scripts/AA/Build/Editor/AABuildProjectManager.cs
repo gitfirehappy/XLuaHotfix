@@ -9,7 +9,7 @@ public static class AABuildProjectManager
     public static void BuildFullPackage(BuildExecutionOptions options = null)
     {
         LastBuildSuccess = BuildProjectRunner.BuildFullPackage(
-            BackendMode.AA,
+            "AA",
             () => new AABuildBackend(),
             options);
     }
@@ -17,7 +17,7 @@ public static class AABuildProjectManager
     public static void BuildHotfix(BuildExecutionOptions options = null)
     {
         LastBuildSuccess = BuildProjectRunner.BuildHotfix(
-            BackendMode.AA,
+            "AA",
             () => new AABuildBackend(),
             options);
     }

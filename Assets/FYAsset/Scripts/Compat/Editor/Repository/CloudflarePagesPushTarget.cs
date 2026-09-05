@@ -75,9 +75,7 @@ public sealed class CloudflarePagesPushTarget : IPushTarget
                 TargetId = Id,
                 TargetLocation = PushTargetUtility.GetBackendHotfixUrl(
                     _config,
-                    string.Equals(payload.Release.BackendMode, BackendModeNames.AB, StringComparison.OrdinalIgnoreCase)
-                        ? BackendMode.ABManifest
-                        : BackendMode.AA),
+                    payload.Release.BackendMode),
                 PushedAtUtc = DateTime.UtcNow.ToString("o")
             };
         }

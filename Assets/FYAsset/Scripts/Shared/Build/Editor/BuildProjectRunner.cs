@@ -16,7 +16,7 @@ public static class BuildProjectRunner
     /// 构建单机离线包，产物直接写入 StreamingAssets/Standalone/，不推送 Repository。
     /// </summary>
     public static bool BuildStandalone(
-        BackendMode backendMode,
+        string backendKey,
         Func<IBuildBackend> backendFactory,
         BuildExecutionOptions options = null)
     {
@@ -26,7 +26,7 @@ public static class BuildProjectRunner
 
         VersionNumber nextVersion = versionData.BuildNextVersion(true);
 
-        bool success = RunBuild(nextVersion, BuildType.Standalone, backendMode, backendFactory, options);
+        bool success = RunBuild(nextVersion, BuildType.Standalone, backendKey, backendFactory, options);
         if (success)
             success = ApplyBuiltVersion(nextVersion);
 
@@ -37,7 +37,7 @@ public static class BuildProjectRunner
     /// 构建完整包，用于大版本更新
     /// </summary>
     public static bool BuildFullPackage(
-        BackendMode backendMode,
+        string backendKey,
         Func<IBuildBackend> backendFactory,
         BuildExecutionOptions options = null)
     {
@@ -48,7 +48,7 @@ public static class BuildProjectRunner
         // 大版本更新，先暂存版本号，构建和 Repository commit 成功后才写回 VersionRecord。
         VersionNumber nextVersion = versionData.BuildNextVersion(true);
 
-        bool success = RunBuild(nextVersion, BuildType.Full, backendMode, backendFactory, options);
+        bool success = RunBuild(nextVersion, BuildType.Full, backendKey, backendFactory, options);
         if (success)
             success = ApplyBuiltVersion(nextVersion);
 
@@ -65,7 +65,7 @@ public static class BuildProjectRunner
     /// 构建热更包，用于小版本更新
     /// </summary>
     public static bool BuildHotfix(
-        BackendMode backendMode,
+        string backendKey,
         Func<IBuildBackend> backendFactory,
         BuildExecutionOptions options = null)
     {
@@ -76,7 +76,7 @@ public static class BuildProjectRunner
         // 小版本更新，先暂存版本号，构建和 Repository commit 成功后才写回 VersionRecord。
         VersionNumber nextVersion = versionData.BuildNextVersion();
 
-        bool success = RunBuild(nextVersion, BuildType.Hotfix, backendMode, backendFactory, options);
+        bool success = RunBuild(nextVersion, BuildType.Hotfix, backendKey, backendFactory, options);
         if (success)
             success = ApplyBuiltVersion(nextVersion);
 
@@ -87,18 +87,18 @@ public static class BuildProjectRunner
     private static bool RunBuild(
         VersionNumber version,
         BuildType buildType,
-        BackendMode backendMode,
+        string backendKey,
         Func<IBuildBackend> backendFactory,
         BuildExecutionOptions options)
     {
-        Debug.Log($"[{nameof(BuildProjectRunner)}] 开始 {buildType} build。Backend={backendMode}, Version={version.GetReleaseVersionString()}, Build={version.Build}");
+        Debug.Log($"[{nameof(BuildProjectRunner)}] 开始 {buildType} build。Backend={backendKey}, Version={version.GetReleaseVersionString()}, Build={version.Build}");
 
         BuildPackageRequest request = null;
 
         try
         {
-            request = BuildPackageRequest.Create(version, buildType, backendMode);
-            Debug.Log($"[{nameof(BuildProjectRunner)}] 已创建 BuildPackageRequest: Package={request.PackageName}, Backend={backendMode}, Output={request.OutputDir}");
+            request = BuildPackageRequest.Create(version, buildType, backendKey);
+            Debug.Log($"[{nameof(BuildProjectRunner)}] 已创建 BuildPackageRequest: Package={request.PackageName}, Backend={backendKey}, Output={request.OutputDir}");
 
             IBuildBackend backend = backendFactory != null
                 ? backendFactory()
@@ -169,7 +169,7 @@ public static class BuildProjectRunner
     /// </summary>
     private static void RecordDeliveredBaseline(BuildPackageRequest request, BuildBackendResult buildResult, IBuildBackend backend)
     {
-        string channelKey = BuildBaselineStore.GetChannelKey(request.Version, request.BackendMode);
+        string channelKey = BuildBaselineStore.GetChannelKey(request.Version, request.BackendKey);
         var artifacts = buildResult?.Artifacts != null
             ? new System.Collections.Generic.List<ArtifactDigest>(buildResult.Artifacts)
             : new System.Collections.Generic.List<ArtifactDigest>();
@@ -178,7 +178,7 @@ public static class BuildProjectRunner
             Version = request.Version,
             BuildType = request.BuildType.ToString(),
             PackageName = request.PackageName,
-            BackendMode = request.BackendMode == BackendMode.ABManifest ? BackendModeNames.AB : BackendModeNames.AA,
+            BackendMode = request.BackendKey,
             PackageRootDir = request.OutputDir,
             CommitDelta = buildResult?.Delta,
             ManifestFileNames = backend?.BaselineHandler?.RequiredManifestFileNames != null
@@ -273,7 +273,7 @@ public static class BuildProjectRunner
                 Version = request.Version != null ? request.Version.GetReleaseVersionString() : string.Empty,
                 Build = request.Version != null ? request.Version.Build : 0,
                 BuildType = request.BuildType.ToString(),
-                BackendMode = BackendModeNames.FromBackendMode(request.BackendMode),
+                BackendMode = request.BackendKey,
                 FailedAtUtc = DateTime.UtcNow.ToString("o"),
                 Reason = reason ?? string.Empty,
                 OutputDir = request.OutputDir

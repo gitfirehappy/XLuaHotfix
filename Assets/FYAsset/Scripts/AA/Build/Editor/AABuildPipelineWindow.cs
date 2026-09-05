@@ -25,7 +25,7 @@ public sealed class AABuildPipelineWindow : BuildPipelineWindowBase
             new AAProjectSelectionLabelPanel(),
             new AABuildPanel(),
             new AAReportPanel(),
-            new RepositoryStatusPanel(BackendMode.AA, "AA Repository", new AAHotfixGroupMaintenancePanel(), new AARepositorySettingsSink(), new AARepositoryPreviewProvider(), new AARepositoryArtifactPresenter(), new AARespositoryDataCleaner())
+            new RepositoryStatusPanel("AA", "AA Repository", new AAHotfixGroupMaintenancePanel(), new AARepositorySettingsSink(), new AARepositoryPreviewProvider(), new AARepositoryArtifactPresenter(), new AARespositoryDataCleaner())
         };
     }
 }

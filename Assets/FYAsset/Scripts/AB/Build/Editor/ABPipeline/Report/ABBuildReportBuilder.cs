@@ -53,7 +53,7 @@ public static class ABBuildReportBuilder
         DateTime startedAt = request?.CreatedAt ?? finishedAt;
         bool success = buildResult != null && buildResult.Success && backendError == null;
 
-        report.Header.Backend = BackendModeNames.AB;
+        report.Header.Backend = "AB";
         report.Header.BuildType = request?.BuildType.ToString() ?? string.Empty;
         report.Header.BuildTarget = EditorUserBuildSettings.activeBuildTarget.ToString();
         report.Header.Version = request?.Version != null ? request.Version.GetReleaseVersionString() : string.Empty;

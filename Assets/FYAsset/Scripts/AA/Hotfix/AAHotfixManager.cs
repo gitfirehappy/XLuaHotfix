@@ -52,7 +52,7 @@ public static class AAHotfixManager
     private sealed class AAHotfixFlow : HotfixFlowBase
     {
         protected override string HotfixUrl => FYAssetAASettings.Instance.HotfixUrl;
-        protected override string BackendModeName => BackendModeNames.AA;
+        protected override string BackendModeName => "AA";
         protected override int HotfixMaxRetryCount => FYAssetAASettings.Instance.HotfixMaxRetryCount;
         protected override float HotfixRetryBaseDelaySeconds => FYAssetAASettings.Instance.HotfixRetryBaseDelaySeconds;
         protected override int HotfixMetadataTimeoutSeconds => FYAssetAASettings.Instance.HotfixMetadataTimeoutSeconds;

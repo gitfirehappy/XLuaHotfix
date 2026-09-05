@@ -41,7 +41,7 @@ public class TaskWritePackageIndex : IBuildTask
         {
             LatestPackage = request.PackageName,
             LatestVersion = request.Version,
-            BackendMode = BackendModeNames.FromBackendMode(request.BackendMode)
+            BackendMode = request.BackendKey
         };
 
         string directory = Path.GetDirectoryName(request.PackageIndexPath);

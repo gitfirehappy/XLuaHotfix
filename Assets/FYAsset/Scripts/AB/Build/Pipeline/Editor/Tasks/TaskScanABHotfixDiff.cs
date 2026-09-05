@@ -34,7 +34,7 @@ public class TaskScanABHotfixDiff : IBuildTask
 
         try
         {
-            string channelKey = BuildBaselineStore.GetChannelKey(request.Version, request.BackendMode);
+            string channelKey = BuildBaselineStore.GetChannelKey(request.Version, request.BackendKey);
             Debug.Log($"[{nameof(TaskScanABHotfixDiff)}] 开始 AB diff scan，对比本次 Bundle 输出与 baseline。Package={request.PackageName}");
             var headBaseline = BuildBaselineStore.LoadLatest(channelKey);
             var baseline = headBaseline?.Artifacts ?? new List<ArtifactDigest>();

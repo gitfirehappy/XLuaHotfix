@@ -35,20 +35,21 @@ public static class PushTargetUtility
 
     public static string ResolveBackendRoot(PushTargetConfig config, string backendModeName)
     {
-        if (!BackendModeNames.IsValid(backendModeName))
-            throw new ArgumentException($"Invalid backend mode: {backendModeName}", nameof(backendModeName));
+        if (string.IsNullOrWhiteSpace(backendModeName)
+            || backendModeName.IndexOfAny(new[] { '/', '\\', ':', '?', '#', '&' }) >= 0)
+            throw new ArgumentException($"Invalid backend key: {backendModeName}", nameof(backendModeName));
 
         return FYAssetPathUtility.JoinFilePath(ResolveServiceRoot(config), backendModeName.ToUpperInvariant());
     }
 
-    public static string GetBackendHotfixUrl(PushTargetConfig config, BackendMode backendMode)
+    public static string GetBackendHotfixUrl(PushTargetConfig config, string backendKey)
     {
         if (config == null)
             throw new ArgumentNullException(nameof(config));
         if (!FYAssetPathUtility.IsHttpUrl(config.PublicBaseUrl))
             throw new InvalidOperationException($"Push target public base URL is invalid: {config.PublicBaseUrl}");
 
-        return FYAssetPathUtility.JoinUrl(config.PublicBaseUrl, BackendModeNames.FromBackendMode(backendMode)) + "/";
+        return FYAssetPathUtility.JoinUrl(config.PublicBaseUrl, backendKey) + "/";
     }
 
     public static PushTargetConfig FindConfig(string targetId)

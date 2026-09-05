@@ -18,7 +18,7 @@ public static class BuildPreviewRunner
         Action<BuildContext> extractResult = null)
     {
         var previewContext = new BuildContext();
-        var previewRequest = BuildPackageRequest.Create(request.Version, BuildType.Hotfix, request.BackendMode);
+        var previewRequest = BuildPackageRequest.Create(request.Version, BuildType.Hotfix, request.BackendKey);
         previewContext.Set(BuildContextKeys.BuildPackageRequest, previewRequest);
         previewContext.Set(BuildContextKeys.BuildType, BuildType.Hotfix);
         previewContext.Set(BuildContextKeys.RepositoryPreviewMode, true);
@@ -29,7 +29,7 @@ public static class BuildPreviewRunner
             config, previewContext, null, config.HotfixDiffTaskName, whitelist, null);
         if (!result.Success)
             throw new InvalidOperationException(
-                FormatPreviewFailure(request.BackendMode.ToString(), result));
+                FormatPreviewFailure(request.BackendKey, result));
 
         extractResult?.Invoke(previewContext);
         return RequireDelta(previewContext);

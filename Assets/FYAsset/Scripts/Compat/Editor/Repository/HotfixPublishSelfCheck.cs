@@ -33,8 +33,8 @@ public static class HotfixPublishSelfCheck
             AssertFile(Path.Combine(serviceRoot, "AA", FYAssetSettings.Instance.BuildPackagesFolderName, aaCommit.PackageName, FYAssetSettings.AA_MANIFEST_FILE_NAME_BIN));
             AssertFile(Path.Combine(serviceRoot, "AB", FYAssetSettings.Instance.BuildPackagesFolderName, abCommit.PackageName, FYAssetSettings.MANIFEST_FILE_NAME_BIN));
 
-            string aaUrl = PushTargetUtility.GetBackendHotfixUrl(config, BackendMode.AA);
-            string abUrl = PushTargetUtility.GetBackendHotfixUrl(config, BackendMode.ABManifest);
+            string aaUrl = PushTargetUtility.GetBackendHotfixUrl(config, BackendModeNames.AA);
+            string abUrl = PushTargetUtility.GetBackendHotfixUrl(config, BackendModeNames.AB);
             AssertEqual("http://127.0.0.1:54321/AA/", aaUrl, "AA URL");
             AssertEqual("http://127.0.0.1:54321/AB/", abUrl, "AB URL");
 

@@ -66,22 +66,13 @@ public class SettingsPanel : IBuildPipelinePanel
         _scrollView = new ScrollView();
         _scrollView.style.flexGrow = 1f;
 
-        DrawSection(_so, "Project", "ProjectName", "UseABBackend");
+        DrawSection(_so, "Project", "ProjectName");
         DrawSection(_so, "Build", "BuildOutputRoot", "BuildPackagesFolderName", "StandaloneBuild", "VersionRecordPath", "BuildIndexJsonPath");
 
         DrawAbEditorPlayModeSection();
         DrawPackageModeSection();
 
-        SerializedProperty useAb = _so.FindProperty("UseABBackend");
-        if (useAb != null)
-        {
-            _scrollView.TrackPropertyValue(useAb, _ =>
-            {
-                EditorUtility.SetDirty(_settings);
-                AssetDatabase.SaveAssets();
-                Rebuild();
-            });
-        }
+
 
         _root.Add(_scrollView);
     }
@@ -95,13 +86,6 @@ public class SettingsPanel : IBuildPipelinePanel
 
         VisualElement card = BuildPipelineUI.Card();
         card.Add(BuildPipelineUI.Header("AB Editor PlayMode"));
-
-        if (!_settings.UseABBackend)
-        {
-            card.Add(new Label("仅在 UseABBackend=true 时生效。当前走 Addressables。"));
-            _scrollView.Add(card);
-            return;
-        }
 
         SerializedProperty playModeProp = _so.FindProperty("PlayMode");
         if (playModeProp != null)

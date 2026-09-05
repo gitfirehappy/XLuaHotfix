@@ -50,8 +50,8 @@ public static class LocalAAHotfixSmokeTest
 
     private static void RunCore(bool requireLocalhost, SmokeMode mode)
     {
-        if (FYAssetSettings.Instance.UseABBackend)
-            throw new InvalidOperationException("AA 冒烟测试要求 FYAssetSettings.UseABBackend=false。");
+        if (BuildTestState.GetBackendSettings().Backend == BackendMode.ABManifest)
+            throw new InvalidOperationException("AA 冒烟测试要求 BackendSettings.Backend=AA。");
 
         RestoreOverrides();
         ClearState();

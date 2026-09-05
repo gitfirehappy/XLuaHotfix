@@ -44,8 +44,42 @@ internal static class ExportBoundaryTests
         VerifyNoCompatReferences(SharedRoot, compatTypes, "Shared");
         VerifyLuaIndexOwnership();
         VerifyNonEditorSharedBuildDoesNotReferenceEditorOnlyTypes();
+        VerifySharedDoesNotOwnBackendSelection();
+        VerifyBackendModeRejectsUnknown();
     }
 
+    private static void VerifyBackendModeRejectsUnknown()
+    {
+        bool threw = false;
+        try
+        {
+            BackendModeNames.FromBackendMode((BackendMode)99);
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            threw = true;
+        }
+
+        RepoAssert.True(threw, "unknown BackendMode must fail instead of defaulting to AA");
+    }
+
+    private static void VerifySharedDoesNotOwnBackendSelection()
+    {
+        foreach (string file in EnumerateSources(SharedRoot))
+        {
+            string norm = file.Replace((char)92, '/');
+            RepoAssert.False(norm.EndsWith("/Build/BackendMode.cs", StringComparison.OrdinalIgnoreCase),
+                "BackendMode must live in Compat, not Shared: " + file);
+
+            string source = Sanitize(File.ReadAllText(file));
+            RepoAssert.NotContains(source, "UseABBackend",
+                "Shared must not contain the legacy backend selector: " + file);
+            RepoAssert.NotContains(source, "BackendModeNames",
+                "Shared must not reference Compat BackendModeNames: " + file);
+            RepoAssert.False(Regex.IsMatch(source, @"\\bBackendMode\\s+[A-Za-z_]"),
+                "Shared must not use the BackendMode enum type: " + file);
+        }
+    }
     private static void VerifyNonEditorSharedBuildDoesNotReferenceEditorOnlyTypes()
     {
         foreach (string file in EnumerateSources(SharedRoot + "/Build"))
@@ -219,6 +253,8 @@ internal static class ExportBoundaryTests
         source = source.Replace("BundledAssetGroupSchema.BundlePackingMode", " ");
         source = source.Replace("BackendMode.ABManifest", " ").Replace("BackendMode.AA", " ");
         source = source.Replace("BackendModeNames.AB", " ").Replace("BackendModeNames.AA", " ");
+        source = source.Replace(".BackendMode", ".");
+        source = Regex.Replace(source, @"\bBackendMode(?=\s*[=;,.])", " ");
         return source;
     }
 

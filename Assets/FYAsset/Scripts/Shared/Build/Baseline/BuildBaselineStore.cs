@@ -13,19 +13,18 @@ public static class BuildBaselineStore
     private const string FileName = "baseline.json";
 
     /// <summary>channel key 与原 Repository 布局一致：同时隔离 BuildTarget、业务 channel 和 backend。</summary>
-    public static string GetChannelKey(VersionNumber version, BackendMode backendMode)
+    public static string GetChannelKey(VersionNumber version, string backendKey)
     {
         string buildTarget = EditorUserBuildSettings.activeBuildTarget.ToString();
         string channelRoot = string.IsNullOrEmpty(version?.Channel)
             ? buildTarget
             : $"{buildTarget}-{version.Channel}";
-        string backendSegment = backendMode == BackendMode.ABManifest ? "AB" : "AA";
-        return $"{channelRoot}/{backendSegment}";
+        return $"{channelRoot}/{backendKey}";
     }
 
-    public static string GetChannelKey(string channel, BackendMode backendMode)
+    public static string GetChannelKey(string channel, string backendKey)
     {
-        return GetChannelKey(new VersionNumber { Channel = channel }, backendMode);
+        return GetChannelKey(new VersionNumber { Channel = channel }, backendKey);
     }
 
     public static bool Exists(string channelKey)

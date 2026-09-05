@@ -52,7 +52,7 @@ public static class ABHotfixManager
     private sealed class ABHotfixFlow : HotfixFlowBase
     {
         protected override string HotfixUrl => FYAssetABSettings.Instance.HotfixUrl;
-        protected override string BackendModeName => BackendModeNames.AB;
+        protected override string BackendModeName => "AB";
         protected override int HotfixMaxRetryCount => FYAssetABSettings.Instance.HotfixMaxRetryCount;
         protected override float HotfixRetryBaseDelaySeconds => FYAssetABSettings.Instance.HotfixRetryBaseDelaySeconds;
         protected override int HotfixMetadataTimeoutSeconds => FYAssetABSettings.Instance.HotfixMetadataTimeoutSeconds;

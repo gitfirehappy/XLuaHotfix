@@ -614,7 +614,7 @@ public abstract class HotfixFlowBase
             error = "Version、BuildGUID 或 Platform 无效。";
             return false;
         }
-        if (!BackendModeNames.IsValid(buildIndex.BackendMode)
+        if (string.IsNullOrEmpty(buildIndex.BackendMode)
             || !string.Equals(buildIndex.BackendMode, BackendModeName, StringComparison.OrdinalIgnoreCase))
         {
             error = $"BackendMode 不匹配。预期={BackendModeName}，实际={buildIndex.BackendMode}。";
@@ -803,7 +803,7 @@ public abstract class HotfixFlowBase
             error = "LatestPackage 或 LatestVersion 无效。";
             return false;
         }
-        if (!BackendModeNames.IsValid(index.BackendMode))
+        if (string.IsNullOrEmpty(index.BackendMode))
         {
             error = $"BackendMode 无效：{index.BackendMode}";
             return false;

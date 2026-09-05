@@ -20,7 +20,7 @@ public class TaskOrganizeOutput : IBuildTask
         string outputRoot = cfg.OutputRoot;
         string buildVersion = cfg.BuildVersionString;
         var platform = cfg.TargetPlatform;
-        var backendMode = cfg.BackendMode;
+        var backendKey = cfg.BackendKey;
 
         string tempDir = FYAssetPathUtility.JoinFilePath(outputRoot, "_temp");
         string outputDir = request.OutputDir;
@@ -58,7 +58,7 @@ public class TaskOrganizeOutput : IBuildTask
         summary.AppendLine($"Build Version: {buildVersion}");
         summary.AppendLine($"Timestamp: {manifest.BuildTimestamp}");
         summary.AppendLine($"Platform: {platform}");
-        summary.AppendLine($"Backend Mode: {backendMode}");
+        summary.AppendLine($"Backend Mode: {backendKey}");
         summary.AppendLine($"Bundles: {manifest.BundleEntries.Count}");
         summary.AppendLine($"Delivery Bundles: {bundlesToCopy.Count}");
         summary.AppendLine($"Total Size: {totalSize} bytes ({totalSize / 1024.0 / 1024.0:F2} MB)");

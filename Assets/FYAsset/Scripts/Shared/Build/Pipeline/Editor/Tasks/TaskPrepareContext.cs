@@ -4,8 +4,8 @@ using System;
 using System.IO;
 
 /// <summary>
-/// 管线起点 Task —— 初始化构建环境：后端模式、版本号、输出目录、目标平台。
-/// 正式构建后端模式由 FYAssetSettings SO 决定，BuildProjectManager 在 pipeline 前创建对应 request/backend。
+/// 管线起点 Task —— 初始化构建环境：后端键、版本号、输出目录、目标平台。
+/// 正式构建后端键由 BuildProjectRunner 创建的 request 携带。
 /// </summary>
 public class TaskPrepareContext : IBuildTask
 {
@@ -13,14 +13,7 @@ public class TaskPrepareContext : IBuildTask
     public BuildTaskResult Execute(BuildContext ctx)
     {
         var request = ctx.Get<BuildPackageRequest>(BuildContextKeys.BuildPackageRequest);
-        // 正式 Full/Hotfix 构建通过 request 携带具体 backend。
-        // 有意豁免（aa-ab-decoupling P3 拍板，永久保留）：
-        // 没有 request 的旧诊断路径仍通过 compatibility settings 路由，重构不应扩除此处外的任何 UseABBackend 用法。
-        BackendMode mode = request != null
-            ? request.BackendMode
-            : FYAssetSettings.Instance.UseABBackend
-                ? BackendMode.ABManifest
-                : BackendMode.AA;
+        string backendKey = request != null ? request.BackendKey : string.Empty;
 
         // BuildVersionString: CLI --version > 时间戳（用于构建摘要；正式包目录名由 BuildPackageRequest 决定）
         string buildVersionString = GetCommandLineArg("--version")
@@ -63,7 +56,7 @@ public class TaskPrepareContext : IBuildTask
             ? versionData.CurrentVersion
             : new VersionNumber { Major = 1, Minor = 0, Patch = 0 };
 
-        var cfg = new BuildConfig(mode, version, buildVersionString, outputRoot, platform);
+        var cfg = new BuildConfig(backendKey, version, buildVersionString, outputRoot, platform);
         ctx.Set(BuildContextKeys.BuildConfig, cfg);
 
         return BuildTaskResult.Ok();

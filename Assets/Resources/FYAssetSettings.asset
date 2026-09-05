@@ -13,11 +13,10 @@ MonoBehaviour:
   m_Name: FYAssetSettings
   m_EditorClassIdentifier: 
   ProjectName: fyasset
-  UseABBackend: 1
   PlayMode: 2
   BuildOutputRoot: HotfixOutput
   BuildPackagesFolderName: Packages
-  StandaloneBuild: 0
+  StandaloneBuild: 1
   VersionRecordPath: Assets/Build/VersionRecord.asset
   BuildIndexJsonPath: Assets/Build/Bootstrap/BuildIndex.json
   PushTargets:

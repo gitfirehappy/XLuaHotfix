@@ -11,7 +11,7 @@ public sealed class BuildPackageRequest
 
     public VersionNumber Version { get; }
     public BuildType BuildType { get; }
-    public BackendMode BackendMode { get; }
+    public string BackendKey { get; }
     public string PackageName { get; }
     public string OutputDir { get; }
     public string BundlesDir { get; }
@@ -21,7 +21,7 @@ public sealed class BuildPackageRequest
     private BuildPackageRequest(
         VersionNumber version,
         BuildType buildType,
-        BackendMode backendMode,
+        string backendKey,
         string packageName,
         string outputDir,
         string bundlesDir,
@@ -30,7 +30,7 @@ public sealed class BuildPackageRequest
     {
         Version = version;
         BuildType = buildType;
-        BackendMode = backendMode;
+        BackendKey = backendKey;
         PackageName = packageName;
         OutputDir = outputDir;
         BundlesDir = bundlesDir;
@@ -38,7 +38,7 @@ public sealed class BuildPackageRequest
         CreatedAt = createdAt;
     }
 
-    public static BuildPackageRequest Create(VersionNumber version, BuildType buildType, BackendMode backendMode)
+    public static BuildPackageRequest Create(VersionNumber version, BuildType buildType, string backendKey)
     {
         var createdAt = DateTime.UtcNow;
         string packageName = CreatePackageName(version, createdAt);
@@ -48,7 +48,7 @@ public sealed class BuildPackageRequest
         return new BuildPackageRequest(
             version,
             buildType,
-            backendMode,
+            backendKey,
             packageName,
             outputDir,
             BuildPathManager.GetBundlesDir(outputDir),

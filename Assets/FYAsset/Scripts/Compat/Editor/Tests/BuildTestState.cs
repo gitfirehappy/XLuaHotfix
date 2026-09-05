@@ -27,9 +27,19 @@ public static class BuildTestState
     [Serializable]
     private sealed class SettingsSnapshot
     {
-        public bool UseABBackend;
+        public BackendMode Backend;
         public string AAHotfixUrl;
         public string ABHotfixUrl;
+    }
+
+    public static FYAssetBackendSettings GetBackendSettings()
+    {
+        FYAssetBackendSettings settings = AssetDatabase.LoadAssetAtPath<FYAssetBackendSettings>(
+            FYAssetBackendSettings.DEFAULT_ASSET_PATH);
+        if (settings == null)
+            throw new InvalidOperationException(
+                $"FYAssetBackendSettings not found: {FYAssetBackendSettings.DEFAULT_ASSET_PATH}");
+        return settings;
     }
 
     public static BuildTestRecoveryRecord WriteRecovery(
@@ -186,8 +196,8 @@ public static class BuildTestState
         EditorUtility.SetDirty(version);
         AssetDatabase.SaveAssets();
 
-        string channelKey = BuildBaselineStore.GetChannelKey(string.Empty, ToBackendMode(backend));
-        BuildBaselineStore.ClearForTest(channelKey);
+        string channelKey = BuildBaselineStore.GetChannelKey(
+            string.Empty, BackendModeNames.FromBackendMode(ToBackendMode(backend)));
 
         // Clear residual AA Hotfix group moves without UI dialogs.
         if (backend == BuildTestBackend.AA)
@@ -254,7 +264,7 @@ public static class BuildTestState
             if (!serviceRoots.Add(FYAssetPathUtility.NormalizePath(serviceRoot)))
                 throw new InvalidOperationException("Service-root collision for target: " + id);
 
-            string runtimeUrl = PushTargetUtility.GetBackendHotfixUrl(config, ToBackendMode(backend));
+            string runtimeUrl = PushTargetUtility.GetBackendHotfixUrl(config, BackendModeNames.FromBackendMode(ToBackendMode(backend)));
             snapshots.Add(new BuildTestTargetSnapshot
             {
                 TargetId = config.Id,
@@ -364,7 +374,8 @@ public static class BuildTestState
 
     public static void PublishHeadToTarget(BuildTestBackend backend, BuildTestTargetSnapshot target, string publishJsonPath)
     {
-        string channelKey = BuildBaselineStore.GetChannelKey(string.Empty, ToBackendMode(backend));
+        string channelKey = BuildBaselineStore.GetChannelKey(
+            string.Empty, BackendModeNames.FromBackendMode(ToBackendMode(backend)));
         PushTargetConfig config = PushTargetUtility.FindConfig(target.TargetId);
         IPushTarget pushTarget = CompatPushTargetFactory.CreateFull(config);
         PushReceipt receipt = BuildPublisher.PushLatest(channelKey, pushTarget);
@@ -485,7 +496,7 @@ public static class BuildTestState
     {
         var snap = new SettingsSnapshot
         {
-            UseABBackend = FYAssetSettings.Instance.UseABBackend,
+            Backend = GetBackendSettings().Backend,
             AAHotfixUrl = FYAssetAASettings.Instance.HotfixUrl,
             ABHotfixUrl = FYAssetABSettings.Instance.HotfixUrl
         };
@@ -502,10 +513,11 @@ public static class BuildTestState
         var snap = SerializationUtility.DeserializeJson<SettingsSnapshot>(File.ReadAllText(path, Encoding.UTF8));
         if (snap == null)
             return;
-        FYAssetSettings.Instance.UseABBackend = snap.UseABBackend;
+        FYAssetBackendSettings backendSettings = GetBackendSettings();
+        backendSettings.Backend = snap.Backend;
         FYAssetAASettings.Instance.HotfixUrl = snap.AAHotfixUrl;
         FYAssetABSettings.Instance.HotfixUrl = snap.ABHotfixUrl;
-        EditorUtility.SetDirty(FYAssetSettings.Instance);
+        EditorUtility.SetDirty(backendSettings);
         EditorUtility.SetDirty(FYAssetAASettings.Instance);
         EditorUtility.SetDirty(FYAssetABSettings.Instance);
         AssetDatabase.SaveAssets();

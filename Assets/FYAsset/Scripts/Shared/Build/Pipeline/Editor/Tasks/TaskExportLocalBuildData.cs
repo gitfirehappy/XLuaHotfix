@@ -149,7 +149,7 @@ public class TaskExportLocalBuildData : IBuildTask
             BuildTime = buildTime,
             IsDebug = EditorUserBuildSettings.development,
             Platform = EditorUserBuildSettings.activeBuildTarget.ToString(),
-            BackendMode = BackendModeNames.FromBackendMode(request.BackendMode),
+            BackendMode = request.BackendKey,
             Version = request.Version
         };
     }

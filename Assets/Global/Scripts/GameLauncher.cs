@@ -17,6 +17,9 @@ public class GameLauncher : MonoBehaviour
     
     [Tooltip("编辑器模式下的Lua脚本根目录")]
     public List<string> editorRoots = new() { "LuaScripts" };
+
+    [SerializeField]
+    private FYAssetBackendSettings backendSettings;
     
     async void Awake()
     {
@@ -43,9 +46,12 @@ public class GameLauncher : MonoBehaviour
         // XLuaFramework 资源服务注入（显式启动管理点）：必须先于任何 lua 桥链加载。
         LuaAssetRuntime.SetLoader(new FYAssetLuaAssetLoaderAdapter());
         
-        BackendMode backendMode = FYAssetSettings.Instance.UseABBackend
-            ? BackendMode.ABManifest
-            : BackendMode.AA;
+        if (backendSettings == null)
+            throw new InvalidOperationException("GameLauncher 未引用 FYAssetBackendSettings。");
+        if (!BackendModeNames.IsValid(backendSettings.Backend))
+            throw new InvalidOperationException("FYAssetBackendSettings 未选择有效 BackendMode。");
+
+        BackendMode backendMode = backendSettings.Backend;
         await HotfixManager.InitializeAsync(backendMode);
         
         // 创建Lua环境

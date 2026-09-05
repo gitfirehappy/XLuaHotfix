@@ -314,7 +314,7 @@ public static class BuildTestEngine
         string firstFailure = null;
 
         BackendMode mode = BuildTestState.ToBackendMode(request.Backend);
-        string channelKey = BuildBaselineStore.GetChannelKey(string.Empty, mode);
+        string channelKey = BuildBaselineStore.GetChannelKey(string.Empty, BackendModeNames.FromBackendMode(mode));
         BuildBaseline head = BuildBaselineStore.LoadLatest(channelKey);
         string version = head.Version.GetReleaseVersionString();
         string backendName = BuildTestPaths.BackendSegment(request.Backend);
@@ -465,7 +465,7 @@ public static class BuildTestEngine
 
     private static void InvokeBuild(BuildTestBackend backend, bool hotfix, BuildTestResult result)
     {
-        // Do not route through UseABBackend; call concrete managers directly.
+        // Call concrete managers directly; this test does not route through the host selection.
         if (backend == BuildTestBackend.AA)
         {
             if (hotfix)

@@ -7,16 +7,16 @@ using UnityEditor;
 /// </summary>
 public readonly struct BuildConfig
 {
-    public readonly BackendMode BackendMode;
+    public readonly string BackendKey;
     public readonly VersionNumber Version;
     public readonly string BuildVersionString;
     public readonly string OutputRoot;
     public readonly BuildTarget TargetPlatform;
 
-    public BuildConfig(BackendMode mode, VersionNumber version, string buildVersionString,
+    public BuildConfig(string backendKey, VersionNumber version, string buildVersionString,
                        string outputRoot, BuildTarget platform)
     {
-        BackendMode = mode;
+        BackendKey = backendKey;
         Version = version;
         BuildVersionString = buildVersionString;
         OutputRoot = FYAssetPathUtility.ResolveFilePath(BuildPathManager.ProjectRoot, outputRoot);

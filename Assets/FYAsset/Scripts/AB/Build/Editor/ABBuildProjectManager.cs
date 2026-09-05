@@ -10,7 +10,7 @@ public static class ABBuildProjectManager
     public static void BuildFullPackage(BuildExecutionOptions options = null)
     {
         LastBuildSuccess = BuildProjectRunner.BuildFullPackage(
-            BackendMode.ABManifest,
+            "AB",
             () => new ABBuildBackend(),
             options);
     }
@@ -18,7 +18,7 @@ public static class ABBuildProjectManager
     public static void BuildHotfix(BuildExecutionOptions options = null)
     {
         LastBuildSuccess = BuildProjectRunner.BuildHotfix(
-            BackendMode.ABManifest,
+            "AB",
             () => new ABBuildBackend(),
             options);
     }
@@ -26,7 +26,7 @@ public static class ABBuildProjectManager
     public static void BuildStandalonePackage(BuildExecutionOptions options = null)
     {
         LastBuildSuccess = BuildProjectRunner.BuildStandalone(
-            BackendMode.ABManifest,
+            "AB",
             () => new ABBuildBackend(),
             options);
     }

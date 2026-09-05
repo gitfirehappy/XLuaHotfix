@@ -47,3 +47,4 @@ MonoBehaviour:
   loaderMode: 2
   editorRoots:
   - AboutXLua/LuaScripts
+  backendSettings: {fileID: 11400000, guid: 1f9c0b8a7d6e5f4a3b2c190817161514, type: 2}

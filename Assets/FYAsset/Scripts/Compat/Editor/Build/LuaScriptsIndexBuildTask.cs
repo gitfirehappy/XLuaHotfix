@@ -27,7 +27,7 @@ public sealed class LuaScriptsIndexBuildTask : IBuildTask
 
         try
         {
-            return request.BackendMode == BackendMode.AA
+            return request.BackendKey == "AA"
                 ? ExecuteAA()
                 : ExecuteAB(ctx);
         }

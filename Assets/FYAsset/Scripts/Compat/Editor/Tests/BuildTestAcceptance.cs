@@ -26,7 +26,8 @@ public static class BuildTestAcceptance
     public static void AcceptFull(AcceptanceContext ctx, BuildTestResult result)
     {
         BackendMode mode = BuildTestState.ToBackendMode(ctx.Backend);
-        string channelKey = BuildBaselineStore.GetChannelKey(string.Empty, mode);
+        string channelKey = BuildBaselineStore.GetChannelKey(
+            string.Empty, BackendModeNames.FromBackendMode(mode));
         BuildBaseline head = BuildBaselineStore.LoadLatest(channelKey);
         if (head == null || head.Version == null)
             throw new InvalidOperationException("Latest baseline missing after Full build.");
@@ -57,7 +58,8 @@ public static class BuildTestAcceptance
     public static void AcceptHotfix(AcceptanceContext ctx, BuildTestResult result)
     {
         BackendMode mode = BuildTestState.ToBackendMode(ctx.Backend);
-        string channelKey = BuildBaselineStore.GetChannelKey(string.Empty, mode);
+        string channelKey = BuildBaselineStore.GetChannelKey(
+            string.Empty, BackendModeNames.FromBackendMode(mode));
         BuildBaseline head = BuildBaselineStore.LoadLatest(channelKey);
         if (head == null || head.Version == null)
             throw new InvalidOperationException("Latest baseline missing after Hotfix build.");
@@ -86,7 +88,8 @@ public static class BuildTestAcceptance
     public static void RequireLocalFullIdentity(BuildTestBackend backend, out BuildBaseline head)
     {
         BackendMode mode = BuildTestState.ToBackendMode(backend);
-        string channelKey = BuildBaselineStore.GetChannelKey(string.Empty, mode);
+        string channelKey = BuildBaselineStore.GetChannelKey(
+            string.Empty, BackendModeNames.FromBackendMode(mode));
         // Standalone Hotfix 的累积基准是 LatestFull（Latest 可能已被任何一次 hotfix 覆写）。
         head = BuildBaselineStore.LoadLatestFull(channelKey);
         if (head == null || head.Version == null || string.IsNullOrEmpty(head.PackageName))

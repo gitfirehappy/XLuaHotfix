@@ -71,7 +71,7 @@ public class TaskScanAAHotfixDiff : IBuildTask
 
     private static List<ArtifactDigest> GetBaselineArtifacts(BuildPackageRequest request, bool repositoryPreviewMode)
     {
-        var channelKey = BuildBaselineStore.GetChannelKey(request.Version, request.BackendMode);
+        var channelKey = BuildBaselineStore.GetChannelKey(request.Version, request.BackendKey);
         BuildBaseline baseline = BuildBaselineStore.LoadLatest(channelKey);
         return baseline?.Artifacts ?? new List<ArtifactDigest>();
     }

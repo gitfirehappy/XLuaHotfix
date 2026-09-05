@@ -12,9 +12,6 @@ public class FYAssetSettings : ScriptableObject
     [Header("Project")]
     public string ProjectName = "ProjectName";
 
-    [Header("Backend")]
-    public bool UseABBackend = false;
-
     [Header("AB Editor PlayMode")]
     public EPlayMode PlayMode = EPlayMode.Runtime;
 

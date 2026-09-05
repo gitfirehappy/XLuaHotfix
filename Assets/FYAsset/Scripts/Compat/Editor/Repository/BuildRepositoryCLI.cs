@@ -42,9 +42,9 @@ public static class BuildRepositoryCLI
         {
             var args = ParseArgs();
             var version = LoadCurrentVersion();
-            var backend = GetBackend(args);
+            string backend = GetBackend(args);
             var request = BuildPackageRequest.Create(version, BuildType.Hotfix, backend);
-            if (backend == BackendMode.ABManifest)
+            if (string.Equals(backend, BackendModeNames.AB, StringComparison.OrdinalIgnoreCase))
             {
                 var preview = ABRepositoryPreview.RunDiffPreview(request);
                 WriteABPreview(preview);
@@ -78,12 +78,12 @@ public static class BuildRepositoryCLI
     }
 
 
-    private static BackendMode GetBackend(Dictionary<string, string> args)
+    private static string GetBackend(Dictionary<string, string> args)
     {
         string name = GetArg(args, "-backend", string.Empty);
-        return string.Equals(name, "AB", StringComparison.OrdinalIgnoreCase)
-            ? BackendMode.ABManifest
-            : BackendMode.AA;
+        return string.Equals(name, BackendModeNames.AB, StringComparison.OrdinalIgnoreCase)
+            ? BackendModeNames.AB
+            : BackendModeNames.AA;
     }
 
     private static string GetChannelKey(Dictionary<string, string> args)

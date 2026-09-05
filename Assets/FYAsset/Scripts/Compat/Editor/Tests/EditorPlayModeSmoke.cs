@@ -19,13 +19,13 @@ public static class EditorPlayModeSmoke
 
     public static async Task<bool> RunAsync()
     {
-        bool oldUseAb = FYAssetSettings.Instance.UseABBackend;
+        BackendMode oldBackend = BuildTestState.GetBackendSettings().Backend;
         EPlayMode oldMode = FYAssetSettings.Instance.PlayMode;
         try
         {
-            FYAssetSettings.Instance.UseABBackend = true;
+            BuildTestState.GetBackendSettings().Backend = BackendMode.ABManifest;
             FYAssetSettings.Instance.PlayMode = EPlayMode.Editor;
-            EditorUtility.SetDirty(FYAssetSettings.Instance);
+            EditorUtility.SetDirty(BuildTestState.GetBackendSettings());
             AssetDatabase.SaveAssets();
 
             // 新 Instance 状态：ABPackageManager 是单例且已初始化会短路，
@@ -56,9 +56,9 @@ public static class EditorPlayModeSmoke
         }
         finally
         {
-            FYAssetSettings.Instance.UseABBackend = oldUseAb;
+            BuildTestState.GetBackendSettings().Backend = oldBackend;
             FYAssetSettings.Instance.PlayMode = oldMode;
-            EditorUtility.SetDirty(FYAssetSettings.Instance);
+            EditorUtility.SetDirty(BuildTestState.GetBackendSettings());
             AssetDatabase.SaveAssets();
         }
     }
