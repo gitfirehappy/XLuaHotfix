@@ -2,7 +2,8 @@
 
 ## Status
 
-Implemented and statically verified. Unity Editor build/report acceptance is pending.
+Executed and statically verified; archived 2026-07-14. Remaining Unity Editor build/report acceptance moved to
+`requirements/plan/drafts/draft-legacy-plan-review-followups-20260714.md`.
 
 ## Approved Changes
 

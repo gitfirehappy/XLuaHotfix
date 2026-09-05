@@ -2,7 +2,7 @@
 
 ## Status
 
-Implemented and verified; the 2026-07-13 Major-baseline follow-up supersedes the original configurable Major-mismatch policy and pointer timing. Local Unity cleanup E2E remains pending developer acceptance.
+Superseded and archived by `plan-hotfix-windows-state-machine-20260713.md`. Historical implementation and verification record retained unchanged below.
 
 ## Goal
 

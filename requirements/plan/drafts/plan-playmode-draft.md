@@ -1,6 +1,8 @@
 # Draft: PlayMode 三模式设计（对标 Addressables Fast/Virtual/Packed）
 
-> **Status**: Draft — 2026-05-06, converged 2026-05-12 (知识库审计讨论)
+> **Status**: 部分转 Plan — 2026-07-24 → `requirements/plan/archive/plan-playmode-editor-20260724.md`（仅 Editor 模式；2026-07-28 签字，2026-09-04 归档）
+> ~~Draft — 2026-05-06, converged 2026-05-12~~
+> Simulate 模式仍留 Draft Residual，未进本期 Plan。
 > **Dependencies**: E11 (FYAssetSettings SO), E5-1 (DAGScheduler + BuildContext)
 > **Replaces**: `FYAssetConstants.USE_AB_BACKEND` 编译期常量 → FYAssetSettings SO 字段 (E11 迁移) + 本 draft 在 USE_AB_BACKEND=true 时生效
 

@@ -5,6 +5,10 @@
 > **Scope**: FYAsset build repository commit, HEAD handling, package publication, local push, and repository status UI
 > **Method**: Unity build log review, static flow review, and diff review
 
+> **Status**: Processed / Archived 2026-07-14. Transactional publication and orphan cleanup were implemented; later
+> Repository slimming superseded Repair/quarantine details. Remaining failure-injection acceptance was consolidated into
+> `requirements/plan/drafts/draft-legacy-plan-review-followups-20260714.md`; scroll preservation is tracked by the current review.
+
 ## 结论
 
 这次构建链路已经从“边构建边发布指针”收敛到更合理的顺序：先生成包体，再提交 Repository，最后发布 `PackageIndex` / `StreamingAssets`。2026-07-06 修复后，Full build 不再自动废弃损坏 HEAD；坏仓库状态必须先由显式 Health/Repair 处理，避免构建判断被隐式修复掩盖。命令行 Full build 已导出 `Build_20260706134750_6.0.0` 并提交 Repository HEAD。

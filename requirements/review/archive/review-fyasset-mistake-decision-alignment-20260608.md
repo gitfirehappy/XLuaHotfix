@@ -15,11 +15,11 @@ The remaining risks are concentrated around the same historical themes recorded 
 
 ## Extraction Status
 
-> **Status**: Partially extracted on 2026-06-08; root-cause plan extracted on 2026-06-11.
+> **Status**: Resolved and archived on 2026-07-13.
 > **Extracted Scope**: Minimal fail-fast and diagnostics fixes only: RawFile mixed-output silent skip, task resolver diagnostics, `MinAssetSizeBytes` unknown-size failure, touched error-code constants, and touched AB task `FileHelper` usage.
 > **Root-Cause Plan**: Extracted to `requirements/plan/plan-fyasset-bundle-identity-rawfile-root-fix-20260611.md`.
-> **Retained Scope**: This review remains active for discussion history and sign-off tracking. The extracted root-cause plan covers payload/type-aware bundle identity, scanner RawFile PackSeparately normalization, manifest membership from physical build outputs, ABManifest payload schema, and RawFile bytes/text runtime API.
-> **Archive Policy**: Do not archive this review from the partial extraction or root-cause plan capture alone.
+> **Resolution**: The root-cause plan was signed off and archived on 2026-07-07. Current code also preserves task resolver diagnostics, fails `MinAssetSizeBytes` on unknown size, centralizes the reviewed error codes, and routes the reviewed AB build-output operations through `FileHelper` except deliberate stream-level reads.
+> **Archive Reason**: All findings from this report are addressed or superseded. Current residual risks are reassessed in `review-project-plan-context-alignment-20260713.md` rather than kept under stale file paths.
 
 ## Decision Habits Used As Review Criteria
 

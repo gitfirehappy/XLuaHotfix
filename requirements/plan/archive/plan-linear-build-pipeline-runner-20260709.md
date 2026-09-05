@@ -1,6 +1,7 @@
 # Linear Build Pipeline Runner Plan 2026-07-09
 
-> **Status**: Implemented / Verified / Pending developer sign-off
+> **Status**: Executed / Verified / Archived 2026-07-14
+> **Archive Note**: Later task-contract cleanup superseded the retained validation declarations without restoring DAG execution.
 > **Requirement ID**: linear-build-pipeline-runner-20260709
 > **Origin**: A2 from `requirements/plan/drafts/draft-fyasset-architecture-review-20260707.md`
 > **Scope**: Replace DAG scheduling with deterministic linear task execution.

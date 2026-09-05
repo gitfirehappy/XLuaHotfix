@@ -1,6 +1,7 @@
 # Build Repository Slim Plan 2026-07-09
 
-> **Status**: Implemented / Verified / Pending developer sign-off
+> **Status**: Executed / Verified / Archived 2026-07-14
+> **Archive Note**: No remaining implementation scope; Repository acceptance residue is consolidated in `requirements/plan/drafts/draft-legacy-plan-review-followups-20260714.md`.
 > **Requirement ID**: repository-slim-20260709
 > **Origin**: A4 from `requirements/plan/drafts/draft-fyasset-architecture-review-20260707.md`
 > **Scope**: Keep repository health and explicit push, remove repair/quarantine and persistent push history.

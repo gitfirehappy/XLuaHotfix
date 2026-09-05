@@ -2,7 +2,12 @@
 
 ## Status
 
-Deferred discussion draft. This file does not authorize implementation.
+Archived / Superseded 2026-07-14.
+
+The local exact-name/size/CRC validation is owned by
+`../plan-hotfix-review-hardening-20260714.md`. The deployed AA package already received byte-for-byte and cache-policy
+audits on 2026-07-12 and 2026-07-13. Automated remote rollback/sampling remains intentionally unplanned until a real
+failure requires it.
 
 ## Problem
 

@@ -1,8 +1,14 @@
 # Draft: Build Repository Follow-up Issues
 
-> **Status**: Draft
+> **Status**: Archived / Closed 2026-07-14
 > **Origin**: extracted from `requirements/plan/drafts/archive/draft-build-repository-20260518.md` after Plans 1/2/3 were executed and archived
 > **Purpose**: collect the remaining unresolved Build Repository items that were explicitly deferred out of the shipped repository batch
+
+## Archive Disposition
+
+The HEAD failure path now removes an unreferenced object, persistent PushHistory was deleted, and the remaining
+serializer/concurrency ideas have no observed trigger. Reopen from a new concrete failure instead of retaining
+speculative infrastructure work.
 
 ## Remaining Open Items
 

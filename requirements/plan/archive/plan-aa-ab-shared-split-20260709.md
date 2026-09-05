@@ -1,6 +1,7 @@
 # FYAsset Strict AA/AB/Shared Split Plan 2026-07-09
 
-> **Status**: Implemented / Static Verified / Editor acceptance pending
+> **Status**: Executed / Static Verified / Archived 2026-07-14
+> **Archive Note**: Remaining Editor-only acceptance moved to `requirements/plan/drafts/draft-legacy-plan-review-followups-20260714.md`.
 > **Requirement ID**: aa-ab-shared-split-20260709
 > **Origin**: A1, A3, A5, and A9 from `requirements/plan/drafts/draft-fyasset-architecture-review-20260707.md`
 > **Scope**: Split AA/AB runtime, hotfix, build, and settings ownership into strict `AA/`, `AB/`, and `Shared/` script roots while keeping thin compatibility facades.

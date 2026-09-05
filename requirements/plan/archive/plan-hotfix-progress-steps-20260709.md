@@ -1,6 +1,7 @@
 # Hotfix Progress Steps Simplification Plan 2026-07-09
 
-> **Status**: Implemented / Verified / Pending developer sign-off
+> **Status**: Executed / Verified / Archived 2026-07-14
+> **Archive Note**: No remaining scope; later Hotfix state-machine work preserved the table-driven progress model.
 > **Requirement ID**: hotfix-progress-steps-20260709
 > **Origin**: A10 from `requirements/plan/drafts/draft-fyasset-architecture-review-20260707.md`
 > **Scope**: Remove manual progress step indexing from `HotfixManager`.

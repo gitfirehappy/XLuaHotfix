@@ -1,8 +1,10 @@
 # Draft: Broken PPtr Scene Validation
 
 **Date**: 2026-07-07  
-**Status**: Resolved / Archived  
+**Status**: Resolved / Archived 2026-07-14
 **Category**: Build Pipeline Enhancement
+
+> Archive note: the dangling scene reference was removed and the draft already records the issue as resolved.
 
 ## Problem Statement
 

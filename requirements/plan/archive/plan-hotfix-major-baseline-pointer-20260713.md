@@ -2,7 +2,7 @@
 
 ## Status
 
-Implemented and verified; pending developer sign-off.
+Superseded and archived by `plan-hotfix-windows-state-machine-20260713.md`. Historical implementation and verification record retained unchanged below.
 
 ## Goal
 

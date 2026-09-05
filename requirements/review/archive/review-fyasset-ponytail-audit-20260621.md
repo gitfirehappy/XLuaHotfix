@@ -7,7 +7,9 @@
 
 ## Status
 
-Pending. This review records simplification candidates only. No finding has been approved, extracted into a plan, implemented, or verified.
+Processed / Archived 2026-07-14. Findings 3, 6, 8, and 9 were resolved or invalidated by later work. Still-valid
+deletion candidates were consolidated into
+`requirements/plan/drafts/draft-legacy-plan-review-followups-20260714.md` and remain unapproved.
 
 ## Summary
 

@@ -1,6 +1,7 @@
 # Draft: 单机离线包方案
 
-> Status: Draft — 2026-05-13, **Updated 2026-05-15**
+> Status: **Promoted / Archived** — 2026-07-24 → `requirements/plan/archive/plan-standalone-offline-20260724.md`
+> ~~Draft — 2026-05-13, Updated 2026-05-15~~
 > Scope: 构建期产出 + 运行时跳过热更流程，AB 新管线 + Legacy Addressables 双后端支持
 > 不涉及: Editor PlayMode（已有 plan-playmode-draft.md）
 >
@@ -142,7 +143,7 @@ StreamingAssets/
 | D1 | 开关是 SO bool 还是 CLI 参数？ | **SO bool**：持久配置；**CLI 覆盖**：CI 灵活，两者可共存（SO 默认 + --standalone 覆盖） |
 | D2 | 离线包要不要保留 HotfixOutput 目录？ | **保留**：方便调试，Build 后能看到产物结构 |
 | D4 | ABBundleLoader 在 Android 上读 StreamingAssets/bundles/ 是否正常？ | 需验证：`FileHelper` Android 分支走 UnityWebRequest，StreamingAssets 路径下 bundle 文件需确认可被 `AssetBundle.LoadFromFileAsync` 加载（已知限制：Android StreamingAssets 在 APK 内，不能直接 File I/O，需先拷贝到可写目录或走 UnityWebRequest 读取字节后 `LoadFromMemory`） |
-| D5 | 要不要加 `[MenuItem("Tools/Build/Build Standalone Offline Package")]` 快捷入口？ | 便捷 vs 菜单简洁 |
+| D5 | 要不要加 `[MenuItem("FYAsset/Build/Build Standalone Offline Package")]` 快捷入口？ | 便捷 vs 菜单简洁 |
 
 ---
 

@@ -5,6 +5,10 @@
 > **Scope**: `Assets/FYAsset/Scripts/Build/Collector/`, plus direct build-pipeline consumers (`TaskCollectAssets`, `TaskAnalyzeDependencies`, AB bundle/manifest generation) and Collector editor UI entry points.
 > **Method**: Static code review against project context, historical mistake records, architecture notes, and targeted source inspection.
 
+> **Status**: Processed / Archived 2026-07-14. P0/P1 were remediated; the later size-unknown fix closed the remaining
+> concrete P2 correctness issue. Broader deduplication and mandatory test coverage are accepted/deferred rather than
+> active work.
+
 ## Summary
 
 This review focused on correctness, build-pipeline behavior, data contracts, diagnostics, maintainability, editor usability, and test gaps. No code was changed.

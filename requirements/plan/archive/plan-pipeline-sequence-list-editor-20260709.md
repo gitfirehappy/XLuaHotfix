@@ -1,7 +1,8 @@
 # Plan: Build Pipeline Sequence List Editor Simplification
 
 **Date**: 2026-07-09  
-**Status**: Implemented / Verified / Pending developer sign-off  
+**Status**: Executed / Verified / Archived 2026-07-14
+**Archive Note**: The sequence list remains active; the later build-panel plan removed its obsolete Validate surface.
 **Origin**: A2 follow-up after `plan-linear-build-pipeline-runner-20260709.md`  
 **Scope**: Editor/build-pipeline simplification
 

@@ -1,9 +1,16 @@
 # Build State Cleanup Tools Plan 2026-07-07
 
-> **Status**: Implemented / Static Verified / AB report self-check pending
+> **Status**: Executed / Static Verified / Archived 2026-07-14
 > **Requirement ID**: build-state-cleanup-tools-20260707
 > **Origin**: `draft-version-system-test-features-20260707.md`, `draft-buildresults-management-panel-20260707.md`, `draft-repository-reset-20260707.md`
 > **Scope**: Version test reset, package output deletion, and repository test reset.
+
+> **2026-07-11 Supersession Note**: `plan-build-panel-task-slim-20260711.md` removed `VersionPanel`. The implemented
+> version display/reset now lives in Repository. References to `VersionPanel` below document the original approved
+> implementation scope rather than the current UI owner.
+
+> **Archive Note**: Remaining self-check and disposable manual acceptance moved to
+> `requirements/plan/drafts/draft-legacy-plan-review-followups-20260714.md`.
 
 ## Goal
 
