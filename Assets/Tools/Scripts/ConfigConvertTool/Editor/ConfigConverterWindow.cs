@@ -10,7 +10,7 @@ public class ConfigConverterWindow : EditorWindow
     private string _singleFilePath = "";
     private Vector2 _scrollPosition;
     
-    [MenuItem("Tools/Config Converter")]
+    [MenuItem("FYAsset/Tools/Config Converter")]
     public static void ShowWindow()
     {
         GetWindow<ConfigConverterWindow>("Config Converter");

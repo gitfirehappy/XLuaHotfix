@@ -17,7 +17,7 @@ public static class BinarySerializerGenerator
     public const string HashPrefix = "// Hash:";
     private const string SerializationTestPathSegment = "/Serialization/Test/";
 
-    [MenuItem("Tools/Serialization/Generate Binary Serializers", false, 30)]
+    [MenuItem("FYAsset/Tools/Serialization/Generate Binary Serializers", false, 30)]
     public static void GenerateMenu()
     {
         GenerateAll();
