@@ -15,35 +15,41 @@ MonoBehaviour:
   data:
   - containerAddress: Core
     scriptNames:
+    - LogUtility
     - ModuleRegistry
     - coroutineBridge
-    - LogUtility
   - containerAddress: Dialogue
     scriptNames:
+    - DemoDialogueFunctions
     - DialogueController
     - DialogueDataManager
+    - DialogueFuncRegistry
     - DialogueModel
     - DialogueView
     - StringUtil
-    - DialogueFuncRegistry
-    - DemoDialogueFunctions
+  - containerAddress: EventCentre
+    scriptNames:
+    - EventCentre
   - containerAddress: LuaText
     scriptNames:
     - TalkTest1
     - TalkTest2
   - containerAddress: Player
     scriptNames:
+    - AirborneState
+    - GroundedState
     - PlayerController
+    - PlayerFallState
     - PlayerHFSMState
     - PlayerIdleState
-    - PlayerStateMachine
     - PlayerInputHandler
-    - GroundedState
-    - AirborneState
-    - PlayerRunState
     - PlayerJumpState
-    - PlayerFallState
+    - PlayerRunState
+    - PlayerStateMachine
   - containerAddress: StateMachine
     scriptNames:
-    - BaseStateMachine
     - BaseState
+    - BaseStateMachine
+  - containerAddress: FYAssetPipelineLua
+    scriptNames:
+    - FYAssetPipelineSmoke

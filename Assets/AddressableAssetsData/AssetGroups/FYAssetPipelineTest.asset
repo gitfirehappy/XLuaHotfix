@@ -10,37 +10,36 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: bbb281ee3bf0b054c82ac2347e9e782c, type: 3}
-  m_Name: XLuaLabelConfig
+  m_Name: FYAssetPipelineTest
   m_EditorClassIdentifier: 
-  m_GroupName: XLuaLabelConfig
+  m_GroupName: FYAssetPipelineTest
   m_Data:
     m_SerializedData: []
-  m_GUID: 117053c0646955443a5d081729716b07
+  m_GUID: b1387e2a483e6be489ce2b38b0ff7efb
   m_SerializeEntries:
-  - m_GUID: 276eef6c8e9f88545951af44f2803712
-    m_Address: LuaCallCSharp
+  - m_GUID: cea53fa338e2fba4e8a540750f822f7f
+    m_Address: FYAssetPipelineAsync
     m_ReadOnly: 0
     m_SerializedLabels:
-    - TypeMemberListSO
-    - XLuaConfigs
+    - FYAssetPipelineSmokeAsset
+    - FYAssetPipelineTest
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 9270edc67bc19564ea89f136cf683452
-    m_Address: Hotfix
+  - m_GUID: 9b22abacbd8260241a2a9138a5947d8d
+    m_Address: FYAssetPipelineLua
     m_ReadOnly: 0
     m_SerializedLabels:
-    - TypeMemberListSO
-    - XLuaConfigs
+    - LuaScriptContainer
+    - FYAssetPipelineTest
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: a8688d7b8585b454cb58678508d8a564
-    m_Address: CSharpCallLua
+  - m_GUID: 3353353d4df825c4a955f60fbd15e64e
+    m_Address: FYAssetPipelineSync
     m_ReadOnly: 0
     m_SerializedLabels:
-    - TypeMemberListSO
-    - XLuaConfigs
+    - TextAsset
+    - FYAssetPipelineTest
     FlaggedDuringContentUpdateRestriction: 0
   m_ReadOnly: 0
   m_Settings: {fileID: 11400000, guid: 170f3ccdb3bee544095a2f2b92d47c18, type: 2}
   m_SchemaSet:
     m_Schemas:
-    - {fileID: 11400000, guid: 51ce986fa0720604b9af8579481788e9, type: 2}
-    - {fileID: 11400000, guid: dbe90d10ea61f08418ca61218c550ebb, type: 2}
+    - {fileID: 11400000, guid: f12ec678bb338ea4dafaeb92fd405260, type: 2}

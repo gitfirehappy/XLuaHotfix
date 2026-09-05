@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Lua Auto Sync Config
   m_EditorClassIdentifier: 
   mappings:
-  - directoryPath: AboutXLua/LuaScripts/Game/Player
+  - directoryPath: Game/LuaScripts/Game/Player
     container: {fileID: 11400000, guid: e45ef0de1e9ec58489819bb02402a27c, type: 2}
-    outputDirectory: AboutXLua/SO/LuaScriptsContainer
+    outputDirectory: SO/LuaScriptsContainer
     recursive: 1

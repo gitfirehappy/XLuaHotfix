@@ -44,9 +44,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 190d09c02dd3b3a4b82f56d261b2d149, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  xluaConfigLabel: XLuaConfigs
   loaderMode: 2
   editorRoots:
   - AboutXLua/LuaScripts
-  aaLabels:
-  - LuaScripts

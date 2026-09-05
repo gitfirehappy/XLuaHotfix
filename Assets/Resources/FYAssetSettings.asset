@@ -13,17 +13,18 @@ MonoBehaviour:
   m_Name: FYAssetSettings
   m_EditorClassIdentifier: 
   ProjectName: fyasset
-  UseABBackend: 0
-  RemoteFailurePolicy: 0
+  UseABBackend: 1
+  PlayMode: 2
   BuildOutputRoot: HotfixOutput
   BuildPackagesFolderName: Packages
-  VersionDataBasePath: Assets/Build/VersionDataBase.asset
+  StandaloneBuild: 0
+  VersionRecordPath: Assets/Build/VersionRecord.asset
   BuildIndexJsonPath: Assets/Build/Bootstrap/BuildIndex.json
   PushTargets:
   - Id: local
     Type: 0
     Path: HotfixPublish/Local
-    PublicBaseUrl: http://127.0.0.1:18080/
+    PublicBaseUrl: http://127.0.0.1:54321/
   - Id: cloudflare
     Type: 1
     Path: HotfixPublish/Cloudflare

@@ -9,10 +9,14 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 8804d7e5753b2164ba51f8a66736d5f5, type: 3}
-  m_Name: AnimeBridge
+  m_Script: {fileID: 11500000, guid: 80f0facbca5f5dc438b118707e235581, type: 3}
+  m_Name: VersionRecord
   m_EditorClassIdentifier: 
-  addressableLabels:
-  - StateAnimationConfigSO
-  soAssets:
-  - {fileID: 11400000, guid: 075c257b87614b04e908e0837fb94b1c, type: 2}
+  CurrentVersion:
+    Major: 2
+    Minor: 0
+    Patch: 0
+    Build: 1
+    Channel: 
+  LastBuildTime: 2026-07-24 20:00:07
+  DailyBuildCount: 1

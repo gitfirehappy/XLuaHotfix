@@ -12,10 +12,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d9722f324030fd146b77bba51912b692, type: 3}
   m_Name: Dialogue
   m_EditorClassIdentifier: 
-  groupName: LuaScripts
-  addressableLabels:
-  - LuaScriptContainer
-  - Dialogue
   luaAssets:
   - {fileID: 9027929339269108002, guid: 72e988735b9e33346b1d8c38b84e76e0, type: 3}
   - {fileID: 9027929339269108002, guid: 59b843d4648fa5b41a49a3e2eb95db30, type: 3}

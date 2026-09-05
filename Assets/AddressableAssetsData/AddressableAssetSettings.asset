@@ -15,7 +15,7 @@ MonoBehaviour:
   m_DefaultGroup: dbf2c5c7a80d7d34695132ac3bdde14b
   m_currentHash:
     serializedVersion: 2
-    Hash: 00000000000000000000000000000000
+    Hash: 1e441e627d019e308b40d87094c6423d
   m_OptimizeCatalogSize: 0
   m_BuildRemoteCatalog: 1
   m_BundleLocalCatalog: 1
@@ -46,13 +46,13 @@ MonoBehaviour:
   m_GroupAssets:
   - {fileID: 11400000, guid: 3361516b217dc4f4c9cd606e5a6fc9ac, type: 2}
   - {fileID: 11400000, guid: 8de0f9d75ac1aef4ab0f33bd1a97affe, type: 2}
-  - {fileID: 11400000, guid: 9901677a4c1f8da439a8875da32e3ea8, type: 2}
   - {fileID: 11400000, guid: 4fc5c8c9250bea1438cce940a855c631, type: 2}
   - {fileID: 11400000, guid: df7744c863b3e7341944119987a264db, type: 2}
   - {fileID: 11400000, guid: 83055885901cdf843855595898ba6b1d, type: 2}
   - {fileID: 11400000, guid: ea572c62a180ea24091d7ae5f324b58a, type: 2}
   - {fileID: 11400000, guid: de95651730e394248981b302d2c9b7d6, type: 2}
   - {fileID: 11400000, guid: 681ccb5418d021f418d1c6661d7c6592, type: 2}
+  - {fileID: 11400000, guid: ae24e16e79caef84b8af0b19be26d8f8, type: 2}
   m_BuildSettings:
     m_CompileScriptsInVirtualMode: 0
     m_CleanupStreamingAssetsAfterBuilds: 1
@@ -71,11 +71,11 @@ MonoBehaviour:
       - m_Id: e698ae0aca8e7e94b88c6b9af4e69f50
         m_Value: '{UnityEngine.AddressableAssets.Addressables.RuntimePath}/[BuildTarget]'
       - m_Id: d804801bdd94a2b4789837703847e983
-        m_Value: E:\unity\project\XLuaHotfix\HotfixOutput\Packages\Build_20260712161451_4.0.1\bundles
+        m_Value: E:\unity\project\XLuaHotfix\HotfixOutput\Packages\Build_20260723155716_2.0.0\bundles
       - m_Id: fd920ade5637d244bb40330ca5b2f2be
         m_Value: http://[PrivateIpAddress]:[HostingServicePort]
       - m_Id: b9eea80cfede45243ad79c7a379fb7b1
-        m_Value: E:\unity\project\XLuaHotfix\HotfixOutput\Packages\Build_20260712161451_4.0.1
+        m_Value: E:\unity\project\XLuaHotfix\HotfixOutput\Packages\Build_20260723155716_2.0.0
     m_ProfileEntryNames:
     - m_Id: ecc1a2c87e643dc4cb3602ca08e19cba
       m_Name: BuildTarget
@@ -99,7 +99,6 @@ MonoBehaviour:
   m_LabelTable:
     m_LabelNames:
     - default
-    - XLuaConfigs
     - LuaScripts
     - LuaScript
     - Dialogue
@@ -109,7 +108,6 @@ MonoBehaviour:
     - Player
     - Framework
     - TextAsset
-    - TypeMemberListSO
     - UIFormConfigSO
     - UIResourceConfigSO
     - BuildIndex
@@ -120,6 +118,8 @@ MonoBehaviour:
     - LuaScriptsIndex
     - PlayerControllerSO
     - ScriptObjectBridgeConfig
+    - FYAssetPipelineTest
+    - FYAssetPipelineSmokeAsset
   m_SchemaTemplates: []
   m_GroupTemplateObjects:
   - {fileID: 11400000, guid: b2541223116770447a3da6d418729a76, type: 2}
