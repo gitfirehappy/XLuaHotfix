@@ -11,20 +11,12 @@ public class GameLauncher : MonoBehaviour
 {
     public static bool IsReady { get; private set; }
     
-    [Header("XLua Configuration")]
-    [Tooltip("Addressables标签名，用于加载XLua类型配置")]
-    public string xluaConfigLabel = FYAssetSettings.DEFAULT_XLUA_TYPE_CONFIG_LOAD_LABEL;
-    
     [Header("Lua Loader Configuration")]
     [Tooltip("Lua加载模式")]
     public XLuaLoader.Mode loaderMode = XLuaLoader.Mode.Hybrid;
     
     [Tooltip("编辑器模式下的Lua脚本根目录")]
     public List<string> editorRoots = new() { "LuaScripts" };
-    
-    // TODO: 替换为SO资源，AssetPackageManager获取
-    [Tooltip("Addressables标签，用于加载Lua脚本")]
-    public List<string> aaLabels = new() { "LuaScriptContainer" }; // 初始第一批必备加载，后续可按需加载
     
     async void Awake()
     {
@@ -47,12 +39,14 @@ public class GameLauncher : MonoBehaviour
     private async Task BootPhase()
     {
         Debug.Log("[GameLauncher] === Boot Phase ===");
+
+        // XLuaFramework 资源服务注入（显式启动管理点）：必须先于任何 lua 桥链加载。
+        LuaAssetRuntime.SetLoader(new FYAssetLuaAssetLoaderAdapter());
         
-        // HotfixManager 初始化
-        await HotfixManager.InitializeAsync();
-        
-        // xlua标签管理初始化
-        await XluaTypeConfigLoader.InitAsync(xluaConfigLabel);
+        BackendMode backendMode = FYAssetSettings.Instance.UseABBackend
+            ? BackendMode.ABManifest
+            : BackendMode.AA;
+        await HotfixManager.InitializeAsync(backendMode);
         
         // 创建Lua环境
         LuaEnvManager.CreateNewEnv();
@@ -61,8 +55,7 @@ public class GameLauncher : MonoBehaviour
         var loaderOptions = new XLuaLoader.Options
         {
             mode = loaderMode,
-            editorRoots = editorRoots,
-            //aaLabels = aaLabels,
+            editorRoots = editorRoots
         };
         await XLuaLoader.SetupAndRegister(LuaEnvManager.Get(), loaderOptions);
 

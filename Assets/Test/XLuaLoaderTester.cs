@@ -8,15 +8,14 @@ public class XLuaLoaderTester : MonoBehaviour
 {
     public enum TestMode
     {
-        EditorOnly,
-        AddressablesOnly,
-        Hybrid
+        EditorOnly = 0,
+        PackageOnly = 1,
+        Hybrid = 2
     }
 
     public TestMode testMode = TestMode.Hybrid;
     public string luaModuleName = "HelloWorld";
     public List<string> editorRoots = new() { "Test/LuaScripts" };
-    public List<string> aaLabels = new() { "LuaScripts" };
     public bool enableLog = true;
 
     private LuaEnv _luaEnv;
@@ -47,9 +46,6 @@ public class XLuaLoaderTester : MonoBehaviour
             mode = (XLuaLoader.Mode)testMode,
             editorRoots = NormalizeEditorRoots(editorRoots)
         };
-
-        if (aaLabels != null && aaLabels.Count > 0)
-            options.ContainersAALabels.Add(aaLabels.ToArray());
 
         try
         {
