@@ -10,7 +10,7 @@ public class ScriptObjectBridgeConfig : ScriptableObject
     public class SOEntry
     {
         [Tooltip("Lua中的标识")] public string luaKey;
-        [Tooltip("SO的Addressable Key")] public string assetKey;
+        [Tooltip("SO的 Package Address")] public string assetKey;
     }
 
     public SOEntry[] entries;

@@ -7,7 +7,7 @@ using XLua;
 
 public class ScriptObjectBridge : MonoBehaviour,IBridge
 {
-    [Tooltip("SO配置的Addressable Key")]
+    [Tooltip("SO配置的 Package Address")]
     public string configKey;
     
     private ScriptObjectBridgeConfig _config; 
@@ -30,12 +30,12 @@ public class ScriptObjectBridge : MonoBehaviour,IBridge
             return;
         }
 
-        _config = await AssetPackageManager.Instance.LoadAssetAsync<ScriptObjectBridgeConfig>(configKey);
-
-        if (_config == null)
-        {
-            Debug.LogError($"[ScriptObjectBridge] 加载配置失败: {configKey}");
-        }
+        var (config, configError) =
+            await LuaAssetRuntime.Loader.LoadAssetAsync<ScriptObjectBridgeConfig>(configKey);
+        if (configError != null || config == null)
+            throw new InvalidOperationException(
+                configError?.ToString() ?? $"[ScriptObjectBridge] 加载配置失败: {configKey}");
+        _config = config;
         
         foreach (var entry in _config.entries)
         {
@@ -43,11 +43,14 @@ public class ScriptObjectBridge : MonoBehaviour,IBridge
         
             try
             {
-                var so = await AssetPackageManager.Instance.LoadAssetAsync<ScriptableObject>(entry.assetKey);
+                var (so, loadError) =
+                    await LuaAssetRuntime.Loader.LoadAssetAsync<ScriptableObject>(entry.assetKey);
                 if (so != null)
                     _soCache[entry.luaKey] = so;
                 else
-                    Debug.LogWarning($"[ScriptObjectBridge] 加载失败: {entry.luaKey} ({entry.assetKey})");
+                    Debug.LogWarning(
+                        loadError?.ToString() ??
+                        $"[ScriptObjectBridge] 加载失败: {entry.luaKey} ({entry.assetKey})");
             }
             catch (Exception e)
             {

@@ -4,16 +4,15 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using UnityEngine;
-using UnityEngine.ResourceManagement.ResourceLocations;
 using XLua;
 
 public static class XLuaLoader
 {
     public enum Mode
     {
-        EditorOnly, // 只读磁盘（Editor）
-        AddressablesOnly, // 只读 AA
-        Hybrid // 先 Editor，再 AA
+        EditorOnly = 0, // 只读磁盘（Editor）
+        PackageOnly = 1, // 只读当前绑定的资源包后端
+        Hybrid = 2 // 先 Editor，再资源包
     }
 
     public sealed class Options
@@ -21,10 +20,6 @@ public static class XLuaLoader
         public Mode mode = Mode.Hybrid;
 
         public List<string> editorRoots = new(); // 编辑器根目录,默认Assets/ + 根目录
-
-        // Addressables 标签（容器的标签）
-        // 多标签求交（例如：[LuaScriptsContainer, Dialogue]）
-        public List<string[]> ContainersAALabels = new();
         public List<string> extensions = new() { ".lua", ".lua.txt", ".bytes" }; // 扩展名
     }
 
@@ -70,16 +65,16 @@ public static class XLuaLoader
             }
 
             // 尝试编辑器路径
-            if (opt.mode != Mode.AddressablesOnly)
+            if (opt.mode != Mode.PackageOnly)
             {
                 bytes = TryReadFromEditor(opt, key);
                 if (bytes != null) return bytes;
             }
 
             // 尝试通过索引缓存查询加载（懒加载 + 写入内容缓存）
-            if (_luaIndexAsset != null && _luaIndexAsset.ScriptToContainer.TryGetValue(key, out string aaKey))
+            if (_luaIndexAsset != null && _luaIndexAsset.ScriptToContainer.TryGetValue(key, out string containerAddress))
             {
-                bytes = LoadFromAddressablesSync(aaKey, key);
+                bytes = LoadFromPackageSync(containerAddress, key);
 
                 if (bytes != null)
                 {
@@ -97,16 +92,16 @@ public static class XLuaLoader
 
     /// <summary>
     /// 【按容器释放】
-    /// 释放指定 Addressable Key (Container) 包含的所有 Lua 脚本缓存。
+    /// 释放指定资源包 Address (Container) 包含的所有 Lua 脚本缓存。
     /// 场景：明确知道要卸载哪个 Container 时调用。
     /// </summary>
-    /// <param name="containerAAKey">LuaScriptContainer 的 Addressable Name</param>
-    public static void ReleaseScriptCacheByContainer(string containerAAKey)
+    /// <param name="containerAddress">LuaScriptContainer 的资源地址</param>
+    public static void ReleaseScriptCacheByContainer(string containerAddress)
     {
-        if (string.IsNullOrEmpty(containerAAKey)) return;
+        if (string.IsNullOrEmpty(containerAddress)) return;
         if(_luaIndexAsset == null) return;
 
-        if (_luaIndexAsset.ContainerToScripts.TryGetValue(containerAAKey, out List<string> scriptNames))
+        if (_luaIndexAsset.ContainerToScripts.TryGetValue(containerAddress, out List<string> scriptNames))
         {
             int removeCount = 0;
             foreach (var scriptKey in scriptNames)
@@ -118,32 +113,9 @@ public static class XLuaLoader
             }
             if (removeCount > 0)
             {
-                Debug.Log($"[LuaLoader] 已释放容器 [{containerAAKey}] 下的 {removeCount} 个脚本缓存。");
+                Debug.Log($"[LuaLoader] 已释放容器 [{containerAddress}] 下的 {removeCount} 个脚本缓存。");
             }
         }
-    }
-
-    /// <summary>
-    /// 【按标签释放】
-    /// 释放带有指定 Label 的所有 Container 下的 Lua 脚本缓存。
-    /// 场景：退出 "Battle" 模式时，释放所有 Label 为 "Battle" 的 Lua 脚本。
-    /// </summary>
-    /// <param name="label">Addressable Label</param>
-    public static void ReleaseScriptCacheByLabel(string label)
-    {
-        if (string.IsNullOrEmpty(label)) return;
-
-        // 获取该 Label 对应的所有 Container Key
-        var aaKeys = AssetPackageManager.Instance.GetKeysByLabel(label);
-
-        if (aaKeys.Count == 0) return;
-        
-        foreach (var aaKey in aaKeys)
-        {
-            ReleaseScriptCacheByContainer(aaKey);
-        }
-
-        Debug.Log($"[LuaLoader] 按标签 [{label}] 释放完成，涉及 {aaKeys.Count} 个容器。");
     }
 
     /// <summary>
@@ -196,35 +168,36 @@ public static class XLuaLoader
     {
         try
         {
-            var indexSO = await AssetPackageManager.Instance.LoadAssetAsync<LuaScriptsIndex>(FYAssetSettings.LUA_SCRIPTS_INDEX);
+            var (indexSO, error) =
+                await LuaAssetRuntime.Loader.LoadAssetAsync<LuaScriptsIndex>(LuaScriptsIndex.AssetAddress);
 
-            if (indexSO != null)
-            {
-                // 构建双向字典
-                indexSO.BuildRuntimeDics();
-                
-                _luaIndexAsset = indexSO;
-            }
-            else
-            {
-                Debug.LogError("[LuaLoader] 无法加载 LuaScriptsIndex !");
-            }
+            if (error != null || indexSO == null)
+                throw new InvalidOperationException(
+                    error?.ToString() ?? $"无法加载启动资源: {LuaScriptsIndex.AssetAddress}");
+
+            indexSO.BuildRuntimeDics();
+            _luaIndexAsset = indexSO;
         }
         catch (Exception e)
         {
-            Debug.LogError($"[LuaLoader] 加载索引异常: {e}");
+            throw new InvalidOperationException("LuaScriptsIndex 初始化失败。", e);
         }
     }
 
     /// <summary>
-    /// 从 Addressables 同步加载 Lua 内容
+    /// 从当前绑定的资源包后端同步加载 Lua 内容
     /// </summary>
-    private static byte[] LoadFromAddressablesSync(string aaKey, string scriptName)
+    private static byte[] LoadFromPackageSync(string containerAddress, string scriptName)
     {
         byte[] result = null;
 
         // 同步加载容器
-        var container = AssetPackageManager.Instance.LoadAssetSync<LuaScriptContainer>(aaKey);
+        var (container, error) = LuaAssetRuntime.Loader.LoadAssetSync<LuaScriptContainer>(containerAddress);
+        if (error != null)
+        {
+            Debug.LogError(error.ToString());
+            return null;
+        }
 
         if (container != null)
         {
@@ -237,7 +210,7 @@ public static class XLuaLoader
             }
 
             // 立即卸载容器，只保留bytes
-            AssetPackageManager.Instance.UnloadAsset(aaKey);
+            LuaAssetRuntime.Loader.UnloadAsset<LuaScriptContainer>(containerAddress);
         }
 
         return result;

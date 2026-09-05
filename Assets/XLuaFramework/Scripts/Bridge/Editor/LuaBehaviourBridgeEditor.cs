@@ -25,7 +25,7 @@ public class LuaBehaviourBridgeEditor : Editor
     {
         var serializedObject = new SerializedObject(target);
         var configKeyProperty = serializedObject.FindProperty("configKey");
-        EditorGUILayout.PropertyField(configKeyProperty, new GUIContent("Config Key", "填写 LuaBehaviourConfigSO 的 Addressable Key"));
+        EditorGUILayout.PropertyField(configKeyProperty, new GUIContent("Config Address", "填写 LuaBehaviourConfigSO 的 Package Address"));
         serializedObject.ApplyModifiedProperties();
         
         EditorGUILayout.Space();
