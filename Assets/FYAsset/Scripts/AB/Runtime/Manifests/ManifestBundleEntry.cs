@@ -81,13 +81,4 @@ public class ManifestBundleEntry
 
     #endregion
 
-    /// <summary>
-    /// 判断两个 Bundle 内容是否相同（基于 FileHash 比较）。
-    /// 用于增量更新时判断 Bundle 是否需要重新下载。
-    /// </summary>
-    public bool ContentEquals(ManifestBundleEntry other)
-    {
-        if (other == null) return false;
-        return string.Equals(FileHash, other.FileHash, StringComparison.Ordinal);
-    }
 }

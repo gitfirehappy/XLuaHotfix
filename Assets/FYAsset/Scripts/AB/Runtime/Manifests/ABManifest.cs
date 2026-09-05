@@ -28,7 +28,7 @@ public class ABManifest
     [BinaryField(2)]
     public string BuildTimestamp;
 
-    /// <summary>Canonical manifest hash generated with this field empty.</summary>
+    /// <summary>此字段为空时生成 canonical manifest hash。</summary>
     [BinaryField(3)]
     public string FileHash;
 
@@ -56,12 +56,6 @@ public class ABManifest
 
     /// <summary>EntryId -> AssetEntry 索引（唯一）</summary>
     [NonSerialized] private Dictionary<string, int> _entryIdIndex;
-
-    /// <summary>PrimaryType -> AssetEntry 索引列表</summary>
-    [NonSerialized] private Dictionary<string, List<int>> _typeIndex;
-
-    /// <summary>Label -> AssetEntry 索引列表（大小写不敏感）</summary>
-    [NonSerialized] private Dictionary<string, List<int>> _labelIndex;
 
     /// <summary>BundleName -> BundleEntry 索引</summary>
     [NonSerialized] private Dictionary<string, int> _bundleNameIndex;
@@ -108,42 +102,7 @@ public class ABManifest
             list.Add(i);
         }
 
-        // 3. PrimaryType -> 索引列表
-        _typeIndex = new Dictionary<string, List<int>>();
-        for (int i = 0; i < assetCount; i++)
-        {
-            string type = AssetEntries[i].PrimaryType;
-            if (string.IsNullOrEmpty(type)) continue;
-
-            if (!_typeIndex.TryGetValue(type, out var list))
-            {
-                list = new List<int>();
-                _typeIndex[type] = list;
-            }
-            list.Add(i);
-        }
-
-        // 4. Label -> 索引列表（大小写不敏感，与 RuntimeAssetEntry.HasLabel 策略一致）
-        _labelIndex = new Dictionary<string, List<int>>(StringComparer.OrdinalIgnoreCase);
-        for (int i = 0; i < assetCount; i++)
-        {
-            var labels = AssetEntries[i].Labels;
-            if (labels == null) continue;
-            for (int j = 0; j < labels.Count; j++)
-            {
-                string label = labels[j];
-                if (string.IsNullOrEmpty(label)) continue;
-
-                if (!_labelIndex.TryGetValue(label, out var list))
-                {
-                    list = new List<int>();
-                    _labelIndex[label] = list;
-                }
-                list.Add(i);
-            }
-        }
-
-        // 5. BundleName -> 索引
+        // 3. BundleName -> 索引
         _bundleNameIndex = new Dictionary<string, int>(bundleCount);
         for (int i = 0; i < bundleCount; i++)
         {
@@ -218,40 +177,6 @@ public class ABManifest
         if (!_entryIdIndex.TryGetValue(entryId, out int index))
             return false;
         result = AssetEntries[index];
-        return true;
-    }
-
-    /// <summary>
-    /// 按 PrimaryType 查找所有资源条目。
-    /// </summary>
-    public bool TryGetAssetsByType(string primaryType, out List<ManifestAssetEntry> results)
-    {
-        results = null;
-        if (_typeIndex == null || string.IsNullOrEmpty(primaryType))
-            return false;
-        if (!_typeIndex.TryGetValue(primaryType, out var indices))
-            return false;
-
-        results = new List<ManifestAssetEntry>(indices.Count);
-        for (int i = 0; i < indices.Count; i++)
-            results.Add(AssetEntries[indices[i]]);
-        return true;
-    }
-
-    /// <summary>
-    /// 按 Label 查找所有资源条目（大小写不敏感）。
-    /// </summary>
-    public bool TryGetAssetsByLabel(string label, out List<ManifestAssetEntry> results)
-    {
-        results = null;
-        if (_labelIndex == null || string.IsNullOrEmpty(label))
-            return false;
-        if (!_labelIndex.TryGetValue(label, out var indices))
-            return false;
-
-        results = new List<ManifestAssetEntry>(indices.Count);
-        for (int i = 0; i < indices.Count; i++)
-            results.Add(AssetEntries[indices[i]]);
         return true;
     }
 

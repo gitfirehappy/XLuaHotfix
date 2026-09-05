@@ -4,27 +4,38 @@ using System.Threading.Tasks;
 using UnityEngine;
 
 /// <summary>
-/// AB 资源加载后端 — 基于自研 AssetBundle 方案的 IPackageBackend 实现。
+/// AB 资源加载后端 — 基于自研 AssetBundle 方案的 concrete I/O service。
 ///
 /// 设计说明：
-/// - 直接替代 AddressablesBackend，外部行为一致，零 Addressables 依赖
-/// - 通过 ABManifest 将 address/entryId 解析到 ManifestAssetEntry → BundleEntry
+/// - 由 ABPackageManager 提供已消歧的 EntryId，零 Addressables 依赖
+/// - 通过 ABManifest 将 EntryId 解析到 ManifestAssetEntry → BundleEntry
 /// - 委托 ABBundleLoader 处理 Bundle 文件加载/卸载（含依赖和引用计数）
 /// - 使用 AssetBundle.LoadAsset/LoadAssetAsync 从 Bundle 中提取资产
 /// - 维护 Asset 级缓存；引用计数由 HandleRegistry._entryActiveCounts 统一管理
-/// - 支持扩展接口：LoadAssetAsync(key, entryId) / LoadAssetSync(key, entryId) / UnloadByEntryId
-/// - 公开 API 统一返回 (T, RuntimeMessage) 元组，不抛异常
+/// - concrete API 返回 tuple errors，不抛加载异常
 ///
 /// 引用计数流程：
 /// Load → HandleRegistry.Alloc → _entryActiveCounts[entryId]++
 /// Release → HandleRegistry.Release → _entryActiveCounts[entryId]-- → 归零时回调 ReleaseEntry
 ///
-/// 使用方式：
-/// 1. AssetPackageManager.Initialize() 创建 ABBundleLoader + ABPackageBackend
-/// 2. AssetPackageManager.SetBackend(abBackend) 替换 AddressablesBackend
-/// 3. 所有 LoadAssetAsync/Sync/Unload 调用自动路由到此 Backend
+/// 由 ABPackageManager 持有本服务，仅转发已消歧的 Entry。
 /// </summary>
-public class ABPackageBackend : IPackageBackend
+internal interface IABLoadBackend
+{
+    Task<(T asset, RuntimeMessage error)> LoadAssetAsync<T>(string key, string entryId)
+        where T : UnityEngine.Object;
+    (T asset, RuntimeMessage error) LoadAssetSync<T>(string key, string entryId)
+        where T : UnityEngine.Object;
+    Task<(byte[] data, RuntimeMessage error)> LoadRawBytesAsync(string key, string entryId);
+    (byte[] data, RuntimeMessage error) LoadRawBytesSync(string key, string entryId);
+    Task<(T asset, string bundleName, RuntimeMessage error)> LoadAssetTupleAsync<T>(
+        string key, string entryId) where T : UnityEngine.Object;
+    (T asset, string bundleName, RuntimeMessage error) LoadAssetTupleSync<T>(
+        string key, string entryId) where T : UnityEngine.Object;
+    void UnloadByEntryId(string entryId);
+}
+
+internal sealed class ABPackageBackend : IABLoadBackend
 {
     #region 内部数据结构
 
@@ -35,8 +46,6 @@ public class ABPackageBackend : IPackageBackend
     {
         public UnityEngine.Object Asset;
         public string BundleName;
-        public string EntryId;
-        public string Address;
     }
 
     #endregion
@@ -45,9 +54,6 @@ public class ABPackageBackend : IPackageBackend
 
     /// <summary>Asset 缓存：EntryId → CacheEntry</summary>
     private readonly Dictionary<string, AssetCacheEntry> _assetCache = new();
-
-    /// <summary>address → 已加载的 EntryId 列表（支持 AA 风格按 key 卸载）</summary>
-    private readonly Dictionary<string, HashSet<string>> _addressToEntryIds = new();
 
     /// <summary>进行中的异步加载：EntryId → Task。并发去重，避免重复 I/O。</summary>
     private readonly Dictionary<string, Task> _inflightLoads = new();
@@ -77,44 +83,8 @@ public class ABPackageBackend : IPackageBackend
 
     #endregion
 
-    #region IPackageBackend · 初始化
+    #region EntryId Load API
 
-    /// <summary>
-    /// 初始化（无操作）。实际初始化在构造函数中完成。
-    /// </summary>
-    public Task InitializeAsync()
-    {
-        return Task.CompletedTask;
-    }
-
-    #endregion
-
-    #region IPackageBackend · 异步加载
-
-    /// <summary>
-    /// 异步加载资产（按 address/key）。
-    /// 链路：key -> ABManifest 解析 -> ABBundleLoader 加载 Bundle -> bundle.LoadAssetAsync 提取
-    /// </summary>
-    public async Task<(T asset, RuntimeMessage error)> LoadAssetAsync<T>(string key) where T : UnityEngine.Object
-    {
-        if (string.IsNullOrEmpty(key))
-            return (null, RuntimeMessage.Error(RuntimeErrorCodes.InvalidArgument, "LoadAssetAsync: key 为 null 或空"));
-
-        var assetEntry = ResolveAssetEntryByAddress(key);
-        if (assetEntry == null)
-            return (null, RuntimeMessage.NotFound(key));
-
-        if (_assetCache.TryGetValue(assetEntry.EntryId, out var cached))
-            return (cached.Asset as T, null);
-
-        var (asset, _, error) = await LoadAssetInternalAsync<T>(assetEntry);
-        return (asset, error);
-    }
-
-    /// <summary>
-    /// 异步加载资产（扩展：附带 EntryId）。
-    /// 优先按 EntryId 精确查找，回退到 address 查找。
-    /// </summary>
     public async Task<(T asset, RuntimeMessage error)> LoadAssetAsync<T>(string key, string entryId)
         where T : UnityEngine.Object
     {
@@ -132,33 +102,8 @@ public class ABPackageBackend : IPackageBackend
         return (asset, error);
     }
 
-    #endregion
-
-    #region IPackageBackend · 同步加载
-
-    /// <summary>
-    /// 同步加载资产（按 address/key）。
-    /// </summary>
-    public (T asset, RuntimeMessage error) LoadAssetSync<T>(string key) where T : UnityEngine.Object
-    {
-        if (string.IsNullOrEmpty(key))
-            return (null, RuntimeMessage.Error(RuntimeErrorCodes.InvalidArgument, "LoadAssetSync: key 为 null 或空"));
-
-        var assetEntry = ResolveAssetEntryByAddress(key);
-        if (assetEntry == null)
-            return (null, RuntimeMessage.NotFound(key));
-
-        if (_assetCache.TryGetValue(assetEntry.EntryId, out var cached))
-            return (cached.Asset as T, null);
-
-        var (asset, _, error) = LoadAssetInternalSync<T>(assetEntry);
-        return (asset, error);
-    }
-
-    /// <summary>
-    /// 同步加载资产（扩展：附带 EntryId）。
-    /// </summary>
-    public (T asset, RuntimeMessage error) LoadAssetSync<T>(string key, string entryId) where T : UnityEngine.Object
+    public (T asset, RuntimeMessage error) LoadAssetSync<T>(string key, string entryId)
+        where T : UnityEngine.Object
     {
         if (string.IsNullOrEmpty(key))
             return (null, RuntimeMessage.Error(RuntimeErrorCodes.InvalidArgument, "LoadAssetSync: key 为 null 或空"));
@@ -200,30 +145,8 @@ public class ABPackageBackend : IPackageBackend
 
     #endregion
 
-    #region IPackageBackend · 卸载
+    #region Lifetime
 
-    /// <summary>
-    /// 按 address/key 卸载资产。释放该地址下所有已加载条目（确定性行为）。
-    /// 存在重复 Address 时全部释放，不会非确定性地只取第一个。
-    /// 注：Handle 路径的调用方应先通过 HandleRegistry 确保所有 Handle 已释放。
-    /// </summary>
-    public void UnloadAsset(string key)
-    {
-        if (string.IsNullOrEmpty(key)) return;
-        if (!_addressToEntryIds.TryGetValue(key, out var entryIds) || entryIds.Count == 0) return;
-
-        // 收集所有 entryId 后逐个释放，避免在迭代中修改集合
-        var ids = new List<string>(entryIds);
-        foreach (var entryId in ids)
-        {
-            ReleaseEntry(entryId);
-        }
-    }
-
-    /// <summary>
-    /// 按 EntryId 卸载资产。直接移除缓存并联动 Bundle 卸载。
-    /// 由 HandleRegistry 回调触发；仅在 _entryActiveCounts 归零时调用。
-    /// </summary>
     public void UnloadByEntryId(string entryId)
     {
         if (string.IsNullOrEmpty(entryId)) return;
@@ -232,71 +155,25 @@ public class ABPackageBackend : IPackageBackend
 
     #endregion
 
-    #region IPackageBackend · 查询
-
-    /// <summary>
-    /// 检查资产是否已加载并缓存。
-    /// </summary>
-    public bool ContainsKey(string key)
-    {
-        if (string.IsNullOrEmpty(key)) return false;
-        if (!_addressToEntryIds.TryGetValue(key, out var entryIds) || entryIds.Count == 0) return false;
-
-        foreach (var entryId in entryIds)
-        {
-            if (_assetCache.ContainsKey(entryId))
-                return true;
-        }
-
-        return false;
-    }
-
-    #endregion
-
     #region 内部方法
 
-    /// <summary>
-    /// 按 address 从 ABManifest 解析 ManifestAssetEntry。
-    /// V1 策略：取第一个匹配项（类型消歧由上层 AssetResolver 处理）。
-    /// </summary>
-    private ManifestAssetEntry ResolveAssetEntryByAddress(string address)
-    {
-        if (_manifest.TryGetAssetsByAddress(address, out var entries) && entries.Count > 0)
-        {
-            return entries[0];
-        }
-
-        return null;
-    }
-
-    /// <summary>
-    /// 优先按 EntryId 精确定位资源条目，回退到 address 首个匹配。
-    /// </summary>
+    /// <summary>按已解析的 EntryId 精确定位资源条目，不做 address 回退。</summary>
     private ManifestAssetEntry ResolveAssetEntry(string address, string entryId)
     {
-        ManifestAssetEntry assetEntry = null;
-        if (!string.IsNullOrEmpty(entryId))
-        {
-            _manifest.TryGetAssetByEntryId(entryId, out assetEntry);
-        }
-
-        if (assetEntry == null)
-        {
-            assetEntry = ResolveAssetEntryByAddress(address);
-        }
-
-        return assetEntry;
+        if (string.IsNullOrEmpty(entryId)) return null;
+        if (!_manifest.TryGetAssetByEntryId(entryId, out var assetEntry)) return null;
+        return string.Equals(assetEntry.Address, address, StringComparison.Ordinal) ? assetEntry : null;
     }
 
     #endregion
 
-    #region 内部元组 API（供 AssetPackageManager Handle 构建路径使用）
+    #region 内部元组 API（供 ABPackageManager Handle 构建路径使用）
 
     /// <summary>
     /// 异步加载资产，返回 (asset, bundleName, error) 元组。
-    /// AssetPackageManager 通过此方法获取 bundleName 以分配 HandleRegistry 槽位。
+    /// ABPackageManager 通过此方法获取 bundleName 以分配 HandleRegistry 槽位。
     /// </summary>
-    internal async Task<(T asset, string bundleName, RuntimeMessage error)> LoadAssetTupleAsync<T>(
+    public async Task<(T asset, string bundleName, RuntimeMessage error)> LoadAssetTupleAsync<T>(
         string key, string entryId) where T : UnityEngine.Object
     {
         var assetEntry = ResolveAssetEntry(key, entryId);
@@ -317,9 +194,9 @@ public class ABPackageBackend : IPackageBackend
 
     /// <summary>
     /// 同步加载资产，返回 (asset, bundleName, error) 元组。
-    /// AssetPackageManager 通过此方法获取 bundleName 以分配 HandleRegistry 槽位。
+    /// ABPackageManager 通过此方法获取 bundleName 以分配 HandleRegistry 槽位。
     /// </summary>
-    internal (T asset, string bundleName, RuntimeMessage error) LoadAssetTupleSync<T>(
+    public (T asset, string bundleName, RuntimeMessage error) LoadAssetTupleSync<T>(
         string key, string entryId) where T : UnityEngine.Object
     {
         var assetEntry = ResolveAssetEntry(key, entryId);
@@ -353,7 +230,10 @@ public class ABPackageBackend : IPackageBackend
         if (assetEntry.PayloadKind == EPayloadKind.RawFile)
         {
             return (null, null,
-                RuntimeMessage.InvalidPayloadKind(assetEntry.EntryId, EPayloadKind.Serialized, assetEntry.PayloadKind));
+                RuntimeMessage.InvalidPayloadKind(
+                    assetEntry.EntryId,
+                    EPayloadKind.Serialized.ToString(),
+                    assetEntry.PayloadKind.ToString()));
         }
 
         string entryId = assetEntry.EntryId;
@@ -454,7 +334,10 @@ public class ABPackageBackend : IPackageBackend
         if (assetEntry.PayloadKind == EPayloadKind.RawFile)
         {
             return (null, null,
-                RuntimeMessage.InvalidPayloadKind(assetEntry.EntryId, EPayloadKind.Serialized, assetEntry.PayloadKind));
+                RuntimeMessage.InvalidPayloadKind(
+                    assetEntry.EntryId,
+                    EPayloadKind.Serialized.ToString(),
+                    assetEntry.PayloadKind.ToString()));
         }
 
         // 获取 Bundle 信息
@@ -492,7 +375,10 @@ public class ABPackageBackend : IPackageBackend
     private async Task<(byte[] data, RuntimeMessage error)> LoadRawBytesInternalAsync(ManifestAssetEntry assetEntry)
     {
         if (assetEntry.PayloadKind != EPayloadKind.RawFile)
-            return (null, RuntimeMessage.InvalidPayloadKind(assetEntry.EntryId, EPayloadKind.RawFile, assetEntry.PayloadKind));
+            return (null, RuntimeMessage.InvalidPayloadKind(
+                assetEntry.EntryId,
+                EPayloadKind.RawFile.ToString(),
+                assetEntry.PayloadKind.ToString()));
 
         var bundleEntry = _manifest.GetBundleForAsset(assetEntry);
         if (bundleEntry == null)
@@ -514,7 +400,10 @@ public class ABPackageBackend : IPackageBackend
     private (byte[] data, RuntimeMessage error) LoadRawBytesInternalSync(ManifestAssetEntry assetEntry)
     {
         if (assetEntry.PayloadKind != EPayloadKind.RawFile)
-            return (null, RuntimeMessage.InvalidPayloadKind(assetEntry.EntryId, EPayloadKind.RawFile, assetEntry.PayloadKind));
+            return (null, RuntimeMessage.InvalidPayloadKind(
+                assetEntry.EntryId,
+                EPayloadKind.RawFile.ToString(),
+                assetEntry.PayloadKind.ToString()));
 
         var bundleEntry = _manifest.GetBundleForAsset(assetEntry);
         if (bundleEntry == null)
@@ -591,28 +480,15 @@ public class ABPackageBackend : IPackageBackend
     }
 
     /// <summary>
-    /// 将资产加入缓存并建立 EntryId 反向映射。
+    /// 将资产加入 EntryId 缓存。
     /// </summary>
     private void AddToAssetCache(ManifestAssetEntry assetEntry, UnityEngine.Object asset, string bundleName)
     {
         _assetCache[assetEntry.EntryId] = new AssetCacheEntry
         {
             Asset = asset,
-            BundleName = bundleName,
-            EntryId = assetEntry.EntryId,
-            Address = assetEntry.Address
+            BundleName = bundleName
         };
-
-        if (string.IsNullOrEmpty(assetEntry.Address))
-            return;
-
-        if (!_addressToEntryIds.TryGetValue(assetEntry.Address, out var entryIds))
-        {
-            entryIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            _addressToEntryIds[assetEntry.Address] = entryIds;
-        }
-
-        entryIds.Add(assetEntry.EntryId);
     }
 
     /// <summary>
@@ -624,20 +500,6 @@ public class ABPackageBackend : IPackageBackend
         if (!_assetCache.TryGetValue(entryId, out var entry)) return;
 
         _assetCache.Remove(entryId);
-
-        // 直接用缓存条目里的 Address，无需回查 Manifest
-        // 注：address 可重复，_addressToEntryIds[address] 是 HashSet，只移除本 entryId
-        if (!string.IsNullOrEmpty(entry.Address))
-        {
-            if (_addressToEntryIds.TryGetValue(entry.Address, out var entryIds))
-            {
-                entryIds.Remove(entryId);
-                if (entryIds.Count == 0)
-                {
-                    _addressToEntryIds.Remove(entry.Address);
-                }
-            }
-        }
 
         _bundleLoader.UnloadBundle(entry.BundleName);
     }

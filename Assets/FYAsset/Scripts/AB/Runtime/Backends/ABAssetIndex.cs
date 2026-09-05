@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 
 /// <summary>
-/// AB 资源索引 — 基于 ABManifest 的完整 IAssetIndex 实现。
+/// AB 资源索引 — 基于 ABManifest 的条目查询实现。
 ///
 /// 设计要点：
 /// - 持有 ABManifest 引用，但不访问其 private 索引字典
@@ -12,7 +12,7 @@ using System.Collections.Generic;
 ///
 /// 内存预估：RuntimeAssetEntry ~600 bytes/entry，1000 entries ≈ 600KB，可接受。
 /// </summary>
-public class ABAssetIndex : IAssetIndex
+public class ABAssetIndex
 {
     #region 内部状态
 
@@ -183,7 +183,7 @@ public class ABAssetIndex : IAssetIndex
 
     #endregion
 
-    #region IAssetIndex
+    #region Queries
 
     /// <summary>
     /// 通过 EntryId 获取条目（精确匹配）。返回 null 表示未找到。

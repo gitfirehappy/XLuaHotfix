@@ -20,7 +20,8 @@ public sealed class ABHotfixBackend : IHotfixPipeline
 
     public Task<HotfixPackageInspection> InspectPackageAsync(
         string packageRoot,
-        PackageIndex expectedIndex)
+        PackageIndex expectedIndex,
+        bool requirePackageDirectoryMatch = true)
     {
         try
         {
@@ -31,7 +32,8 @@ public sealed class ABHotfixBackend : IHotfixPipeline
                 expectedIndex,
                 info,
                 true,
-                string.Empty));
+                string.Empty,
+                requirePackageDirectoryMatch));
         }
         catch (Exception ex)
         {

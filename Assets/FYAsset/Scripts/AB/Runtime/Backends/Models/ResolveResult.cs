@@ -52,16 +52,17 @@ public class ResolveResult
         => new() { Status = ResolveStatus.NotFound, Error = RuntimeMessage.NotFound(query) };
 
     public static ResolveResult Conflict(string query, IReadOnlyList<RuntimeAssetEntry> candidates)
-        => new() { Status = ResolveStatus.Conflict, Error = RuntimeMessage.Ambiguous(query, candidates) };
+        => new() { Status = ResolveStatus.Conflict, Error = RuntimeMessage.Ambiguous(query, candidates.Count) };
 
     public static ResolveResult TypeMismatch(string query, string expectedType, string actualType)
         => new() { Status = ResolveStatus.TypeMismatch, Error = RuntimeMessage.TypeMismatch(query, expectedType, actualType) };
 
     public static ResolveResult InvalidPayloadKind(string query, EPayloadKind expected, EPayloadKind actual)
-        => new() { Status = ResolveStatus.TypeMismatch, Error = RuntimeMessage.InvalidPayloadKind(query, expected, actual) };
-
-    public static ResolveResult IndexNotSupported(string indexType)
-        => new() { Status = ResolveStatus.NotFound, Error = RuntimeMessage.IndexNotSupported(indexType) };
+        => new()
+        {
+            Status = ResolveStatus.TypeMismatch,
+            Error = RuntimeMessage.InvalidPayloadKind(query, expected.ToString(), actual.ToString())
+        };
 
     #endregion
 

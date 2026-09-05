@@ -1,4 +1,3 @@
-using System;
 using UnityEngine;
 
 /// <summary>
@@ -146,33 +145,6 @@ public struct AssetHandle<T> where T : UnityEngine.Object
 
     #endregion
 
-    #region 便捷方法
-
-    /// <summary>
-    /// 如果此句柄表示加载失败，抛出 InvalidOperationException。
-    /// 用于加载失败不可预期、需要 fail-fast 的场景。
-    /// 注：已释放的 Handle（HandleId >= 0 但 Generation 不匹配）也会抛异常，防止 use-after-free 静默通过。
-    /// </summary>
-    public AssetHandle<T> ThrowIfFailed()
-    {
-        if (HandleId < 0 && Error != null)
-        {
-            // 加载失败句柄
-            throw new InvalidOperationException(
-                string.Concat("资源加载失败: ", Error.ToString()));
-        }
-
-        if (HandleId >= 0 && !HandleRegistry.IsValid(HandleId, Generation))
-        {
-            // Handle 已释放或过期（use-after-free）
-            throw new InvalidOperationException(
-                string.Concat("Handle 已释放或过期（use-after-free）: id=",
-                    HandleId.ToString(), ", gen=", Generation.ToString()));
-        }
-
-        return this;
-    }
-
     public override string ToString()
     {
         if (IsValid)
@@ -184,5 +156,4 @@ public struct AssetHandle<T> where T : UnityEngine.Object
             " gen=", Generation.ToString());
     }
 
-    #endregion
 }

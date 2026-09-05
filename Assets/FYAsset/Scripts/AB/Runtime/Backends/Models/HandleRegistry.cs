@@ -140,17 +140,6 @@ internal static class HandleRegistry
         return slot.Error;
     }
 
-    /// <summary>
-    /// 获取 Handle 当前引用计数。Handle 过期或无效返回 0。
-    /// </summary>
-    public static int GetRefCount(int handleId, int generation)
-    {
-        if (handleId < 0 || handleId >= _count) return 0;
-        ref var slot = ref _slots[handleId];
-        if (slot.Generation != generation) return 0;
-        return slot.RefCount;
-    }
-
     #endregion
 
     #region 引用计数操作

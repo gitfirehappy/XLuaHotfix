@@ -29,7 +29,9 @@ public static class ABManifestLoader
     public static async Task<ABManifest> LoadAsync()
     {
         string primaryDir = RuntimePathManager.CurrentGUIDRoot;
-        string fallbackDir = Application.streamingAssetsPath;
+        string fallbackDir = FYAssetSettings.Instance.StandaloneBuild
+            ? FYAssetPathUtility.JoinFilePath(Application.streamingAssetsPath, FYAssetSettings.STANDALONE_DIRECTORY_NAME)
+            : Application.streamingAssetsPath;
 
         string primaryBinPath = FYAssetPathUtility.JoinFilePath(primaryDir, ManifestFileNameBin);
         string primaryJsonPath = FYAssetPathUtility.JoinFilePath(primaryDir, ManifestFileNameJson);
