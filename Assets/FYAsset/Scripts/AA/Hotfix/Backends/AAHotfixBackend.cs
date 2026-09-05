@@ -20,6 +20,7 @@ public sealed class AAHotfixBackend : IHotfixPipeline
         try
         {
             await initHandle.Task;
+            CatalogUpdater.InstallInternalIdRedirect();
             Debug.Log("[AAHotfixBackend] 内置 catalog 初始化完成。");
             return HotfixStepResult.Ok;
         }
@@ -32,7 +33,8 @@ public sealed class AAHotfixBackend : IHotfixPipeline
 
     public async Task<HotfixPackageInspection> InspectPackageAsync(
         string packageRoot,
-        PackageIndex expectedIndex)
+        PackageIndex expectedIndex,
+        bool requirePackageDirectoryMatch = true)
     {
         try
         {
@@ -44,7 +46,8 @@ public sealed class AAHotfixBackend : IHotfixPipeline
                 expectedIndex,
                 info,
                 hasCatalog,
-                "缺少 catalog.json。");
+                "缺少 catalog.json。",
+                requirePackageDirectoryMatch);
         }
         catch (Exception ex)
         {

@@ -4,8 +4,6 @@ using System.Collections.Generic;
 /// <summary>
 /// AA 包体 Manifest — 记录 AA 构建产物的版本、Bundle 信息和资源索引。
 ///
-/// 与 ABManifest 的关系：ABManifest 是 AB 管线的运行时索引，AAManifest 是 AA 管线的包体描述。
-/// 两者互斥使用（由 concrete manager 或兼容门面选择），共享相同的序列化基础设施。
 /// 支持 JSON 和 Binary 两种序列化格式，Binary 由 BinarySerializable 属性驱动。
 /// </summary>
 [Serializable]

@@ -9,7 +9,7 @@ using UnityEngine;
 /// 职责边界：
 /// - 只加载 AA manifest 和其中的索引数据。
 /// - 不初始化 Addressables catalog。
-/// - 不加载资源对象；资源对象加载由 AddressablesBackend 负责。
+/// - 不加载资源对象；资源对象加载由 AAPackageManager 负责。
 ///
 /// 文件搜索顺序（每个目录）：
 /// 1. AAManifest.bin（二进制格式，优先）

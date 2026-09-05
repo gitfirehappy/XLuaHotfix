@@ -66,7 +66,8 @@ public static class CatalogUpdater
     /// <summary>
     /// InternalId 路径重定向，热更后的资源
     /// </summary>
-    private static void InstallInternalIdRedirect()
+        // Android 暂缓：本轮仅解析 Windows 文件系统路径。
+    public static void InstallInternalIdRedirect()
     {
         if (_transformInstalled) return;
 
@@ -87,6 +88,13 @@ public static class CatalogUpdater
                     // 必须转换为 URI 格式 (file://)，否则 Windows 平台下 AssetBundleProvider 创建 Uri 时会报 "Invalid port specified"
                     return new System.Uri(localPath).AbsoluteUri;
                 }
+
+                string baselinePath = FYAssetPathUtility.JoinFilePath(
+                    Application.streamingAssetsPath,
+                    FYAssetSettings.BUNDLES_DIRECTORY_NAME,
+                    fileName);
+                if (FileHelper.Exists(baselinePath))
+                    return new System.Uri(baselinePath).AbsoluteUri;
             }
             return id;
         };
