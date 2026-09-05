@@ -22,19 +22,10 @@ public static class BackendModeNames
         return mode == BackendMode.ABManifest ? AB : AA;
     }
 
-    public static string FromSettings()
-    {
-        return FYAssetSettings.Instance.UseABBackend ? AB : AA;
-    }
-
     public static bool IsValid(string value)
     {
         return string.Equals(value, AA, System.StringComparison.OrdinalIgnoreCase)
                || string.Equals(value, AB, System.StringComparison.OrdinalIgnoreCase);
     }
 
-    public static bool MatchesCurrentSettings(string value)
-    {
-        return string.Equals(value, FromSettings(), System.StringComparison.OrdinalIgnoreCase);
-    }
 }
