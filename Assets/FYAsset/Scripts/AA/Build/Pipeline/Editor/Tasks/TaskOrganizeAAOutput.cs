@@ -10,7 +10,7 @@ public class TaskOrganizeAAOutput : IBuildTask
     public BuildTaskResult Execute(BuildContext ctx)
     {
         var request = ctx.Require<BuildPackageRequest>(BuildContextKeys.BuildPackageRequest);
-        AddressablesBuildOutputOrganizer.NormalizeBuildOutput(request.OutputDir);
+        AABuildOutputOrganizer.NormalizeBuildOutput(request.OutputDir);
         ctx.Set(BuildContextKeys.OutputPath, request.OutputDir);
 
         return BuildTaskResult.Ok(new List<string>

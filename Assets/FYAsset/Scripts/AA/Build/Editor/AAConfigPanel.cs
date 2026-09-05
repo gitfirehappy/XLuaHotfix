@@ -75,7 +75,7 @@ public sealed class AAConfigPanel : IBuildPipelinePanel
 
     private void LoadBuildSettings()
     {
-        _buildSettings = FYAssetBuildSettingsProvider.AA;
+        _buildSettings = FYAssetAASettings.Instance;
         _buildSettingsSo = _buildSettings != null ? new SerializedObject(_buildSettings) : null;
     }
 
@@ -92,7 +92,6 @@ public sealed class AAConfigPanel : IBuildPipelinePanel
         card.Add(BuildPipelineUI.PathField(_buildSettingsSo.FindProperty(nameof(FYAssetAASettings.BuildPipelineConfigPath)), "Pipeline Config Path", BuildPipelineUI.PathPickerMode.AssetFile));
         card.Add(new PropertyField(_buildSettingsSo.FindProperty(nameof(FYAssetAASettings.ManifestOutputFormat))));
         card.Add(BuildPipelineUI.ByteSizeField(_buildSettingsSo.FindProperty(nameof(FYAssetAASettings.MaxHotfixSizeBytes)), "Max Hotfix Size"));
-        card.Add(BuildPipelineUI.PathField(_buildSettingsSo.FindProperty(nameof(FYAssetAASettings.LuaScriptsIndexPath)), "LuaScriptsIndex Path", BuildPipelineUI.PathPickerMode.AssetFile));
         card.Bind(_buildSettingsSo);
         _root.Add(card);
     }

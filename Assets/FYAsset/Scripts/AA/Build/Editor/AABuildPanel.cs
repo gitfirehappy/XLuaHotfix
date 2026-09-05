@@ -6,14 +6,19 @@ using UnityEngine.UIElements;
 /// </summary>
 public sealed class AABuildPanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
 {
-    private readonly PipelinePanel _pipelinePanel = new PipelinePanel(
+    private readonly PipelinePanel _pipelinePanel = new(
         "AA Build",
-        () => FYAssetBuildSettingsProvider.AA.BuildPipelineConfigPath,
-        BuildPipelineBackbone.CreateAATasks,
+        () => FYAssetAASettings.Instance.BuildPipelineConfigPath,
+        AAPipelineBackbone.CreateDefaultTasks,
         "AABuildPanel",
         false,
         true,
-        BackendMode.AA);
+        new BuildPanelActions
+        {
+            BuildFull = AABuildProjectManager.BuildFullPackage,
+            BuildHotfix = AABuildProjectManager.BuildHotfix,
+            LastBuildSuccess = () => AABuildProjectManager.LastBuildSuccess,
+        });
 
     public string PanelName => "AA Build";
 

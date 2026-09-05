@@ -9,11 +9,11 @@ using UnityEngine;
 /// <summary>
 /// AA 构建 Task — 注入最终输出路径并执行 BuildPlayerContent。
 /// </summary>
-public class TaskBuildAddressablesContent : IBuildTask
+public class TaskBuildAAContent : IBuildTask
 {
     private const string CatalogBuildPathVariable = "FYAsset.CatalogBuildPath";
 
-    public string TaskName => "TaskBuildAddressablesContent";
+    public string TaskName => "TaskBuildAAContent";
 
     public BuildTaskResult Execute(BuildContext ctx)
     {
@@ -29,7 +29,7 @@ public class TaskBuildAddressablesContent : IBuildTask
             ConfigureBasicSettings(settings, request);
             AssetDatabase.Refresh();
 
-            Debug.Log("[TaskBuildAddressablesContent] 开始执行 Addressables BuildPlayerContent...");
+            Debug.Log("[TaskBuildAAContent] 开始执行 Addressables BuildPlayerContent...");
             AddressableAssetSettings.BuildPlayerContent(out AddressablesPlayerBuildResult result);
 
             if (!string.IsNullOrEmpty(result.Error))
@@ -74,7 +74,7 @@ public class TaskBuildAddressablesContent : IBuildTask
             {
                 if (group.HasSchema<BundledAssetGroupSchema>())
                 {
-                    Debug.LogWarning($"[TaskBuildAddressablesContent] 修复冲突：移除 {group.Name} 中错误的 BundledAssetGroupSchema");
+                    Debug.LogWarning($"[TaskBuildAAContent] 修复冲突：移除 {group.Name} 中错误的 BundledAssetGroupSchema");
                     group.RemoveSchema<BundledAssetGroupSchema>();
                     EditorUtility.SetDirty(group);
                 }
@@ -94,7 +94,7 @@ public class TaskBuildAddressablesContent : IBuildTask
 
         EditorUtility.SetDirty(settings);
         AssetDatabase.SaveAssets();
-        Debug.Log($"[TaskBuildAddressablesContent] Addressables BuildPath 已注入并保存: Catalog={catalogBuildPath}, Remote={remoteBuildPath}");
+        Debug.Log($"[TaskBuildAAContent] Addressables BuildPath 已注入并保存: Catalog={catalogBuildPath}, Remote={remoteBuildPath}");
     }
 
     /// <summary>
@@ -117,6 +117,6 @@ public class TaskBuildAddressablesContent : IBuildTask
         }
 
         if (changed)
-            Debug.Log($"[TaskBuildAddressablesContent] 已将 Schema 路径修正为 Remote: {schema.Group.Name}");
+            Debug.Log($"[TaskBuildAAContent] 已将 Schema 路径修正为 Remote: {schema.Group.Name}");
     }
 }

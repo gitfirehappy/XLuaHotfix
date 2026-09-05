@@ -1,7 +1,7 @@
 using UnityEngine;
 
 /// <summary>
-/// AA backend runtime and build settings.
+/// AA backend 的 runtime 与构建设置。
 /// </summary>
 public sealed class FYAssetAASettings : ScriptableObject
 {
@@ -16,7 +16,6 @@ public sealed class FYAssetAASettings : ScriptableObject
     public string BuildPipelineConfigPath = "Assets/Build/AABuildPipelineConfig.asset";
     public ManifestOutputFormat ManifestOutputFormat = ManifestOutputFormat.JsonAndBinary;
     public long MaxHotfixSizeBytes = 1L * 1024 * 1024 * 1024;
-    public string LuaScriptsIndexPath = "Assets/Build/LuaScriptsIndex.asset";
 
     private static FYAssetAASettings _instance;
     public static FYAssetAASettings Instance => _instance ??= LoadOrCreate();

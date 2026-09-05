@@ -13,7 +13,7 @@ using UnityEngine;
 ///        ├─ bundle_a.bundle
 ///        └─ bundle_b.bundle
 /// </summary>
-public static class AddressablesBuildOutputOrganizer
+public static class AABuildOutputOrganizer
 {
     /// <summary>
     /// 规范化 catalog 文件名并移除未发布的 hash 文件。
@@ -47,13 +47,12 @@ public static class AddressablesBuildOutputOrganizer
         if (!catalogFound)
             throw new FileNotFoundException("Addressables catalog was not generated in the final package directory.", finalOutputDir);
 
-        Debug.Log($"[AddressablesBuildOutputOrganizer] Catalog 已规范化: {catalogPath}");
+        Debug.Log($"[AABuildOutputOrganizer] Catalog 已规范化: {catalogPath}");
     }
 
-    [MenuItem("FYAsset/Tests/AA Output Organizer Self Check")]
     public static void RunSelfCheck()
     {
-        string root = Path.Combine(Path.GetTempPath(), nameof(AddressablesBuildOutputOrganizer) + "_" + Guid.NewGuid().ToString("N"));
+        string root = Path.Combine(Path.GetTempPath(), nameof(AABuildOutputOrganizer) + "_" + Guid.NewGuid().ToString("N"));
         string bundles = Path.Combine(root, FYAssetSettings.BUNDLES_DIRECTORY_NAME);
         try
         {
@@ -68,7 +67,7 @@ public static class AddressablesBuildOutputOrganizer
             Require(!File.Exists(Path.Combine(root, "catalog_test.json")), "Source catalog was not removed.");
             Require(!File.Exists(Path.Combine(root, "catalog_test.hash")), "Catalog hash was not removed.");
             Require(File.Exists(Path.Combine(bundles, "test.bundle")), "Bundle output was changed.");
-            Debug.Log($"[{nameof(AddressablesBuildOutputOrganizer)}] PASS - catalog normalization verified.");
+            Debug.Log($"[{nameof(AABuildOutputOrganizer)}] PASS - catalog 规范化验证通过。");
         }
         finally
         {

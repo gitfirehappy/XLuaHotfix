@@ -60,7 +60,7 @@ public class TaskWriteAAPackageManifest : IBuildTask
             manifest.TotalSize += bundleInfo.FileSize;
         }
 
-        if (!HotfixPackageSizeGuard.ValidateOrAbort(manifest.TotalSize, request.BackendMode, nameof(TaskWriteAAPackageManifest)))
+        if (!HotfixPackageSizeGuard.ValidateOrAbort(manifest.TotalSize, FYAssetAASettings.Instance.MaxHotfixSizeBytes, nameof(TaskWriteAAPackageManifest)))
             return BuildTaskResult.Fail(BuildErrorCodes.VerificationFailed,
                 "AA 热更包大小超过阈值，Manifest 发布已中止。", true);
 
@@ -73,7 +73,7 @@ public class TaskWriteAAPackageManifest : IBuildTask
         manifest.FileHash = HashGenerator.GenerateFileHash(tempManifestPath);
         FileHelper.TryDelete(tempManifestPath);
 
-        ManifestOutputFormat outputFormat = FYAssetBuildSettingsProvider.GetManifestOutputFormat(request.BackendMode);
+        ManifestOutputFormat outputFormat = FYAssetAASettings.Instance.ManifestOutputFormat;
         if (outputFormat != ManifestOutputFormat.BinaryOnly)
             SerializationUtility.WriteToFile(jsonSavePath, manifest);
         else
@@ -84,7 +84,7 @@ public class TaskWriteAAPackageManifest : IBuildTask
         else
             FileHelper.TryDelete(binSavePath);
 
-        ctx.Set(BuildContextKeys.AAManifest, manifest);
+        ctx.Set(AABuildContextKeys.AAManifest, manifest);
         Debug.Log($"[TaskWriteAAPackageManifest] AAManifest 已生成: {request.OutputDir}, Bundles: {manifest.Bundles.Count}");
 
         return BuildTaskResult.Ok(new List<string>

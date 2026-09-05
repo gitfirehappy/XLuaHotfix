@@ -11,12 +11,12 @@ using UnityEngine;
 /// <summary>
 /// AA hotfix group move Task。把 diff 中 Added/Modified 资源移入 Hotfix group，并保留手动 Restore 能力。
 /// </summary>
-public class TaskMoveAddressableHotfixGroups : IBuildTask
+public class TaskMoveAAHotfixGroups : IBuildTask
 {
     private const string UndoLogPath = "Assets/FYAsset/Editor/Generated/HotfixGroupUndoLog.json";
     private static string _undoLogPathOverrideForSelfCheck;
 
-    public string TaskName => "TaskMoveAddressableHotfixGroups";
+    public string TaskName => "TaskMoveAAHotfixGroups";
     /// <summary>是否存在尚未 Restore 的 group 迁移记录。</summary>
     public static bool HasPendingMoves => LoadUndoLog().Entries.Count > 0;
 
@@ -37,7 +37,7 @@ public class TaskMoveAddressableHotfixGroups : IBuildTask
         {
             status.SettingsAvailable = false;
             status.UnrestorableCount = status.PendingCount;
-            status.ErrorMessage = "AddressableAssetSettings is unavailable.";
+            status.ErrorMessage = "AddressableAssetSettings 不可用。";
             return status;
         }
 
@@ -63,15 +63,15 @@ public class TaskMoveAddressableHotfixGroups : IBuildTask
     {
         var buildType = ctx.Require<BuildType>(BuildContextKeys.BuildType);
         if (buildType != BuildType.Hotfix)
-            return BuildTaskResult.Ok(new List<string> { "[AA HOTFIX GROUP] Full build skipped" });
+            return BuildTaskResult.Ok(new List<string> { "[AA HOTFIX GROUP] 已跳过 Full build" });
 
         var delta = ctx.Require<ArtifactDelta>(BuildContextKeys.ArtifactDelta);
         if (delta == null || delta.IsEmpty || (delta.Added.Count == 0 && delta.Modified.Count == 0))
-            return BuildTaskResult.Ok(new List<string> { "[AA HOTFIX GROUP] No changed assets to move" });
+            return BuildTaskResult.Ok(new List<string> { "[AA HOTFIX GROUP] 没有需要移动的已变更 asset" });
 
         return Apply(delta)
             ? BuildTaskResult.Ok(new List<string> { $"[AA HOTFIX GROUP] Moved={delta.Added.Count + delta.Modified.Count}" })
-            : BuildTaskResult.Fail(BuildErrorCodes.BuildFailed, "AA hotfix group move failed.", true);
+            : BuildTaskResult.Fail(BuildErrorCodes.BuildFailed, "AA Hotfix Group 移动失败。", true);
     }
 
     /// <summary>
@@ -84,14 +84,14 @@ public class TaskMoveAddressableHotfixGroups : IBuildTask
 
         if (HasPendingMoves)
         {
-            Debug.LogError("[TaskMoveAddressableHotfixGroups] Pending hotfix group moves exist. Run ResetGroupsToOriginal before preparing another hotfix.");
+            Debug.LogError("[TaskMoveAAHotfixGroups] 存在待处理的 Hotfix Group 移动记录。准备下一次 Hotfix 前请运行 ResetGroupsToOriginal。");
             return false;
         }
 
         var settings = AddressableAssetSettingsDefaultObject.Settings;
         if (settings == null)
         {
-            Debug.LogError("[TaskMoveAddressableHotfixGroups] AddressableAssetSettings is null.");
+            Debug.LogError("[TaskMoveAAHotfixGroups] AddressableAssetSettings 为 null。");
             return false;
         }
 
@@ -107,7 +107,7 @@ public class TaskMoveAddressableHotfixGroups : IBuildTask
         SaveUndoLog(undoLog);
         EditorUtility.SetDirty(settings);
         AssetDatabase.SaveAssets();
-        Debug.Log($"[TaskMoveAddressableHotfixGroups] Moved {undoLog.Entries.Count} asset(s) into {FYAssetSettings.HOTFIX_GROUP_NAME}.");
+        Debug.Log($"[TaskMoveAAHotfixGroups] 已将 {undoLog.Entries.Count} 个 asset 移入 {FYAssetSettings.HOTFIX_GROUP_NAME}。");
         return true;
     }
 
@@ -122,17 +122,17 @@ public class TaskMoveAddressableHotfixGroups : IBuildTask
 
         if (undoLog.Entries.Count == 0)
         {
-            Debug.Log("[TaskMoveAddressableHotfixGroups] No pending hotfix group moves to restore.");
-            result.Message = "No pending hotfix group moves to restore.";
+            Debug.Log("[TaskMoveAAHotfixGroups] 没有待恢复的 Hotfix Group 移动记录。");
+            result.Message = "没有待恢复的 Hotfix Group 移动记录。";
             return result;
         }
 
         AddressableAssetSettings settings = AddressableAssetSettingsDefaultObject.Settings;
         if (settings == null)
         {
-            Debug.LogError("[TaskMoveAddressableHotfixGroups] AddressableAssetSettings is null.");
+            Debug.LogError("[TaskMoveAAHotfixGroups] AddressableAssetSettings 为 null。");
             result.RemainingCount = undoLog.Entries.Count;
-            result.Message = "AddressableAssetSettings is unavailable.";
+            result.Message = "AddressableAssetSettings 不可用。";
             return result;
         }
 
@@ -145,7 +145,7 @@ public class TaskMoveAddressableHotfixGroups : IBuildTask
             {
                 remainingEntries.Add(item);
                 result.UnrestorableCount++;
-                Debug.LogWarning($"[TaskMoveAddressableHotfixGroups] Restore deferred: {reason}");
+                Debug.LogWarning($"[TaskMoveAAHotfixGroups] 恢复已暂缓：{reason}");
                 continue;
             }
 
@@ -165,13 +165,13 @@ public class TaskMoveAddressableHotfixGroups : IBuildTask
         {
             result.RemainingCount = undoLog.Entries.Count;
             result.Message = persistenceError;
-            Debug.LogError($"[TaskMoveAddressableHotfixGroups] {persistenceError}");
+            Debug.LogError($"[TaskMoveAAHotfixGroups] {persistenceError}");
             return result;
         }
 
         result.RemainingCount = remainingEntries.Count;
-        result.Message = $"Restored {result.RestoredCount} asset(s); {result.RemainingCount} record(s) remain.";
-        Debug.Log($"[TaskMoveAddressableHotfixGroups] {result.Message}");
+        result.Message = $"已恢复 {result.RestoredCount} 个 asset；剩余 {result.RemainingCount} 条记录。";
+        Debug.Log($"[TaskMoveAAHotfixGroups] {result.Message}");
         return result;
     }
 
@@ -186,7 +186,7 @@ public class TaskMoveAddressableHotfixGroups : IBuildTask
 
         if (undoLog.Entries.Count == 0)
         {
-            result.Message = "No pending hotfix group records to discard.";
+            result.Message = "没有待丢弃的 Hotfix Group 记录。";
             return result;
         }
 
@@ -194,7 +194,7 @@ public class TaskMoveAddressableHotfixGroups : IBuildTask
         if (settings == null)
         {
             result.RemainingCount = undoLog.Entries.Count;
-            result.Message = "AddressableAssetSettings is unavailable; records were not discarded.";
+            result.Message = "AddressableAssetSettings 不可用；记录未丢弃。";
             return result;
         }
 
@@ -207,14 +207,14 @@ public class TaskMoveAddressableHotfixGroups : IBuildTask
         {
             result.RemainingCount = undoLog.Entries.Count;
             result.Message = persistenceError;
-            Debug.LogError($"[TaskMoveAddressableHotfixGroups] {persistenceError}");
+            Debug.LogError($"[TaskMoveAAHotfixGroups] {persistenceError}");
             return result;
         }
 
         result.DiscardedCount = discardedCount;
         result.RemainingCount = remainingEntries.Count;
-        result.Message = $"Discarded {discardedCount} unrestorable record(s); {result.RemainingCount} record(s) remain.";
-        Debug.Log($"[TaskMoveAddressableHotfixGroups] {result.Message}");
+        result.Message = $"已丢弃 {discardedCount} 条无法恢复的记录；剩余 {result.RemainingCount} 条记录。";
+        Debug.Log($"[TaskMoveAAHotfixGroups] {result.Message}");
         return result;
     }
 
@@ -229,7 +229,7 @@ public class TaskMoveAddressableHotfixGroups : IBuildTask
             var entry = settings.FindAssetEntry(artifact.Name);
             if (entry == null)
             {
-                Debug.LogWarning($"[TaskMoveAddressableHotfixGroups] Addressable entry not found for guid: {artifact.Name}");
+                Debug.LogWarning($"[TaskMoveAAHotfixGroups] 未找到 guid 对应的 Addressable entry：{artifact.Name}");
                 continue;
             }
 
@@ -275,14 +275,14 @@ public class TaskMoveAddressableHotfixGroups : IBuildTask
 
         if (item == null || string.IsNullOrEmpty(item.Guid))
         {
-            reason = "Undo record has no GUID.";
+            reason = "undo 记录缺少 GUID。";
             return false;
         }
 
         entry = settings.FindAssetEntry(item.Guid);
         if (entry == null)
         {
-            reason = $"Addressable entry not found: {item.Guid}";
+            reason = $"未找到 Addressable entry：{item.Guid}";
             return false;
         }
 
@@ -297,7 +297,7 @@ public class TaskMoveAddressableHotfixGroups : IBuildTask
         if (targetGroup != null)
             return true;
 
-        reason = $"Original group and DefaultGroup are unavailable for {entry.address}.";
+        reason = $"{entry.address} 的 original group 和 DefaultGroup 均不可用。";
         return false;
     }
 
@@ -340,7 +340,7 @@ public class TaskMoveAddressableHotfixGroups : IBuildTask
         }
         catch (Exception ex)
         {
-            Debug.LogWarning($"[TaskMoveAddressableHotfixGroups] Failed to read undo log: {ex.Message}");
+            Debug.LogWarning($"[TaskMoveAAHotfixGroups] 读取 undo log 失败：{ex.Message}");
             return new HotfixGroupUndoLog();
         }
     }
@@ -360,7 +360,7 @@ public class TaskMoveAddressableHotfixGroups : IBuildTask
             {
                 if (!FileHelper.TryDelete(GetUndoLogPath()))
                 {
-                    error = "Failed to delete the completed hotfix group undo log.";
+                    error = "删除已完成的 Hotfix Group undo log 失败。";
                     return false;
                 }
 
@@ -375,7 +375,7 @@ public class TaskMoveAddressableHotfixGroups : IBuildTask
         }
         catch (Exception ex)
         {
-            error = $"Failed to persist hotfix group undo log: {ex.Message}";
+            error = $"持久化 Hotfix Group undo log 失败：{ex.Message}";
             return false;
         }
     }
@@ -423,16 +423,15 @@ public class TaskMoveAddressableHotfixGroups : IBuildTask
         }
     }
 
-    [MenuItem("FYAsset/Tests/AA Hotfix Group Restore Self Check")]
     public static void RunSelfCheck()
     {
         string root = Path.Combine(
             Path.GetTempPath(),
-            nameof(TaskMoveAddressableHotfixGroups) + "_" + Guid.NewGuid().ToString("N"));
+            nameof(TaskMoveAAHotfixGroups) + "_" + Guid.NewGuid().ToString("N"));
         try
         {
             RunUndoLogPersistenceSelfCheck(root);
-            Debug.Log("[TaskMoveAddressableHotfixGroups] PASS - undo-log persistence verified.");
+            Debug.Log("[TaskMoveAAHotfixGroups] PASS - undo log 持久化验证通过。");
         }
         finally
         {
@@ -475,7 +474,7 @@ public class TaskMoveAddressableHotfixGroups : IBuildTask
     }
 }
 
-/// <summary>AA Hotfix group restore state used by editor tooling.</summary>
+/// <summary>Editor 工具使用的 AA Hotfix Group 恢复状态。</summary>
 public sealed class HotfixGroupRestoreStatus
 {
     public int PendingCount { get; internal set; }
@@ -488,7 +487,7 @@ public sealed class HotfixGroupRestoreStatus
     public bool CanDiscardUnrestorableRecords => SettingsAvailable && UnrestorableCount > 0;
 }
 
-/// <summary>Result of restoring or discarding AA Hotfix group undo records.</summary>
+/// <summary>恢复或丢弃 AA Hotfix Group undo 记录的结果。</summary>
 public sealed class HotfixGroupRestoreResult
 {
     public int InitialPendingCount { get; internal set; }
