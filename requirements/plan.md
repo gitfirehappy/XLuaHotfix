@@ -223,7 +223,7 @@ No active implementation plan remains in the executable queue. This does not clo
 | ACCEPT-02 | Unity Editor confirms GameLauncher Prefab references FYAssetBackendSettings and AB startup reaches ready | Pending; batch compilation does not prove runtime acceptance |
 | ACCEPT-03 | Execute production BuildPipelineRunner/BuildTaskResolver malformed-task and ordering scenarios required by the custom-task plan | Missing executable coverage found by T08 in the current audit; not covered by existing lexical gates |
 | AUDIT-20260905 | [Detailed current-tree review](review/review-xluaframework-fyasset-20260905.md): 39 findings (10 P1, 28 P2, 1 P3), plus 15 explicitly unverified candidates | Review delivered / findings open; no production fixes performed. Fresh scenarios/solution pass, but independent RED probes expose untested failures |
-| HISTORY-20260905 | [Regrouping draft](plan/drafts/2026-09-05-history-regrouping.md): 66 commits / 737 endpoint paths / 17 candidate units | Exact grouping and H17 content disposition approved for preservation; backup and isolated reconstruction are underway; no push performed |
+| HISTORY-20260905 | [Archived regrouping record](plan/archive/2026-09-05-history-regrouping.md): 66 commits / 737 endpoint paths / 17 content units + no-ff merge | Executed; endpoint tree preserved exactly, main worktree clean, backup ref/bundle retained, no push performed |
 
 ### Phase 5: Build-Time - Asset Collection & Indexing
 
