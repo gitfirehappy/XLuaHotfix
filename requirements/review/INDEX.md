@@ -21,7 +21,11 @@ Reports missing Date or Reviewer will be rejected before content review.
 
 ## Active Reviews
 
-No active reviews.
+| File | Status | Scope |
+|------|--------|-------|
+| [review-xluaframework-fyasset-20260905.md](review-xluaframework-fyasset-20260905.md) | Open: 39 findings (10 P1, 28 P2, 1 P3); 15 candidates retain separate validation status | Current-tree runtime/lifecycle, build/publication, editor state, exports, tests, docs and decision drift; includes fresh commands and RED probes |
+
+Supporting evidence: the exact 66-commit / 737-path inventory is retained only in ignored `Logs/history-cleanup-20260905/history-inventory.json`; the review queue contains reports and indexes, not machine-generated temporary inventories. It is an inventory, not a rewrite authorization or evidence of completed history cleanup.
 
 ## Recently Archived
 

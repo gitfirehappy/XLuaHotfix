@@ -65,9 +65,12 @@ Non-trivial: new feature, mechanism replacement, or cross-file behavior change; 
 
 ## Git
 - Commit types: `feat`, `fix`, `refactor`, `docs`, `chore`, `test`.
-- Keep commits focused.
+- Keep commits focused on one logical change.
+- **Commit scope and approval**: every commit must stay within one module or one tightly related documentation/test unit, keep the diff minimal, and use a concise one-line Chinese summary. Before committing, present the proposed scope, paths, and message to the developer and commit only after explicit developer approval. Do not create unapproved iterative, progress, or mechanical commits.
+- **History cleanup**: before rewriting or folding commit history, present the grouping and preservation plan to the developer and obtain explicit approval; preserve a recoverable backup reference until the developer approves its removal.
 - Run required generation or verification before committing; confirm XLua generation needs for XLua exposure changes.
 - Develop non-trivial changes in isolated worktrees; prefer the harness-native worktree tool. Branch names: `<type (feat/fix/chore, ...)>/<description>`.
 - Commit message: English type prefix + one-line Chinese summary.
 - Group each requirement round with a `--no-ff` merge commit; fold un-pushed iterative commits of the same round back into the group (no interactive rebase in this environment; use `git reset --soft` or `--autosquash`).
 - Re-run the full verification on the merged result. Ask before deleting worktrees or branches.
+- Do not commit generated local editor state.

@@ -14,6 +14,7 @@ Promoted, superseded, or deprecated drafts go to `archive/`.
 
 | File | Status | Description |
 |------|--------|-------------|
+| 2026-09-05-history-regrouping.md | Draft / Exact grouping not approved | 66-commit preservation/reconstruction proposal with 737-path inventory and an explicit generated-state hold |
 | draft-legacy-plan-review-followups-20260714.md | Draft / Not approved | Consolidated manual acceptance, repository failure-path checks, and still-valid ponytail deletion candidates from archived plans/reviews |
 | draft-debug-panel-20260512.md | Draft | Runtime debugger panel |
 | plan-playmode-draft.md | Draft / Partially promoted | Editor mode promoted; Simulate mode remains deferred |

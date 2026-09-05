@@ -26,7 +26,7 @@
 | -------------------- | ---------------------------------------------------------------- |
 | `AAHotfixManager`    | AA concrete 热更入口，使用 AA 设置、`AAHotfixBackend` 和 `AAPackageManager` |
 | `ABHotfixManager`    | AB concrete 热更入口，使用 AB 设置、`ABHotfixBackend` 和 `ABPackageManager` |
-| `HotfixManager`      | 兼容门面，根据 `UseABBackend` 路由旧调用方                                    |
+| `HotfixManager`      | 兼容门面，根据宿主传入的 `BackendMode` 路由旧调用方                                    |
 | `HotfixFlowBase`     | 11 步确定性状态机，负责包指针决策、进度/错误回调与 BuildIndex 初始化；`IsStandaloneMode()` 短路离线包 |
 | `HotfixStateDecider` | 纯状态决策：本地激活、基线回退、同包修复、目标更新或终止启动                                   |
 | `IHotfixPipeline`    | 后端抽象接口，定义 7 个后端差异方法                                              |
@@ -44,7 +44,7 @@
 
 接口只隔离 7 类后端差异：初始化、检查隔离包、读取远端版本、生成 Bundle 列表、判断元数据完整性、持久化元数据和激活包。编排、重试、校验与状态决策全部留在 `HotfixFlowBase`，避免 AA/AB 各自复制流程。
 
-`InspectPackageAsync` 必须检查指定隔离包，不得回退到 `StreamingAssets`；元数据持久化与包激活分开，避免未验证内容提前生效。具体后端由 `AAHotfixManager` / `ABHotfixManager` 决定；`UseABBackend` 只用于旧 `HotfixManager` 兼容门面路由。
+`InspectPackageAsync` 必须检查指定隔离包，不得回退到 `StreamingAssets`；元数据持久化与包激活分开，避免未验证内容提前生效。具体后端由 `AAHotfixManager` / `ABHotfixManager` 决定；旧 `HotfixManager` 只消费启动宿主传入的 `BackendMode`，不读取 `FYAssetSettings`。
 
 ***
 

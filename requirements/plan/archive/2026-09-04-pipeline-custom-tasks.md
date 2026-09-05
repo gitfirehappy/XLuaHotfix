@@ -1,5 +1,9 @@
 # 管线自定义 Task 分槽 + LuaScriptsIndex 归位 Compat（2026-09-04 议定）
 
+> **Archive Status (2026-09-05)**: Implementation executed; archived under the developer-approved housekeeping boundary. AA/AB Unity build-isomorphism acceptance is still pending and tracked as ACCEPT-01 in `requirements/plan.md`. Archival is not acceptance or a fresh verification claim.
+> **Historical Spec Note**: The original `CustomTaskEntries` / `insertBefore` design below was superseded during T1 by the existing ordered `BuildPipelineConfig.Tasks` mechanism. Keep the original text as decision history, not the current API contract. Current behavior must be verified from source and the T1 execution correction.
+> **Audit Follow-up (2026-09-05)**: The fresh audit found that existing scenario checks do not execute malformed-task assembly through the production runner/resolver. This unclosed success criterion is retained as ACCEPT-03 in `requirements/plan.md` and T08 in the active review; archival does not mark it done.
+
 ## Spec
 
 ### 目的

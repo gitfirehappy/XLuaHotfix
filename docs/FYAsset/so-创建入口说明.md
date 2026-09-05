@@ -2,6 +2,8 @@
 
 > **关联代码**
 > `Assets/FYAsset/Scripts/Shared/Settings/FYAssetSettings.cs`
+> `Assets/FYAsset/Scripts/Compat/Runtime/FYAssetBackendSettings.cs`
+> `Assets/Build/FYAssetBackendSettings.asset`
 > `Assets/FYAsset/Scripts/AA/Settings/FYAssetAASettings.cs`
 > `Assets/FYAsset/Scripts/AB/Settings/FYAssetABSettings.cs`
 > `Assets/FYAsset/Scripts/Shared/Build/Editor/Settings/SettingsPanel.cs`
@@ -30,7 +32,8 @@
 
 | SO 类型 | 推荐入口 | 说明 |
 |---|---|---|
-| `FYAssetSettings` | `SettingsPanel` 中的创建按钮 / 自动补齐 | 默认路径为 `Assets/Resources/FYAssetSettings.asset`，保存全局项目、构建输出、版本路径和 PushTargets |
+| `FYAssetSettings` | `SettingsPanel` 中的创建按钮 / 自动补齐 | 默认路径为 `Assets/Resources/FYAssetSettings.asset`，保存项目、构建输出、版本路径和 PushTargets；不再保存后端选择 |
+| `FYAssetBackendSettings` | 使用项目已提交资产 | 默认路径为 `Assets/Build/FYAssetBackendSettings.asset`，保存 Compat 宿主后端选择；`GameLauncher` 通过 Prefab 序列化引用读取 |
 | `FYAssetAASettings` | `AAConfigPanel` 自动创建/编辑 | 默认路径为 `Assets/Resources/FYAssetAASettings.asset`，保存 AA 热更与构建参数 |
 | `FYAssetABSettings` | `ABConfigPanel` 自动创建/编辑 | 默认路径为 `Assets/Resources/FYAssetABSettings.asset`，保存 AB 热更、构建参数与 AssetCollection 配置 |
 | `VersionRecord` | 使用项目已提交资产 | 路径由 `FYAssetSettings.VersionRecordPath` 决定；当前没有独立创建 UI，Repository 只提供测试重置 |

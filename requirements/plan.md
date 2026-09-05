@@ -1,9 +1,11 @@
 # Refactor Plan: XLuaHotfix Full Resource Management System Overhaul — Master Plan
 
-> **Status**: In progress (Phase 1-6 main paths realized; Build/E2E local matrix and AB Standalone E2E verified; Editor PlayMode smoke remains open)
+> **Status**: In progress. Two September implementation plans archived as executed on 2026-09-05; ACCEPT-01/02/03 remain open. The current-tree multi-dimensional audit is delivered with open findings; the 66-commit regrouping proposal awaits exact approval. No history rewrite has occurred.
+
 > **Ultimate Goal**: Keep Addressables AA and custom AB as independent concrete frameworks, with upper layers depending on one thin stable facade
 > **Created**: 2026-03-16
-> **Updated**: 2026-07-24 — Build/E2E 12/12 local matrix and AB Standalone E2E archived; Editor PlayMode remains pending smoke acceptance
+> **Updated**: 2026-09-05 - executed-plan archival, explicit acceptance carryover, and audit/history-cleanup tracking. The phase tables below contain historical implementation descriptions; they are not the current architecture specification.
+
 
 ---
 
@@ -204,9 +206,24 @@ later superseded by the active strict `AA/AB/Shared` split. They are no longer a
 
 ### Active Shared Plans
 
+No active implementation plan remains in the executable queue. This does not close the roadmap, deferred work, acceptance, or review findings.
+
+### September Executed Plans
+
 | File | Content | Status |
 |------|---------|--------|
-| 2026-09-04-pipeline-custom-tasks.md | Pipeline custom-task slot + LuaScriptsIndex moved to Compat glue task | Approved / executing; Unity AA/AB build isomorphism pending |
+| [2026-09-04-pipeline-custom-tasks.md](plan/archive/2026-09-04-pipeline-custom-tasks.md) | Existing ordered task list reused; LuaScriptsIndex moved to Compat glue task | Executed / archived 2026-09-05; ACCEPT-01 pending |
+| [2026-09-04-backend-selection-decoupling.md](plan/archive/2026-09-04-backend-selection-decoupling.md) | Backend selection moved from FYAssetSettings into Compat host settings | Executed / archived 2026-09-05; ACCEPT-02 pending |
+
+### Open Acceptance And Audit
+
+| ID | Required work | Status / evidence boundary |
+|----|---------------|----------------------------|
+| ACCEPT-01 | Unity AA/AB builds through editor and direct backend API preserve Lua index and package output semantics | Pending; scenario gates do not prove build-artifact isomorphism |
+| ACCEPT-02 | Unity Editor confirms GameLauncher Prefab references FYAssetBackendSettings and AB startup reaches ready | Pending; batch compilation does not prove runtime acceptance |
+| ACCEPT-03 | Execute production BuildPipelineRunner/BuildTaskResolver malformed-task and ordering scenarios required by the custom-task plan | Missing executable coverage found by T08 in the current audit; not covered by existing lexical gates |
+| AUDIT-20260905 | [Detailed current-tree review](review/review-xluaframework-fyasset-20260905.md): 39 findings (10 P1, 28 P2, 1 P3), plus 15 explicitly unverified candidates | Review delivered / findings open; no production fixes performed. Fresh scenarios/solution pass, but independent RED probes expose untested failures |
+| HISTORY-20260905 | [Regrouping draft](plan/drafts/2026-09-05-history-regrouping.md): 66 commits / 737 endpoint paths / 17 candidate units | Exact grouping and H17 content disposition approved for preservation; backup and isolated reconstruction are underway; no push performed |
 
 ### Phase 5: Build-Time - Asset Collection & Indexing
 
@@ -230,10 +247,10 @@ later superseded by the active strict `AA/AB/Shared` split. They are no longer a
 | E5-2a | Backbone Tasks Phase 1 — TaskPrepareContext / TaskCollectBuiltins / TaskBuildBundles + BundleBuildInfo + BundleCompression. **2026-05-07 review fixes: scene output collapse + folder guard + rawfile multi-file** | **Realized** (plan-E5-2a.md) |
 | E5-2b | Backbone Tasks Phase 2 — TaskVerifyBuildResult (6 checks) / TaskOrganizeOutput (copy+serialize+summary+cleanup). Includes HashGenerator unification (CRC32 merge + enum) + BuildVerificationResult type | **Realized** (plan-E5-2b.md) |
 | E6 | ABManifest build export — TaskGenerateManifest + CRC32Helper + BundleType int→string | **Realized** (plan-E6.md) |
-| E7 | Diff snapshot adaptation → **Build Repository** (统一 git-like 版本管理系统，合并原 E7 + Smart Versioning) | **Main path complete / slimmed 2026-07-09** — repository HEAD/object storage, AA/AB commit, status, diff preview, AA/AB whole-package Push, CLI/UI, PackageIndex writing, and hotfix read chain are in place. Repository slim keeps Health/build-push blocking and PushHead, and removes Repair/quarantine plus persistent PushHistory. Deferred repository hardening remains outside the closure scope. AA Push closure archived: `requirements/plan/archive/plan-build-repository-aa-push-20260603.md` |
+| E7 | Historical Build Repository replaced by two-slot build baselines | **Superseded / current baseline mechanism implemented** - Latest/LatestFull in one `BuildData/Baselines/.../baseline.json`; repository objects/HEAD/repair/persistent PushHistory/provider removed by the 2026-09-03 decoupling round. AA/AB preview and whole-package publication remain active. Current audit B01/B03/B07 flags finalization atomicity, format metadata, and failed rollback; implementation status does not imply these contracts are verified. |
 | E9 | VersionNumber SemVer+Build extension (Major.Minor.Patch + Build + Channel, IComparable, Parse/TryParse, operator overloads). Prerequisite for E7 | **Realized** (plan-E9-version.md) |
 | E10 | BuildProjectManager dual-backend split — `IBuildBackend` + `LegacyAddressableBuildBackend` + `ABBuildBackend` + orchestrator-style `BuildProjectManager`. `BuildCommandLine` kept on the same public API path. AB output layout aligned to `{PackageRoot}/bundles/` to match hotfix/runtime contracts | **Realized** (plan-E10-buildbackend.md) |
-| E11 | FYAssetSettings SO — new `FYAssetSettings` ScriptableObject (Runtime assembly) replaces `FYAssetConstants`; configurable fields become SO instance fields; `static const` members preserved on SO type; `BuildPipelineConfig.DefaultBackendMode` removed; `SettingsPanel` added; `BuildPipelineWindow` sidebar reorganized to SETTINGS → AB PIPELINE → MANAGE; AB PIPELINE grayed-out when `UseABBackend=false`; `FYAssetConstants.cs` deleted. **2026-06-05 correction: active settings are now split into `FYAssetSettings`, `FYAssetAASettings`, and `FYAssetABSettings`; backend hotfix URL/retry fields live on AA/AB settings.** | **Realized** (plan-E11-settings.md) |
+| E11 | FYAssetSettings SO — new `FYAssetSettings` ScriptableObject (Runtime assembly) replaces `FYAssetConstants`; configurable fields become SO instance fields; `static const` members preserved on SO type; `BuildPipelineConfig.DefaultBackendMode` removed; `SettingsPanel` added; `BuildPipelineWindow` sidebar reorganized to SETTINGS → AB PIPELINE → MANAGE; `FYAssetConstants.cs` deleted. **2026-06-05 correction: active settings are now split into `FYAssetSettings`, `FYAssetAASettings`, and `FYAssetABSettings`; backend hotfix URL/retry fields live on AA/AB settings. Backend selection is tracked separately by the 2026-09-04 Compat host-settings plan.** | **Realized** (plan-E11-settings.md) |
 | E12 | PipelinePanel build execution editor. Historical E12 GraphView implementation was removed by `plan-pipeline-sequence-list-editor-20260709.md`; active AA/AB build panels now show a vertical Task sequence list with status lights and validation details. **2026-06-06 correction: active layout removes the historical Builder entry; AA/AB each have a build result placeholder, and concrete build report implementation is deferred to a separate plan.** | **Realized / simplified 2026-07-09** (plan-E12-buildgraph-editor.md) |
 | E13 | Legacy/sidebar restructuring history. **2026-06-06 supersession: active BuildPipelineWindow structure is Settings; AA(Config/Build/Build Result/Repository); AB(Config/AssetsCollection/Build/Build Result/Repository); Manage(Version).** | **Superseded by current AA/AB split** (plan-E13-legacy-sidebar.md) |
 

@@ -11,13 +11,14 @@ Shared executable plans live here while active. `requirements/plan.md` remains t
   `requirements/progress.txt`; do not replace detailed history with summary-only lines.
 
 ## Active
-| File | Status |
-|---|---|
-| `2026-09-04-pipeline-custom-tasks.md` | Approved / executing (Sept decoupling; not a July plan) |
+
+No active implementation plans. Pending acceptance and the current audit/history-cleanup round remain tracked in `requirements/plan.md`.
 
 ## Recently Archived
 | File | Status |
 |---|---|
+| `2026-09-04-pipeline-custom-tasks.md` | Executed; archived 2026-09-05 with AA/AB build acceptance carried to ACCEPT-01 |
+| `2026-09-04-backend-selection-decoupling.md` | Executed; archived 2026-09-05 with Editor runtime acceptance carried to ACCEPT-02 |
 | `plan-playmode-editor-20260724.md` | Signed off 2026-07-28; archived 2026-09-04 |
 | `2026-09-03-aa-ab-decoupling.md` | Completed & archived (renamed from misdated `2026-07-24-aa-ab-decoupling`) |
 | `2026-09-03-xluaframework-export.md` | Completed & archived (X1-X6; renamed from misdated `2026-07-24-xluaframework-export`) |

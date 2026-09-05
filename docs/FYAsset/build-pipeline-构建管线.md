@@ -4,7 +4,7 @@
 
 > **关联代码**
 >
-> `Assets/FYAsset/Scripts/Shared/Build/Pipeline/Editor/` · `Assets/FYAsset/Scripts/Shared/Build/BackendMode.cs`
+> `Assets/FYAsset/Scripts/Shared/Build/Pipeline/Editor/` · `Assets/FYAsset/Scripts/Compat/Runtime/BackendMode.cs` · `Assets/FYAsset/Scripts/Compat/Runtime/FYAssetBackendSettings.cs`
 
 ---
 
@@ -48,16 +48,16 @@ Task 的输入输出契约直接体现在 `Get/Require/Set` 调用和固定主�
 - `taskWhitelist` 在解析前过滤列表，常用于 Diff Preview
 - `BuildContextKeys` 常量类存储标准 Key 名称
 
-### BackendMode — 后端模式
+### BackendMode — 宿主后端模式
 
-决定构建管线的数据源和输出格式：
+`BackendMode` 是 Compat Runtime 的宿主选择枚举；Shared 构建请求和序列化协议只携带 `BackendKey` / `BackendMode` 字符串字段，不引用该枚举。`FYAssetBackendSettings` 的 `Backend` 保存运行时宿主选择，`GameLauncher` 通过序列化引用读取并在启动时绑定一次。
 
 | 值 | 含义 |
 |----|------|
 | `AA` | 基于 Addressables 的 AA 构建 |
 | `ABManifest` | 基于 ABManifest 的自研构建（显示名为 AB） |
 
-正式 Full/Hotfix/Standalone 构建由 AA/AB concrete build manager 创建 `BuildPackageRequest` 时显式决定。Repository CLI 的 `-backend` 只用于选择仓库通道，不覆盖正式构建后端。`BackendMode.AA` 与 `BackendMode.ABManifest` 分别对应两条构建管线，显示名分别为 `AA` / `AB`，各有独立的 `BuildPipelineConfig` 资产。
+正式 AA/AB concrete 构建入口继续显式决定自己的后端。Repository CLI 的 `-backend` 只用于选择仓库通道，不覆盖正式构建后端。
 
 `BuildType` 取值：
 

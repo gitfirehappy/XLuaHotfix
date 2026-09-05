@@ -194,7 +194,7 @@ Bundle 引用归零时调用 `AssetBundle.Unload(true)`，再递归释放依赖 
 
 ## ABPackageManager — 上层入口
 
-`ABPackageManager` 是 AB concrete 入口，提供初始化、按 Address/TypeKey 加载和按 Label 卸载。旧 `AssetPackageManager` 仍作为兼容门面，根据 `UseABBackend` 路由到 AA 或 AB。
+`ABPackageManager` 是 AB concrete 入口，提供初始化、按 Address/TypeKey 加载和按 Label 卸载。旧 `AssetPackageManager` 仍作为兼容门面，根据启动宿主绑定的 `BackendMode` 路由到 AA 或 AB。
 
 Resolve-And-Handle API 返回 `AssetHandle<T>`；兼容的 `LoadAssetAsync<T>` / `LoadAssetSync<T>` 仍直接返回资源对象。AB concrete 入口固定使用 `ABPackageBackend`。
 
