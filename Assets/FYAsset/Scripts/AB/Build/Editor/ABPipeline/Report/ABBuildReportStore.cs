@@ -94,7 +94,7 @@ public static class ABBuildReportStore
             }
             catch (Exception ex)
             {
-                Debug.LogWarning($"[{nameof(ABBuildReportStore)}] Failed to inspect report: {reportPaths[i]}, {ex.Message}");
+                Debug.LogWarning($"[{nameof(ABBuildReportStore)}] 检查 report 失败：{reportPaths[i]}, {ex.Message}");
             }
         }
 
@@ -156,7 +156,7 @@ public static class ABBuildReportStore
     {
         if (!IsPathInsideDirectory(reportsDirectory, path))
         {
-            Debug.LogError($"[{nameof(ABBuildReportStore)}] Refused to delete report outside ReportsDirectory: {path}");
+            Debug.LogError($"[{nameof(ABBuildReportStore)}] 拒绝删除 ReportsDirectory 外的 report：{path}");
             return false;
         }
 
@@ -188,12 +188,6 @@ public static class ABBuildReportStore
         {
             return string.Empty;
         }
-    }
-
-    public static string GetLatestReportPath()
-    {
-        List<string> paths = ListReportPaths();
-        return paths.Count > 0 ? paths[0] : string.Empty;
     }
 
     public static void RevealReportsDirectory()

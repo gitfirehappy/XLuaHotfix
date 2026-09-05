@@ -22,8 +22,8 @@ public static class ABBuildReportBuilder
         FillHeader(report, request, buildResult, stopwatch, backendError);
         FillTasks(report, buildResult);
 
-        ABManifest manifest = context?.Get<ABManifest>(BuildContextKeys.ABManifest);
-        List<ManifestBundleEntry> deliveryBundles = context?.Get<List<ManifestBundleEntry>>(BuildContextKeys.ABDeliveryBundles)
+        ABManifest manifest = context?.Get<ABManifest>(ABBuildContextKeys.ABManifest);
+        List<ManifestBundleEntry> deliveryBundles = context?.Get<List<ManifestBundleEntry>>(ABBuildContextKeys.ABDeliveryBundles)
             ?? new List<ManifestBundleEntry>();
         BuildVerificationResult verification = context?.Get<BuildVerificationResult>(BuildContextKeys.BuildVerificationResult);
 

@@ -32,15 +32,6 @@ public static class RuleDropdownHelper
         return _groupRuleArray;
     }
 
-    /// <summary>强制重新扫描规则实现（新规则类加入后调用）</summary>
-    public static void ClearCache()
-    {
-        _filterRuleNames = null;
-        _groupRuleNames = null;
-        _filterRuleArray = null;
-        _groupRuleArray = null;
-    }
-
     #endregion
 
     #region 私有方法 —— 缓存与扫描

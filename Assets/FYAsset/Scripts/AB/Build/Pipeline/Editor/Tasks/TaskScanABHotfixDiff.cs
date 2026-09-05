@@ -5,7 +5,7 @@ using System;
 using UnityEngine;
 
 /// <summary>
-/// AB bundle diff Task。
+/// AB Bundle 差异 Task。
 /// 消费 ABManifest 中的完整 bundle 输出信息：
 /// 1. 对比 Repository HEAD，写入用于预览的 ArtifactDelta。
 /// 2. 对比同 Major Full baseline，写入 Hotfix delivery bundle 列表。
@@ -16,17 +16,17 @@ public class TaskScanABHotfixDiff : IBuildTask
     public BuildTaskResult Execute(BuildContext ctx)
     {
         var request = ctx.Require<BuildPackageRequest>(BuildContextKeys.BuildPackageRequest);
-        var manifest = ctx.Require<ABManifest>(BuildContextKeys.ABManifest);
+        var manifest = ctx.Require<ABManifest>(ABBuildContextKeys.ABManifest);
         var buildType = ctx.Require<BuildType>(BuildContextKeys.BuildType);
         bool repositoryPreviewMode = ctx.Get<bool>(BuildContextKeys.RepositoryPreviewMode);
-        bool deliveryPreviewMode = ctx.Get<bool>(BuildContextKeys.ABDeliveryPreviewMode);
+        bool deliveryPreviewMode = ctx.Get<bool>(ABBuildContextKeys.ABDeliveryPreviewMode);
 
         var current = ScanCurrentArtifacts(manifest);
         ctx.Set(BuildContextKeys.RepositoryArtifacts, current);
         if (buildType != BuildType.Hotfix)
         {
             ctx.Set(BuildContextKeys.ArtifactDelta, new ArtifactDelta());
-            ctx.Set(BuildContextKeys.ABDeliveryBundles, new List<ManifestBundleEntry>());
+            ctx.Set(ABBuildContextKeys.ABDeliveryBundles, new List<ManifestBundleEntry>());
             manifest.DeliveryBundles = new List<ManifestBundleEntry>();
             Debug.Log($"[{nameof(TaskScanABHotfixDiff)}] Full build 不需要计算 Hotfix delivery，已记录当前 Bundle 快照: {current.Count}");
             return BuildTaskResult.Ok(new List<string> { "[AB DIFF] Full build skipped, current artifacts recorded, delivery empty" });
@@ -34,17 +34,17 @@ public class TaskScanABHotfixDiff : IBuildTask
 
         try
         {
-            string channelKey = BuildRepositoryFacade.GetChannelKey(request);
-            Debug.Log($"[{nameof(TaskScanABHotfixDiff)}] 开始 AB diff scan，对比本次 Bundle 输出与 Repository HEAD。Package={request.PackageName}");
-            var head = TryGetHeadCommit(channelKey, repositoryPreviewMode);
-            var baseline = head != null ? head.Artifacts : new List<ArtifactDigest>();
+            string channelKey = BuildBaselineStore.GetChannelKey(request.Version, request.BackendMode);
+            Debug.Log($"[{nameof(TaskScanABHotfixDiff)}] 开始 AB diff scan，对比本次 Bundle 输出与 baseline。Package={request.PackageName}");
+            var headBaseline = BuildBaselineStore.LoadLatest(channelKey);
+            var baseline = headBaseline?.Artifacts ?? new List<ArtifactDigest>();
             var delta = ArtifactDiffer.Diff(baseline, current);
             ctx.Set(BuildContextKeys.ArtifactDelta, delta);
             LogDelta(delta);
 
             if (repositoryPreviewMode && !deliveryPreviewMode)
             {
-                ctx.Set(BuildContextKeys.ABDeliveryBundles, new List<ManifestBundleEntry>());
+                ctx.Set(ABBuildContextKeys.ABDeliveryBundles, new List<ManifestBundleEntry>());
                 return BuildHeadDeltaResult(delta, 0);
             }
 
@@ -64,7 +64,7 @@ public class TaskScanABHotfixDiff : IBuildTask
             }
 
             manifest.DeliveryBundles = deliveryBundles;
-            ctx.Set(BuildContextKeys.ABDeliveryBundles, deliveryBundles);
+            ctx.Set(ABBuildContextKeys.ABDeliveryBundles, deliveryBundles);
             Debug.Log($"[{nameof(TaskScanABHotfixDiff)}] AB delivery 完成: FullBaseline={fullBaseline.Version.GetReleaseVersionString()}, DeliveryBundles={deliveryBundles.Count}, DeliverySize={SumBundleSize(deliveryBundles)}");
 
             if (delta.IsEmpty)
@@ -89,20 +89,6 @@ public class TaskScanABHotfixDiff : IBuildTask
         }
     }
 
-    private static RepositoryCommit TryGetHeadCommit(string channelKey, bool allowEmptyHead)
-    {
-        var status = BuildRepositoryFacade.GetStatus(channelKey);
-        if (status != null && status.HasHeadError)
-            throw new RepositoryHeadException(status.HeadErrorReason);
-        if (status == null || !status.HasHead)
-        {
-            if (allowEmptyHead)
-                return null;
-            return null;
-        }
-        return BuildRepositoryFacade.GetHeadCommit(channelKey);
-    }
-
     private static BuildTaskResult BuildHeadDeltaResult(ArtifactDelta delta, int deliveryCount)
     {
         if (delta == null || delta.IsEmpty)
@@ -119,25 +105,17 @@ public class TaskScanABHotfixDiff : IBuildTask
         });
     }
 
-    public static RepositoryCommit FindFullBaseline(string channelKey, VersionNumber currentVersion)
+    /// <summary>
+    /// 返回同 Major 的最新 Full baseline；双槽存储中不存在成熟 Major 分支检索，跨 Major 交付后旧 Major 热更必须换 channel。
+    /// </summary>
+    public static BuildBaseline FindFullBaseline(string channelKey, VersionNumber currentVersion)
     {
-        var commits = BuildRepositoryFacade.ListCommits(channelKey);
-        RepositoryCommit best = null;
-        for (int i = 0; i < commits.Count; i++)
-        {
-            var commit = commits[i];
-            if (commit == null || commit.Version == null)
-                continue;
-            if (!string.Equals(commit.BuildType, BuildType.Full.ToString(), StringComparison.Ordinal))
-                continue;
-            if (currentVersion != null && commit.Version.Major != currentVersion.Major)
-                continue;
-
-            if (best == null || commit.Version.CompareTo(best.Version) > 0)
-                best = commit;
-        }
-
-        return best;
+        BuildBaseline latestFull = BuildBaselineStore.LoadLatestFull(channelKey);
+        if (latestFull?.Version == null)
+            return null;
+        if (currentVersion != null && latestFull.Version.Major != currentVersion.Major)
+            return null;
+        return latestFull;
     }
 
     public static List<ManifestBundleEntry> BuildDeliveryBundles(ABManifest manifest, ArtifactDelta deliveryDelta)
@@ -268,11 +246,11 @@ public class TaskScanABHotfixDiff : IBuildTask
     private static void LogDelta(ArtifactDelta delta)
     {
         for (int i = 0; i < delta.Added.Count; i++)
-            Debug.Log($"[{nameof(TaskScanABHotfixDiff)}] Artifact Added: {delta.Added[i].Name}");
+            Debug.Log($"[{nameof(TaskScanABHotfixDiff)}] Artifact 新增：{delta.Added[i].Name}");
         for (int i = 0; i < delta.Modified.Count; i++)
-            Debug.Log($"[{nameof(TaskScanABHotfixDiff)}] Artifact Modified: {delta.Modified[i].Name}");
+            Debug.Log($"[{nameof(TaskScanABHotfixDiff)}] Artifact 已修改：{delta.Modified[i].Name}");
         for (int i = 0; i < delta.Removed.Count; i++)
-            Debug.Log($"[{nameof(TaskScanABHotfixDiff)}] Artifact Removed: {delta.Removed[i]}");
+            Debug.Log($"[{nameof(TaskScanABHotfixDiff)}] Artifact 已移除：{delta.Removed[i]}");
     }
 
     private static void AddArtifactNames(HashSet<string> names, IList<ArtifactDigest> artifacts)

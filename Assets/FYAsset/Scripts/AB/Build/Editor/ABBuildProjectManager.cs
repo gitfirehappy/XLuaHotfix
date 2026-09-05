@@ -1,7 +1,7 @@
 #if UNITY_EDITOR
 
 /// <summary>
-/// AB concrete build entrypoint.
+/// AB 具体构建入口。
 /// </summary>
 public static class ABBuildProjectManager
 {
@@ -23,9 +23,17 @@ public static class ABBuildProjectManager
             options);
     }
 
+    public static void BuildStandalonePackage(BuildExecutionOptions options = null)
+    {
+        LastBuildSuccess = BuildProjectRunner.BuildStandalone(
+            BackendMode.ABManifest,
+            () => new ABBuildBackend(),
+            options);
+    }
+
     public static void ResetGroupsToOriginal()
     {
-        BuildProjectRunner.ResetGroupsToOriginal(BackendMode.ABManifest);
+        UnityEngine.Debug.LogWarning("[ABBuildProjectManager] ResetGroupsToOriginal 仅适用于 AA 构建链路，AB backend 下已跳过。");
     }
 }
 #endif

@@ -13,7 +13,7 @@ public class TaskAnalyzeDependencies : IBuildTask
     public BuildTaskResult Execute(BuildContext ctx)
     {
         // 读取收集扫描产出的资产列表
-        var assets = ctx.Get<List<CollectedAssetInfo>>(BuildContextKeys.CollectedAssets);
+        var assets = ctx.Get<List<CollectedAssetInfo>>(ABBuildContextKeys.CollectedAssets);
         if (assets == null || assets.Count == 0)
         {
             return BuildTaskResult.Fail(BuildErrorCodes.NoCollectedAssets,
@@ -22,12 +22,12 @@ public class TaskAnalyzeDependencies : IBuildTask
 
         // 读取 Package 级 SharePolicy：优先从 BuildContext 取（显式数据流），
         // 不存在时回退到 AssetDatabase 加载 AssetCollectionSetting SO
-        var policies = ctx.Get<Dictionary<string, SharePolicyConfig>>(BuildContextKeys.SharePolicies);
+        var policies = ctx.Get<Dictionary<string, SharePolicyConfig>>(ABBuildContextKeys.SharePolicies);
         if (policies == null)
         {
             policies = new Dictionary<string, SharePolicyConfig>();
             var setting = AssetDatabase.LoadAssetAtPath<AssetCollectionSetting>(
-                FYAssetBuildSettingsProvider.AB.AssetCollectionSettingPath);
+                FYAssetABSettings.Instance.AssetCollectionSettingPath);
             if (setting != null)
             {
                 foreach (var pkg in setting.Packages)
@@ -40,7 +40,7 @@ public class TaskAnalyzeDependencies : IBuildTask
 
         // 执行依赖分析
         var augmented = DependencyAnalyzer.Analyze(assets, policies,
-            FYAssetBuildSettingsProvider.AB.DependencyFilterExtensions,
+            FYAssetABSettings.Instance.DependencyFilterExtensions,
             out var graph, out var messages);
 
         // 汇总消息：统一收集，再根据是否有 Error 决定返回 Ok 或 Fail
@@ -62,8 +62,8 @@ public class TaskAnalyzeDependencies : IBuildTask
         }
 
         // 写回 BuildContext
-        ctx.Set(BuildContextKeys.CollectedAssets, augmented);
-        ctx.Set(BuildContextKeys.BundleDependencyGraph, graph);
+        ctx.Set(ABBuildContextKeys.CollectedAssets, augmented);
+        ctx.Set(ABBuildContextKeys.BundleDependencyGraph, graph);
 
         return BuildTaskResult.Ok(warnings.Count > 0 ? warnings : null);
     }

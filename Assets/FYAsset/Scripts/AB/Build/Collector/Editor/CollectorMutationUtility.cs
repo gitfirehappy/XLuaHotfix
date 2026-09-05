@@ -4,7 +4,7 @@ using UnityEditor;
 using UnityEngine;
 
 /// <summary>
-/// Shared editor mutations for Collector membership and setting-owned asset exclusions.
+/// Collector 归属关系和配置级资源排除的共享 Editor 修改入口。
 /// </summary>
 public static class CollectorMutationUtility
 {
@@ -32,7 +32,7 @@ public static class CollectorMutationUtility
 
     public static AssetCollectionSetting LoadSetting()
     {
-        AssetCollectionSetting setting = AssetDatabase.LoadAssetAtPath<AssetCollectionSetting>(FYAssetBuildSettingsProvider.AB.AssetCollectionSettingPath);
+        AssetCollectionSetting setting = AssetDatabase.LoadAssetAtPath<AssetCollectionSetting>(FYAssetABSettings.Instance.AssetCollectionSettingPath);
         if (setting != null && setting.RefreshExcludedAssetPaths())
             SaveSetting(setting);
         return setting;
@@ -149,21 +149,6 @@ public static class CollectorMutationUtility
         string guid = AssetDatabase.AssetPathToGUID(CollectorPathUtility.NormalizePath(assetPath));
         AssetCollectionSetting setting = LoadSetting();
         if (!RemoveExcludedAsset(setting, guid))
-            return false;
-
-        NotifyChanged();
-        return true;
-    }
-
-    public static bool ExcludeAsset(string assetPath)
-    {
-        string normalized = CollectorPathUtility.NormalizePath(assetPath);
-        if (AssetDatabase.IsValidFolder(normalized))
-            return false;
-
-        string guid = AssetDatabase.AssetPathToGUID(normalized);
-        AssetCollectionSetting setting = LoadSetting();
-        if (!AddExcludedAsset(setting, normalized))
             return false;
 
         NotifyChanged();

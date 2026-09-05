@@ -121,14 +121,6 @@ public class AssetCollectionSetting : ScriptableObject
     }
 
 #if UNITY_EDITOR
-    public bool AddExcludedAssetByGuid(string assetGuid)
-    {
-        if (string.IsNullOrEmpty(assetGuid))
-            return false;
-
-        return AddExcludedAsset(assetGuid, AssetDatabase.GUIDToAssetPath(assetGuid));
-    }
-
     public bool RefreshExcludedAssetPaths()
     {
         if (ExcludedAssets == null)

@@ -2,11 +2,11 @@ using UnityEditor;
 using UnityEngine;
 
 /// <summary>
-/// AB-only build pipeline window.
+/// AB 专用构建管线窗口。
 /// </summary>
 public sealed class ABBuildPipelineWindow : BuildPipelineWindowBase
 {
-    [MenuItem("Tools/Build/AB Build Pipeline")]
+    [MenuItem("FYAsset/Build/AB Build Pipeline")]
     public static void Open()
     {
         ABBuildPipelineWindow window = GetWindow<ABBuildPipelineWindow>();
@@ -17,21 +17,52 @@ public sealed class ABBuildPipelineWindow : BuildPipelineWindowBase
 
     protected override IBuildPipelinePanel[] CreatePanels()
     {
+        var assetsCollectionPanel = new AssetsCollectionPanel();
         return new IBuildPipelinePanel[]
         {
             new SettingsPanel(),
             new ABConfigPanel(),
-            new AssetsCollectionPanel(),
+            assetsCollectionPanel,
+            new ABProjectSelectionLabelPanel(assetsCollectionPanel),
             new PipelinePanel(
                 "AB Build",
-                () => FYAssetBuildSettingsProvider.AB.BuildPipelineConfigPath,
-                BuildPipelineBackbone.CreateABTasks,
+                () => FYAssetABSettings.Instance.BuildPipelineConfigPath,
+                ABPipelineBackbone.CreateDefaultTasks,
                 "PipelinePanel",
                 true,
                 true,
-                BackendMode.ABManifest),
+                new BuildPanelActions
+                {
+                    BuildFull = ABBuildProjectManager.BuildFullPackage,
+                    BuildHotfix = ABBuildProjectManager.BuildHotfix,
+                    BuildStandalone = ABBuildProjectManager.BuildStandalonePackage,
+                    LastBuildSuccess = () => ABBuildProjectManager.LastBuildSuccess,
+                }),
             new ABReportPanel(),
-            new RepositoryStatusPanel(BackendMode.ABManifest, "AB Repository")
+            new RepositoryStatusPanel(BackendMode.ABManifest, "AB Repository", null, new ABRepositorySettingsSink(), new ABRepositoryPreviewProvider(), null, new ABRepositoryDataCleaner())
         };
+    }
+}
+
+/// <summary>AB 侧启动数据清理：供共享 Repository 面板注入。</summary>
+public sealed class ABRepositoryDataCleaner : IRepositoryDataCleaner
+{
+    public void ClearStartupData()
+    {
+        FileHelper.TryDelete(FYAssetPathUtility.JoinFilePath(UnityEngine.Application.streamingAssetsPath, FYAssetSettings.MANIFEST_FILE_NAME));
+        FileHelper.TryDelete(FYAssetPathUtility.JoinFilePath(UnityEngine.Application.streamingAssetsPath, FYAssetSettings.MANIFEST_FILE_NAME_BIN));
+    }
+}
+
+/// <summary>AB 侧 settings 落盘实现：供共享 Repository 面板注入。</summary>
+public sealed class ABRepositorySettingsSink : IRepositorySettingsSink
+{
+    public void ApplyHotfixUrl(string url)
+    {
+        FYAssetABSettings settings = FYAssetABSettings.Instance;
+        Undo.RecordObject(settings, "Apply Hotfix URL");
+        settings.HotfixUrl = url;
+        EditorUtility.SetDirty(settings);
+        AssetDatabase.SaveAssets();
     }
 }

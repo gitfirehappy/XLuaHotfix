@@ -21,8 +21,8 @@ public class TaskVerifyBuildResult : IBuildTask
     public BuildTaskResult Execute(BuildContext ctx)
     {
         var cfg = ctx.Require<BuildConfig>(BuildContextKeys.BuildConfig);
-        var manifest = ctx.Require<ABManifest>(BuildContextKeys.ABManifest);
-        var buildResults = ctx.Require<List<BundleBuildInfo>>(BuildContextKeys.BundleBuildResults);
+        var manifest = ctx.Require<ABManifest>(ABBuildContextKeys.ABManifest);
+        var buildResults = ctx.Require<List<BundleBuildInfo>>(ABBuildContextKeys.BundleBuildResults);
         string outputRoot = cfg.OutputRoot;
         string tempDir = FYAssetPathUtility.JoinFilePath(outputRoot, "_temp");
 
@@ -38,7 +38,7 @@ public class TaskVerifyBuildResult : IBuildTask
         // 收集 manifest entry 对应的文件名用于孤儿检查
         var knownFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        // ① FILE EXISTENCE + ② FILE INTEGRITY + ④ HASH RE-VERIFY + ⑤ SIZE ANOMALY
+        // ① 文件存在性 + ② 文件完整性 + ④ Hash 二次校验 + ⑤ 大小异常
         foreach (var bundle in manifest.BundleEntries)
         {
             string bundlePath = FYAssetPathUtility.JoinFilePath(tempDir, bundle.BundleName);

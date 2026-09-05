@@ -31,9 +31,4 @@ public static class SystemIdentifiers
     public static readonly char[] BundleKeyReservedChars =
         { '/', '\\', ':', '*', '?', '<', '>', '"', '|', '.', ' ', ';', '%', '$', '_', '#' };
 
-    /// <summary>检查给定值是否为系统保留标识符（以 $ 开头）</summary>
-    public static bool IsSystemReserved(string value)
-    {
-        return value != null && value.StartsWith(Prefix);
-    }
 }

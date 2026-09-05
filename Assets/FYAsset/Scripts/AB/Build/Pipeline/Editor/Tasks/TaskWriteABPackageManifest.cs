@@ -13,9 +13,9 @@ public class TaskWriteABPackageManifest : IBuildTask
     {
         var request = ctx.Require<BuildPackageRequest>(BuildContextKeys.BuildPackageRequest);
         var buildType = ctx.Require<BuildType>(BuildContextKeys.BuildType);
-        var manifest = ctx.Require<ABManifest>(BuildContextKeys.ABManifest);
+        var manifest = ctx.Require<ABManifest>(ABBuildContextKeys.ABManifest);
         var deliveryBundles = buildType == BuildType.Hotfix
-            ? ctx.Require<List<ManifestBundleEntry>>(BuildContextKeys.ABDeliveryBundles)
+            ? ctx.Require<List<ManifestBundleEntry>>(ABBuildContextKeys.ABDeliveryBundles)
             : manifest.BundleEntries;
         string outputPath = ctx.Require<string>(BuildContextKeys.OutputPath);
         if (!string.Equals(outputPath, request.OutputDir, System.StringComparison.Ordinal))
@@ -26,11 +26,11 @@ public class TaskWriteABPackageManifest : IBuildTask
         for (int i = 0; i < deliveryBundles.Count; i++)
             totalSize += deliveryBundles[i].FileSize;
 
-        if (!HotfixPackageSizeGuard.ValidateOrAbort(totalSize, request.BackendMode, nameof(TaskWriteABPackageManifest)))
+        if (!HotfixPackageSizeGuard.ValidateOrAbort(totalSize, FYAssetABSettings.Instance.MaxHotfixSizeBytes, nameof(TaskWriteABPackageManifest)))
             return BuildTaskResult.Fail(BuildErrorCodes.VerificationFailed,
                 "AB 热更包大小超过阈值，Manifest 发布已中止。", true);
 
-        ManifestOutputFormat outputFormat = FYAssetBuildSettingsProvider.GetManifestOutputFormat(request.BackendMode);
+        ManifestOutputFormat outputFormat = FYAssetABSettings.Instance.ManifestOutputFormat;
         string manifestPath = FYAssetPathUtility.JoinFilePath(request.OutputDir, FYAssetSettings.MANIFEST_FILE_NAME);
         string manifestBinPath = FYAssetPathUtility.JoinFilePath(request.OutputDir, FYAssetSettings.MANIFEST_FILE_NAME_BIN);
         string tempManifestPath = manifestPath + ".tmp";

@@ -209,6 +209,18 @@ MonoBehaviour:
         ForcePayloadKind: 3
         FilterRuleName: CollectAll
         GroupRuleName: GroupAll
+    - GroupName: FYAssetPipelineTest
+      Enabled: 1
+      Labels:
+      - FYAssetPipelineTest
+      BundlePackingMode: 1
+      Collectors:
+      - CollectPath: Assets/Test/FYAssetPipeline
+        CollectPathType: 0
+        CollectorType: 0
+        ForcePayloadKind: 0
+        FilterRuleName: CollectAll
+        GroupRuleName: GroupAll
     SharePolicy:
       MinReferenceCount: 2
       MinAssetSizeBytes: 0
@@ -222,6 +234,7 @@ MonoBehaviour:
   - Assets/AddressableAssetsData/**
   - Assets/XLua/**
   - Assets/Tools/**
+  - Assets/SO/LabelConfig/**
   ExcludedAssets: []
   AssetEntries:
   - AssetGUID: ff153ba4fa8c8e5419859ecba965187c
@@ -771,7 +784,8 @@ MonoBehaviour:
   - AssetGUID: 1e4e6ea9f2ed6d1489a2facb06e1d9da
     AutoAddress: 1
     Address: DialoguePanel
-    Labels: []
+    Labels:
+    - LuaBehaviourConfigSO
     AutoRole: 1
     Role: 0
     AutoPayload: 1
@@ -779,7 +793,8 @@ MonoBehaviour:
   - AssetGUID: e15c45ca94390e2459e9625f3d23304d
     AutoAddress: 1
     Address: Player_LuaBridge
-    Labels: []
+    Labels:
+    - LuaBehaviourConfigSO
     AutoRole: 1
     Role: 0
     AutoPayload: 1
@@ -787,7 +802,8 @@ MonoBehaviour:
   - AssetGUID: 075c257b87614b04e908e0837fb94b1c
     AutoAddress: 1
     Address: Player_AnimeBridge
-    Labels: []
+    Labels:
+    - StateAnimationConfigSO
     AutoRole: 1
     Role: 0
     AutoPayload: 1
@@ -795,7 +811,8 @@ MonoBehaviour:
   - AssetGUID: bfc5684e4ff167745b69f6677e5dc52b
     AutoAddress: 1
     Address: Player_SOBridge
-    Labels: []
+    Labels:
+    - ScriptObjectBridgeConfig
     AutoRole: 1
     Role: 0
     AutoPayload: 1
@@ -891,7 +908,8 @@ MonoBehaviour:
   - AssetGUID: 2ef6ac3513a06b64f9ef2d2b4f255390
     AutoAddress: 1
     Address: UIResourceConfig
-    Labels: []
+    Labels:
+    - UIResourceConfigSO
     AutoRole: 1
     Role: 0
     AutoPayload: 1
@@ -899,31 +917,8 @@ MonoBehaviour:
   - AssetGUID: 571f4897ddc8c174bb977b1d279e309c
     AutoAddress: 1
     Address: PlayerControllerSO
-    Labels: []
-    AutoRole: 1
-    Role: 0
-    AutoPayload: 1
-    PayloadKind: 0
-  - AssetGUID: a8688d7b8585b454cb58678508d8a564
-    AutoAddress: 1
-    Address: CSharpCallLua
-    Labels: []
-    AutoRole: 1
-    Role: 0
-    AutoPayload: 1
-    PayloadKind: 0
-  - AssetGUID: 9270edc67bc19564ea89f136cf683452
-    AutoAddress: 1
-    Address: Hotfix
-    Labels: []
-    AutoRole: 1
-    Role: 0
-    AutoPayload: 1
-    PayloadKind: 0
-  - AssetGUID: 276eef6c8e9f88545951af44f2803712
-    AutoAddress: 1
-    Address: LuaCallCSharp
-    Labels: []
+    Labels:
+    - PlayerControllerSO
     AutoRole: 1
     Role: 0
     AutoPayload: 1
@@ -931,7 +926,9 @@ MonoBehaviour:
   - AssetGUID: d979210c1b9a34f41aa9954d47a5b29c
     AutoAddress: 1
     Address: Core
-    Labels: []
+    Labels:
+    - LuaScriptContainer
+    - Core
     AutoRole: 1
     Role: 0
     AutoPayload: 1
@@ -939,7 +936,9 @@ MonoBehaviour:
   - AssetGUID: 39aa4e765257c11479881bda90242ce2
     AutoAddress: 1
     Address: Dialogue
-    Labels: []
+    Labels:
+    - LuaScriptContainer
+    - Dialogue
     AutoRole: 1
     Role: 0
     AutoPayload: 1
@@ -955,7 +954,9 @@ MonoBehaviour:
   - AssetGUID: 206590358b269444cb35a1d487fedd79
     AutoAddress: 1
     Address: LuaText
-    Labels: []
+    Labels:
+    - LuaScriptContainer
+    - Text
     AutoRole: 1
     Role: 0
     AutoPayload: 1
@@ -963,7 +964,9 @@ MonoBehaviour:
   - AssetGUID: e45ef0de1e9ec58489819bb02402a27c
     AutoAddress: 1
     Address: Player
-    Labels: []
+    Labels:
+    - LuaScriptContainer
+    - Player
     AutoRole: 1
     Role: 0
     AutoPayload: 1
@@ -971,7 +974,9 @@ MonoBehaviour:
   - AssetGUID: d071648f3ea8bc140840e29184ba28ec
     AutoAddress: 1
     Address: StateMachine
-    Labels: []
+    Labels:
+    - LuaScriptContainer
+    - Framework
     AutoRole: 1
     Role: 0
     AutoPayload: 1
@@ -987,70 +992,6 @@ MonoBehaviour:
   - AssetGUID: 015b7f9c0d0dc3a4fb23394c17532477
     AutoAddress: 1
     Address: LuaDatabase
-    Labels: []
-    AutoRole: 1
-    Role: 0
-    AutoPayload: 1
-    PayloadKind: 0
-  - AssetGUID: 54072a569179b8a4b8e3d5f9d8a4c237
-    AutoAddress: 1
-    Address: AnimeBridge
-    Labels: []
-    AutoRole: 1
-    Role: 0
-    AutoPayload: 1
-    PayloadKind: 0
-  - AssetGUID: 4ef74ac1cc28fea4daf695a72f1b3857
-    AutoAddress: 1
-    Address: LuaBehaviourBridge
-    Labels: []
-    AutoRole: 1
-    Role: 0
-    AutoPayload: 1
-    PayloadKind: 0
-  - AssetGUID: 18e64b8fe5e83e04ab09a83587a2c5ec
-    AutoAddress: 1
-    Address: SOBridge
-    Labels: []
-    AutoRole: 1
-    Role: 0
-    AutoPayload: 1
-    PayloadKind: 0
-  - AssetGUID: f75268be3cacc2d4582647c981e23335
-    AutoAddress: 1
-    Address: SODataBase
-    Labels: []
-    AutoRole: 1
-    Role: 0
-    AutoPayload: 1
-    PayloadKind: 0
-  - AssetGUID: 1ecb0a8d5f56f4b4cabe1c02e906aeb2
-    AutoAddress: 1
-    Address: TestRemote
-    Labels: []
-    AutoRole: 1
-    Role: 0
-    AutoPayload: 1
-    PayloadKind: 0
-  - AssetGUID: d30530ad45badf240bcca57038c2ac0f
-    AutoAddress: 1
-    Address: TypeMemberListSO
-    Labels: []
-    AutoRole: 1
-    Role: 0
-    AutoPayload: 1
-    PayloadKind: 0
-  - AssetGUID: 3ed1b33b2a6064a4881450020b0aaacc
-    AutoAddress: 1
-    Address: UIFormConfigSO
-    Labels: []
-    AutoRole: 1
-    Role: 0
-    AutoPayload: 1
-    PayloadKind: 0
-  - AssetGUID: 1b250c642d0974e448819374648c5ea0
-    AutoAddress: 1
-    Address: UIResourceConfigSO
     Labels: []
     AutoRole: 1
     Role: 0
@@ -1784,33 +1725,9 @@ MonoBehaviour:
     Role: 0
     AutoPayload: 1
     PayloadKind: 0
-  - AssetGUID: 51ce986fa0720604b9af8579481788e9
-    AutoAddress: 1
-    Address: XLuaLabelConfig_BundledAssetGroupSchema
-    Labels: []
-    AutoRole: 1
-    Role: 0
-    AutoPayload: 1
-    PayloadKind: 0
-  - AssetGUID: dbe90d10ea61f08418ca61218c550ebb
-    AutoAddress: 1
-    Address: XLuaLabelConfig_ContentUpdateGroupSchema
-    Labels: []
-    AutoRole: 1
-    Role: 0
-    AutoPayload: 1
-    PayloadKind: 0
   - AssetGUID: 83055885901cdf843855595898ba6b1d
     AutoAddress: 1
     Address: UI
-    Labels: []
-    AutoRole: 1
-    Role: 0
-    AutoPayload: 1
-    PayloadKind: 0
-  - AssetGUID: 9901677a4c1f8da439a8875da32e3ea8
-    AutoAddress: 1
-    Address: XLuaLabelConfig
     Labels: []
     AutoRole: 1
     Role: 0
@@ -1876,6 +1793,45 @@ MonoBehaviour:
     AutoAddress: 1
     Address: addressables_content_state
     Labels: []
+    AutoRole: 1
+    Role: 0
+    AutoPayload: 1
+    PayloadKind: 0
+  - AssetGUID: cea53fa338e2fba4e8a540750f822f7f
+    AutoAddress: 0
+    Address: FYAssetPipelineAsync
+    Labels:
+    - FYAssetPipelineSmokeAsset
+    - FYAssetPipelineTest
+    AutoRole: 1
+    Role: 0
+    AutoPayload: 1
+    PayloadKind: 0
+  - AssetGUID: 3353353d4df825c4a955f60fbd15e64e
+    AutoAddress: 0
+    Address: FYAssetPipelineSync
+    Labels:
+    - TextAsset
+    - FYAssetPipelineTest
+    AutoRole: 1
+    Role: 0
+    AutoPayload: 1
+    PayloadKind: 0
+  - AssetGUID: 9b22abacbd8260241a2a9138a5947d8d
+    AutoAddress: 0
+    Address: FYAssetPipelineLua
+    Labels:
+    - LuaScriptContainer
+    - FYAssetPipelineTest
+    AutoRole: 1
+    Role: 0
+    AutoPayload: 1
+    PayloadKind: 0
+  - AssetGUID: 62c518e1842495247adb55e14be43ad4
+    AutoAddress: 0
+    Address: FYAssetPipelineRaw
+    Labels:
+    - FYAssetPipelineTest
     AutoRole: 1
     Role: 0
     AutoPayload: 1

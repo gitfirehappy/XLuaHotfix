@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEditor;
 
@@ -14,7 +15,7 @@ public class TaskCollectAssets : IBuildTask
         {
             return BuildTaskResult.Fail(
                 BuildErrorCodes.SettingNull,
-                $"未找到 AssetCollectionSetting: {FYAssetBuildSettingsProvider.AB.AssetCollectionSettingPath}");
+                $"未找到 AssetCollectionSetting: {FYAssetABSettings.Instance.AssetCollectionSettingPath}");
         }
 
         List<string> warnings = new List<string>();
@@ -47,8 +48,8 @@ public class TaskCollectAssets : IBuildTask
         }
 
         // 写入 BuildContext 供下游 Task 消费
-        ctx.Set(BuildContextKeys.CollectedAssets, scanResult.Assets);
-        ctx.Set(BuildContextKeys.SharePolicies, CollectSharePolicies(setting));
+        ctx.Set(ABBuildContextKeys.CollectedAssets, scanResult.Assets);
+        ctx.Set(ABBuildContextKeys.SharePolicies, CollectSharePolicies(setting));
 
         return BuildTaskResult.Ok(warnings.Count > 0 ? warnings : null);
     }

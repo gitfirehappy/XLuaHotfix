@@ -3,7 +3,7 @@ using UnityEditor.UIElements;
 using UnityEngine.UIElements;
 
 /// <summary>
-/// AB backend build settings panel.
+/// AB backend 构建设置面板。
 /// </summary>
 public sealed class ABConfigPanel : IBuildPipelinePanel
 {
@@ -59,7 +59,7 @@ public sealed class ABConfigPanel : IBuildPipelinePanel
 
     private void LoadBuildSettings()
     {
-        _buildSettings = FYAssetBuildSettingsProvider.AB;
+        _buildSettings = FYAssetABSettings.Instance;
         _buildSettingsSo = _buildSettings != null ? new SerializedObject(_buildSettings) : null;
     }
 

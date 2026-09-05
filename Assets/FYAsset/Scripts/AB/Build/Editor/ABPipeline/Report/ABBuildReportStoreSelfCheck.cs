@@ -6,12 +6,11 @@ using UnityEditor;
 using UnityEngine;
 
 /// <summary>
-/// Safe batchmode self-check for AB report/package synchronization.
-/// Uses only a temporary directory and always cleans it up.
+/// 用于 AB report/package 同步的安全 batchmode self-check。
+/// 仅使用临时目录，并且始终执行清理。
 /// </summary>
 public static class ABBuildReportStoreSelfCheck
 {
-    [MenuItem("FYAsset/Tests/AB Report Store Self Check")]
     public static void Run()
     {
         string root = Path.Combine(Path.GetTempPath(), nameof(ABBuildReportStoreSelfCheck) + "_" + Guid.NewGuid().ToString("N"));
@@ -48,7 +47,7 @@ public static class ABBuildReportStoreSelfCheck
             Require(ABBuildReportStore.Read(legacyReportPath).Bundles[0].ReferencedBy != null,
                 "Legacy report did not normalize a missing ReferencedBy list.");
 
-            Debug.Log($"[{nameof(ABBuildReportStoreSelfCheck)}] PASS - report storage and bundle references verified.");
+            Debug.Log($"[{nameof(ABBuildReportStoreSelfCheck)}] PASS - report 存储和 Bundle 引用验证通过。");
         }
         finally
         {

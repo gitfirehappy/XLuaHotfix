@@ -20,13 +20,13 @@ public class TaskBuildBundles : IBuildTask
     public BuildTaskResult Execute(BuildContext ctx)
     {
         var cfg = ctx.Require<BuildConfig>(BuildContextKeys.BuildConfig);
-        var assets = ctx.Require<List<CollectedAssetInfo>>(BuildContextKeys.CollectedAssets);
+        var assets = ctx.Require<List<CollectedAssetInfo>>(ABBuildContextKeys.CollectedAssets);
         string outputRoot = cfg.OutputRoot;
         var platform = cfg.TargetPlatform;
 
         // 读取压缩配置
         var config = AssetDatabase.LoadAssetAtPath<BuildPipelineConfig>(
-            FYAssetBuildSettingsProvider.GetPipelineConfigPath(BackendMode.ABManifest));
+            FYAssetABSettings.Instance.BuildPipelineConfigPath);
         BundleCompression compression = config != null
             ? config.BundleCompression
             : BundleCompression.LZ4;
@@ -274,7 +274,7 @@ public class TaskBuildBundles : IBuildTask
             processedOutputs.Add(bundleName);
         }
 
-        ctx.Set(BuildContextKeys.BundleBuildResults, results);
+        ctx.Set(ABBuildContextKeys.BundleBuildResults, results);
         return BuildTaskResult.Ok(new List<string>
             { $"[BUILD] {results.Count} bundle(s) produced in {tempDir}." });
     }

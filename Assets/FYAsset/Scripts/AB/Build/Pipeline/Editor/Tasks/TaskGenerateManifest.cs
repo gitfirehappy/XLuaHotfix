@@ -15,9 +15,9 @@ public class TaskGenerateManifest : IBuildTask
     public BuildTaskResult Execute(BuildContext ctx)
     {
         var cfg = ctx.Require<BuildConfig>(BuildContextKeys.BuildConfig);
-        var collected = ctx.Require<List<CollectedAssetInfo>>(BuildContextKeys.CollectedAssets);
-        var buildResults = ctx.Require<List<BundleBuildInfo>>(BuildContextKeys.BundleBuildResults);
-        var depGraph = ctx.Get<BundleDependencyGraph>(BuildContextKeys.BundleDependencyGraph);
+        var collected = ctx.Require<List<CollectedAssetInfo>>(ABBuildContextKeys.CollectedAssets);
+        var buildResults = ctx.Require<List<BundleBuildInfo>>(ABBuildContextKeys.BundleBuildResults);
+        var depGraph = ctx.Get<BundleDependencyGraph>(ABBuildContextKeys.BundleDependencyGraph);
 
         var validation = ValidateBundleIdentity(buildResults);
         if (!validation.Success)
@@ -189,7 +189,7 @@ public class TaskGenerateManifest : IBuildTask
         }
 
         // ⑩ 写入 Context
-        ctx.Set(BuildContextKeys.ABManifest, manifest);
+        ctx.Set(ABBuildContextKeys.ABManifest, manifest);
 
         return BuildTaskResult.Ok(new List<string>
         {

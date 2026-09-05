@@ -15,8 +15,8 @@ public class TaskOrganizeOutput : IBuildTask
         var cfg = ctx.Require<BuildConfig>(BuildContextKeys.BuildConfig);
         var request = ctx.Require<BuildPackageRequest>(BuildContextKeys.BuildPackageRequest);
         var buildType = ctx.Require<BuildType>(BuildContextKeys.BuildType);
-        var manifest = ctx.Require<ABManifest>(BuildContextKeys.ABManifest);
-        var buildResults = ctx.Require<List<BundleBuildInfo>>(BuildContextKeys.BundleBuildResults);
+        var manifest = ctx.Require<ABManifest>(ABBuildContextKeys.ABManifest);
+        var buildResults = ctx.Require<List<BundleBuildInfo>>(ABBuildContextKeys.BundleBuildResults);
         string outputRoot = cfg.OutputRoot;
         string buildVersion = cfg.BuildVersionString;
         var platform = cfg.TargetPlatform;
@@ -34,7 +34,7 @@ public class TaskOrganizeOutput : IBuildTask
 
         // ② Full 拷贝全量 Bundle；Hotfix 只拷贝 Full-baseline delivery 列表。
         var bundlesToCopy = buildType == BuildType.Hotfix
-            ? ctx.Require<List<ManifestBundleEntry>>(BuildContextKeys.ABDeliveryBundles)
+            ? ctx.Require<List<ManifestBundleEntry>>(ABBuildContextKeys.ABDeliveryBundles)
             : manifest.BundleEntries;
         var copiedFiles = new List<string>();
         foreach (var bundle in bundlesToCopy)
@@ -91,7 +91,7 @@ public class TaskOrganizeOutput : IBuildTask
             catch (IOException) { /* best-effort */ }
         }
 
-        // ⑤ 写入 OutputPath
+        // ⑤ 写入 OutputPath；Standalone 的 request 已直接指向 StreamingAssets/Standalone。
         ctx.Set(BuildContextKeys.OutputPath, outputDir);
 
         return BuildTaskResult.Ok(new List<string>
