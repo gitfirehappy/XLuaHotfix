@@ -81,6 +81,9 @@ public static class BuildErrorCodes
     /// <summary>Collector 采集阶段失败</summary>
     public const string CollectAssetsFailed = "COLLECT_ASSETS_FAILED";
 
+    /// <summary>Lua 索引生成、采集或启动地址校验失败</summary>
+    public const string LuaIndexInvalid = "LUA_INDEX_INVALID";
+
     /// <summary>目标平台不支持或未识别</summary>
     public const string InvalidPlatform = "INVALID_PLATFORM";
 
@@ -282,7 +285,7 @@ public class BuildMessage
         => Error(BuildErrorCodes.EmptyRuleName,
             string.Concat(ruleType, " class name is empty."), source);
 
-    public static BuildMessage InvalidCollectorType(ECollectorType collectorType, string source)
+    public static BuildMessage InvalidCollectorType(string collectorType, string source)
         => Error(BuildErrorCodes.InvalidCollectorType,
             string.Concat("CollectorType '", collectorType.ToString(), "' is not valid for manual Collector configuration."), source);
 

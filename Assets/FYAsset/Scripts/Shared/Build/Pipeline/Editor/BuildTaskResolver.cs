@@ -105,20 +105,6 @@ public static class BuildTaskResolver
         return _index.ContainsKey(taskName);
     }
 
-    /// <summary>按 TaskName 查询 IBuildTask 实现类型，供编辑器定位源码等只读功能使用。</summary>
-    public static bool TryGetTaskType(string taskName, out Type type)
-    {
-        Initialize();
-        return _index.TryGetValue(taskName, out type);
-    }
-
-    /// <summary>返回当前程序集扫描到的所有 TaskName，供编辑器创建菜单使用。</summary>
-    public static string[] GetTaskNames()
-    {
-        Initialize();
-        return _index.Keys.OrderBy(name => name, StringComparer.Ordinal).ToArray();
-    }
-
     /// <summary>返回最近一次 Task 发现过程中的反射/构造诊断。</summary>
     public static IReadOnlyList<TaskResolutionDiagnostic> GetDiagnostics()
     {

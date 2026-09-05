@@ -31,8 +31,6 @@ public static class LocalHotfixServerController
         set => EditorPrefs.SetInt(PortEditorPrefsKey, Mathf.Clamp(value, 1024, 65535));
     }
 
-    public static string RootUrl => $"http://127.0.0.1:{Port}/";
-
     public static LocalHotfixServerStatus GetStatus()
     {
         LocalHotfixServerState state = LoadState();

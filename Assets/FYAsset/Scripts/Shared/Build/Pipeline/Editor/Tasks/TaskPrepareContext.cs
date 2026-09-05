@@ -13,8 +13,9 @@ public class TaskPrepareContext : IBuildTask
     public BuildTaskResult Execute(BuildContext ctx)
     {
         var request = ctx.Get<BuildPackageRequest>(BuildContextKeys.BuildPackageRequest);
-        // Official Full/Hotfix builds carry the concrete backend in the request.
-        // Older diagnostic paths without a request still route through compatibility settings.
+        // 正式 Full/Hotfix 构建通过 request 携带具体 backend。
+        // 有意豁免（aa-ab-decoupling P3 拍板，永久保留）：
+        // 没有 request 的旧诊断路径仍通过 compatibility settings 路由，重构不应扩除此处外的任何 UseABBackend 用法。
         BackendMode mode = request != null
             ? request.BackendMode
             : FYAssetSettings.Instance.UseABBackend
@@ -25,9 +26,9 @@ public class TaskPrepareContext : IBuildTask
         string buildVersionString = GetCommandLineArg("--version")
             ?? DateTime.UtcNow.ToString("yyyyMMdd-HHmmss");
 
-        // CLI --version 只在没有 BuildPackageRequest 的旧/诊断路径中覆盖本次 BuildConfig，不提前写回 VersionDataBase。
-        var versionData = AssetDatabase.LoadAssetAtPath<VersionDataBase>(
-            FYAssetSettings.Instance.VersionDataBasePath);
+        // CLI --version 只在没有 BuildPackageRequest 的旧/诊断路径中覆盖本次 BuildConfig，不提前写回 VersionRecord。
+        var versionData = AssetDatabase.LoadAssetAtPath<VersionRecord>(
+            FYAssetSettings.Instance.VersionRecordPath);
         string cliVersion = GetCommandLineArg("--version");
         VersionNumber cliParsedVersion = request == null
             && !string.IsNullOrEmpty(cliVersion)

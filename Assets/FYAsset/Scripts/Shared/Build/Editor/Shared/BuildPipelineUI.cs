@@ -168,17 +168,6 @@ public static class BuildPipelineUI
     }
 
     /// <summary>
-    /// 按属性名创建 PropertyField，便于面板快速装配 SerializedObject 字段。
-    /// </summary>
-    public static PropertyField Property(SerializedObject so, string propertyName, string label = null)
-    {
-        SerializedProperty property = so?.FindProperty(propertyName);
-        var field = label == null ? new PropertyField(property) : new PropertyField(property, label);
-        field.style.marginBottom = 2f;
-        return field;
-    }
-
-    /// <summary>
     /// 创建带路径选择按钮的字符串编辑行。
     /// </summary>
     public static VisualElement PathField(SerializedProperty property, string label, PathPickerMode mode, float labelWidth = 140f)

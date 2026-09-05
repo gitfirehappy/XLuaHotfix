@@ -5,13 +5,34 @@ using UnityEditor;
 using UnityEngine;
 
 /// <summary>
-/// Shared build orchestration runner.
-/// Concrete AA/AB build managers provide the backend mode and backend factory.
+/// 共享构建编排 runner。
+/// 具体的 AA/AB build manager 提供 backend mode 和 backend factory。
 /// </summary>
 public static class BuildProjectRunner
 {
-    private static string versionDataBasePath => FYAssetSettings.Instance.VersionDataBasePath;
+    private static string versionDataBasePath => FYAssetSettings.Instance.VersionRecordPath;
     
+    /// <summary>
+    /// 构建单机离线包，产物直接写入 StreamingAssets/Standalone/，不推送 Repository。
+    /// </summary>
+    public static bool BuildStandalone(
+        BackendMode backendMode,
+        Func<IBuildBackend> backendFactory,
+        BuildExecutionOptions options = null)
+    {
+        VersionRecord versionData = LoadVersionRecord();
+        if (versionData == null)
+            return false;
+
+        VersionNumber nextVersion = versionData.BuildNextVersion(true);
+
+        bool success = RunBuild(nextVersion, BuildType.Standalone, backendMode, backendFactory, options);
+        if (success)
+            success = ApplyBuiltVersion(nextVersion);
+
+        return success;
+    }
+
     /// <summary>
     /// 构建完整包，用于大版本更新
     /// </summary>
@@ -20,11 +41,11 @@ public static class BuildProjectRunner
         Func<IBuildBackend> backendFactory,
         BuildExecutionOptions options = null)
     {
-        VersionDataBase versionData = LoadVersionDataBase();
+        VersionRecord versionData = LoadVersionRecord();
         if (versionData == null)
             return false;
         
-        // 大版本更新，先暂存版本号，构建和 Repository commit 成功后才写回 VersionDataBase。
+        // 大版本更新，先暂存版本号，构建和 Repository commit 成功后才写回 VersionRecord。
         VersionNumber nextVersion = versionData.BuildNextVersion(true);
 
         bool success = RunBuild(nextVersion, BuildType.Full, backendMode, backendFactory, options);
@@ -48,11 +69,11 @@ public static class BuildProjectRunner
         Func<IBuildBackend> backendFactory,
         BuildExecutionOptions options = null)
     {
-        VersionDataBase versionData = LoadVersionDataBase();
+        VersionRecord versionData = LoadVersionRecord();
         if (versionData == null)
             return false;
         
-        // 小版本更新，先暂存版本号，构建和 Repository commit 成功后才写回 VersionDataBase。
+        // 小版本更新，先暂存版本号，构建和 Repository commit 成功后才写回 VersionRecord。
         VersionNumber nextVersion = versionData.BuildNextVersion();
 
         bool success = RunBuild(nextVersion, BuildType.Hotfix, backendMode, backendFactory, options);
@@ -62,49 +83,6 @@ public static class BuildProjectRunner
         return success;
     }
     
-    /// <summary>
-    /// 重置分组 (Manual Trigger)
-    /// 将位于 Hotfix 组的资源还原回它们原始的分组 (通常在打整包前，或者放弃本次热更时使用)
-    /// </summary>
-    public static HotfixGroupRestoreResult ResetGroupsToOriginal(BackendMode backendMode)
-    {
-        if (backendMode == BackendMode.ABManifest)
-        {
-            Debug.LogWarning("[BuildProjectRunner] ResetGroupsToOriginal 仅适用于 AA 构建链路，AB backend 下已跳过。");
-            return new HotfixGroupRestoreResult
-            {
-                Message = "ResetGroupsToOriginal is not applicable to the AB backend."
-            };
-        }
-
-        HotfixGroupRestoreStatus status = TaskMoveAddressableHotfixGroups.GetRestoreStatus();
-        if (status.PendingCount == 0)
-        {
-            Debug.Log("[BuildProjectRunner] No pending AA hotfix group moves to restore.");
-            return new HotfixGroupRestoreResult
-            {
-                Message = "No pending AA hotfix group moves to restore."
-            };
-        }
-
-        bool confirm = EditorUtility.DisplayDialog("重置分组", 
-            $"将尝试还原 {status.RestorableCount} 个资源到原分组。\n" +
-            $"{status.DefaultGroupFallbackCount} 个资源将在原分组不存在时回退到 DefaultGroup。\n" +
-            $"{status.UnrestorableCount} 条无法恢复的记录将保留。\n\n" +
-            "此操作通常在构建新的整包前或放弃本次热更时使用。",
-            "确定重置", "取消");
-
-        if (!confirm)
-            return new HotfixGroupRestoreResult
-            {
-                InitialPendingCount = status.PendingCount,
-                RemainingCount = status.PendingCount,
-                Cancelled = true,
-                Message = "Restore was cancelled."
-            };
-
-        return TaskMoveAddressableHotfixGroups.Restore();
-    }
 
     private static bool RunBuild(
         VersionNumber version,
@@ -116,22 +94,15 @@ public static class BuildProjectRunner
         Debug.Log($"[{nameof(BuildProjectRunner)}] 开始 {buildType} build。Backend={backendMode}, Version={version.GetReleaseVersionString()}, Build={version.Build}");
 
         BuildPackageRequest request = null;
-        RepositoryCommit repositoryCommit = null;
-        bool repositoryCommitted = false;
 
         try
         {
             request = BuildPackageRequest.Create(version, buildType, backendMode);
             Debug.Log($"[{nameof(BuildProjectRunner)}] 已创建 BuildPackageRequest: Package={request.PackageName}, Backend={backendMode}, Output={request.OutputDir}");
-            BuildRepositoryFacade.EnsureHealthyForBuild(request);
-
-            // LuaScriptsIndex 仍由编排层统一导出；AA/AB package 产物由各自 pipeline 负责。
-            LuaScriptsIndexExporter.ExportData();
-            AssetDatabase.Refresh();
 
             IBuildBackend backend = backendFactory != null
                 ? backendFactory()
-                : throw new InvalidOperationException("Build backend factory is null.");
+                : throw new InvalidOperationException("Build backend factory 为 null。");
             var buildResult = backend.BuildAsync(request, options).GetAwaiter().GetResult();
             if (!buildResult.Success)
             {
@@ -142,14 +113,21 @@ public static class BuildProjectRunner
                 return false;
             }
 
-            FileHelper.EnsureDirectory(BuildPathManager.PackagesDir);
+            // Standalone 不推送 Repository；完整包已直接写入 StreamingAssets/Standalone/，这里只发布 BuildIndex。
+            if (buildType == BuildType.Standalone)
+            {
+                PublishBuildArtifacts(request, backend);
+                Debug.Log($"[{nameof(BuildProjectRunner)}] Standalone build 完成: {request.OutputDir}");
+                if (!Application.isBatchMode)
+                    TryRevealPackage(request.OutputDir);
+                return true;
+            }
 
-            // Repository commit 目前仍在 pipeline 外执行；pipeline 只负责生成本次 package 和 RepositoryArtifacts。
-            repositoryCommit = CommitBuildRepository(request, backendMode, buildResult.Artifacts);
-            repositoryCommitted = true;
-            PublishBuildArtifacts(request);
+            PublishBuildArtifacts(request, backend);
+            // baseline 只在构建+发布全部成功后写入，自然免除回滚。
+            RecordDeliveredBaseline(request, buildResult, backend);
 
-            Debug.Log($"[{nameof(BuildProjectRunner)}] Package build 完成，已提交 Repository HEAD 并发布包指针: {request.OutputDir}");
+            Debug.Log($"[{nameof(BuildProjectRunner)}] Package build 完成，已写入交付基线并发布本地启动数据: {request.OutputDir}");
             if (!Application.isBatchMode)
                 TryRevealPackage(request.OutputDir);
 
@@ -157,20 +135,18 @@ public static class BuildProjectRunner
         }
         catch (Exception ex)
         {
-            if (repositoryCommitted)
-                TryRollbackRepositoryHead(repositoryCommit);
             HandleFailedPackage(request, ex.Message);
             Debug.LogError($"[{nameof(BuildProjectRunner)}] Build 流程异常，Version={version.GetReleaseVersionString()}, Type={buildType}: {ex}");
             return false;
         }
     }
     
-    private static VersionDataBase LoadVersionDataBase()
+    private static VersionRecord LoadVersionRecord()
     {
-        VersionDataBase versionData = AssetDatabase.LoadAssetAtPath<VersionDataBase>(versionDataBasePath);
+        VersionRecord versionData = AssetDatabase.LoadAssetAtPath<VersionRecord>(versionDataBasePath);
         if (versionData == null)
         {
-            Debug.LogError($"[{nameof(BuildProjectRunner)}] 未找到 VersionDataBase: {versionDataBasePath}");
+            Debug.LogError($"[{nameof(BuildProjectRunner)}] 未找到 VersionRecord: {versionDataBasePath}");
             return null;
         }
         return versionData;
@@ -178,7 +154,7 @@ public static class BuildProjectRunner
 
     private static bool ApplyBuiltVersion(VersionNumber version)
     {
-        VersionDataBase versionData = LoadVersionDataBase();
+        VersionRecord versionData = LoadVersionRecord();
         if (versionData == null)
             return false;
 
@@ -188,37 +164,36 @@ public static class BuildProjectRunner
         return true;
     }
     
-    private static RepositoryCommit CommitBuildRepository(BuildPackageRequest request, BackendMode backendMode, System.Collections.Generic.IReadOnlyList<ArtifactDigest> artifacts)
+    /// <summary>
+    /// 交付成功（构建+发布）后记录双槽 baseline，作为后续 hotfix diff 的历史基准。
+    /// </summary>
+    private static void RecordDeliveredBaseline(BuildPackageRequest request, BuildBackendResult buildResult, IBuildBackend backend)
     {
-        try
+        string channelKey = BuildBaselineStore.GetChannelKey(request.Version, request.BackendMode);
+        var artifacts = buildResult?.Artifacts != null
+            ? new System.Collections.Generic.List<ArtifactDigest>(buildResult.Artifacts)
+            : new System.Collections.Generic.List<ArtifactDigest>();
+        BuildBaselineStore.Save(channelKey, new BuildBaseline
         {
-            Debug.Log($"[{nameof(BuildProjectRunner)}] 提交 Build Repository: Channel={BuildRepositoryFacade.GetChannelKey(request)}, Artifacts={(artifacts != null ? artifacts.Count : 0)}");
-            return BuildRepositoryFacade.Commit(request, artifacts, backendMode == BackendMode.ABManifest ? "AB" : null);
-        }
-        catch (Exception ex)
-        {
-            throw new InvalidOperationException($"Build Repository commit failed. Package={request?.PackageName}, Backend={backendMode}, Reason={ex.Message}", ex);
-        }
+            Version = request.Version,
+            BuildType = request.BuildType.ToString(),
+            PackageName = request.PackageName,
+            BackendMode = request.BackendMode == BackendMode.ABManifest ? BackendModeNames.AB : BackendModeNames.AA,
+            PackageRootDir = request.OutputDir,
+            CommitDelta = buildResult?.Delta,
+            ManifestFileNames = backend?.BaselineHandler?.RequiredManifestFileNames != null
+                ? new System.Collections.Generic.List<string>(backend.BaselineHandler.RequiredManifestFileNames)
+                : null,
+            CreatedAtUtc = DateTime.UtcNow.ToString("o"),
+            Artifacts = artifacts
+        });
     }
 
-    private static void PublishBuildArtifacts(BuildPackageRequest request)
+    private static void PublishBuildArtifacts(BuildPackageRequest request, IBuildBackend backend)
     {
-        TaskExportLocalBuildData.Publish(request);
-        TaskWritePackageIndex.Publish(request);
-    }
-
-    private static void TryRollbackRepositoryHead(RepositoryCommit commit)
-    {
-        if (commit == null)
-            return;
-
-        if (BuildRepositoryFacade.TryRollbackHead(commit, out string reason))
-        {
-            Debug.LogWarning($"[{nameof(BuildProjectRunner)}] 发布失败，已回滚 Repository HEAD: {reason}");
-            return;
-        }
-
-        Debug.LogWarning($"[{nameof(BuildProjectRunner)}] 发布失败，但 Repository HEAD 回滚未完成: {reason}");
+        TaskExportLocalBuildData.Publish(request, backend?.BaselineHandler);
+        if (request.BuildType != BuildType.Standalone)
+            TaskWritePackageIndex.Publish(request);
     }
 
     private static void HandleFailedPackage(BuildPackageRequest request, string reason)
@@ -246,8 +221,18 @@ public static class BuildProjectRunner
     private static bool IsSafePackageOutputDir(BuildPackageRequest request, out string reason)
     {
         reason = string.Empty;
-        string packagesDir = FYAssetPathUtility.NormalizePath(BuildPathManager.PackagesDir);
         string outputDir = FYAssetPathUtility.NormalizePath(request.OutputDir);
+        if (request.BuildType == BuildType.Standalone)
+        {
+            string standaloneDir = FYAssetPathUtility.NormalizePath(BuildPathManager.StandalonePackageDir);
+            if (FYAssetPathUtility.AreSamePath(standaloneDir, outputDir))
+                return true;
+
+            reason = $"Standalone OutputDir must equal StandalonePackageDir. Expected={standaloneDir}, Actual={outputDir}";
+            return false;
+        }
+
+        string packagesDir = FYAssetPathUtility.NormalizePath(BuildPathManager.PackagesDir);
         if (string.IsNullOrEmpty(packagesDir) || string.IsNullOrEmpty(outputDir))
         {
             reason = "PackagesDir or OutputDir is empty.";
