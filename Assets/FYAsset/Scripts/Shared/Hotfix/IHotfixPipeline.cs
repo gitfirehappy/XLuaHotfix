@@ -26,9 +26,12 @@ public interface IHotfixPipeline
     Task<HotfixStepResult> InitializeBackendAsync();
 
     /// <summary>
-    /// 精确检查单个隔离包，不回退到 StreamingAssets。
+    /// 精确检查指定包根目录，不回退到其他目录。
     /// </summary>
-    Task<HotfixPackageInspection> InspectPackageAsync(string packageRoot, PackageIndex expectedIndex);
+    Task<HotfixPackageInspection> InspectPackageAsync(
+        string packageRoot,
+        PackageIndex expectedIndex,
+        bool requirePackageDirectoryMatch = true);
 
     /// <summary>
     /// 下载并解析远端版本信息。

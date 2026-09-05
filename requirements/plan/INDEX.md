@@ -10,9 +10,17 @@ Shared executable plans live here while active. `requirements/plan.md` remains t
 - When deleting standalone requirement folders, first merge their detailed `progress.txt` entries into
   `requirements/progress.txt`; do not replace detailed history with summary-only lines.
 
+## Active
+| File | Status |
+|---|---|
+| `2026-09-04-pipeline-custom-tasks.md` | Approved / executing (Sept decoupling; not a July plan) |
+
 ## Recently Archived
 | File | Status |
 |---|---|
+| `plan-playmode-editor-20260724.md` | Signed off 2026-07-28; archived 2026-09-04 |
+| `2026-09-03-aa-ab-decoupling.md` | Completed & archived (renamed from misdated `2026-07-24-aa-ab-decoupling`) |
+| `2026-09-03-xluaframework-export.md` | Completed & archived (X1-X6; renamed from misdated `2026-07-24-xluaframework-export`) |
 | `plan-build-repo-diff-module-20260523.md` | Archived |
 | `plan-build-repository-core-20260523.md` | Archived |
 | `plan-build-repository-release-20260523.md` | Archived |
@@ -31,16 +39,20 @@ Shared executable plans live here while active. `requirements/plan.md` remains t
 | `plan-repository-git-style-diff-20260606.md` | Signed off and archived |
 | `plan-fyasset-bundle-identity-rawfile-root-fix-20260611.md` | Signed off and archived |
 | `plan-hotfix-url-publish-20260712.md` | Local and Cloudflare verified, signed off, and archived |
-
-## Active
-| File | Status |
-|---|---|
-| `plan-build-state-cleanup-tools-20260707.md` | Implemented / Verified / Pending developer sign-off |
-| `plan-hotfix-progress-steps-20260709.md` | Implemented / Verified / Pending developer sign-off |
-| `plan-linear-build-pipeline-runner-20260709.md` | Implemented / Verified / Pending developer sign-off |
-| `plan-pipeline-sequence-list-editor-20260709.md` | Implemented / Verified / Pending developer sign-off |
-| `plan-repository-slim-20260709.md` | Implemented / Verified / Pending developer sign-off |
-| `plan-aa-ab-shared-split-20260709.md` | Implemented / Static Verified / Editor acceptance pending |
-| `plan-build-panel-task-slim-20260711.md` | Implemented / Static Verified / Editor acceptance pending |
-| `plan-hotfix-runtime-state-machine-20260712.md` | Implemented / Verified / Pending developer sign-off |
-| `plan-hotfix-major-baseline-pointer-20260713.md` | Implemented / Verified / Pending developer sign-off |
+| `plan-hotfix-runtime-state-machine-20260712.md` | Superseded and archived |
+| `plan-hotfix-major-baseline-pointer-20260713.md` | Superseded and archived |
+| `plan-build-state-cleanup-tools-20260707.md` | Executed; pending acceptance consolidated to one draft |
+| `plan-hotfix-progress-steps-20260709.md` | Executed, verified, and archived |
+| `plan-linear-build-pipeline-runner-20260709.md` | Executed, verified, and archived |
+| `plan-pipeline-sequence-list-editor-20260709.md` | Executed, verified, and archived |
+| `plan-repository-slim-20260709.md` | Executed, verified, and archived |
+| `plan-aa-ab-shared-split-20260709.md` | Executed; pending Editor acceptance consolidated to one draft |
+| `plan-build-panel-task-slim-20260711.md` | Executed; pending Editor acceptance consolidated to one draft |
+| `plan-hotfix-windows-state-machine-20260713.md` | Executed; post-review findings remain in the current review |
+| `plan-lua-resource-boundary-separation-20260719.md` | Signed off and archived |
+| `plan-build-test-pipeline-20260721.md` | Completed, verified, and archived; 12/12 local matrix |
+| `plan-e2e-test-pipeline-20260722.md` | Completed, verified, and archived; 12/12 local matrix |
+| `plan-standalone-offline-20260724.md` | Completed, verified, and archived; AB Standalone E2E passed |
+| `plan-hotfix-review-hardening-20260714.md` | Implemented/verified; archived during 2026-07-22 workspace cleanup |
+| `plan-fyasset-full-audit-localization-slim-20260714.md` | Implemented/verified; archived during 2026-07-22 workspace cleanup |
+| `plan-ab-e2e-local-cloudflare-20260715.md` | Delivery verified; superseded by automated Build/E2E test plans and archived |

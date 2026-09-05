@@ -12,6 +12,6 @@ public class LuaDataBase : ScriptableObject
 
     public LuaScriptContainer FindGroup(string name)
     {
-        return groups.Find(g => g != null && g.groupName == name);
+        return groups.Find(g => g != null && g.name == name);
     }
 }

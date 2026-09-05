@@ -31,9 +31,4 @@ public class BuildContext
         throw new KeyNotFoundException($"BuildContext 中缺少必需 Key '{key}'。");
     }
 
-    /// <summary>检查指定 Key 是否已存储</summary>
-    public bool Has(string key)
-    {
-        return _data.ContainsKey(key);
-    }
 }

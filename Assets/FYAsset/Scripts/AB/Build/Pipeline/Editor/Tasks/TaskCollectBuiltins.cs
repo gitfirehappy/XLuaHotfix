@@ -34,7 +34,7 @@ public class TaskCollectBuiltins : IBuildTask
 
     public BuildTaskResult Execute(BuildContext ctx)
     {
-        var assets = ctx.Get<List<CollectedAssetInfo>>(BuildContextKeys.CollectedAssets);
+        var assets = ctx.Get<List<CollectedAssetInfo>>(ABBuildContextKeys.CollectedAssets);
         if (assets == null || assets.Count == 0)
             return BuildTaskResult.Fail(BuildErrorCodes.NoCollectedAssets,
                 "TaskCollectAssets 未产出 Asset。无法收集 Builtin。", false);
@@ -114,7 +114,7 @@ public class TaskCollectBuiltins : IBuildTask
             totalAdded += added;
         }
 
-        ctx.Set(BuildContextKeys.CollectedAssets, assets);
+        ctx.Set(ABBuildContextKeys.CollectedAssets, assets);
         return BuildTaskResult.Ok(totalAdded > 0 ? warnings : null);
     }
 }

@@ -222,7 +222,7 @@ public static class CollectionScanner
 
         if (collector.CollectorType == ECollectorType.Implicit)
         {
-            result.Messages.Add(BuildMessage.InvalidCollectorType(collector.CollectorType, collectPath));
+            result.Messages.Add(BuildMessage.InvalidCollectorType(collector.CollectorType.ToString(), collectPath));
             return false;
         }
 
@@ -762,7 +762,7 @@ public static class CollectionScanner
 }
 
 /// <summary>
-/// Optional inputs that affect collection scans without changing AssetCollectionSetting.
+/// 不修改 AssetCollectionSetting、仅影响采集扫描的可选输入。
 /// </summary>
 public sealed class CollectionScanOptions
 {

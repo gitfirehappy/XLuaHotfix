@@ -177,7 +177,7 @@ public class LuaBatchConverterWindow : EditorWindow
 
             _containerFoldouts[container] = EditorGUILayout.Foldout(
                 _containerFoldouts[container],
-                $"{container.groupName} ({container.luaAssets.Count}个脚本)",
+                $"{container.name} ({container.luaAssets.Count}个脚本)",
                 true
             );
 

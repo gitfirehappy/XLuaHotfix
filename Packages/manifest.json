@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "com.coplaydev.unity-mcp": "file:../../../Plugins/mcp/MCPForUnity",
     "com.unity.addressables": "1.21.21",
     "com.unity.collab-proxy": "2.8.2",
     "com.unity.collections": "2.6.6",

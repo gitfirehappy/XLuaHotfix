@@ -63,9 +63,13 @@ public static class AAHotfixManager
             return new AAHotfixBackend();
         }
 
+        protected override bool IsStandaloneMode() =>
+            FYAssetSettings.Instance.StandaloneBuild;
+
         protected override Task<bool> FinishHotfix()
         {
             return AAPackageManager.Instance.InitializePackageAsync();
         }
+
     }
 }

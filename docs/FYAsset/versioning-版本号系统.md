@@ -4,13 +4,13 @@
 
 > **关联代码**
 >
-> `Assets/FYAsset/Scripts/Shared/Build/Versioning/VersionDataBase.cs` · `Assets/FYAsset/Scripts/Shared/Build/Versioning/VersionNumber.cs`
+> `Assets/FYAsset/Scripts/Shared/Build/Versioning/VersionRecord.cs` · `Assets/FYAsset/Scripts/Shared/Build/Versioning/VersionNumber.cs`
 
 ---
 
 ## 概述
 
-项目统一使用 `VersionNumber`。发布版本字符串采用 `Major.Minor.Patch[-Channel]`；`Build` 是单独存储的本地构建计数，不拼入版本字符串，也不参与版本比较。版本号在构建期由 `VersionDataBase` 管理，运行期参与热更 Major 策略判断。
+项目统一使用 `VersionNumber`。发布版本字符串采用 `Major.Minor.Patch[-Channel]`；`Build` 是单独存储的本地构建计数，不拼入版本字符串，也不参与版本比较。版本号在构建期由 `VersionRecord` 管理，运行期参与热更 Major 策略判断。
 
 ---
 
@@ -59,18 +59,18 @@ Channel 排序：`alpha(0) < beta(1) < rc(2) < release("", 3)`
 
 Major 是客户端兼容边界，判断必须区分方向：
 
-- `BuildIndex.Major > 本地 PackageIndex.Major`：已经安装新整包，删除旧 Major 热更目录后继续当前 Major 的远端流程。
-- `BuildIndex.Major < 本地 PackageIndex.Major`：旧客户端或错误安装，删除不兼容目录、触发 `OnClientUpdateRequired` 并停止启动。
-- `Remote PackageIndex.Major > BuildIndex.Major`：提示存在新客户端，跳过远端包内容并启动当前 Major 本地内容。
-- `Remote PackageIndex.Major < BuildIndex.Major`：视为发布或 Channel 异常，告警后启动当前 Major 本地内容。
+- 本地 `PackageIndex.Major != BuildIndex.Major`：按缺失或损坏指针处理，暂以内置整包身份等待远端修复，不提前删除目录。
+- `Remote PackageIndex.Major > BuildIndex.Major`：本地完整则提示新客户端并启动，否则阻断。
+- `Remote PackageIndex.Major < BuildIndex.Major`：视为发布或 Channel 异常；本地完整则告警启动，否则阻断。
+- Major 相同时只接受严格更高版本且使用新包名的前向更新；回滚、同版本换包和同目录换版本均拒绝。
 
 `BuildGUID` 是 Full baseline 的唯一包身份和路径名称，不参与兼容判断。
 
 ---
 
-## VersionDataBase — 版本管理 ScriptableObject
+## VersionRecord — 版本管理 ScriptableObject
 
-`VersionDataBase` 是 Editor 程序集的 ScriptableObject，负责在构建时管理和递增版本号。
+`VersionRecord` 是 Editor 程序集的 ScriptableObject，负责在构建时管理和递增版本号。
 
 ### 字段
 
@@ -94,7 +94,7 @@ Major 是客户端兼容边界，判断必须区分方向：
 
 ### 资产位置与提交时机
 
-路径在 `FYAssetSettings.VersionDataBasePath` 中配置，默认为 `Assets/Build/VersionDataBase.asset`。当前没有独立 `VersionPanel` 或 `CreateAssetMenu` 创建入口，项目使用已提交的共享资产；缺失时构建会报错。
+路径在 `FYAssetSettings.VersionRecordPath` 中配置，默认为 `Assets/Build/VersionRecord.asset`。当前没有独立 `VersionPanel` 或 `CreateAssetMenu` 创建入口，项目使用已提交的共享资产；缺失时构建会报错。
 
 `BuildProjectRunner` 先用 `BuildNextVersion()` 计算候选版本，只有构建与 Repository commit 都成功后才调用 `ApplyVersion()` 写回，避免失败构建提前消耗版本号。Repository 面板只提供测试用的 `Reset Version`。
 
@@ -102,6 +102,6 @@ Major 是客户端兼容边界，判断必须区分方向：
 
 ## 与热更流程的关系
 
-1. **构建时**：预计算候选版本，写入当前后端 manifest 与 `PackageIndex`；成功 commit 后再更新 `VersionDataBase`
+1. **构建时**：预计算候选版本，写入当前后端 manifest 与 `PackageIndex`；成功 commit 后再更新 `VersionRecord`
 2. **整包启动**：`BuildIndex.Version` 表示客户端基线 Major
-3. **热更时**：远端 `PackageIndex` 指向目标 Hotfix 包，本地 `PackageIndex` 只记录完成激活、runtime manager 初始化和指针持久化的本地 Hotfix 包
+3. **热更时**：远端 `PackageIndex` 指向目标包；本地 `PackageIndex` 记录完成 runtime manager 初始化后的整包占位或 Hotfix 包

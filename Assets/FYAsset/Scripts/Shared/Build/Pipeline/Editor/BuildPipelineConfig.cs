@@ -47,6 +47,9 @@ public class BuildPipelineConfig : ScriptableObject
 
     /// <summary>Task 顺序列表；列表顺序就是执行顺序</summary>
     public List<TaskEntry> Tasks = new();
+
+    /// <summary>本后端 Hotfix Diff Task 名（Repository 预览管线的 stop-after 目标）。</summary>
+    public string HotfixDiffTaskName;
 }
 
 /// <summary>

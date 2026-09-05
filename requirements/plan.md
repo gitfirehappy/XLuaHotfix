@@ -1,9 +1,9 @@
 # Refactor Plan: XLuaHotfix Full Resource Management System Overhaul — Master Plan
 
-> **Status**: In progress (Phase 1-4 completed, Phase 5 E1-1/E1-2/E1-3/E1-4/E2 realized, Phase 6 E4/E5-1/E5-2a/E5-2b/E6/E7/E9/E10/E11 main path realized, Build Repository AA Push signed off and archived, AssetsCollection address/settings/follow-up plans signed off and archived, AB cumulative hotfix delivery signed off and archived, AB Build Result panel signed off and archived, Repository git-style diff signed off and archived, review build-chain blocker fixes signed off and archived, FYAsset bundle identity + RawFile root fix signed off and archived, build state cleanup tools implemented/verified pending sign-off, FYAsset architecture simplification plans implemented/verified pending sign-off, Pipeline sequence list editor simplification implemented/verified pending sign-off)
-> **Ultimate Goal**: Fully replace Addressables with custom runtime + build-time resource management system (referencing YooAsset architecture)
+> **Status**: In progress (Phase 1-6 main paths realized; Build/E2E local matrix and AB Standalone E2E verified; Editor PlayMode smoke remains open)
+> **Ultimate Goal**: Keep Addressables AA and custom AB as independent concrete frameworks, with upper layers depending on one thin stable facade
 > **Created**: 2026-03-16
-> **Updated**: 2026-07-12 — Hotfix runtime state machine, same-package local activation, repair, and AA 4.0.1 localhost acceptance approved for implementation
+> **Updated**: 2026-07-24 — Build/E2E 12/12 local matrix and AB Standalone E2E archived; Editor PlayMode remains pending smoke acceptance
 
 ---
 
@@ -155,11 +155,11 @@ Phase 4 and Phase 6 must be coordinated (ABManifest runtime consumption + build-
 | File | Content | Status |
 |------|---------|--------|
 | plan-filehelper.md | FileHelper: cross-platform file I/O utility (8 methods: +Exists). Fixes Android StreamingAssets read bug + adds atomic write + unified delete semantics. 1 new file, 3 modified | DONE |
-| folder-cleanup-20260518/plan/plan-folder-cleanup.md | FYAsset Hotfix + Runtime folder boundary cleanup: LegacyRuntime retired, Hotfix/Backends split by AB vs Addressables, Runtime/Facade and Runtime/Contracts introduced, empty Helpers/Helper removed | Executed, awaiting sign-off |
-| folder-cleanup-20260518/plan/plan-build-folder-cleanup.md | FYAsset Build folder path cleanup: BuildManage retired into Release/Manifests/Bootstrap/Snapshots/Versioning, with Collector/Pipeline/Build UI unchanged | Executed, awaiting sign-off |
-| folder-cleanup-20260518/plan/plan-build-aa-ab-boundary-fix.md | Corrective Build AA/AB boundary cleanup: runtime manifests aligned under Runtime/Manifests, LuaScriptsIndex moved to XLuaFramework, Build Release/Editor split by Shared/Addressables/AB responsibilities, Manifest type renamed to PackageIndex | Executed, awaiting sign-off |
 | plan-R1.md | R1: Unified error handling architecture — BuildMessage (Editor) + RuntimeMessage (Runtime) separated types, string Code with const files (BuildErrorCodes/RuntimeErrorCodes), Severity on both sides, factory-only construction, AssetLoadError/ScanMessage renamed, PATH_NOT_FOUND fixed to Warning | DONE |
 | plan-R2.md | R2: Runtime Correctness + Error Contract Unification + Dedup — HandleRegistry._entryActiveCounts + ABPackageBackend error contract unified + code dedup | DONE |
+
+The temporary 2026-05-18 folder-cleanup records were merged into `requirements/progress.txt` and their layouts were
+later superseded by the active strict `AA/AB/Shared` split. They are no longer authoritative plan entries.
 
 ### Review-Driven Fixes
 
@@ -189,20 +189,24 @@ Phase 4 and Phase 6 must be coordinated (ABManifest runtime consumption + build-
 | plan-repository-git-style-diff-20260606.md | Repository git-style commit diff and GitHub Desktop-style Changes/History layout: persist per-commit parent delta, keep staging diff as current preview output vs HEAD, and remove editable Push From/To from the Repository panel | Archived / Signed off |
 | plan-fyasset-bundle-identity-rawfile-root-fix-20260611.md | FYAsset bundle identity + RawFile root fix: payload/type-separated bundle buckets, scanner RawFile PackSeparately normalization, manifest membership from `BundleBuildInfo.AssetPaths`, ABManifest schema v3, and direct RawFile bytes/text API | Archived / Signed off |
 | plan-hotfix-url-publish-20260712.md | Backend-isolated Local/Cloudflare publish roots, explicit Hotfix URL application, Editor-controlled localhost server, and verified AA 4.0.0 Pages delivery | Archived / Signed off |
+| plan-build-state-cleanup-tools-20260707.md | Version reset, package/report deletion, and channel-scoped test reset | Executed / Archived; acceptance in consolidated draft |
+| plan-hotfix-progress-steps-20260709.md | Table-driven Hotfix progress steps | Executed / Verified / Archived |
+| plan-linear-build-pipeline-runner-20260709.md | Linear `BuildPipelineRunner` replacing DAG scheduling | Executed / Verified / Archived |
+| plan-pipeline-sequence-list-editor-20260709.md | Task sequence list replacing GraphView | Executed / Verified / Archived |
+| plan-repository-slim-20260709.md | Repository Repair/quarantine/persistent PushHistory removal | Executed / Verified / Archived |
+| plan-aa-ab-shared-split-20260709.md | Strict AA/AB/Shared ownership and editor split | Executed / Archived; acceptance in consolidated draft |
+| plan-build-panel-task-slim-20260711.md | Build panel, report, and task-contract simplification | Executed / Archived; acceptance in consolidated draft |
+| plan-hotfix-windows-state-machine-20260713.md | Windows baseline/pointer/forward-update state-machine convergence | Executed / Verified scenarios / Archived; current review remains open |
+| plan-lua-resource-boundary-separation-20260719.md | Lua index publication, strict AA/AB runtime ownership, upper loading facade, and backend-specific label tooling | Signed off / Archived |
+| plan-build-test-pipeline-20260721.md | AA/AB Build Full/Hotfix/Chain with explicit Targets, publish/restore, fixtures, and disk verification | Completed / Verified / Archived |
+| plan-e2e-test-pipeline-20260722.md | AA/AB E2E Full/Hotfix/Chain with per-Target Player and coordinator smoke | Completed / Verified / Archived |
+| plan-standalone-offline-20260724.md | AB Standalone offline package output and runtime short-circuit | Completed / Verified / Archived |
 
 ### Active Shared Plans
 
 | File | Content | Status |
 |------|---------|--------|
-| plan-build-state-cleanup-tools-20260707.md | Version test reset/read-only metadata, synchronized AB package/report deletion plus explicit current-report cleanup, and channel-scoped repository test reset | Implemented / Static Verified / AB report self-check pending |
-| plan-hotfix-progress-steps-20260709.md | A10: HotfixManager progress step table replaces hardcoded `TotalSteps` and manual indexes while preserving current flow | Implemented / Verified / Pending developer sign-off |
-| plan-linear-build-pipeline-runner-20260709.md | A2: `DAGScheduler` simplified to linear `BuildPipelineRunner`, preserving validate/stop/whitelist only | Implemented / Verified / Pending developer sign-off |
-| plan-pipeline-sequence-list-editor-20260709.md | A2 follow-up: remove PipelinePanel GraphView and SO-level Task dependencies after the linear runner; show Task sequence list with build status lights | Implemented / Verified / Pending developer sign-off |
-| plan-repository-slim-20260709.md | A4: Repository keeps Health/build-push blocking/PushHead, removes Repair/quarantine/persistent PushHistory | Implemented / Verified / Pending developer sign-off |
-| plan-aa-ab-shared-split-20260709.md | A1/A3/A5+A9: strict AA/AB ownership including independent build windows, shared shell, draggable Repository layout, and AA-only HotfixGroup recovery UI | Implemented / Static Verified / Editor acceptance pending |
-| plan-build-panel-task-slim-20260711.md | Version-to-Repository merge, persistent AA final Build Path injection with official report entry, AB report references/tree, and Pipeline/Task declaration cleanup | Implemented / Static Verified / Editor acceptance pending |
-| plan-hotfix-runtime-state-machine-20260712.md | Deterministic local activation/repair/update/fallback state machine, configurable failure policies, checked finalization, and AA 4.0.1 localhost acceptance | Implemented / Verified / Pending developer sign-off |
-| plan-hotfix-major-baseline-pointer-20260713.md | Remove legacy BuildGUID marker cleanup, use directional Major rules, verify same-package CRC, and commit the local pointer only after runtime initialization | Implemented / Verified / Pending developer sign-off |
+| 2026-09-04-pipeline-custom-tasks.md | Pipeline custom-task slot + LuaScriptsIndex moved to Compat glue task | Approved / executing; Unity AA/AB build isomorphism pending |
 
 ### Phase 5: Build-Time - Asset Collection & Indexing
 
@@ -334,3 +338,6 @@ Phase 4 and Phase 6 must be coordinated (ABManifest runtime consumption + build-
 | 2026-07-11 | **AB report cleanup expanded**: the report toolbar now exposes `Delete Report` for every selected report, including failed builds and abandoned reports without package output. The action deletes only the report JSON after confirmation and reloads the dropdown; package directories are unchanged. |
 | 2026-07-11 | **AA/AB build editor ownership completed**: AA and AB now open as independent Build Pipeline windows over one shared shell; `UseABBackend` no longer disables concrete editor build pages. Repository uses two native draggable splitters and backend-specific persisted pane widths. |
 | 2026-07-11 | **AA Repository recovery follow-up implemented**: AA Changes and History resolve persisted GUID identities to Address plus asset path without changing repository identity; AA Repository hosts a separate HotfixGroup recovery panel, preserves unresolved undo records, and supports explicit record-only discard. |
+| 2026-07-20 | **Lua resource-boundary S2 checkpoint**: Implemented active-path AB dependency traversal, typed AB resolution, concrete AA/AB runtime ownership, strict facade binding, and structured startup errors. Static suites, Unity compile, AA Full/Player, and AB Full/Player build/main-ready paths were verified from independent `1.0.0 / Build 0` resets. AB clean-runtime acceptance remains blocked by a reproducible same-Bundle concurrent-load error; no bundle-lifecycle fix or S3 work was started. |
+| 2026-07-22 | **Build/E2E test pipeline plans refined**: `plan-build-test-pipeline-20260721.md` expanded with mandatory explicit Targets, always-restore publication, multi-Target policy, permanent `FYAssetPipeline` fixtures, and fixture physical-artifact Delta. Companion `plan-e2e-test-pipeline-20260722.md` added for same-run Player/coordinator acceptance. |
+| 2026-07-22 | **Workspace cleanup and plan approval**: Developer approved both Build/E2E test plans pending execution. Archived executed/outdated plans and reviews, reset VersionRecord to `1.0.0/Build 0`, cleared repositories/BuildData/StreamingAssets exports/HotfixOutput/HotfixPublish/TDD archives, and deployed an empty Cloudflare service root so public AA/AB PackageIndex returns 404. |

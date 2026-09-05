@@ -132,7 +132,7 @@ public class LuaFileCreatorWindow : EditorWindow
         if (_selectedContainer != null)
         {
             EditorGUILayout.HelpBox(
-                $"当前容器: {_selectedContainer.groupName}\n包含脚本: {_selectedContainer.luaAssets.Count}个",
+                $"当前容器: {_selectedContainer.name}\n包含脚本: {_selectedContainer.luaAssets.Count}个",
                 MessageType.None
             );
         }
@@ -168,7 +168,7 @@ public class LuaFileCreatorWindow : EditorWindow
         // 确保容器名称唯一
         string uniqueName = _newContainerName;
         int counter = 1;
-        while (_luaDatabase.groups.Exists(c => c != null && c.groupName == uniqueName))
+        while (_luaDatabase.groups.Exists(c => c != null && c.name == uniqueName))
         {
             uniqueName = $"{_newContainerName}_{counter}";
             counter++;
@@ -176,7 +176,7 @@ public class LuaFileCreatorWindow : EditorWindow
 
         // 创建新容器
         LuaScriptContainer newContainer = CreateInstance<LuaScriptContainer>();
-        newContainer.groupName = uniqueName;
+        newContainer.name = uniqueName;
 
         // 保存容器到数据库所在目录
         string databasePath = AssetDatabase.GetAssetPath(_luaDatabase);
@@ -260,7 +260,7 @@ public class LuaFileCreatorWindow : EditorWindow
                 Selection.activeObject = luaAsset;
                 EditorUtility.FocusProjectWindow();
 
-                EditorUtility.DisplayDialog("成功", $"Lua文件已创建：{_fileName}\n并已添加到容器：{_selectedContainer.groupName}",
+                EditorUtility.DisplayDialog("成功", $"Lua文件已创建：{_fileName}\n并已添加到容器：{_selectedContainer.name}",
                     "确定");
             }
             else

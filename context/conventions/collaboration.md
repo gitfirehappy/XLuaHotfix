@@ -9,8 +9,8 @@
 - Keep plans, approvals, sequencing, and progress tracking inside `requirements/`.
 
 ## Requirement Workflow
-- Create `requirements/{id}/brief.md` for substantial work.
-- Track execution in `requirements/{id}/progress.txt`.
+- Keep executable shared plans in `requirements/plan/` and the authoritative status table in `requirements/plan.md`.
+- Track detailed execution history in `requirements/progress.txt`.
 - Keep planning aligned to `requirements/plan.md`.
 - Do not create `requirements/{id}/plan.md` or `requirements/{id}/plan/` unless the developer explicitly asks for an isolated planning structure.
 - Use the shared `requirements/plan/`, `requirements/plan/drafts/`, and `requirements/review/` queues for active plans, drafts, and reviews.
@@ -19,9 +19,12 @@
 - Never replace detailed progress history with summary-only consolidation.
 
 ## Resource-Management Rules
-- Prefer `AssetPackageManager` over direct Addressables usage in new runtime code.
-- Current runtime abstractions include `IAssetIndex` and `IPackageBackend`.
-- Hotfix core flow (`HotfixManager`, `NetworkDownloader`, `CatalogUpdater`) remains high-risk.
+- Use `AAPackageManager` in known AA runtime paths and `ABPackageManager` in known AB runtime paths. `AssetPackageManager` is a compatibility facade for legacy callers only.
+- `IAssetIndex` and `IPackageBackend` remain AB runtime contracts; do not route new AA mainline code through them merely for symmetry.
+- The shared hotfix state machine (`HotfixFlowBase`), concrete `AAHotfixManager` / `ABHotfixManager` flows, `NetworkDownloader`, and AA `CatalogUpdater` remain high-risk.
+- Windows Hotfix package and Bundle names are single safe filename segments: reject invalid filename characters, reserved device basenames, trailing dots/spaces, and case-insensitive duplicates.
+- Full baseline staging and runtime package inspection require the manifest's exact Bundle filename set with matching non-zero CRC and declared size.
+- A failed target may be deleted only before PackageManager initialization succeeds. After initialization, pointer persistence failure must retain live content, remain fatal, and must not signal completion.
 - LINQ is allowed in editor/build code and in low-frequency runtime flows such as startup, hotfix checks, catalog switching, and maintenance operations.
 - LINQ must not be used in gameplay-sensitive hot paths, repeated runtime query loops, asset resolve/filter core paths, or public runtime APIs whose call frequency is uncertain.
 - If a method may be used both during startup and gameplay, default to loop-based implementations (`for`, `foreach`, `Dictionary`, `HashSet`, cached lookups) instead of LINQ.
@@ -35,6 +38,9 @@
 - `FileHelper.TryDelete` / `TryDeleteDirectory` return `bool` and never throw — callers decide whether to care.
 
 ## Logging Rules
+- The `[Component]` log prefix is a load-bearing contract: CLI batch log parsers (`CommandLine/*.py`) and Unity Console filtering match on it. Keep it; do not drop it during cleanups.
+- Produce the prefix from a per-class `private const string Tag = "[ClassName]";` and emit `$"{Tag} message"`. Prefer `Tag` in any class whose prefix appears more than once.
+- Do not add new inline `$"[{nameof(X)}] ..."` occurrences; migrate touched call sites to `Tag`. Existing literal `[Component]` prefixes remain valid — no mass rewrite.
 - Direct `Debug.Log*` diagnostics in FYAsset framework, tool, backend, manager, editor, and cross-module code may use a `[Component]` prefix for Unity Console filtering.
 - `RuntimeMessage.Message`, `BuildMessage.Message`, and `BuildTaskResult.ErrorMessage` human-readable descriptions must not start with a `[Component]` prefix; component ownership belongs in direct logs, source fields, or call-site context.
 - UI-facing and upper-layer runtime error display should prefer `RuntimeMessage.ToString()` / `BuildMessage.ToString()` style output: `[Code] Message`.
@@ -49,7 +55,7 @@
   |---|---|
   | `FYAssetSettings` | Auto via singleton `LoadOrCreate()` |
   | `ScriptObjectDataBase` | GUI via `SOAddressableTagger` EditorWindow |
-  | `VersionDataBase` | GUI via `VersionPanel` |
+  | `VersionRecord` | Existing project asset at `FYAssetSettings.VersionRecordPath`; Repository displays and resets it, but does not auto-create it |
   | `ScriptObjectContainer` | Tool/database-driven SO container workflow |
   | `LuaScriptContainer` | GUI via `LuaFileCreatorWindow` + auto via `LuaDirectoryScanner` |
   | `LuaDataBase` | GUI via 3 EditorWindows |

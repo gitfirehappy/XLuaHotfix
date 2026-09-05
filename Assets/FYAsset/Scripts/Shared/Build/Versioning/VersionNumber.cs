@@ -2,8 +2,8 @@ using System;
 
 /// <summary>
 /// 版本号数据类型，整个项目统一使用。
-/// Release version string format: Major.Minor.Patch[-Channel].
-/// Build is stored as a separate field and must not be appended to version strings.
+/// Release version 字符串格式：Major.Minor.Patch[-Channel]。
+/// Build 单独存储，不得追加到 version 字符串。
 /// </summary>
 [Serializable]
 [BinarySerializable]
@@ -15,8 +15,6 @@ public class VersionNumber : IComparable<VersionNumber>
     [BinaryField(3)] public int Build;
     [BinaryField(4)] public string Channel;
 
-    public string GetVersionString() => $"{Major}.{Minor}.{Patch}";
-
     public string GetReleaseVersionString()
     {
         var core = $"{Major}.{Minor}.{Patch}";
@@ -26,12 +24,6 @@ public class VersionNumber : IComparable<VersionNumber>
     }
 
     public override string ToString() => GetReleaseVersionString();
-
-    public bool RequiresForceUpdate(VersionNumber baseline)
-    {
-        if (baseline == null) return true;
-        return Major != baseline.Major;
-    }
 
     #region ChannelRank
 
@@ -127,7 +119,7 @@ public class VersionNumber : IComparable<VersionNumber>
         if (remaining.IndexOf('+') >= 0)
             return false;
 
-        // Parse -Channel
+        // 解析 -Channel
         string channel = "";
         int dashIdx = remaining.IndexOf('-');
         if (dashIdx >= 0)
@@ -136,7 +128,7 @@ public class VersionNumber : IComparable<VersionNumber>
             remaining = remaining.Substring(0, dashIdx);
         }
 
-        // Parse X.Y.Z
+        // 解析 X.Y.Z
         string[] parts = remaining.Split('.');
         if (parts.Length != 3)
             return false;

@@ -8,7 +8,7 @@ using UnityEngine;
 using UnityEngine.UIElements;
 
 /// <summary>
-/// Editor-only package output list and deletion controls.
+/// Editor-only package 输出列表和删除控件。
 /// </summary>
 public sealed class BuildPackageResultsView
 {
@@ -187,14 +187,14 @@ public sealed class BuildPackageResultsView
             PackageEntry entry = selected[i];
             if (!IsSafePackagePath(root, entry.FullPath))
             {
-                Debug.LogError($"[BuildPackageResultsView] Refused to delete path outside PackagesDir: {entry.FullPath}");
+            Debug.LogError($"[BuildPackageResultsView] 拒绝删除 PackagesDir 外的路径：{entry.FullPath}");
                 failures.Add("Unsafe package path: " + entry.FullPath);
                 continue;
             }
 
             if (!FileHelper.TryDeleteDirectory(entry.FullPath, true))
             {
-                Debug.LogError($"[BuildPackageResultsView] Failed to delete package: {entry.FullPath}");
+            Debug.LogError($"[BuildPackageResultsView] 删除 package 失败：{entry.FullPath}");
                 failures.Add("Package delete failed: " + entry.PackageName);
                 continue;
             }

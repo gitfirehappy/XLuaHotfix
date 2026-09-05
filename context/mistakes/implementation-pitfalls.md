@@ -364,8 +364,8 @@ Verified historical errors and prevention rules.
 ## IP-52: Push Review Fix Confused Package Publication With PackageIndex Ownership
 
 **Symptom:** A repository review fix was initially framed as deriving or validating package-internal `PackageIndex.json` during Push, even though the approved Push model is simple publication of already built package output.
-**Root cause:** The review finding about Push depending on the current editor output path was interpreted as a request to make Push smarter, instead of preserving the existing boundary: build tasks own package contents and `PackageIndex.json`; repository Push only publishes package output and records local repository push state.
-**Fix:** Keep Push as whole-package replacement on the target and update local PushHistory after success. Do not regenerate, reinterpret, or validate package-internal `PackageIndex.json` in Push.
+**Root cause:** The review finding about Push depending on the current editor output path was interpreted as a request to make Push smarter, instead of preserving the existing boundary: build tasks own package contents and `PackageIndex.json`; repository Push only publishes package output.
+**Fix:** Keep Push as whole-package replacement on the target. Do not regenerate or reinterpret package-internal `PackageIndex.json` in Push. The later repository simplification removed persistent `PushHistory`; successful publication is represented only by the current operation result and target state.
 **Prevention:** Before fixing review findings, re-check the approved ownership boundary. If a build task owns an artifact's content, downstream repository/delivery code may copy or publish that artifact but must not become a second authority for its meaning.
 
 ## IP-53: Collector Mutations Split Across Editor Entry Points
@@ -427,8 +427,8 @@ Verified historical errors and prevention rules.
 ## IP-61: Version Advanced Before Build Success
 
 **Symptom:** Failed builds could consume product versions without producing matching package output or repository commits.
-**Root cause:** `VersionDataBase` was incremented and saved before the backend build and repository commit had both succeeded.
-**Fix:** Stage the next `VersionNumber` in memory, build and commit with that staged request version, then apply and save `VersionDataBase` only after the full chain succeeds.
+**Root cause:** `VersionRecord` was incremented and saved before the backend build and repository commit had both succeeded.
+**Fix:** Stage the next `VersionNumber` in memory, build and commit with that staged request version, then apply and save `VersionRecord` only after the full chain succeeds.
 **Prevention:** Product version advancement must be transactional with the artifact/repository state it names. Never persist the next version before the operation that creates that version's package and repository commit has succeeded.
 
 ## IP-62: Package Pointer Published Before Repository Commit
@@ -440,9 +440,9 @@ Verified historical errors and prevention rules.
 
 ## IP-63: Build Metadata Leaked Into Repository Identity
 
-**Symptom:** Repository HEAD, object files, package names, and status UI could use version strings such as `2.0.0+1`, while the product build counter was also stored as a numeric field.
+**Symptom:** Repository HEAD, object files, package names, status UI, and the historical push log could use version strings such as `2.0.0+1`, while the product build counter was also stored as a numeric field.
 **Root cause:** `Build` metadata was appended to release identity strings, so one concept acted as both product version and build counter. Old `+Build` strings then became invalid repository object names after the version contract was corrected.
-**Fix:** Use `GetReleaseVersionString()` (`Major.Minor.Patch[-Channel]`) for package names, repository object names, HEAD, parent versions, push history, logs, and status UI. Store `Build` only as a separate numeric field, reject `+Build` in parsing, and rebuild/delete stale `+Build` repository data.
+**Fix:** Use `GetReleaseVersionString()` (`Major.Minor.Patch[-Channel]`) for package names, repository object names, HEAD, parent versions, logs, and status UI. Store `Build` only as a separate numeric field, reject `+Build` in parsing, and rebuild/delete stale `+Build` repository data. Persistent push history was removed later and is no longer an active identity consumer.
 **Prevention:** Artifact identity strings must not include volatile counters unless the format is explicitly part of the release contract. If a persisted identity format is wrong, rebuild or quarantine it instead of silently maintaining compatibility.
 
 ## IP-64: DAG Scheduler Over-Engineered Linear Execution
@@ -458,3 +458,17 @@ Verified historical errors and prevention rules.
 **Root cause:** Each target had expanded from one row to several rows, but the Push card still had a maximum height and its nested editor, target, and local-server containers retained the UI Toolkit default `flexShrink = 1`. Removing only the outer cap was insufficient because nested vertical containers could still surrender layout height while their controls painted outside the reduced boxes. Per-control width and minimum-height changes only moved the overflow.
 **Fix:** Remove the Push card's maximum height and set the intrinsic-height editor, target, and local-server containers to `flexShrink = 0`; the existing outer vertical `ScrollView` owns overflow.
 **Prevention:** Dynamic lists inside a scroll container must preserve intrinsic height through every nested vertical container. When several sibling rows compress or overlap together, audit the complete ancestor shrink chain before changing individual controls.
+
+## IP-66: Misclassified the Push Stack During Repository Slimming Review
+
+**Symptom:** During the AA/AB repository-slimming review, the push stack (`IPushTarget`, `LocalDirectoryPushTarget`, `CloudflarePagesPushTarget`, `PackagePublishTransaction`, `PushModels`) was proposed for wholesale deletion on the claim that it "mirrors repository objects for team baseline sharing." The developer confirmed deletion based on that claim; the error was only caught by AI self-check during execution, and the developer's own review let the wrong premise through.
+**Root cause:** The push stack was judged by directory location (`Shared/Build/Repository/`) instead of actual data flow. In reality `Push()` publishes **built hotfix packages** to mirror roots (local directory, Cloudflare Pages) that runtime hotfix downloads from — it is the release half of the hotfix lifecycle, only borrowing `RepositoryCommit.PackageRootDir` as a version registry. Premature convergence on a tidy "delete the ops stack" narrative skipped the mandatory read of what `Push(PushPayload)` actually moves.
+**Fix:** R6 scope corrected before execution: push stack kept and re-homed to `Shared/Build/Publish/` as the publish mechanism with `PushPayload` cut over from `RepositoryCommit` to `BuildBaseline` (+ `PackageRootDir`/`BackendMode` fields); Cloudflare target stays in Compat as the project's CDN channel glue; only the true repository kernel (objects history, facade, health/repair) is deleted.
+**Prevention:** Before approving deletion of a subsystem, read the payload/data flow of its primary entry point — never infer function from folder placement. Deletion proposals must state what flows through the code, not just where it lives. Reviewer of a cleanup plan should ask "what does this actually move, and who consumes the moved thing?" before signing off; both author and reviewer share this miss.
+
+## IP-67: `git add -A Assets` Sweeps Build Outputs Into Commits (Twice)
+
+**Symptom:** During the AA/AB decoupling commits (P1 and R6), `git add -A Assets` staged the entire `Assets/StreamingAssets/Standalone/**` build outputs into the commit, despite an explicit project rule to keep them untracked. Caught in pre-commit audit the first time, but repeated weeks later in the same session family.
+**Root cause:** Broad-scope staging (`git add -A Assets`) was used for speed instead of explicit path lists; the exclusion of `StreamingAssets/**` lived only in conversation memory, not in `.gitignore`, so nothing mechanical blocked the sweep.
+**Fix:** Commits rebuilt with `git restore --staged Assets/StreamingAssets` before landing. Durable rule: never `git add -A` over `Assets/` in this repo — stage explicit paths, and audit `git status` grouped by change type before every commit.
+**Prevention:** Add `Assets/StreamingAssets/Standalone/` and `Assets/StreamingAssets/BuildIndex.json*` to `.gitignore` so generated local build state cannot be swept even by blanket staging. (Proposed to developer; not yet applied.) Audit staged file-type counts (`awk '{print $1}' | sort | uniq -c`) as a pre-commit habit.

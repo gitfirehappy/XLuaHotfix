@@ -14,10 +14,12 @@ MonoBehaviour:
   m_EditorClassIdentifier:
   FileNameStyle: 2
   BundleCompression: 0
+  HotfixDiffTaskName: TaskScanAAHotfixDiff
   Tasks:
-  - TaskName: TaskScanAddressableHotfixDiff
-  - TaskName: TaskMoveAddressableHotfixGroups
-  - TaskName: TaskBuildAddressablesContent
+  - TaskName: LuaScriptsIndexBuildTask
+  - TaskName: TaskScanAAHotfixDiff
+  - TaskName: TaskMoveAAHotfixGroups
+  - TaskName: TaskBuildAAContent
   - TaskName: TaskOrganizeAAOutput
   - TaskName: TaskWriteAAPackageManifest
   - TaskName: TaskWritePackageIndex

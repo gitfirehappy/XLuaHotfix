@@ -63,9 +63,13 @@ public static class ABHotfixManager
             return new ABHotfixBackend();
         }
 
+        protected override bool IsStandaloneMode() =>
+            FYAssetSettings.Instance.StandaloneBuild;
+
         protected override Task<bool> FinishHotfix()
         {
             return ABPackageManager.Instance.InitializePackageAsync();
         }
+
     }
 }

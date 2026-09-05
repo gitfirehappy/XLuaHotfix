@@ -57,17 +57,24 @@ Task 的输入输出契约直接体现在 `Get/Require/Set` 调用和固定主�
 | `AA` | 基于 Addressables 的 AA 构建 |
 | `ABManifest` | 基于 ABManifest 的自研构建（显示名为 AB） |
 
-正式 Full/Hotfix 构建由 AA/AB concrete build manager 创建 `BuildPackageRequest` 时显式决定。Repository CLI 的 `-backend` 只用于选择仓库通道，不覆盖正式构建后端。`BackendMode.AA` 与 `BackendMode.ABManifest` 分别对应两条构建管线，显示名分别为 `AA` / `AB`，各有独立的 `BuildPipelineConfig` 资产。
+正式 Full/Hotfix/Standalone 构建由 AA/AB concrete build manager 创建 `BuildPackageRequest` 时显式决定。Repository CLI 的 `-backend` 只用于选择仓库通道，不覆盖正式构建后端。`BackendMode.AA` 与 `BackendMode.ABManifest` 分别对应两条构建管线，显示名分别为 `AA` / `AB`，各有独立的 `BuildPipelineConfig` 资产。
+
+`BuildType` 取值：
+
+| 值 | 含义 |
+|----|------|
+| `Full` | 整包；写 StreamingAssets 在线基线 + Repository commit + PackageIndex |
+| `Hotfix` | 热更包；按 diff 交付 + Repository commit + PackageIndex |
+| `Standalone` | 离线包（AB）；产物直接生成到 `StreamingAssets/Standalone/`，只写 BuildIndex，不 commit Repository，也不生成 `HotfixOutput/Packages` 副本 |
 
 ### Editor Layout
 
-Build Pipeline 编辑器现在提供两个可同时打开的独立窗口：
+Build Pipeline 编辑器保留两个独立窗口，菜单入口统一归属 `FYAsset`：
 
-- `Tools/Build/AA Build Pipeline`：Settings、AA Config、AA Build、AA Build Results、AA Repository。
-- `Tools/Build/AB Build Pipeline`：Settings、AB Config、AssetsCollection、AB Build、AB Build Results、AB Repository。
-- 旧 `Tools/Build/Build Pipeline` 菜单保留为兼容入口，根据 `UseABBackend` 打开 AA 或 AB 窗口。
+- `FYAsset/Build/AA Build Pipeline`：Settings、AA Config、AA Build、AA Build Results、AA Repository。
+- `FYAsset/Build/AB Build Pipeline`：Settings、AB Config、AssetsCollection、AB Build、AB Build Results、AB Repository。
 
-两个窗口中的构建按钮分别直达 `AABuildProjectManager` 和 `ABBuildProjectManager`，不再由 `UseABBackend` 互斥置灰。`UseABBackend` 只保留给旧兼容入口与命令行路由。AA/AB Repository 都使用可拖动的左/中/右三栏布局，两条分隔线宽度按 backend 分别保存在 EditorPrefs 中。
+旧的总入口 `Build Pipeline` 和顶部 `Build Standalone Package` 直构建菜单均已移除。顶部菜单只负责打开 AA/AB 窗口；人工构建的唯一入口是管线面板内部的 `Mode + Build`。AB 可选 Full / Hotfix / Standalone，AA 只可选 Full / Hotfix。AA/AB Repository 都使用可拖动的左/中/右三栏布局，两条分隔线宽度按 backend 分别保存在 EditorPrefs 中。
 
 ---
 
@@ -93,7 +100,7 @@ BuildPipelineConfig
 
 ### 主干顺序护栏
 
-`TaskEntry` 只保存 `TaskName`，执行顺序只由列表位置决定。`BuildPipelineBackbone` 提供 AA/AB 默认主干列表、缺失检查和编辑器展示顺序；runner 不做拓扑排序，也不维护第二套依赖声明。
+`TaskEntry` 只保存 `TaskName`，执行顺序只由列表位置决定。主干名单由各后端持有（`AAPipelineBackbone` / `ABPipelineBackbone`），缺失检查与默认列表创建共用 Shared 的 `BuildTaskListUtility` 机制，并由调用方把名单注入 `BuildPipelineRunner.Execute`；runner 不做拓扑排序，也不维护第二套依赖声明。骨架校验只查漏、不拒绝列表中的额外条目。超出骨架的 `TaskName` 即自定义 Task，由 `BuildTaskResolver` 按名解析；找不到实现则明确 Fail。本仓库的 `LuaScriptsIndexBuildTask` 属于 Compat 胶水，不进入 AA/AB 骨架。
 
 ---
 
@@ -121,14 +128,14 @@ Task 通过 `Ok` 或 `Fail` 工厂返回结构化结果。
 
 ## 跳过与提前终止规则
 
-构建管线区分三类情况：Task 内部 no-op 跳过、runner 提前终止、错误中止。跳过必须保持数据不污染：只读预览不能写 `PackageIndex`、repository HEAD / objects 或正式输出目录；Task 内 no-op 只能返回成功，不能留下半成品状态。
+构建管线区分三类情况：Task 内部 no-op 跳过、runner 提前终止、错误中止。跳过必须保持数据不污染：只读预览不能写 `PackageIndex`、基线文件（`BuildData/Baselines`） 或正式输出目录；Task 内 no-op 只能返回成功，不能留下半成品状态。
 
 | 场景 | 机制 | 结果 |
 |------|------|------|
-| AA Diff Preview | runner whitelist 只允许 `TaskScanAddressableHotfixDiff`，并在该 Task 后 stop-after | 只计算 `ArtifactDelta`，不移动 group、不构建、不写 PackageIndex、不提交 repository |
-| AB Diff Preview | runner whitelist 允许 AB 构建到 `TaskScanABHotfixDiff`，并在该 Task 后 stop-after | 使用 `Temp/BuildRepositoryPreview/{guid}` 临时输出，finally 清理，不写正式 PackageIndex/HEAD/objects；展示 HEAD Diff 和 Full-baseline Hotfix Delivery 两组信息 |
-| AA Full Build | `TaskScanAddressableHotfixDiff` 和 `TaskMoveAddressableHotfixGroups` 内按 `BuildType` 返回成功跳过 | Full 不做 hotfix diff/group move，但继续后续构建 |
-| Full Build 本地启动数据 | `TaskExportLocalBuildData` 只在 `BuildType.Full` 执行 | 写 `BuildIndex` 和当前后端 baseline 到 `StreamingAssets`；AB 复制 `ABManifest + bundles`，AA 复制 `AAManifest` 查询索引 |
+| AA Diff Preview | runner whitelist 从配置列表头执行到 `TaskScanAAHotfixDiff`（含注入的 Compat lua task；preview 下该 task 不写资产），并在 diff Task 后 stop-after | 只计算 `ArtifactDelta`，不移动 group、不构建、不写 PackageIndex、不提交 repository |
+| AB Diff Preview | runner whitelist 允许 AB 构建到 `TaskScanABHotfixDiff`，并在该 Task 后 stop-after | 使用 `Temp/BuildRepositoryPreview/{guid}` 临时输出，finally 清理，不写正式 PackageIndex 与基线；展示基线 Diff 和 Full-baseline Hotfix Delivery 两组信息 |
+| AA Full Build | `TaskScanAAHotfixDiff` 和 `TaskMoveAAHotfixGroups` 内按 `BuildType` 返回成功跳过 | Full 不做 hotfix diff/group move，但继续后续构建 |
+| Full/Standalone 本地启动数据 | `TaskExportLocalBuildData` 在 `BuildType.Full` / `Standalone` 执行 | Full 写 `BuildIndex` 和当前后端 baseline；Standalone 包由构建 Task 直接写入 `StreamingAssets/Standalone`，该 Task 只写 `BuildIndex` |
 | Hotfix Build 本地启动数据 | `TaskExportLocalBuildData` 在 `BuildType.Hotfix` 返回成功跳过 | Hotfix 不覆盖整包启动数据 |
 | AA Hotfix 无差异 | diff Task 写空 `ArtifactDelta`，group move Task no-op 成功 | 继续构建，确认无变更流程仍正确 |
 | AB Hotfix 无差异 | `TaskScanABHotfixDiff` 写入空 `ABDeliveryBundles` 并返回成功 | 后续 organize/manifest/PackageIndex 仍按官方构建执行，输出 manifest-only Hotfix 包 |
@@ -136,7 +143,7 @@ Task 通过 `Ok` 或 `Fail` 工厂返回结构化结果。
 | `PackageIndex` 写入 | `TaskWritePackageIndex` 在官方 Full/Hotfix runner 中执行 | `PackageIndex` 是远端最新包指针，不是 Full-only 数据；Diff Preview 早停不会执行它 |
 | Fatal Task 失败 | `BuildTaskResult.Fail(..., fatal: true)` | 调度器停止后续 Task，剩余 Task 标记 Skipped |
 | runner 校验失败 | Validate 阶段阻断 | 不执行任何 Task |
-| AA pending group move | `TaskMoveAddressableHotfixGroups` 检测 undo log 并 fatal fail | 要求先手动 reset，避免覆盖原始 group 归属 |
+| AA pending group move | `TaskMoveAAHotfixGroups` 检测 undo log 并 fatal fail | 要求先手动 reset，避免覆盖原始 group 归属 |
 | AB 手动 reset | `ResetGroupsToOriginal()` 检测 AB backend | 直接跳过并提示，因为 AB 没有 Addressables group move |
 
 ---
@@ -174,7 +181,7 @@ Task 通过 `Ok` 或 `Fail` 工厂返回结构化结果。
 | `ABDeliveryBundles` | `List<ManifestBundleEntry>` | TaskScanABHotfixDiff | TaskOrganizeOutput, TaskWriteABPackageManifest |
 | `BuildVerificationResult` | `BuildVerificationResult` | TaskVerifyBuildResult | TaskOrganizeOutput |
 | `OutputPath` | `string` | TaskOrganizeOutput / TaskOrganizeAAOutput | TaskWrite*Manifest, TaskExportLocalBuildData |
-| `ArtifactDelta` | `ArtifactDelta` | TaskScan*HotfixDiff | TaskMoveAddressableHotfixGroups, BuildProjectRunner |
+| `ArtifactDelta` | `ArtifactDelta` | TaskScan*HotfixDiff | TaskMoveAAHotfixGroups, BuildProjectRunner |
 | `RepositoryArtifacts` | `List<ArtifactDigest>` | TaskScan*HotfixDiff | AB/AA Backend (for commit) |
 | `AAManifest` | `AAManifest` | TaskWriteAAPackageManifest | (context) |
 | `RepositoryPreviewOutput` | `string` | RepositoryPreviewRunner | TaskPrepareContext (预览模式) |
@@ -192,8 +199,8 @@ Task 通过 `Ok` 或 `Fail` 工厂返回结构化结果。
 | 准备与采集 | 初始化上下文，采集普通资产、Shader 和 Resources | 扫描 Addressables 源资产差异 |
 | 依赖与分组 | BFS 分析依赖并抽取共享 Bundle | Hotfix 时临时移动变更资产到 Hotfix Group |
 | 构建 | 按 PayloadKind 构建 Bundle/Scene/RawFile | 调用 Addressables BuildPlayerContent |
-| 校验与差异 | 生成并校验 ABManifest；计算 HEAD Diff 与 Full-baseline Delivery | 整理输出并生成 AAManifest |
+| 校验与差异 | 生成并校验 ABManifest；计算基线 Diff 与 Full-baseline Delivery | 整理输出并生成 AAManifest |
 | 发布 | 整理 Full/Hotfix 交付文件，写 manifest 与 PackageIndex | 写 manifest 与 PackageIndex |
-| 本地基线 | Full 导出 BuildIndex、manifest 和 bundles；Hotfix 跳过 | Full 导出 BuildIndex 与查询索引；Hotfix 跳过 |
+| 本地基线 | Full 导出 BuildIndex、manifest 和 bundles；Standalone 直接输出独立离线包；Hotfix 跳过 | Full 导出 BuildIndex 与查询索引；Hotfix 跳过 |
 
 两条管线共享 PackageIndex 写入和 Full 本地基线导出语义，但配置资产、后端实现和 Repository 通道彼此独立。

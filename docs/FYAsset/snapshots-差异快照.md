@@ -10,14 +10,14 @@
 
 ## 文档已合并
 
-Snapshots 差异快照已经并入 [Build Repository 构建仓库](./repository-构建仓库.md) 统一说明。
+差异指纹与 diff 预览已经并入 [构建基线与发布](./repository-构建仓库.md) 统一说明。
 
 请到该文档查看：
 
-- `ArtifactDigest` / `ArtifactDelta` / `ArtifactDiffer` 数据模型
-- AA / AB 的当前差异扫描机制
-- Diff Preview 与 Repository HEAD 的关系
-- Diff、正式打包、Repository Push 之间的边界
-- AB 累积热更包 delivery 优化的 draft 状态
+- `ArtifactDigest` / `ArtifactDelta` 数据模型（仍位于 `Shared/Build/Snapshots/`）
+- Changes 与 AB Hotfix Delivery 两类差异
+- 基线（`BuildData/Baselines/`）与 diff 预览的边界
+- Push、正式打包与基线写入的先后约束
 
+原基于 Commit 链与 `BuildData/Snapshots/` 的差异快照机制已于 2026-07-24 的基线化重构中删除。
 保留本文件是为了兼容已有链接。

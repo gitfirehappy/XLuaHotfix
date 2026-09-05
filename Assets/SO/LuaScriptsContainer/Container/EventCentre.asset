@@ -12,8 +12,5 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d9722f324030fd146b77bba51912b692, type: 3}
   m_Name: EventCentre
   m_EditorClassIdentifier: 
-  groupName: EventCentre
-  addressableLabels:
-  - LuaScriptContainer
   luaAssets:
   - {fileID: 9027929339269108002, guid: 7573012e67161e3438620963fef93e74, type: 3}

@@ -50,27 +50,8 @@ public sealed class CollectAll : IFilterRule
 
     private static bool ContainsEditorDirectory(string assetPath)
     {
-        // 用 IndexOf 逐段匹配，避免 Split 产生临时字符串数组
-        string normalizedPath = assetPath.Replace('\\', '/');
-        int start = 0;
-        int len = normalizedPath.Length;
-
-        while (start < len)
-        {
-            int slash = normalizedPath.IndexOf('/', start);
-            int end = slash < 0 ? len : slash;
-            int segLen = end - start;
-
-            if (segLen == 6 &&
-                string.Compare(normalizedPath, start, "Editor", 0, 6, StringComparison.OrdinalIgnoreCase) == 0)
-            {
-                return true;
-            }
-
-            start = end + 1;
-        }
-
-        return false;
+        string normalizedPath = "/" + assetPath.Replace('\\', '/').Trim('/') + "/";
+        return normalizedPath.IndexOf("/Editor/", StringComparison.OrdinalIgnoreCase) >= 0;
     }
 
     #endregion

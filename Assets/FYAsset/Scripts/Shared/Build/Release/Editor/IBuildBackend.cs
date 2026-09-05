@@ -7,6 +7,9 @@ using System.Threading.Tasks;
 /// </summary>
 public interface IBuildBackend
 {
+    /// <summary>baseline package（本地启动数据）staging / 校验 / 应用契约；由后端模块提供。</summary>
+    IBaselinePackageHandler BaselineHandler { get; }
+
     Task<BuildBackendResult> BuildAsync(BuildPackageRequest request, BuildExecutionOptions options);
 }
 
@@ -16,6 +19,7 @@ public interface IBuildBackend
 public enum BuildType
 {
     Full,
-    Hotfix
+    Hotfix,
+    Standalone
 }
 #endif

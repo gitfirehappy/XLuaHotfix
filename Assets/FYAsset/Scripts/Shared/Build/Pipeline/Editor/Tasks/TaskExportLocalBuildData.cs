@@ -26,7 +26,7 @@ public class TaskExportLocalBuildData : IBuildTask
         var request = ctx.Require<BuildPackageRequest>(BuildContextKeys.BuildPackageRequest);
         var buildType = ctx.Require<BuildType>(BuildContextKeys.BuildType);
 
-        if (buildType != BuildType.Full)
+        if (buildType != BuildType.Full && buildType != BuildType.Standalone)
         {
             return BuildTaskResult.Ok(new List<string>
             {
@@ -47,11 +47,14 @@ public class TaskExportLocalBuildData : IBuildTask
         {
             return BuildTaskResult.Ok(new List<string>
             {
-                "[LOCAL BUILD DATA] Deferred until repository commit"
+                "[LOCAL BUILD DATA] Deferred until publish/baseline record"
             });
         }
 
-        Publish(request);
+        IBaselinePackageHandler handler = null;
+        if (buildType == BuildType.Full)
+            handler = ctx.Require<IBaselinePackageHandler>(BuildContextKeys.BaselinePackageHandler);
+        Publish(request, handler);
 
         return BuildTaskResult.Ok(new List<string>
         {
@@ -64,22 +67,24 @@ public class TaskExportLocalBuildData : IBuildTask
     /// <summary>
     /// 导出启动期所需的本地构建数据。
     /// </summary>
-    public static void Publish(BuildPackageRequest request)
+    public static void Publish(BuildPackageRequest request, IBaselinePackageHandler baselineHandler)
     {
         if (request == null)
             throw new ArgumentNullException(nameof(request));
-        if (request.BuildType != BuildType.Full)
+        if (request.BuildType != BuildType.Full && request.BuildType != BuildType.Standalone)
         {
             Debug.Log("[TaskExportLocalBuildData] Hotfix build 不导出本地启动数据。");
             return;
         }
+        if (request.BuildType == BuildType.Full && baselineHandler == null)
+            throw new ArgumentNullException(nameof(baselineHandler), "Full 构建导出本地启动数据需要后端注入 IBaselinePackageHandler。");
         if (!FileHelper.DirectoryExists(request.OutputDir))
             throw new DirectoryNotFoundException($"本地构建数据导出前最终输出目录不存在: {request.OutputDir}");
 
-        ExportData(request);
+        ExportData(request, baselineHandler);
     }
 
-    private static void ExportData(BuildPackageRequest request)
+    private static void ExportData(BuildPackageRequest request, IBaselinePackageHandler baselineHandler)
     {
         Debug.Log("[TaskExportLocalBuildData] 开始导出本地启动数据到 StreamingAssets...");
 
@@ -97,15 +102,31 @@ public class TaskExportLocalBuildData : IBuildTask
         {
             BuildIndexData buildIndexData = CreateBuildIndexData(request);
             StageBuildIndex(stageRoot, buildIndexData);
-            StageBaselinePackage(request, stageRoot);
-            ValidateStage(request, stageRoot);
+
+            // Standalone 包已由构建 Task 直接写入最终目录，这里只写 BuildIndex。
+            if (request.BuildType == BuildType.Standalone)
+            {
+                BackupFile(BuildIndexStreamingPath, backupRoot, "StreamingAssets/" + BuildIndexFileName, backups);
+                BackupFile(FYAssetSettings.Instance.BuildIndexJsonPath, backupRoot, "ProjectBuildIndex/" + BuildIndexFileName, backups);
+                ApplyFileOrDelete(stageRoot, Application.streamingAssetsPath, BuildIndexFileName);
+                string projectPath = FYAssetSettings.Instance.BuildIndexJsonPath;
+                FileHelper.CopyFile(FYAssetPathUtility.JoinFilePath(stageRoot, BuildIndexFileName), projectPath, true);
+                AssetDatabase.Refresh();
+                Debug.Log($"[TaskExportLocalBuildData] Standalone BuildIndex 已写入: {BuildIndexStreamingPath}");
+                Debug.Log($"[TaskExportLocalBuildData] 信息 - GUID：{buildIndexData.BuildGUID}，Version：{request.Version.GetReleaseVersionString()}，Backend：{buildIndexData.BackendMode}");
+                return;
+            }
+
+            baselineHandler.StageBaselineFiles(request, stageRoot);
+            StagePackageBundles(request, stageRoot);
+            ValidateStage(baselineHandler, stageRoot);
 
             BackupOwnedTargets(backupRoot, backups);
-            ApplyStagedData(request, stageRoot);
+            ApplyStagedData(baselineHandler, stageRoot);
 
             AssetDatabase.Refresh();
             Debug.Log("[TaskExportLocalBuildData] 本地启动数据导出完成。");
-            Debug.Log($"[TaskExportLocalBuildData] Info - GUID: {buildIndexData.BuildGUID}, Ver: {request.Version.GetReleaseVersionString()}, Backend: {buildIndexData.BackendMode}");
+            Debug.Log($"[TaskExportLocalBuildData] 信息 - GUID：{buildIndexData.BuildGUID}，Version：{request.Version.GetReleaseVersionString()}，Backend：{buildIndexData.BackendMode}");
         }
         catch
         {
@@ -139,30 +160,6 @@ public class TaskExportLocalBuildData : IBuildTask
         FileHelper.WriteAllTextAtomic(path, SerializationUtility.SerializeToJson(buildIndexData, true));
     }
 
-    private static void StageBaselinePackage(BuildPackageRequest request, string stageRoot)
-    {
-        if (request.BackendMode == BackendMode.ABManifest)
-        {
-            Debug.Log("[TaskExportLocalBuildData] 正在暂存 AB baseline package...");
-            StagePackageFileIfExists(request.OutputDir, stageRoot, FYAssetSettings.MANIFEST_FILE_NAME);
-            StagePackageFileIfExists(request.OutputDir, stageRoot, FYAssetSettings.MANIFEST_FILE_NAME_BIN);
-            StagePackageBundles(request, stageRoot);
-            return;
-        }
-
-        Debug.Log("[TaskExportLocalBuildData] 正在暂存 AA baseline manifest...");
-        StagePackageFileIfExists(request.OutputDir, stageRoot, FYAssetSettings.AA_MANIFEST_FILE_NAME);
-        StagePackageFileIfExists(request.OutputDir, stageRoot, FYAssetSettings.AA_MANIFEST_FILE_NAME_BIN);
-    }
-
-    private static void StagePackageFileIfExists(string sourceDir, string stageRoot, string fileName)
-    {
-        string sourcePath = FYAssetPathUtility.JoinFilePath(sourceDir, fileName);
-        string targetPath = FYAssetPathUtility.JoinFilePath(stageRoot, fileName);
-        if (FileHelper.Exists(sourcePath))
-            FileHelper.CopyFile(sourcePath, targetPath, true);
-    }
-
     private static void StagePackageBundles(BuildPackageRequest request, string stageRoot)
     {
         if (!FileHelper.DirectoryExists(request.BundlesDir))
@@ -179,30 +176,21 @@ public class TaskExportLocalBuildData : IBuildTask
         }
     }
 
-    private static void ValidateStage(BuildPackageRequest request, string stageRoot)
+    private static void ValidateStage(IBaselinePackageHandler handler, string stageRoot)
     {
         string buildIndexPath = FYAssetPathUtility.JoinFilePath(stageRoot, BuildIndexFileName);
         if (!FileHelper.Exists(buildIndexPath))
             throw new FileNotFoundException($"Staged BuildIndex missing: {buildIndexPath}", buildIndexPath);
 
-        if (request.BackendMode == BackendMode.ABManifest)
-        {
-            string json = FYAssetPathUtility.JoinFilePath(stageRoot, FYAssetSettings.MANIFEST_FILE_NAME);
-            string bin = FYAssetPathUtility.JoinFilePath(stageRoot, FYAssetSettings.MANIFEST_FILE_NAME_BIN);
-            if (!FileHelper.Exists(json) && !FileHelper.Exists(bin))
-                throw new FileNotFoundException($"Staged ABManifest missing: {json} or {bin}", json);
+        IReadOnlyList<BundleDownloadItem> bundles = handler.LoadStagedBaselineBundles(stageRoot);
+        ValidateStagedBundles(stageRoot, bundles);
+    }
 
-            int sourceBundleCount = CountFiles(request.BundlesDir);
-            int stageBundleCount = CountFiles(FYAssetPathUtility.JoinFilePath(stageRoot, FYAssetSettings.BUNDLES_DIRECTORY_NAME));
-            if (sourceBundleCount > 0 && stageBundleCount != sourceBundleCount)
-                throw new IOException($"Staged AB bundles mismatch. Source={sourceBundleCount}, Stage={stageBundleCount}");
-            return;
-        }
-
-        string aaJson = FYAssetPathUtility.JoinFilePath(stageRoot, FYAssetSettings.AA_MANIFEST_FILE_NAME);
-        string aaBin = FYAssetPathUtility.JoinFilePath(stageRoot, FYAssetSettings.AA_MANIFEST_FILE_NAME_BIN);
-        if (!FileHelper.Exists(aaJson) && !FileHelper.Exists(aaBin))
-            throw new FileNotFoundException($"Staged AAManifest missing: {aaJson} or {aaBin}", aaJson);
+    private static void ValidateStagedBundles(string stageRoot, IReadOnlyList<BundleDownloadItem> bundles)
+    {
+        string bundleRoot = FYAssetPathUtility.JoinFilePath(stageRoot, FYAssetSettings.BUNDLES_DIRECTORY_NAME);
+        if (!HotfixPackageValidator.TryValidateBundleFiles(bundleRoot, bundles, out string error))
+            throw new IOException($"Staged bundles are invalid: {error}");
     }
 
     private static void BackupOwnedTargets(string backupRoot, List<BackupEntry> backups)
@@ -217,26 +205,12 @@ public class TaskExportLocalBuildData : IBuildTask
         BackupDirectory(FYAssetPathUtility.JoinFilePath(Application.streamingAssetsPath, FYAssetSettings.BUNDLES_DIRECTORY_NAME), backupRoot, "StreamingAssets/" + FYAssetSettings.BUNDLES_DIRECTORY_NAME, backups);
     }
 
-    private static void ApplyStagedData(BuildPackageRequest request, string stageRoot)
+    private static void ApplyStagedData(IBaselinePackageHandler handler, string stageRoot)
     {
         ApplyFileOrDelete(stageRoot, Application.streamingAssetsPath, BuildIndexFileName);
 
-        if (request.BackendMode == BackendMode.ABManifest)
-        {
-            ApplyFileOrDelete(stageRoot, Application.streamingAssetsPath, FYAssetSettings.MANIFEST_FILE_NAME);
-            ApplyFileOrDelete(stageRoot, Application.streamingAssetsPath, FYAssetSettings.MANIFEST_FILE_NAME_BIN);
-            DeleteStreamingFile(FYAssetSettings.ADDRESSABLES_CATALOG_FILE_NAME);
-            DeleteStreamingFile(FYAssetSettings.AA_MANIFEST_FILE_NAME);
-            DeleteStreamingFile(FYAssetSettings.AA_MANIFEST_FILE_NAME_BIN);
-            ApplyBundles(stageRoot);
-        }
-        else
-        {
-            ApplyFileOrDelete(stageRoot, Application.streamingAssetsPath, FYAssetSettings.AA_MANIFEST_FILE_NAME);
-            ApplyFileOrDelete(stageRoot, Application.streamingAssetsPath, FYAssetSettings.AA_MANIFEST_FILE_NAME_BIN);
-            DeleteStreamingFile(FYAssetSettings.MANIFEST_FILE_NAME);
-            DeleteStreamingFile(FYAssetSettings.MANIFEST_FILE_NAME_BIN);
-        }
+        handler.ApplyStagedBaseline(stageRoot);
+        ApplyBundles(stageRoot);
 
         string projectPath = FYAssetSettings.Instance.BuildIndexJsonPath;
         FileHelper.CopyFile(FYAssetPathUtility.JoinFilePath(stageRoot, BuildIndexFileName), projectPath, true);
@@ -255,11 +229,6 @@ public class TaskExportLocalBuildData : IBuildTask
         }
 
         FileHelper.TryDelete(targetPath);
-    }
-
-    private static void DeleteStreamingFile(string fileName)
-    {
-        FileHelper.TryDelete(FYAssetPathUtility.JoinFilePath(Application.streamingAssetsPath, fileName));
     }
 
     private static void ApplyBundles(string stageRoot)
@@ -321,7 +290,7 @@ public class TaskExportLocalBuildData : IBuildTask
             }
             catch (Exception ex)
             {
-                Debug.LogWarning($"[TaskExportLocalBuildData] Restore failed: {entry.TargetPath}, {ex.Message}");
+                Debug.LogWarning($"[TaskExportLocalBuildData] 恢复失败：{entry.TargetPath}, {ex.Message}");
             }
         }
     }
@@ -338,8 +307,4 @@ public class TaskExportLocalBuildData : IBuildTask
         }
     }
 
-    private static int CountFiles(string dir)
-    {
-        return FileHelper.GetFiles(dir, "*", SearchOption.AllDirectories).Length;
-    }
 }

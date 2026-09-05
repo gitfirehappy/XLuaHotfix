@@ -94,7 +94,7 @@ public static class AssetCollectionSettingValidator
                 string colSrc = string.Concat("Package[", pkgIdx, "].Group[", gi, "].Collector[", ci, "]");
 
                 if (col.CollectorType == ECollectorType.Implicit)
-                    messages.Add(BuildMessage.InvalidCollectorType(col.CollectorType, colSrc));
+                    messages.Add(BuildMessage.InvalidCollectorType(col.CollectorType.ToString(), colSrc));
 
                 if (string.IsNullOrEmpty(col.CollectPath))
                 {

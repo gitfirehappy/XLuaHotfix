@@ -12,10 +12,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d9722f324030fd146b77bba51912b692, type: 3}
   m_Name: Player
   m_EditorClassIdentifier: 
-  groupName: LuaScripts
-  addressableLabels:
-  - LuaScriptContainer
-  - Player
   luaAssets:
   - {fileID: 9027929339269108002, guid: 8c0c927a6c9b8594db8c002031a6af06, type: 3}
   - {fileID: 9027929339269108002, guid: 31c99a058f929624db3d951aa33ddb02, type: 3}

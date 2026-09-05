@@ -1,0 +1,68 @@
+using System.Collections.Generic;
+using System.IO;
+using System.Text;
+
+/// <summary>
+/// AB Manifest 发布 Task — 按 ManifestOutputFormat 写入最终包目录中的 JSON / Binary manifest。
+/// 在 TaskOrganizeOutput 之后执行。
+/// </summary>
+public class TaskWriteABPackageManifest : IBuildTask
+{
+    public string TaskName => "TaskWriteABPackageManifest";
+    public BuildTaskResult Execute(BuildContext ctx)
+    {
+        var request = ctx.Require<BuildPackageRequest>(BuildContextKeys.BuildPackageRequest);
+        var buildType = ctx.Require<BuildType>(BuildContextKeys.BuildType);
+        var manifest = ctx.Require<ABManifest>(ABBuildContextKeys.ABManifest);
+        var deliveryBundles = buildType == BuildType.Hotfix
+            ? ctx.Require<List<ManifestBundleEntry>>(ABBuildContextKeys.ABDeliveryBundles)
+            : manifest.BundleEntries;
+        string outputPath = ctx.Require<string>(BuildContextKeys.OutputPath);
+        if (!string.Equals(outputPath, request.OutputDir, System.StringComparison.Ordinal))
+            return BuildTaskResult.Fail(BuildErrorCodes.BuildFailed,
+                $"AB Manifest 输出目录必须来自 BuildPackageRequest。Expected: {request.OutputDir}, Actual: {outputPath}", true);
+
+        long totalSize = 0;
+        for (int i = 0; i < deliveryBundles.Count; i++)
+            totalSize += deliveryBundles[i].FileSize;
+
+        if (!HotfixPackageSizeGuard.ValidateOrAbort(totalSize, FYAssetABSettings.Instance.MaxHotfixSizeBytes, nameof(TaskWriteABPackageManifest)))
+            return BuildTaskResult.Fail(BuildErrorCodes.VerificationFailed,
+                "AB 热更包大小超过阈值，Manifest 发布已中止。", true);
+
+        ManifestOutputFormat outputFormat = FYAssetABSettings.Instance.ManifestOutputFormat;
+        string manifestPath = FYAssetPathUtility.JoinFilePath(request.OutputDir, FYAssetSettings.MANIFEST_FILE_NAME);
+        string manifestBinPath = FYAssetPathUtility.JoinFilePath(request.OutputDir, FYAssetSettings.MANIFEST_FILE_NAME_BIN);
+        string tempManifestPath = manifestPath + ".tmp";
+
+        FileHelper.EnsureDirectory(request.OutputDir);
+        manifest.FileHash = string.Empty;
+        FileHelper.TryDelete(tempManifestPath);
+        SerializationUtility.WriteToFile(tempManifestPath, manifest);
+        manifest.FileHash = HashGenerator.GenerateFileHash(tempManifestPath);
+        FileHelper.TryDelete(tempManifestPath);
+
+        if (outputFormat != ManifestOutputFormat.BinaryOnly)
+        {
+            FileHelper.WriteAllTextAtomic(manifestPath, manifest.SerializeToJson(), Encoding.UTF8);
+        }
+        else
+        {
+            FileHelper.TryDelete(manifestPath);
+        }
+
+        if (outputFormat != ManifestOutputFormat.JsonOnly)
+        {
+            SerializationUtility.WriteToFile(manifestBinPath, manifest, "binary", false);
+        }
+        else
+        {
+            FileHelper.TryDelete(manifestBinPath);
+        }
+
+        return BuildTaskResult.Ok(new List<string>
+        {
+            $"[AB MANIFEST] JSON: {outputFormat != ManifestOutputFormat.BinaryOnly}, Binary: {outputFormat != ManifestOutputFormat.JsonOnly}, Hash: {manifest.FileHash}"
+        });
+    }
+}

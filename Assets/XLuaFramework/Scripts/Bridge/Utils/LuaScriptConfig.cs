@@ -17,11 +17,6 @@ public class LuaScriptConfig
     /// </summary>
     public string GetScriptLoadName()
     {
-        // 优先使用 luaScriptName，其次使用 TextAsset 的名称
-        if (!string.IsNullOrEmpty(luaScriptName))
-        {
-            return luaScriptName;
-        }
-        return null;
+        return luaScriptName;
     }
 }

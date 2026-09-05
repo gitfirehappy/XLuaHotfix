@@ -42,7 +42,9 @@ public sealed class BuildPackageRequest
     {
         var createdAt = DateTime.UtcNow;
         string packageName = CreatePackageName(version, createdAt);
-        string outputDir = BuildPathManager.GetPackageDir(packageName);
+        string outputDir = buildType == BuildType.Standalone
+            ? BuildPathManager.StandalonePackageDir
+            : BuildPathManager.GetPackageDir(packageName);
         return new BuildPackageRequest(
             version,
             buildType,

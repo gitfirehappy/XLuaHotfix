@@ -6,7 +6,7 @@ using UnityEngine;
 using UnityEngine.UIElements;
 
 /// <summary>
-/// AssetsCollection workflow panel. Project Scan is read-only; Curate owns candidate editing and final save.
+/// AssetsCollection 工作流面板。Project Scan 只读；Curate 负责候选项编辑和最终保存。
 /// </summary>
 public class AssetsCollectionPanel : IBuildPipelinePanel
 {
@@ -76,6 +76,7 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
     private float _splitterDragStartWidth;
 
     public string PanelName => "AssetsCollection";
+    public bool HasUnsavedChanges => _stage == WorkflowStage.Curate && _curateHasUnsavedChanges;
 
     public void OnEnable(EditorWindow window)
     {
@@ -1034,7 +1035,7 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         _setting.AssetEntries = CloneAssetEntries(_curateSetting.AssetEntries);
         EditorUtility.SetDirty(_setting);
         AssetDatabase.SaveAssets();
-        AssetDatabase.ForceReserializeAssets(new List<string> { FYAssetBuildSettingsProvider.AB.AssetCollectionSettingPath });
+        AssetDatabase.ForceReserializeAssets(new List<string> { FYAssetABSettings.Instance.AssetCollectionSettingPath });
         AssetDatabase.Refresh();
         CollectorReverseIndex.Instance.MarkDirty();
         _curateHasUnsavedChanges = false;
@@ -2570,29 +2571,6 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         return setting?.Packages != null && setting.Packages.Count > 0;
     }
 
-    private static bool HasErrors(ScanResult result)
-    {
-        if (result?.Messages != null)
-        {
-            for (int i = 0; i < result.Messages.Count; i++)
-            {
-                if (result.Messages[i].Severity == BuildSeverity.Error)
-                    return true;
-            }
-        }
-
-        if (result?.Assets != null)
-        {
-            for (int i = 0; i < result.Assets.Count; i++)
-            {
-                if (result.Assets[i].HasError)
-                    return true;
-            }
-        }
-
-        return false;
-    }
-
     private static int CountMessages(ScanResult result, BuildSeverity severity)
     {
         int count = 0;
@@ -3017,15 +2995,15 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
     {
         VisualElement panel = BuildPipelineUIToolkitPanel.CreateCenteredPanel(_root, 420f);
         panel.Add(BuildPipelineUIToolkitPanel.CreateTitle("未找到 AssetCollectionSetting"));
-        panel.Add(BuildPipelineUIToolkitPanel.CreateBody(FYAssetBuildSettingsProvider.AB.AssetCollectionSettingPath));
+        panel.Add(BuildPipelineUIToolkitPanel.CreateBody(FYAssetABSettings.Instance.AssetCollectionSettingPath));
         panel.Add(new Button(CreateAssetCollectionSetting) { text = "Create" });
     }
 
     private void CreateAssetCollectionSetting()
     {
-        BuildPipelineUI.EnsureAssetParentFolder(FYAssetBuildSettingsProvider.AB.AssetCollectionSettingPath);
+        BuildPipelineUI.EnsureAssetParentFolder(FYAssetABSettings.Instance.AssetCollectionSettingPath);
         AssetCollectionSetting newSetting = ScriptableObject.CreateInstance<AssetCollectionSetting>();
-        AssetDatabase.CreateAsset(newSetting, FYAssetBuildSettingsProvider.AB.AssetCollectionSettingPath);
+        AssetDatabase.CreateAsset(newSetting, FYAssetABSettings.Instance.AssetCollectionSettingPath);
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
         CollectorReverseIndex.Instance.MarkDirty();

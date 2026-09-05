@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// AB backend runtime and build settings.
+/// AB backend 的 runtime 与构建设置。
 /// </summary>
 public sealed class FYAssetABSettings : ScriptableObject
 {

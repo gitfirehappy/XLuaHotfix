@@ -3,11 +3,11 @@ using UnityEngine;
 using UnityEngine.UIElements;
 
 /// <summary>
-/// AA-only build pipeline window.
+/// AA 专用构建管线窗口。
 /// </summary>
 public sealed class AABuildPipelineWindow : BuildPipelineWindowBase
 {
-    [MenuItem("Tools/Build/AA Build Pipeline")]
+    [MenuItem("FYAsset/Build/AA Build Pipeline")]
     public static void Open()
     {
         AABuildPipelineWindow window = GetWindow<AABuildPipelineWindow>();
@@ -22,15 +22,40 @@ public sealed class AABuildPipelineWindow : BuildPipelineWindowBase
         {
             new SettingsPanel(),
             new AAConfigPanel(),
+            new AAProjectSelectionLabelPanel(),
             new AABuildPanel(),
             new AAReportPanel(),
-            new RepositoryStatusPanel(BackendMode.AA, "AA Repository", new AAHotfixGroupMaintenancePanel())
+            new RepositoryStatusPanel(BackendMode.AA, "AA Repository", new AAHotfixGroupMaintenancePanel(), new AARepositorySettingsSink(), new AARepositoryPreviewProvider(), new AARepositoryArtifactPresenter(), new AARespositoryDataCleaner())
         };
     }
 }
 
+/// <summary>AA 侧启动数据清理：供共享 Repository 面板注入。</summary>
+public sealed class AARespositoryDataCleaner : IRepositoryDataCleaner
+{
+    public void ClearStartupData()
+    {
+        FileHelper.TryDelete(FYAssetPathUtility.JoinFilePath(UnityEngine.Application.streamingAssetsPath, FYAssetSettings.ADDRESSABLES_CATALOG_FILE_NAME));
+        FileHelper.TryDelete(FYAssetPathUtility.JoinFilePath(UnityEngine.Application.streamingAssetsPath, FYAssetSettings.AA_MANIFEST_FILE_NAME));
+        FileHelper.TryDelete(FYAssetPathUtility.JoinFilePath(UnityEngine.Application.streamingAssetsPath, FYAssetSettings.AA_MANIFEST_FILE_NAME_BIN));
+    }
+}
+
+/// <summary>AA 侧 settings 落盘实现：供共享 Repository 面板注入。</summary>
+public sealed class AARepositorySettingsSink : IRepositorySettingsSink
+{
+    public void ApplyHotfixUrl(string url)
+    {
+        FYAssetAASettings settings = FYAssetAASettings.Instance;
+        Undo.RecordObject(settings, "Apply Hotfix URL");
+        settings.HotfixUrl = url;
+        EditorUtility.SetDirty(settings);
+        AssetDatabase.SaveAssets();
+    }
+}
+
 /// <summary>
-/// AA-specific Hotfix group recovery controls hosted by the shared Repository UI.
+    /// 由共享 Repository UI 承载的 AA 专用 Hotfix Group 恢复控件。
 /// </summary>
 public sealed class AAHotfixGroupMaintenancePanel : IRepositoryMaintenancePanel
 {

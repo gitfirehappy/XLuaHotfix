@@ -20,7 +20,7 @@ public class TaskWritePackageIndex : IBuildTask
         {
             return BuildTaskResult.Ok(new List<string>
             {
-                "[PACKAGE INDEX] Deferred until repository commit"
+                "[PACKAGE INDEX] 写入时机由 BuildProjectRunner 在发布阶段编排"
             });
         }
 

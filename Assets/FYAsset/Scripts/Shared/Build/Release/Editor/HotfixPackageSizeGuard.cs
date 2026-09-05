@@ -8,9 +8,9 @@ using UnityEngine;
 /// </summary>
 public static class HotfixPackageSizeGuard
 {
-    public static bool ValidateOrAbort(long totalSizeBytes, BackendMode backendMode, string source)
+    /// <param name="maxSizeBytes">阈值由调用方各自后端 settings 提供；<=0 表示不限制。</param>
+    public static bool ValidateOrAbort(long totalSizeBytes, long maxSizeBytes, string source)
     {
-        long maxSizeBytes = FYAssetBuildSettingsProvider.GetMaxHotfixSizeBytes(backendMode);
         if (maxSizeBytes <= 0 || totalSizeBytes < maxSizeBytes)
             return true;
 

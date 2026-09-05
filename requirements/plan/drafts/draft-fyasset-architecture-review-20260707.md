@@ -8,16 +8,16 @@
 
 对当前 FYAsset 整体架构进行系统性审查，识别优化空间。本 Draft 记录讨论阶段的初步观察，具体 Plan 需逐项确认后单独立项。
 
-## Promotion Update 2026-07-09
+## Promotion And Archive Update
 
-The reduction/simplification items approved from this draft were extracted into active executable plans:
+The reduction/simplification items approved from this draft were extracted, executed, and archived:
 
-| Item | Active Plan | Promotion Status |
+| Item | Archived Plan | Status |
 |------|-------------|------------------|
-| A10 | `../plan-hotfix-progress-steps-20260709.md` | Extracted / Implemented / Verified |
-| A2 | `../plan-linear-build-pipeline-runner-20260709.md` + `../plan-pipeline-sequence-list-editor-20260709.md` | Extracted / Implemented / Verified |
-| A4 | `../plan-repository-slim-20260709.md` | Extracted / Implemented / Verified |
-| A1 + A3 + A5 + A9 | `../plan-aa-ab-shared-split-20260709.md` | Merged / Extracted / Implemented / Verified |
+| A10 | `../archive/plan-hotfix-progress-steps-20260709.md` | Executed / Verified / Archived |
+| A2 | `../archive/plan-linear-build-pipeline-runner-20260709.md` + `../archive/plan-pipeline-sequence-list-editor-20260709.md` | Executed / Verified / Archived |
+| A4 | `../archive/plan-repository-slim-20260709.md` | Executed / Verified / Archived |
+| A1 + A3 + A5 + A9 | `../archive/plan-aa-ab-shared-split-20260709.md` | Executed / Verified / Archived |
 
 A9 is intentionally merged into the AA/AB/Shared split. Its retained decision is: keep three independent settings assets
 and deduplicate `LoadOrCreate` through Shared. It is not a standalone settings merge/refactor plan.
@@ -44,7 +44,7 @@ FYAsset 分层结构
 │
 └── Shared
     ├── Runtime (contracts, resolver, PackageIndex, PackageManagerBase, RuntimeMessage, RuntimePathManager)
-    ├── Hotfix (IHotfixPipeline, flow base, DTOs, PackageCleaner)
+    ├── Hotfix (IHotfixPipeline, flow base, package validation, and DTOs)
     ├── Build (linear pipeline runner, common tasks, repository, snapshots, versioning, CLI/shared DTOs)
     ├── Compatibility (old AssetPackageManager/HotfixManager/BuildProjectManager facades)
     ├── Helpers
@@ -315,18 +315,17 @@ Repository 系统同时承担：
 | # | Area | 核心问题 | Action | Priority | Est. Effort |
 |---|------|---------|--------|----------|-------------|
 | A0 | RepositoryPreviewRunner | Preview = 完整构建，性能极差 | 缓存 build-hashes.json，Preview 读缓存替代重建。**已确认问题，暂缓决策** | **P1（已确认，暂缓）** | 2-3 人日 |
-| A1 | 双后端策略 | 维护成本翻倍，无切换场景 | **已抽取**：见 `../plan-aa-ab-shared-split-20260709.md`，AB/AA 拆分为独立框架，AA 不废弃 | **P1（已抽取）** | N/A |
-| A2 | DAGScheduler / GraphView | Kahn算法和 GraphView 服务线性链 | **已抽取**：见 `../plan-linear-build-pipeline-runner-20260709.md` 和 `../plan-pipeline-sequence-list-editor-20260709.md`，退化为线性 BuildPipelineRunner，并移除 PipelinePanel GraphView/SO 级依赖 | P2 | 0.5 人日 + follow-up |
-| A3 | AssetPackageManager | Singleton 包装多余 | **已抽取**：随 `../plan-aa-ab-shared-split-20260709.md` 拆分为 ABPackageManager 和 AAPackageManager | P2 | 1 人日 |
-| A4 | Repository Mini-VCS | 健康检查/修复/推送历史超出需求 | **已抽取**：见 `../plan-repository-slim-20260709.md`，保留 Health/Push，删除 Repair/Quarantine/PushHistory | P2 | 1.5 人日 |
-| A5 | BuildProjectManager | 职责过重（5项职责） | **已抽取**：随 `../plan-aa-ab-shared-split-20260709.md` 保留串联总线定位并消除主线 UseABBackend 路由 | P2（随A1） | 0.5 人日 |
+| A1 | 双后端策略 | 维护成本翻倍，无切换场景 | **已执行归档**：见 `../archive/plan-aa-ab-shared-split-20260709.md`，AB/AA 拆分为独立框架，AA 不废弃 | **P1（已完成）** | N/A |
+| A2 | DAGScheduler / GraphView | Kahn算法和 GraphView 服务线性链 | **已执行归档**：见 `../archive/plan-linear-build-pipeline-runner-20260709.md` 和 `../archive/plan-pipeline-sequence-list-editor-20260709.md` | P2 | 0.5 人日 + follow-up |
+| A3 | AssetPackageManager | Singleton 包装多余 | **已执行归档**：随 `../archive/plan-aa-ab-shared-split-20260709.md` 拆分为 ABPackageManager 和 AAPackageManager | P2 | 1 人日 |
+| A4 | Repository Mini-VCS | 健康检查/修复/推送历史超出需求 | **已执行归档**：见 `../archive/plan-repository-slim-20260709.md` | P2 | 1.5 人日 |
+| A5 | BuildProjectManager | 职责过重（5项职责） | **已执行归档**：随 `../archive/plan-aa-ab-shared-split-20260709.md` 保留串联总线定位并消除主线 UseABBackend 路由 | P2（随A1） | 0.5 人日 |
 | A6 | HandleRegistry 世代号 | C# 不需要世代号，AA 双重引用计数 | **已确认**：去掉世代号简化引用计数；AA 路径直接返回 AA OperationHandle | P3 | 1 人日 |
 | A7 | TaskAnalyzeDependencies | ~~被引用但不在代码库~~ **已确认**：在 `Collector/Editor/DependencyAnalysis/`，非失效引用 | 关闭 | ~~P1（验证）~~ **N/A** | 0 |
 | A8 | 增量构建 | 每次 Full Build 重处理全部资源 | **已记录**：专项调研后决策 | P3（待调研） | TBD |
-| A9 | Settings 分散 | 3个 Singleton SO，LoadOrCreate 重复，调用方条件判断 | **已抽取并并入 A1**：3个 SO 文件保持独立，随 `../plan-aa-ab-shared-split-20260709.md` 提取 LoadOrCreate 共用基类/工具 | P2 | 0.5 人日 |
-| A10 | HotfixManager TotalSteps | 硬编码常量，扩展时易出错 | **已抽取**：见 `../plan-hotfix-progress-steps-20260709.md`，改为动态步骤列表自报告进度 | P3 | 0.5 人日 |
+| A9 | Settings 分散 | 3个 Singleton SO，LoadOrCreate 重复，调用方条件判断 | **已执行归档**：随 `../archive/plan-aa-ab-shared-split-20260709.md` 提取 LoadOrCreate 共用基类/工具 | P2 | 0.5 人日 |
+| A10 | HotfixManager TotalSteps | 硬编码常量，扩展时易出错 | **已执行归档**：见 `../archive/plan-hotfix-progress-steps-20260709.md` | P3 | 0.5 人日 |
 | A11 | Collector 层 | 25文件，复杂度合理 | 无需改造，仅记录 | ✅ 无 | — |
-| A8 | 增量构建 | 每次 Full Build 重处理全部资源 | 专项调研后决策 | P3 | TBD |
 | A12 | BuildRepositoryCLI `diff` | CLI diff 同样触发完整 AB 构建 | 随 A0 缓存方案一并修复 | P1（随A0） | 含在A0内 |
 
 ## 深度审查完成总结（基于逐文件代码审查）
@@ -350,26 +349,26 @@ Repository 系统同时承担：
 | 编号 | 决策 | 执行状态 |
 |------|------|---------|
 | A0 | Preview 缓存方案（完整构建 + Broken PPtr） | 确认问题，**暂缓立项** |
-| A1 | AB/AA 彻底拆分独立框架，不共用接口，AA 不废弃 | **已抽取到 `../plan-aa-ab-shared-split-20260709.md`** |
-| A2 | DAGScheduler → 线性 BuildPipelineRunner（保留 stop/whitelist）；GraphView → Task 顺序列表 | **Runner 已抽取到 `../plan-linear-build-pipeline-runner-20260709.md`；Editor follow-up 已抽取到 `../plan-pipeline-sequence-list-editor-20260709.md`** |
-| A3 | AssetPackageManager → ABPackageManager + AAPackageManager 独立 | **已并入 `../plan-aa-ab-shared-split-20260709.md`** |
-| A4 | 保留 Health；删除 Repair/Quarantine；Push 简化为单次状态（无历史） | **已抽取到 `../plan-repository-slim-20260709.md`** |
-| A5 | BuildProjectManager 保留串联总线定位，随 A1 消除路由判断 | **已并入 `../plan-aa-ab-shared-split-20260709.md`** |
+| A1 | AB/AA 彻底拆分独立框架，不共用接口，AA 不废弃 | **已执行并归档到 `../archive/plan-aa-ab-shared-split-20260709.md`** |
+| A2 | DAGScheduler → 线性 BuildPipelineRunner（保留 stop/whitelist）；GraphView → Task 顺序列表 | **已执行并归档到 `../archive/plan-linear-build-pipeline-runner-20260709.md` 与 `../archive/plan-pipeline-sequence-list-editor-20260709.md`** |
+| A3 | AssetPackageManager → ABPackageManager + AAPackageManager 独立 | **已随 `../archive/plan-aa-ab-shared-split-20260709.md` 完成** |
+| A4 | 保留 Health；删除 Repair/Quarantine；Push 简化为单次状态（无历史） | **已执行并归档到 `../archive/plan-repository-slim-20260709.md`** |
+| A5 | BuildProjectManager 保留串联总线定位，随 A1 消除路由判断 | **已随 `../archive/plan-aa-ab-shared-split-20260709.md` 完成** |
 | A6 | HandleRegistry 去掉世代号，AA 路径直接返回 AA Handle | **已确认，待立项** |
 | A7 | TaskAnalyzeDependencies 在 `Collector/Editor/DependencyAnalysis/` | **关闭** |
 | A8 | 增量构建 | **记录问题，待调研** |
-| A9 | Settings 文件保持独立，提取 LoadOrCreate 共用基类消除重复 | **已并入 `../plan-aa-ab-shared-split-20260709.md`** |
-| A10 | HotfixManager 改为动态步骤自报告进度 | **已抽取到 `../plan-hotfix-progress-steps-20260709.md`** |
+| A9 | Settings 文件保持独立，提取 LoadOrCreate 共用基类消除重复 | **已随 `../archive/plan-aa-ab-shared-split-20260709.md` 完成** |
+| A10 | HotfixManager 改为动态步骤自报告进度 | **已执行并归档到 `../archive/plan-hotfix-progress-steps-20260709.md`** |
 | A11 | Collector 层 25文件复杂度合理 | **关闭** |
 | A12 | CLI diff 随 A0 缓存方案一并修复 | **随 A0 执行** |
 
 ## Next Steps（已更新）
 
-**已抽取并执行验证，待开发者签收：**
-1. A10：`../plan-hotfix-progress-steps-20260709.md`
-2. A2：`../plan-linear-build-pipeline-runner-20260709.md` + `../plan-pipeline-sequence-list-editor-20260709.md`
-3. A4：`../plan-repository-slim-20260709.md`
-4. A1/A3/A5+A9：`../plan-aa-ab-shared-split-20260709.md`
+**已执行、验证并归档：**
+1. A10：`../archive/plan-hotfix-progress-steps-20260709.md`
+2. A2：`../archive/plan-linear-build-pipeline-runner-20260709.md` + `../archive/plan-pipeline-sequence-list-editor-20260709.md`
+3. A4：`../archive/plan-repository-slim-20260709.md`
+4. A1/A3/A5+A9：`../archive/plan-aa-ab-shared-split-20260709.md`
 
 **暂缓（待时机）：**
 5. A0 Preview 缓存方案
@@ -383,4 +382,4 @@ Repository 系统同时承担：
 3. ~~AB/AA 长期策略？~~ **已确认：彻底拆分，AA 不废弃**
 4. ~~Repository Health/Repair/PushHistory 取舍？~~ **已确认：保留 Health，删除 Repair，简化 Push**
 5. **A0 Preview 缓存方案何时立项？**（暂缓，需时机确认）
-6. **Repository Repair/PushHistory 是否有 CI/CD 主动使用？**（精简前需确认）
+6. ~~Repository Repair/PushHistory 是否有 CI/CD 主动使用？~~ **已确认删除，当前无持久化 PushHistory。**

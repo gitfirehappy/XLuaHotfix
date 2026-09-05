@@ -8,7 +8,7 @@
 > `Assets/FYAsset/Scripts/Shared/Build/Repository/Editor/RepositoryStatusPanel.cs`
 > `Assets/FYAsset/Scripts/Shared/Helpers/Editor/SOAddressableTagger.cs`
 > `Assets/FYAsset/Scripts/AB/Build/Editor/ABPipeline/AssetsCollectionPanel.cs`
-> `Assets/FYAsset/Scripts/AB/Build/Editor/ABPipeline/PipelinePanel.cs`
+> `Assets/FYAsset/Scripts/Shared/Build/Editor/UI/PipelinePanel.cs`
 > `Assets/XLuaFramework/Scripts/Editor/LuaFileCreatorWithName.cs`
 > `Assets/XLuaFramework/Scripts/Editor/LuaDirectoryScanner.cs`
 
@@ -33,7 +33,7 @@
 | `FYAssetSettings` | `SettingsPanel` 中的创建按钮 / 自动补齐 | 默认路径为 `Assets/Resources/FYAssetSettings.asset`，保存全局项目、构建输出、版本路径和 PushTargets |
 | `FYAssetAASettings` | `AAConfigPanel` 自动创建/编辑 | 默认路径为 `Assets/Resources/FYAssetAASettings.asset`，保存 AA 热更与构建参数 |
 | `FYAssetABSettings` | `ABConfigPanel` 自动创建/编辑 | 默认路径为 `Assets/Resources/FYAssetABSettings.asset`，保存 AB 热更、构建参数与 AssetCollection 配置 |
-| `VersionDataBase` | 使用项目已提交资产 | 路径由 `FYAssetSettings.VersionDataBasePath` 决定；当前没有独立创建 UI，Repository 只提供测试重置 |
+| `VersionRecord` | 使用项目已提交资产 | 路径由 `FYAssetSettings.VersionRecordPath` 决定；当前没有独立创建 UI，Repository 只提供测试重置 |
 | `ScriptObjectDataBase` | `SOAddressableTagger` 中的“创建新数据库” | 用于 SO 标签管理，不建议从菜单重复创建 |
 | `ScriptObjectContainer` | `LuaFileCreatorWindow` / `LuaDirectoryScanner` / `LuaAddressableTagger` 的创建流程 | 由工具根据数据库和目录自动创建 |
 | `AssetCollectionSetting` | `AssetsCollectionPanel` 中的创建按钮 | 资产收集配置资产，走 AB Pipeline 的 AssetsCollection 面板入口 |
@@ -72,7 +72,7 @@
 - `FYAssetSettings`
 - `FYAssetAASettings`
 - `FYAssetABSettings`
-- `VersionDataBase`
+- `VersionRecord`
 - `ScriptObjectDataBase`
 - `ScriptObjectContainer`
 

@@ -388,8 +388,6 @@ MonoBehaviour:
   luaModuleName: HelloWorld
   editorRoots:
   - AboutXLua/Test/LuaScripts
-  aaLabels:
-  - LuaScripts
   enableLog: 1
 --- !u!4 &1688480533
 Transform:

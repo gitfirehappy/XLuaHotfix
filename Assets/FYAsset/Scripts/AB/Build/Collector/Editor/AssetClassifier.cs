@@ -30,8 +30,8 @@ public static class AssetClassifier
     }
 
     /// <summary>
-    /// Unity imports shader include files as editor-only ShaderInclude objects.
-    /// They must never be passed to AssetBundleBuild.assetNames.
+    /// Unity 将 shader include 文件导入为 Editor-only ShaderInclude 对象。
+    /// 这些对象绝不能传给 AssetBundleBuild.assetNames。
     /// </summary>
     public static bool IsUnsupportedAssetBundleEntry(string assetPath, out string reason)
     {

@@ -216,7 +216,7 @@ public static class DependencyAnalyzer
         catch (Exception ex)
         {
             deps = Array.Empty<string>();
-            Debug.LogWarning($"[DependencyAnalyzer] GetDependencies failed for '{assetPath}': {ex.Message}");
+                Debug.LogWarning($"[DependencyAnalyzer] 对 '{assetPath}' 执行 GetDependencies 失败：{ex.Message}");
             return false;
         }
     }

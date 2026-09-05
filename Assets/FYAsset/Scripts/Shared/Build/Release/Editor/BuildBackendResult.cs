@@ -13,6 +13,7 @@ public class BuildBackendResult
     public BuildResult PipelineResult { get; }
     public BuildPackageRequest Request { get; }
     public string ReportPath { get; }
+    public ArtifactDelta Delta { get; }
 
     private BuildBackendResult(
         bool success,
@@ -20,7 +21,8 @@ public class BuildBackendResult
         List<ArtifactDigest> artifacts,
         BuildResult pipelineResult,
         BuildPackageRequest request,
-        string reportPath)
+        string reportPath,
+        ArtifactDelta delta)
     {
         Success = success;
         Error = error;
@@ -28,10 +30,11 @@ public class BuildBackendResult
         PipelineResult = pipelineResult;
         Request = request;
         ReportPath = reportPath ?? string.Empty;
+        Delta = delta;
     }
 
     public static BuildBackendResult Ok()
-        => new BuildBackendResult(true, null, new List<ArtifactDigest>(), null, null, string.Empty);
+        => new BuildBackendResult(true, null, new List<ArtifactDigest>(), null, null, string.Empty, null);
 
     public static BuildBackendResult Ok(IReadOnlyList<ArtifactDigest> artifacts)
         => Ok(artifacts, null, null, string.Empty);
@@ -40,14 +43,16 @@ public class BuildBackendResult
         IReadOnlyList<ArtifactDigest> artifacts,
         BuildResult pipelineResult,
         BuildPackageRequest request,
-        string reportPath)
+        string reportPath,
+        ArtifactDelta delta = null)
         => new BuildBackendResult(
             true,
             null,
             artifacts != null ? new List<ArtifactDigest>(artifacts) : new List<ArtifactDigest>(),
             pipelineResult,
             request,
-            reportPath);
+            reportPath,
+            delta);
 
     public static BuildBackendResult Fail(BuildMessage error)
         => Fail(error, null, null, string.Empty);
@@ -57,6 +62,6 @@ public class BuildBackendResult
         BuildResult pipelineResult,
         BuildPackageRequest request,
         string reportPath)
-        => new BuildBackendResult(false, error, new List<ArtifactDigest>(), pipelineResult, request, reportPath);
+        => new BuildBackendResult(false, error, new List<ArtifactDigest>(), pipelineResult, request, reportPath, null);
 }
 #endif

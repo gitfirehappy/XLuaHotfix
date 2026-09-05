@@ -34,7 +34,7 @@ public sealed class BinarySerializerPrebuildCheck : IPreprocessBuildWithReport
             {
                 sb.Append("- ").AppendLine(stale[i].FullName);
             }
-            sb.AppendLine("可执行菜单：Tools/Serialization/Generate Binary Serializers");
+            sb.AppendLine("可执行菜单：FYAsset/Tools/Serialization/Generate Binary Serializers");
         }
 
         throw new BuildFailedException(sb.ToString());

@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -6,7 +7,7 @@ using XLua;
 
 public class GameUIManager : SingletonMono<GameUIManager>
 {
-    [Tooltip("UI配置资源的Addressable Key")] public string uiConfigKey = "UIResourceConfig";
+    [Tooltip("UI配置资源的 Package Address")] public string uiConfigKey = "UIResourceConfig";
 
     private UIResourceConfigSO _uiResourceConfig;
 
@@ -60,21 +61,16 @@ public class GameUIManager : SingletonMono<GameUIManager>
     public async Task Initialize()
     {
         if (string.IsNullOrEmpty(uiConfigKey))
-        {
-            Debug.LogError("[GameUIManager] uiConfigKey 为空，无法加载UI配置。");
-            return;
-        }
+            throw new InvalidOperationException("[GameUIManager] uiConfigKey 为空，无法加载UI配置。");
 
-        _uiResourceConfig = await AssetPackageManager.Instance.LoadAssetAsync<UIResourceConfigSO>(uiConfigKey);
+        var (config, error) =
+            await AssetPackageManager.Instance.LoadAssetAsync<UIResourceConfigSO>(uiConfigKey);
+        if (error != null || config == null)
+            throw new InvalidOperationException(
+                error?.ToString() ?? $"[GameUIManager] 加载 UIResourceConfigSO 失败: {uiConfigKey}");
 
-        if (_uiResourceConfig != null)
-        {
-            UIManager.Instance.Initialize(_uiResourceConfig);
-        }
-        else
-        {
-            Debug.LogError($"[GameUIManager] 加载 UIResourceConfigSO 失败: {uiConfigKey}");
-        }
+        _uiResourceConfig = config;
+        UIManager.Instance.Initialize(_uiResourceConfig);
     }
     
     private void Update()

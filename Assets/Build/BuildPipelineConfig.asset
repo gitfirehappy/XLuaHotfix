@@ -14,11 +14,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   FileNameStyle: 2
   BundleCompression: 0
+  HotfixDiffTaskName: TaskScanABHotfixDiff
   Tasks:
   - TaskName: TaskPrepareContext
   - TaskName: TaskCollectAssets
   - TaskName: TaskCollectBuiltins
   - TaskName: TaskAnalyzeDependencies
+  - TaskName: LuaScriptsIndexBuildTask
   - TaskName: TaskBuildBundles
   - TaskName: TaskGenerateManifest
   - TaskName: TaskVerifyBuildResult

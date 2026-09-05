@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Linq;
 
 /// <summary>
 /// CollectionScanner 的返回类型 —— 包含采集到的资源列表和构建消息。
@@ -17,10 +16,4 @@ public class ScanResult
 
     #endregion
 
-    #region 公共属性
-
-    /// <summary>是否存在 Error 级别的消息</summary>
-    public bool HasErrors => Messages.Any(m => m.Severity == BuildSeverity.Error);
-
-    #endregion
 }

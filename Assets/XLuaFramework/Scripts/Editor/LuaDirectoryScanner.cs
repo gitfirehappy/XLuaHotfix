@@ -110,7 +110,7 @@ public static class LuaDirectoryScanner
         }
 
         var newContainer = ScriptableObject.CreateInstance<LuaScriptContainer>();
-        newContainer.groupName = dirName;
+        newContainer.name = dirName;
         AssetDatabase.CreateAsset(newContainer, assetPath);
         Debug.Log($"LuaDirectoryScanner: 自动创建容器 {assetPath}");
         return newContainer;

@@ -5,7 +5,7 @@ using UnityEngine.UIElements;
 
 /// <summary>
 /// FYAsset 全局设置面板。
-/// 用于编辑构建、版本与新旧管线的路径配置。
+/// 用于编辑构建、版本与AA，AB管线的路径配置。
 /// </summary>
 public class SettingsPanel : IBuildPipelinePanel
 {
@@ -67,7 +67,10 @@ public class SettingsPanel : IBuildPipelinePanel
         _scrollView.style.flexGrow = 1f;
 
         DrawSection(_so, "Project", "ProjectName", "UseABBackend");
-        DrawSection(_so, "Build", "BuildOutputRoot", "BuildPackagesFolderName", "VersionDataBasePath", "BuildIndexJsonPath");
+        DrawSection(_so, "Build", "BuildOutputRoot", "BuildPackagesFolderName", "StandaloneBuild", "VersionRecordPath", "BuildIndexJsonPath");
+
+        DrawAbEditorPlayModeSection();
+        DrawPackageModeSection();
 
         SerializedProperty useAb = _so.FindProperty("UseABBackend");
         if (useAb != null)
@@ -76,10 +79,99 @@ public class SettingsPanel : IBuildPipelinePanel
             {
                 EditorUtility.SetDirty(_settings);
                 AssetDatabase.SaveAssets();
+                Rebuild();
             });
         }
 
         _root.Add(_scrollView);
+    }
+
+    /// <summary>
+    /// AB Editor 加载路径：Editor / Simulate(未实现) / Runtime。
+    /// </summary>
+    private void DrawAbEditorPlayModeSection()
+    {
+        if (_settings == null || _so == null) return;
+
+        VisualElement card = BuildPipelineUI.Card();
+        card.Add(BuildPipelineUI.Header("AB Editor PlayMode"));
+
+        if (!_settings.UseABBackend)
+        {
+            card.Add(new Label("仅在 UseABBackend=true 时生效。当前走 Addressables。"));
+            _scrollView.Add(card);
+            return;
+        }
+
+        SerializedProperty playModeProp = _so.FindProperty("PlayMode");
+        if (playModeProp != null)
+            card.Add(new PropertyField(playModeProp));
+
+        string note = _settings.PlayMode == EPlayMode.Simulate
+            ? "Simulate 本期未实现，运行时按 Runtime 处理。"
+            : _settings.PlayMode == EPlayMode.Editor
+                ? "Editor：Collector 扫描 + AssetDatabase 直读，无需打 AB。"
+                : "Runtime：读 ABManifest + AssetBundle。";
+        var noteLabel = new Label(note);
+        noteLabel.style.marginTop = 4;
+        noteLabel.style.whiteSpace = WhiteSpace.Normal;
+        card.Add(noteLabel);
+        card.Bind(_so);
+        _scrollView.Add(card);
+    }
+
+    /// <summary>
+    /// 离线包 / 在线热更快切（与 AB Editor PlayMode 正交）。
+    /// </summary>
+    private void DrawPackageModeSection()
+    {
+        if (_settings == null) return;
+
+        bool isStandalone = _settings.StandaloneBuild;
+        string modeLabel = isStandalone ? "● Standalone (离线)" : "● Online (热更)";
+
+        VisualElement card = BuildPipelineUI.Card();
+        card.Add(BuildPipelineUI.Header("Package Mode"));
+        var modeLabelEl = new Label(modeLabel);
+        modeLabelEl.style.marginBottom = 4;
+        modeLabelEl.style.unityFontStyleAndWeight = FontStyle.Bold;
+        card.Add(modeLabelEl);
+
+        var row = new VisualElement();
+        row.style.flexDirection = FlexDirection.Row;
+        row.style.marginTop = 4;
+
+        var btnStandalone = new Button(() =>
+        {
+            _settings.StandaloneBuild = true;
+            EditorUtility.SetDirty(_settings);
+            AssetDatabase.SaveAssets();
+            EditorApplication.isPlaying = true;
+        })
+        {
+            text = "▶ Run as Standalone"
+        };
+        btnStandalone.style.flexGrow = 1;
+        btnStandalone.style.marginRight = 4;
+        btnStandalone.SetEnabled(!isStandalone);
+
+        var btnOnline = new Button(() =>
+        {
+            _settings.StandaloneBuild = false;
+            EditorUtility.SetDirty(_settings);
+            AssetDatabase.SaveAssets();
+            EditorApplication.isPlaying = true;
+        })
+        {
+            text = "▶ Run Online"
+        };
+        btnOnline.style.flexGrow = 1;
+        btnOnline.SetEnabled(isStandalone);
+
+        row.Add(btnStandalone);
+        row.Add(btnOnline);
+        card.Add(row);
+        _scrollView.Add(card);
     }
 
     /// <summary>

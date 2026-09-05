@@ -6,7 +6,7 @@ using XLua;
 
 public class AnimBridge : MonoBehaviour,IBridge
 {
-    [Header("动画配置AA Key")]
+    [Header("动画配置 Package Address")]
     public string configKey;
     
     private StateAnimationConfigSO _animationConfig; 
@@ -23,7 +23,11 @@ public class AnimBridge : MonoBehaviour,IBridge
     {
         if (!string.IsNullOrEmpty(configKey))
         {
-            _animationConfig = await AssetPackageManager.Instance.LoadAssetAsync<StateAnimationConfigSO>(configKey);
+            var (config, error) =
+                await LuaAssetRuntime.Loader.LoadAssetAsync<StateAnimationConfigSO>(configKey);
+            _animationConfig = config;
+            if (error != null)
+                Debug.LogWarning($"[AnimBridge] {error}");
         }
         else
         {

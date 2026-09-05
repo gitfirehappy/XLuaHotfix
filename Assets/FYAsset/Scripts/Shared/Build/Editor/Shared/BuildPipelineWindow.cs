@@ -3,7 +3,7 @@ using UnityEngine;
 using UnityEngine.UIElements;
 
 /// <summary>
-/// Shared shell for backend-specific build pipeline windows.
+/// backend 专用构建管线窗口的共享 shell。
 /// </summary>
 public abstract class BuildPipelineWindowBase : EditorWindow
 {

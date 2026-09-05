@@ -4,8 +4,15 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>disable</ImplicitUsings>
     <Nullable>disable</Nullable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="test_hotfix_runtime_state_machine.cs" />
+    <Compile Include="test_hotfix_review_hardening.cs" />
     <Compile Include="../../Assets/FYAsset/Scripts/Shared/Hotfix/HotfixStateDecider.cs" Link="HotfixStateDecider.cs" />
+    <Compile Include="../../Assets/FYAsset/Scripts/Shared/Hotfix/HotfixPackageValidator.cs" Link="HotfixPackageValidator.cs" />
+    <Compile Include="../../Assets/FYAsset/Scripts/Shared/Hotfix/BundleDownloadItem.cs" Link="BundleDownloadItem.cs" />
+    <Compile Include="../../Assets/FYAsset/Scripts/Shared/Build/Versioning/VersionNumber.cs" Link="VersionNumber.cs" />
+    <Compile Include="../../Assets/Tools/Scripts/HashGenerator.cs" Link="HashGenerator.cs" />
   </ItemGroup>
 </Project>

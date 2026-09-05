@@ -4,7 +4,7 @@
 
 > **关联代码**
 >
-> `Assets/FYAsset/Scripts/AB/Runtime/ABPackageManager.cs` · `Assets/FYAsset/Scripts/Shared/Runtime/PackageManagerBase.cs` · `Assets/FYAsset/Scripts/Shared/Compatibility/AssetPackageManager.cs` · `Assets/FYAsset/Scripts/AB/Runtime/Backends/AB/`
+> `Assets/FYAsset/Scripts/AB/Runtime/ABPackageManager.cs` · `Assets/FYAsset/Scripts/Shared/Runtime/PackageManagerBase.cs` · `Assets/FYAsset/Scripts/Compat/AssetPackageManager.cs` · `Assets/FYAsset/Scripts/AB/Runtime/Backends/`
 
 ---
 
@@ -34,12 +34,16 @@ AB 运行时加载系统负责从磁盘加载 AssetBundle 文件、从 Bundle �
 **路径策略**：
 1. 热更目录优先（`RuntimePathManager.CurrentGUIDRoot`）
 2. StreamingAssets 回退（包内初始资源）
+   - 在线模式：`StreamingAssets/`
+   - 离线模式（`FYAssetSettings.StandaloneBuild=true`）：`StreamingAssets/Standalone/`
+
+`ABBundleLoader` 的 fallback 与上述策略一致：在线读 `StreamingAssets/bundles/`，离线读 `StreamingAssets/Standalone/bundles/`。两套包物理隔离，可同时存在、按开关切换。
 
 **格式优先级**（每个目录内）：
 1. `ABManifest.bin`（二进制，优先）
 2. `ABManifest.json`（JSON，fallback）
 
-返回 null 表示全部路径均加载失败。当前通过 `FileHelper.ReadAllBytesAsync` 读取；Android StreamingAssets 路径由 `FileHelper` 走 `UnityWebRequest`，其他平台走文件系统异步读取。
+返回 null 表示全部路径均加载失败。当前通过 `FileHelper.ReadAllBytesAsync` 读取；Android StreamingAssets 路径由 `FileHelper` 走 `UnityWebRequest`，其他平台走文件系统异步读取。Android 离线包暂不在当前支持范围。
 
 ---
 

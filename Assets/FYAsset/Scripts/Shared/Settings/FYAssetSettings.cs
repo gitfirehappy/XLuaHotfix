@@ -15,15 +15,16 @@ public class FYAssetSettings : ScriptableObject
     [Header("Backend")]
     public bool UseABBackend = false;
 
-    [Header("Hotfix Policies")]
-    public HotfixRemoteFailurePolicy RemoteFailurePolicy = HotfixRemoteFailurePolicy.ContinueWithLocal;
+    [Header("AB Editor PlayMode")]
+    public EPlayMode PlayMode = EPlayMode.Runtime;
 
     [Header("Build")]
     public string BuildOutputRoot = "HotfixOutput";
     public string BuildPackagesFolderName = "Packages";
+    public bool StandaloneBuild = false;
 
     [Header("Version")]
-    public string VersionDataBasePath = "Assets/Build/VersionDataBase.asset";
+    public string VersionRecordPath = "Assets/Build/VersionRecord.asset";
     public string BuildIndexJsonPath = "Assets/Build/Bootstrap/BuildIndex.json";
 
     [Header("Push")]
@@ -32,8 +33,6 @@ public class FYAssetSettings : ScriptableObject
     // ═══ 纯编译期常量（static const） ═══
 
     // --- 旧管线标识符 ---
-    public const string LUA_SCRIPTS_INDEX = "LuaScriptsIndex";
-    public const string DEFAULT_XLUA_TYPE_CONFIG_LOAD_LABEL = "XLuaConfigs";
     public const string HOTFIX_GROUP_NAME = "HotfixGroup";
     public const string BUILD_INDEX_FILENAME = "BuildIndex.json";
 
@@ -44,18 +43,15 @@ public class FYAssetSettings : ScriptableObject
     public const string AA_MANIFEST_FILE_NAME = "AAManifest.json";
     public const string AA_MANIFEST_FILE_NAME_BIN = "AAManifest.bin";
     public const string BUNDLES_DIRECTORY_NAME = "bundles";
+    public const string STANDALONE_DIRECTORY_NAME = "Standalone";
     public const string ADDRESSABLES_CATALOG_FILE_NAME = "catalog.json";
 
     // --- 编辑器路径 ---
-    public const string BUILD_PIPELINE_WINDOW_MENU_PATH = "Tools/Build/Build Pipeline";
     public const string BINARY_SERIALIZER_GENERATE_PATH = "Assets/Tools/Scripts/Serialization/Generated";
 
     // --- Collector 规则名 ---
     public const string RULE_COLLECT_ALL = "CollectAll";
     public const string RULE_GROUP_ALL = "GroupAll";
-    public const string RULE_GROUP_BY_TYPE = "GroupByType";
-    public const string RULE_GROUP_BY_LABEL = "GroupByLabel";
-    public const string RULE_GROUP_BY_DIRECTORY = "GroupByDirectory";
 
     // ═══ Singleton ═══
 

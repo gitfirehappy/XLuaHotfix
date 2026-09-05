@@ -8,7 +8,6 @@ using UnityEngine;
 /// </summary>
 public static class BinarySerializationSmokeTestMenu
 {
-    [MenuItem("Tools/Serialization/Run Smoke Test", false, 31)]
     public static void Run()
     {
         BinarySerializerGenerator.GenerateAll();

@@ -3,47 +3,60 @@ using System.Collections.Generic;
 using System.Linq;
 
 /// <summary>
-/// Linear build pipeline runner.
-/// The configured Task list order is the execution order.
+/// 线性构建管线 runner。
+/// 配置中的 Task 列表顺序就是执行顺序。
 /// </summary>
 public static class BuildPipelineRunner
 {
     #region Public API
 
-    /// <summary>Execute all enabled build tasks in configured order.</summary>
-    public static BuildResult Execute(BuildPipelineConfig config, BuildContext context)
+    /// <summary>按配置顺序执行全部已启用的构建 Task。</summary>
+    public static BuildResult Execute(
+        BuildPipelineConfig config,
+        BuildContext context,
+        IReadOnlyList<string> expectedBackboneTasks)
     {
-        return Execute(config, context, null);
+        return Execute(config, context, null, expectedBackboneTasks);
     }
 
-    /// <summary>Execute all enabled build tasks and report per-task status through options.</summary>
-    public static BuildResult Execute(BuildPipelineConfig config, BuildContext context, BuildExecutionOptions options)
-    {
-        return Execute(config, context, options, null, null);
-    }
-
-    /// <summary>Execute enabled build tasks and stop after the named task completes.</summary>
+    /// <summary>执行全部已启用的构建 Task，并通过 options 报告每个 Task 的状态。</summary>
     public static BuildResult Execute(
         BuildPipelineConfig config,
         BuildContext context,
         BuildExecutionOptions options,
-        string stopAfterTaskName)
+        IReadOnlyList<string> expectedBackboneTasks)
     {
-        return Execute(config, context, options, stopAfterTaskName, null);
+        return Execute(config, context, options, null, null, expectedBackboneTasks);
     }
 
-    /// <summary>Execute enabled build tasks, optionally limited to a task whitelist.</summary>
+    /// <summary>执行已启用的构建 Task，并在指定 Task 完成后停止。</summary>
     public static BuildResult Execute(
         BuildPipelineConfig config,
         BuildContext context,
         BuildExecutionOptions options,
         string stopAfterTaskName,
-        HashSet<string> taskWhitelist)
+        IReadOnlyList<string> expectedBackboneTasks)
+    {
+        return Execute(config, context, options, stopAfterTaskName, null, expectedBackboneTasks);
+    }
+
+    /// <summary>
+    /// 执行已启用的构建 Task，可选择限制在 Task whitelist 内。
+    /// expectedBackboneTasks 为调用方所属后端的主干名单（完整构建路径必校）；
+    /// whitelist 预览路径不跑主干校验，可传 null。
+    /// </summary>
+    public static BuildResult Execute(
+        BuildPipelineConfig config,
+        BuildContext context,
+        BuildExecutionOptions options,
+        string stopAfterTaskName,
+        HashSet<string> taskWhitelist,
+        IReadOnlyList<string> expectedBackboneTasks)
     {
         if (config == null) throw new ArgumentNullException(nameof(config));
         if (context == null) throw new ArgumentNullException(nameof(context));
 
-        return ExecuteInternal(config, context, options, stopAfterTaskName, taskWhitelist);
+        return ExecuteInternal(config, context, options, stopAfterTaskName, taskWhitelist, expectedBackboneTasks);
     }
 
     #endregion
@@ -55,7 +68,8 @@ public static class BuildPipelineRunner
         BuildContext context,
         BuildExecutionOptions options,
         string stopAfterTaskName,
-        HashSet<string> taskWhitelist)
+        HashSet<string> taskWhitelist,
+        IReadOnlyList<string> expectedBackboneTasks)
     {
         var errors = new List<BuildTaskResult>();
         List<TaskEntry> entries = GetTaskEntries(config, taskWhitelist);
@@ -67,9 +81,9 @@ public static class BuildPipelineRunner
             });
         }
 
-        if (taskWhitelist == null)
+        if (taskWhitelist == null && expectedBackboneTasks != null)
         {
-            List<string> missingBackboneTasks = BuildPipelineBackbone.GetMissingRequiredTasks(config);
+            List<string> missingBackboneTasks = BuildTaskListUtility.GetMissingRequiredTasks(config, expectedBackboneTasks);
             if (missingBackboneTasks.Count > 0)
             {
                 errors.Add(WithTaskName(BuildTaskResult.Fail(

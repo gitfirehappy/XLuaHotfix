@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 
 /// <summary>
 /// 运行时消息严重级别。
@@ -29,9 +28,6 @@ public static class RuntimeErrorCodes
 
     /// <summary>Resolve 成功但底层加载操作失败</summary>
     public const string LoadFailed = "LOAD_FAILED";
-
-    /// <summary>索引不支持条目级查询（AA 查询缓存）</summary>
-    public const string IndexNotSupported = "INDEX_NOT_SUPPORTED";
 
     /// <summary>Bundle 文件在磁盘上不存在（热更目录 + StreamingAssets 均未找到）</summary>
     public const string BundleNotFound = "BUNDLE_NOT_FOUND";
@@ -72,12 +68,6 @@ public class RuntimeMessage
     public readonly string Code;
     public readonly string Message;
 
-    /// <summary>
-    /// AmbiguousMatch 时的候选条目列表，帮助开发者添加 Labels 消歧。
-    /// 其他错误类型时为 null 或空。
-    /// </summary>
-    public readonly IReadOnlyList<RuntimeAssetEntry> Candidates;
-
     #endregion
 
     #region 构造（私有 — 只能通过工厂方法创建）
@@ -85,13 +75,11 @@ public class RuntimeMessage
     private RuntimeMessage(
         RuntimeSeverity severity,
         string code,
-        string message,
-        IReadOnlyList<RuntimeAssetEntry> candidates = null)
+        string message)
     {
         Severity = severity;
         Code = code;
         Message = message;
-        Candidates = candidates;
     }
 
     #endregion
@@ -125,10 +113,10 @@ public class RuntimeMessage
 
     /// <summary>多条条目匹配，需通过 Labels 消歧</summary>
     /// <param name="query">查询键</param>
-    /// <param name="candidates">所有匹配的候选条目列表</param>
-    public static RuntimeMessage Ambiguous(string query, IReadOnlyList<RuntimeAssetEntry> candidates)
-        => new RuntimeMessage(RuntimeSeverity.Error, RuntimeErrorCodes.AmbiguousMatch,
-            string.Concat("多条条目匹配: ", query, " (", candidates.Count.ToString(), " 个候选)"), candidates);
+    /// <param name="candidateCount">匹配的候选条目数量</param>
+    public static RuntimeMessage Ambiguous(string query, int candidateCount)
+        => Error(RuntimeErrorCodes.AmbiguousMatch,
+            string.Concat("多条条目匹配: ", query, " (", candidateCount.ToString(), " 个候选)"));
 
     /// <summary>找到条目但 PrimaryType 与请求类型不兼容</summary>
     /// <param name="query">查询键</param>
@@ -144,12 +132,6 @@ public class RuntimeMessage
     public static RuntimeMessage LoadFailed(string entryId, string reason)
         => Error(RuntimeErrorCodes.LoadFailed,
             string.Concat("加载失败, EntryId=[", entryId, "]: ", reason));
-
-    /// <summary>索引不支持条目级查询（AA 查询缓存）</summary>
-    /// <param name="indexType">索引类型名称</param>
-    public static RuntimeMessage IndexNotSupported(string indexType)
-        => Error(RuntimeErrorCodes.IndexNotSupported,
-            string.Concat("索引 ", indexType, " 不支持条目级查询，请使用基于 RuntimeAssetEntry 的索引实现。"));
 
     /// <summary>Bundle 文件在磁盘上不存在</summary>
     /// <param name="bundleName">Bundle 文件名</param>
@@ -181,10 +163,10 @@ public class RuntimeMessage
                 ", Bundle=", bundleName, ", EntryId=", entryId));
 
     /// <summary>加载 API 与 PayloadKind 不匹配</summary>
-    public static RuntimeMessage InvalidPayloadKind(string entryId, EPayloadKind expected, EPayloadKind actual)
+    public static RuntimeMessage InvalidPayloadKind(string entryId, string expected, string actual)
         => Error(RuntimeErrorCodes.InvalidPayloadKind,
             string.Concat("PayloadKind 不匹配, EntryId=[", entryId, "], 期望 ",
-                expected.ToString(), ", 实际 ", actual.ToString()));
+                expected, ", 实际 ", actual));
 
     /// <summary>当前后端或平台不支持该操作</summary>
     public static RuntimeMessage UnsupportedOperation(string operation, string reason)
