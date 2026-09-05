@@ -139,3 +139,9 @@ id_ed25519.pub
 
 # AI error scratch files
 requirements/**/notes-opencode-errors.md
+
+# 本地热更构建产物：防 `git add -A Assets` 横扫（见 context/mistakes IP-67，已三犯）
+Assets/StreamingAssets/Standalone/
+Assets/StreamingAssets/Standalone.meta
+Assets/StreamingAssets/BuildIndex.json
+Assets/StreamingAssets/BuildIndex.json.meta
