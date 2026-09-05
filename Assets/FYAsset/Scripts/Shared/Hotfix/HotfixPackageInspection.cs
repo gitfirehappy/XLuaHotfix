@@ -22,13 +22,15 @@ public sealed class HotfixPackageInspection
         PackageIndex expectedIndex,
         HotfixVersionInfo versionInfo,
         bool requiredMetadataPresent,
-        string metadataFailureReason)
+        string metadataFailureReason,
+        bool requirePackageDirectoryMatch = true)
     {
         if (versionInfo == null || versionInfo.Version == null)
             return Incomplete(versionInfo, "包 manifest 缺失或无效。");
         if (expectedIndex == null || string.IsNullOrEmpty(expectedIndex.LatestPackage))
             return Incomplete(versionInfo, "本地 PackageIndex 缺失或无效。");
-        if (!string.Equals(Path.GetFileName(packageRoot), expectedIndex.LatestPackage, StringComparison.Ordinal))
+        if (requirePackageDirectoryMatch
+            && !string.Equals(Path.GetFileName(packageRoot), expectedIndex.LatestPackage, StringComparison.Ordinal))
             return Incomplete(versionInfo, "包目录与 PackageIndex.LatestPackage 不匹配。");
         if (expectedIndex.LatestVersion == null || versionInfo.Version != expectedIndex.LatestVersion)
             return Incomplete(versionInfo, "Manifest 版本与 PackageIndex.LatestVersion 不匹配。");
@@ -40,20 +42,8 @@ public sealed class HotfixPackageInspection
             return Incomplete(versionInfo, "Manifest 缺少 Bundle 列表。");
 
         string bundleRoot = FYAssetPathUtility.JoinFilePath(packageRoot, FYAssetSettings.BUNDLES_DIRECTORY_NAME);
-        for (int i = 0; i < bundles.Count; i++)
-        {
-            BundleDownloadItem bundle = bundles[i];
-            if (string.IsNullOrEmpty(bundle.BundleName))
-                return Incomplete(versionInfo, $"索引 {i} 的 Bundle 名称为空。");
-
-            string path = FYAssetPathUtility.JoinFilePath(bundleRoot, bundle.BundleName);
-            if (!FileHelper.Exists(path))
-                return Incomplete(versionInfo, $"缺少 Bundle：{bundle.BundleName}");
-            if (bundle.FileSize >= 0 && new FileInfo(path).Length != bundle.FileSize)
-                return Incomplete(versionInfo, $"Bundle 大小不匹配：{bundle.BundleName}");
-            if (bundle.FileCRC != 0 && HashGenerator.GenerateFileCRC(path) != bundle.FileCRC)
-                return Incomplete(versionInfo, $"Bundle CRC 不匹配：{bundle.BundleName}");
-        }
+        if (!HotfixPackageValidator.TryValidateBundleFiles(bundleRoot, bundles, out string error))
+            return Incomplete(versionInfo, error);
 
         return new HotfixPackageInspection(versionInfo, true, string.Empty);
     }

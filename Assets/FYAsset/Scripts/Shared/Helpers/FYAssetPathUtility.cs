@@ -2,7 +2,7 @@ using System;
 using System.IO;
 
 /// <summary>
-/// Shared path and URL normalization helpers for FYAsset.
+/// FYAsset 共享 path 和 URL 规范化工具。
 /// </summary>
 public static class FYAssetPathUtility
 {
@@ -164,11 +164,6 @@ public static class FYAssetPathUtility
         return !string.IsNullOrEmpty(value)
                && (value.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
                    || value.StartsWith("https://", StringComparison.OrdinalIgnoreCase));
-    }
-
-    public static bool IsUriLikePath(string value)
-    {
-        return IsFileUriLikePath(value) || IsHttpUrl(value);
     }
 
     public static string NormalizePath(string path)

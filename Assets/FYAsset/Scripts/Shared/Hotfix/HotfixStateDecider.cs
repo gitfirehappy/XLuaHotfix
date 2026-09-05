@@ -1,24 +1,16 @@
 using System;
 
 /// <summary>
-/// 控制远端热更元数据不可用时的启动策略。
-/// </summary>
-public enum HotfixRemoteFailurePolicy
-{
-    ContinueWithLocal = 0,
-    FailStartup = 1
-}
-
-/// <summary>
 /// 执行后端特定热更步骤前选定的高层动作。
 /// </summary>
 public enum HotfixStateAction
 {
     ActivateLocal = 0,
-    ActivateBaseline = 1,
+    RepairBaselinePointer = 1,
     RepairTarget = 2,
     UpdateTarget = 3,
-    FailStartup = 4
+    RejectRemote = 4,
+    FailStartup = 5
 }
 
 /// <summary>
@@ -27,16 +19,13 @@ public enum HotfixStateAction
 public readonly struct HotfixStateDecision
 {
     public HotfixStateAction Action { get; }
-    public bool RequiresRemoteManifest { get; }
     public bool NotifyClientUpdate { get; }
 
     public HotfixStateDecision(
         HotfixStateAction action,
-        bool requiresRemoteManifest = false,
         bool notifyClientUpdate = false)
     {
         Action = action;
-        RequiresRemoteManifest = requiresRemoteManifest;
         NotifyClientUpdate = notifyClientUpdate;
     }
 }
@@ -46,31 +35,42 @@ public readonly struct HotfixStateDecision
 /// </summary>
 public static class HotfixStateDecider
 {
-    public static HotfixStateDecision DecideTarget(
-        string localPackageName,
-        bool localPackageComplete,
-        string remotePackageName)
+    public static bool ShouldDeleteFailedTarget(bool packageManagerInitialized)
     {
-        bool samePackage = !string.IsNullOrEmpty(localPackageName)
-                           && string.Equals(localPackageName, remotePackageName, StringComparison.Ordinal);
-        if (samePackage && localPackageComplete)
-            return new HotfixStateDecision(HotfixStateAction.ActivateLocal);
-        if (samePackage)
-            return new HotfixStateDecision(HotfixStateAction.RepairTarget, true);
-
-        return new HotfixStateDecision(HotfixStateAction.UpdateTarget, true);
+        return !packageManagerInitialized;
     }
 
-    public static HotfixStateDecision DecideRemoteFailure(
-        HotfixRemoteFailurePolicy policy,
-        bool localPackageComplete)
+    public static HotfixStateDecision DecideTarget(
+        string localPackageName,
+        VersionNumber localVersion,
+        bool localPackageComplete,
+        bool localIsBaseline,
+        string remotePackageName,
+        VersionNumber remoteVersion)
     {
-        if (policy == HotfixRemoteFailurePolicy.FailStartup)
-            return new HotfixStateDecision(HotfixStateAction.FailStartup);
+        bool sameTarget = string.Equals(localPackageName, remotePackageName, StringComparison.Ordinal)
+                          && localVersion == remoteVersion;
+        if (sameTarget && localPackageComplete)
+            return new HotfixStateDecision(HotfixStateAction.ActivateLocal);
+        if (sameTarget && localIsBaseline)
+            return new HotfixStateDecision(HotfixStateAction.RepairBaselinePointer);
+        if (sameTarget)
+            return new HotfixStateDecision(HotfixStateAction.RepairTarget);
+
+        if (remoteVersion > localVersion
+            && !string.Equals(localPackageName, remotePackageName, StringComparison.Ordinal))
+            return new HotfixStateDecision(HotfixStateAction.UpdateTarget);
 
         return new HotfixStateDecision(localPackageComplete
+            ? HotfixStateAction.RejectRemote
+            : HotfixStateAction.FailStartup);
+    }
+
+    public static HotfixStateDecision DecideRemoteFailure(bool localPackageComplete)
+    {
+        return new HotfixStateDecision(localPackageComplete
             ? HotfixStateAction.ActivateLocal
-            : HotfixStateAction.ActivateBaseline);
+            : HotfixStateAction.FailStartup);
     }
 
     public static HotfixStateDecision DecideMajorMismatch(
@@ -79,7 +79,7 @@ public static class HotfixStateDecider
         bool localPackageComplete)
     {
         return new HotfixStateDecision(
-            localPackageComplete ? HotfixStateAction.ActivateLocal : HotfixStateAction.ActivateBaseline,
-            notifyClientUpdate: remoteMajor > clientMajor);
+            localPackageComplete ? HotfixStateAction.ActivateLocal : HotfixStateAction.FailStartup,
+            remoteMajor > clientMajor);
     }
 }
