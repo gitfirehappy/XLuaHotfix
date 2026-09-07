@@ -3,7 +3,8 @@ using System.IO;
 using System.Text;
 
 /// <summary>
-/// AB Manifest 发布 Task — 按 ManifestOutputFormat 写入最终包目录中的 JSON / Binary manifest。
+/// AB Manifest 发布 Task — 按 ManifestOutputFormat 把 JSON / Binary manifest 写入 request.OutputDir。
+/// attempt 布局下这是 attempt 包目录，最终出口由 BuildProjectRunner finalize 决定；本 Task 不知道最终路径。
 /// 在 TaskOrganizeOutput 之后执行。
 /// </summary>
 public class TaskWriteABPackageManifest : IBuildTask

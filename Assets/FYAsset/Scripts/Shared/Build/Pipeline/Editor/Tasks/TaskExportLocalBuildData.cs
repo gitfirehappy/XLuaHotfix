@@ -12,7 +12,8 @@ public class TaskExportLocalBuildData : IBuildTask
 {
     private const string BuildIndexFileName = FYAssetSettings.BUILD_INDEX_FILENAME;
 
-    private sealed class BackupEntry
+    // internal：供同程序集的交付 token 构造参数字段使用；对外不暴露写入入口。
+    internal sealed class BackupEntry
     {
         public string TargetPath;
         public string BackupPath;
@@ -65,26 +66,74 @@ public class TaskExportLocalBuildData : IBuildTask
     private static string BuildIndexStreamingPath => FYAssetPathUtility.JoinFilePath(Application.streamingAssetsPath, BuildIndexFileName);
 
     /// <summary>
+    /// 一次已应用的本地数据导出。rollback 依据与 write 同调用的 backup；
+    /// 持有者必须在事务边界调用 Commit 或 Rollback，否则备份永不清除。
+    /// </summary>
+    public sealed class LocalBuildDataDelivery
+    {
+        private readonly string _workRoot;
+        private readonly List<BackupEntry> _backups;
+        private bool _settled;
+
+        // 仅同程序集可构造：备份状态不允许外部组装。
+        internal LocalBuildDataDelivery(string workRoot, List<BackupEntry> backups)
+        {
+            _workRoot = workRoot;
+            _backups = backups;
+        }
+
+        /// <summary>导出完成：释放备份区，不可逆。</summary>
+        public void Commit()
+        {
+            if (_settled)
+                return;
+            _settled = true;
+            FileHelper.TryDeleteDirectory(_workRoot, true);
+        }
+
+        /// <summary>交付补偿：把本地数据恢复回导出前状态并释放备份区。</summary>
+        public void Rollback()
+        {
+            if (_settled)
+                return;
+            _settled = true;
+            RestoreBackups(_backups);
+            AssetDatabase.Refresh();
+            FileHelper.TryDeleteDirectory(_workRoot, true);
+        }
+    }
+
+    /// <summary>
     /// 导出启动期所需的本地构建数据。
     /// </summary>
     public static void Publish(BuildPackageRequest request, IBaselinePackageHandler baselineHandler)
+    {
+        LocalBuildDataDelivery delivery = BeginDelivery(request, baselineHandler);
+        delivery?.Commit();
+    }
+
+    /// <summary>
+    /// 供 Runner 交付事务使用：导出本地数据但保留备份，直到事务整体 Commit 或 Rollback。
+    /// Hotfix / 非 Full·Standalone 请求返回 null；调用方不可省略 Release。
+    /// </summary>
+    public static LocalBuildDataDelivery BeginDelivery(BuildPackageRequest request, IBaselinePackageHandler baselineHandler)
     {
         if (request == null)
             throw new ArgumentNullException(nameof(request));
         if (request.BuildType != BuildType.Full && request.BuildType != BuildType.Standalone)
         {
-            Debug.Log("[TaskExportLocalBuildData] Hotfix build 不导出本地启动数据。");
-            return;
+            Debug.Log("[TaskExportLocalBuildData] Hotfix build 不导出本地启动数据，BeginDelivery 返回 null。");
+            return null;
         }
         if (request.BuildType == BuildType.Full && baselineHandler == null)
             throw new ArgumentNullException(nameof(baselineHandler), "Full 构建导出本地启动数据需要后端注入 IBaselinePackageHandler。");
         if (!FileHelper.DirectoryExists(request.OutputDir))
             throw new DirectoryNotFoundException($"本地构建数据导出前最终输出目录不存在: {request.OutputDir}");
 
-        ExportData(request, baselineHandler);
+        return ExportData(request, baselineHandler);
     }
 
-    private static void ExportData(BuildPackageRequest request, IBaselinePackageHandler baselineHandler)
+    private static LocalBuildDataDelivery ExportData(BuildPackageRequest request, IBaselinePackageHandler baselineHandler)
     {
         Debug.Log("[TaskExportLocalBuildData] 开始导出本地启动数据到 StreamingAssets...");
 
@@ -114,7 +163,7 @@ public class TaskExportLocalBuildData : IBuildTask
                 AssetDatabase.Refresh();
                 Debug.Log($"[TaskExportLocalBuildData] Standalone BuildIndex 已写入: {BuildIndexStreamingPath}");
                 Debug.Log($"[TaskExportLocalBuildData] 信息 - GUID：{buildIndexData.BuildGUID}，Version：{request.Version.GetReleaseVersionString()}，Backend：{buildIndexData.BackendMode}");
-                return;
+                return new LocalBuildDataDelivery(workRoot, backups);
             }
 
             baselineHandler.StageBaselineFiles(request, stageRoot);
@@ -127,16 +176,15 @@ public class TaskExportLocalBuildData : IBuildTask
             AssetDatabase.Refresh();
             Debug.Log("[TaskExportLocalBuildData] 本地启动数据导出完成。");
             Debug.Log($"[TaskExportLocalBuildData] 信息 - GUID：{buildIndexData.BuildGUID}，Version：{request.Version.GetReleaseVersionString()}，Backend：{buildIndexData.BackendMode}");
+            return new LocalBuildDataDelivery(workRoot, backups);
         }
         catch
         {
+            // 本层自己出错 = 尚未交付，立即回滚并释放备份区，不需要等外部 rollback。
             RestoreBackups(backups);
             AssetDatabase.Refresh();
-            throw;
-        }
-        finally
-        {
             FileHelper.TryDeleteDirectory(workRoot, true);
+            throw;
         }
     }
 

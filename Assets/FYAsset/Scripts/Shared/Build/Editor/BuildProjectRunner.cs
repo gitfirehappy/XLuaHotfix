@@ -18,7 +18,8 @@ public static class BuildProjectRunner
     public static bool BuildStandalone(
         string backendKey,
         Func<IBuildBackend> backendFactory,
-        BuildExecutionOptions options = null)
+        BuildExecutionOptions options = null,
+        bool attemptDelivery = false)
     {
         VersionRecord versionData = LoadVersionRecord();
         if (versionData == null)
@@ -26,8 +27,9 @@ public static class BuildProjectRunner
 
         VersionNumber nextVersion = versionData.BuildNextVersion(true);
 
-        bool success = RunBuild(nextVersion, BuildType.Standalone, backendKey, backendFactory, options);
-        if (success)
+        bool success = RunBuild(nextVersion, BuildType.Standalone, backendKey, backendFactory, options, attemptDelivery);
+        // attempt 交付在 Runner 事务内部提交版本；非 attempt 路径保持原版外部提交。
+        if (success && !attemptDelivery)
             success = ApplyBuiltVersion(nextVersion);
 
         return success;
@@ -39,7 +41,8 @@ public static class BuildProjectRunner
     public static bool BuildFullPackage(
         string backendKey,
         Func<IBuildBackend> backendFactory,
-        BuildExecutionOptions options = null)
+        BuildExecutionOptions options = null,
+        bool attemptDelivery = false)
     {
         VersionRecord versionData = LoadVersionRecord();
         if (versionData == null)
@@ -48,8 +51,8 @@ public static class BuildProjectRunner
         // 大版本更新，先暂存版本号，构建和 Repository commit 成功后才写回 VersionRecord。
         VersionNumber nextVersion = versionData.BuildNextVersion(true);
 
-        bool success = RunBuild(nextVersion, BuildType.Full, backendKey, backendFactory, options);
-        if (success)
+        bool success = RunBuild(nextVersion, BuildType.Full, backendKey, backendFactory, options, attemptDelivery);
+        if (success && !attemptDelivery)
             success = ApplyBuiltVersion(nextVersion);
 
         if (success && !Application.isBatchMode)
@@ -67,7 +70,8 @@ public static class BuildProjectRunner
     public static bool BuildHotfix(
         string backendKey,
         Func<IBuildBackend> backendFactory,
-        BuildExecutionOptions options = null)
+        BuildExecutionOptions options = null,
+        bool attemptDelivery = false)
     {
         VersionRecord versionData = LoadVersionRecord();
         if (versionData == null)
@@ -76,8 +80,8 @@ public static class BuildProjectRunner
         // 小版本更新，先暂存版本号，构建和 Repository commit 成功后才写回 VersionRecord。
         VersionNumber nextVersion = versionData.BuildNextVersion();
 
-        bool success = RunBuild(nextVersion, BuildType.Hotfix, backendKey, backendFactory, options);
-        if (success)
+        bool success = RunBuild(nextVersion, BuildType.Hotfix, backendKey, backendFactory, options, attemptDelivery);
+        if (success && !attemptDelivery)
             success = ApplyBuiltVersion(nextVersion);
 
         return success;
@@ -89,7 +93,8 @@ public static class BuildProjectRunner
         BuildType buildType,
         string backendKey,
         Func<IBuildBackend> backendFactory,
-        BuildExecutionOptions options)
+        BuildExecutionOptions options,
+        bool attemptDelivery = false)
     {
         Debug.Log($"[{nameof(BuildProjectRunner)}] 开始 {buildType} build。Backend={backendKey}, Version={version.GetReleaseVersionString()}, Build={version.Build}");
 
@@ -97,7 +102,7 @@ public static class BuildProjectRunner
 
         try
         {
-            request = BuildPackageRequest.Create(version, buildType, backendKey);
+            request = BuildPackageRequest.Create(version, buildType, backendKey, attemptDelivery);
             Debug.Log($"[{nameof(BuildProjectRunner)}] 已创建 BuildPackageRequest: Package={request.PackageName}, Backend={backendKey}, Output={request.OutputDir}");
 
             IBuildBackend backend = backendFactory != null
@@ -113,7 +118,19 @@ public static class BuildProjectRunner
                 return false;
             }
 
-            // Standalone 不推送 Repository；完整包已直接写入 StreamingAssets/Standalone/，这里只发布 BuildIndex。
+            if (request.IsAttemptLayout)
+            {
+                // attempt 交付：Runner 独占提交点，包/本地数据/PackageIndex/baseline/VersionRecord 要么全部完成、要么全部回滚。
+                if (!DeliverAttemptBuild(request, backend, buildResult))
+                    return false;
+
+                Debug.Log($"[{nameof(BuildProjectRunner)}] Package build 完成，已交付: {request.DeliveryOutputDir}");
+                if (!Application.isBatchMode)
+                    TryRevealPackage(request.DeliveryOutputDir);
+                return true;
+            }
+
+            // 非 attempt（AA 现存行为，待 AA 对齐轮收统）
             if (buildType == BuildType.Standalone)
             {
                 PublishBuildArtifacts(request, backend);
@@ -189,6 +206,145 @@ public static class BuildProjectRunner
         });
     }
 
+    /// <summary>
+    /// attempt 交付事务：validate → promote → 本地数据 → PackageIndex → baseline → VersionRecord。
+    /// 任一步骤失败按逆序补偿，live 状态回到事务开始前的值；补偿本身失败则记录错误但尽力继续其余补偿。
+    /// </summary>
+    private static bool DeliverAttemptBuild(BuildPackageRequest request, IBuildBackend backend, BuildBackendResult buildResult)
+    {
+        var compensation = new BuildDeliveryCompensation();
+        try
+        {
+            ValidateAttemptPackage(request);
+
+            compensation.PromoteToken = BuildDeliveryPromoter.Promote(request.OutputDir, request.DeliveryOutputDir);
+            BuildPackageRequest delivered = request.WithPromotedOutput();
+
+            compensation.LocalData = TaskExportLocalBuildData.BeginDelivery(delivered, backend?.BaselineHandler);
+
+            if (delivered.BuildType != BuildType.Standalone)
+            {
+                compensation.CapturePackageIndex(delivered.PackageIndexPath);
+                TaskWritePackageIndex.Publish(delivered);
+
+                string channelKey = BuildBaselineStore.GetChannelKey(delivered.Version, delivered.BackendKey);
+                compensation.CaptureBaseline(channelKey);
+                RecordDeliveredBaseline(delivered, buildResult, backend);
+            }
+
+            compensation.CaptureVersionRecord();
+            if (!ApplyBuiltVersion(delivered.Version))
+                throw new InvalidOperationException($"VersionRecord 应用失败: {versionDataBasePath}");
+
+            compensation.Commit();
+            return true;
+        }
+        catch (Exception ex)
+        {
+            compensation.Rollback();
+            Debug.LogError($"[{nameof(BuildProjectRunner)}] 交付提交失败，已回滚 live 状态: Package={request.PackageName}: {ex}");
+            return false;
+        }
+    }
+
+    private static void ValidateAttemptPackage(BuildPackageRequest request)
+    {
+        if (!FileHelper.DirectoryExists(request.OutputDir))
+            throw new DirectoryNotFoundException($"attempt 包目录不存在: {request.OutputDir}");
+        if (!FileHelper.DirectoryExists(request.BundlesDir)
+            || FileHelper.GetFiles(request.BundlesDir, "*", SearchOption.AllDirectories).Length == 0)
+            throw new InvalidOperationException($"attempt 包 dirs 为空(bundle 缺失): {request.BundlesDir}");
+    }
+
+    /// <summary>
+    /// 交付补偿集合。Capture 在进入对应步骤之前调用；Rollback 逆序执行已登记的补偿；Commit 释放扩展备份。
+    /// </summary>
+    private sealed class BuildDeliveryCompensation
+    {
+        public BuildDeliveryPromoteToken PromoteToken;
+        public TaskExportLocalBuildData.LocalBuildDataDelivery LocalData;
+        private string _packageIndexPath;
+        private byte[] _packageIndexBytes;
+        private string _baselineChannelKey;
+        private byte[] _baselineBytes;
+        private byte[] _versionRecordBytes;
+        private bool _versionRecordExisted;
+
+        public void CapturePackageIndex(string packageIndexPath)
+        {
+            _packageIndexPath = packageIndexPath;
+            _packageIndexBytes = FileHelper.Exists(packageIndexPath) ? FileHelper.ReadAllBytes(packageIndexPath) : null;
+        }
+
+        public void CaptureBaseline(string channelKey)
+        {
+            _baselineChannelKey = channelKey;
+            _baselineBytes = BuildBaselineStore.CaptureRawForRollback(channelKey);
+        }
+
+        public void CaptureVersionRecord()
+        {
+            _versionRecordExisted = FileHelper.Exists(versionDataBasePath);
+            _versionRecordBytes = _versionRecordExisted ? FileHelper.ReadAllBytes(versionDataBasePath) : null;
+        }
+
+        public void Commit()
+        {
+            LocalData?.Commit();
+            PromoteToken?.Commit();
+        }
+
+        public void Rollback()
+        {
+            RollbackSafely(RestoreVersionRecord);
+            RollbackSafely(RestoreBaseline);
+            RollbackSafely(RestorePackageIndex);
+            RollbackSafely(() => LocalData?.Rollback());
+            RollbackSafely(() => PromoteToken?.Rollback());
+        }
+
+        private void RestoreVersionRecord()
+        {
+            if (!_versionRecordExisted && _versionRecordBytes == null)
+                return;
+            if (_versionRecordBytes != null)
+                File.WriteAllBytes(versionDataBasePath, _versionRecordBytes);
+            else
+                FileHelper.TryDelete(versionDataBasePath);
+            AssetDatabase.ImportAsset(versionDataBasePath, ImportAssetOptions.ForceUpdate);
+            AssetDatabase.Refresh();
+        }
+
+        private void RestoreBaseline()
+        {
+            if (_baselineChannelKey == null)
+                return;
+            BuildBaselineStore.RestoreRawForRollback(_baselineChannelKey, _baselineBytes);
+        }
+
+        private void RestorePackageIndex()
+        {
+            if (_packageIndexPath == null)
+                return;
+            if (_packageIndexBytes != null)
+                File.WriteAllBytes(_packageIndexPath, _packageIndexBytes);
+            else
+                FileHelper.TryDelete(_packageIndexPath);
+        }
+
+        private static void RollbackSafely(Action action)
+        {
+            try
+            {
+                action();
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[{nameof(BuildProjectRunner)}] 交付补偿步骤失败（已尽力继续其余补偿）: {ex}");
+            }
+        }
+    }
+
     private static void PublishBuildArtifacts(BuildPackageRequest request, IBuildBackend backend)
     {
         TaskExportLocalBuildData.Publish(request, backend?.BaselineHandler);
@@ -222,6 +378,24 @@ public static class BuildProjectRunner
     {
         reason = string.Empty;
         string outputDir = FYAssetPathUtility.NormalizePath(request.OutputDir);
+
+        // attempt 布局：失败清理只允许删除 attempt 根之下的目录，任何 live 出口一律拒绝。
+        if (request.IsAttemptLayout)
+        {
+            string attemptRoot = FYAssetPathUtility.NormalizePath(BuildPathManager.AttemptPackagesRoot);
+            string attemptRootWithSeparator = attemptRoot.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+            StringComparison attemptComparison = Path.DirectorySeparatorChar == '\\'
+                ? StringComparison.OrdinalIgnoreCase
+                : StringComparison.Ordinal;
+            if (string.IsNullOrEmpty(outputDir) || !outputDir.StartsWith(attemptRootWithSeparator, attemptComparison))
+            {
+                reason = $"attempt 布局下只允许清理 attempt 根之下的目录。Root={attemptRoot}, Actual={outputDir}";
+                return false;
+            }
+
+            return true;
+        }
+
         if (request.BuildType == BuildType.Standalone)
         {
             string standaloneDir = FYAssetPathUtility.NormalizePath(BuildPathManager.StandalonePackageDir);

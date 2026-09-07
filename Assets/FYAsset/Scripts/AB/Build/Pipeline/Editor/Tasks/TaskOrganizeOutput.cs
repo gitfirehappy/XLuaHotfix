@@ -3,7 +3,8 @@ using System.IO;
 using System.Text;
 
 /// <summary>
-/// 构建输出组织 Task — 按 BuildPackageRequest 输出最终 AB 包目录、拷贝 bundle、生成构建摘要、清理临时产物。
+/// 构建输出组织 Task — 按 BuildPackageRequest 产出任务产物（attempt 布局下为 attempt 包，旧布局下为最终包目录）、
+/// 拷贝 bundle、生成构建摘要、清理临时产物。
 /// Full 以 ABManifest.BundleEntries 为拷贝数据源；Hotfix 只拷贝 ABDeliveryBundles。
 /// 在 TaskScanABHotfixDiff 之后、TaskWriteABPackageManifest 之前执行。
 /// </summary>
@@ -26,7 +27,20 @@ public class TaskOrganizeOutput : IBuildTask
         string outputDir = request.OutputDir;
         string bundleOutputDir = request.BundlesDir;
 
-        // ① 重建最终输出目录
+        // ① 重建任务产物目录。attempt 布局下只允许写 attempt 根，禁止触碰 live 出口。
+        if (request.IsAttemptLayout)
+        {
+            var comparison = Path.DirectorySeparatorChar == '\\'
+                ? System.StringComparison.OrdinalIgnoreCase
+                : System.StringComparison.Ordinal;
+            string attemptRoot = FYAssetPathUtility.NormalizePath(BuildPathManager.AttemptPackagesRoot);
+            string normalizedOutput = FYAssetPathUtility.NormalizePath(outputDir);
+            bool underAttemptRoot = normalizedOutput.StartsWith(attemptRoot + Path.DirectorySeparatorChar, comparison);
+            if (!underAttemptRoot || string.Equals(normalizedOutput, attemptRoot, comparison))
+                return BuildTaskResult.Fail(BuildErrorCodes.BuildFailed,
+                    $"attempt 布局下 OutputDir 必须位于 AttemptPackagesRoot 之下。Root: {attemptRoot}, Actual: {normalizedOutput}", true);
+        }
+
         if (FileHelper.DirectoryExists(outputDir))
             FileHelper.TryDeleteDirectory(outputDir, true);
         FileHelper.EnsureDirectory(outputDir);
@@ -91,7 +105,7 @@ public class TaskOrganizeOutput : IBuildTask
             catch (IOException) { /* best-effort */ }
         }
 
-        // ⑤ 写入 OutputPath；Standalone 的 request 已直接指向 StreamingAssets/Standalone。
+        // ⑤ 写入 OutputPath。attempt 布局下该目录仍是 attempt 路径；最终出口由 Runner finalize 推导。
         ctx.Set(BuildContextKeys.OutputPath, outputDir);
 
         return BuildTaskResult.Ok(new List<string>

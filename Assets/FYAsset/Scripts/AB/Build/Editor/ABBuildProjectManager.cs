@@ -12,7 +12,8 @@ public static class ABBuildProjectManager
         LastBuildSuccess = BuildProjectRunner.BuildFullPackage(
             "AB",
             () => new ABBuildBackend(),
-            options);
+            options,
+            attemptDelivery: true);
     }
 
     public static void BuildHotfix(BuildExecutionOptions options = null)
@@ -20,7 +21,8 @@ public static class ABBuildProjectManager
         LastBuildSuccess = BuildProjectRunner.BuildHotfix(
             "AB",
             () => new ABBuildBackend(),
-            options);
+            options,
+            attemptDelivery: true);
     }
 
     public static void BuildStandalonePackage(BuildExecutionOptions options = null)
@@ -28,7 +30,8 @@ public static class ABBuildProjectManager
         LastBuildSuccess = BuildProjectRunner.BuildStandalone(
             "AB",
             () => new ABBuildBackend(),
-            options);
+            options,
+            attemptDelivery: true);
     }
 
     public static void ResetGroupsToOriginal()

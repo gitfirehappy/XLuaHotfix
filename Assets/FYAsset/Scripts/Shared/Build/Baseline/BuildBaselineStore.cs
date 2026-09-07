@@ -1,5 +1,6 @@
 #if UNITY_EDITOR
 using System;
+using System.IO;
 using UnityEditor;
 using UnityEngine;
 
@@ -91,6 +92,27 @@ public static class BuildBaselineStore
         string json = JsonUtility.ToJson(state, true);
         FileHelper.WriteAllTextAtomic(path, json);
         Debug.Log($"[BuildBaselineStore] baseline 已更新: Channel={channelKey}, Version={delivered.Version?.GetReleaseVersionString()}, Type={delivered.BuildType}");
+    }
+
+    /// <summary>交付事务补偿：读取当前 baseline 文件原始字节；文件不存在时返回 null。</summary>
+    public static byte[] CaptureRawForRollback(string channelKey)
+    {
+        string path = GetPath(channelKey);
+        return FileHelper.Exists(path) ? FileHelper.ReadAllBytes(path) : null;
+    }
+
+    /// <summary>交付事务补偿：把 baseline 恢复到 capture 时的状态；captured 为 null 表示原本不存在（删除文件）。</summary>
+    public static void RestoreRawForRollback(string channelKey, byte[] captured)
+    {
+        string path = GetPath(channelKey);
+        if (captured == null)
+        {
+            FileHelper.TryDelete(path);
+            return;
+        }
+
+        FileHelper.EnsureDirectory(Path.GetDirectoryName(path));
+        File.WriteAllBytes(path, captured);
     }
 
     /// <summary>测试专用：删除 channel 的 baseline 文件。</summary>
