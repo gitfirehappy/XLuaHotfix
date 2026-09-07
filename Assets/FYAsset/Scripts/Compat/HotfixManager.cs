@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 /// <summary>
@@ -79,18 +80,43 @@ public static class HotfixManager
         }
     }
 
+    private static bool _wired;
+    private static readonly List<Action> FinishedSubscribers = new();
+
+    /// <summary>
+    /// facade 完成事件：先完成 facade Bind（与热更指针持久化同点完成语义），再向外部订阅者广播，
+    /// 避免消费方拿到 ready 信号但 facade 还未绑定的反序。
+    /// </summary>
     public static event Action OnFinished
     {
         add
         {
-            AAHotfixManager.OnFinished += value;
-            ABHotfixManager.OnFinished += value;
+            FinishedSubscribers.Add(value);
+            EnsureWired();
         }
-        remove
+        remove => FinishedSubscribers.Remove(value);
+    }
+
+    private static void EnsureWired()
+    {
+        if (_wired)
+            return;
+        _wired = true;
+        AAHotfixManager.OnFinished += HandleFinished;
+        ABHotfixManager.OnFinished += HandleFinished;
+    }
+
+    private static void HandleFinished()
+    {
+        if (_selectedMode.HasValue)
         {
-            AAHotfixManager.OnFinished -= value;
-            ABHotfixManager.OnFinished -= value;
+            RuntimeMessage bindError = AssetPackageManager.Instance.Bind(_selectedMode.Value);
+            if (bindError != null)
+                throw new InvalidOperationException("[HotfixManager] facade Bind 失败: " + bindError);
         }
+
+        for (int i = 0; i < FinishedSubscribers.Count; i++)
+            FinishedSubscribers[i]();
     }
 
     public static string CurrentStepName => _selectedMode == BackendMode.ABManifest
@@ -111,6 +137,8 @@ public static class HotfixManager
                 $"HotfixManager 已选择 {_selectedMode.Value}，不能切换为 {mode}。");
 
         _selectedMode = mode;
+        // 即使无人订阅也要接线：facade Bind 本身依赖完成回调。
+        EnsureWired();
         return mode == BackendMode.ABManifest
             ? ABHotfixManager.InitializeAsync()
             : AAHotfixManager.InitializeAsync();

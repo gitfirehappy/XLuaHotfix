@@ -38,10 +38,14 @@ public class TaskAnalyzeDependencies : IBuildTask
             }
         }
 
-        // 执行依赖分析
+        // 执行依赖分析。IgnorePatterns 同时用于把忽略路径隐式依赖折叠为“随行打包”，
+        // 与 Collector 的扫描忽略同一份事实来源，避免出现两套语义。
+        var collectionSetting = AssetDatabase.LoadAssetAtPath<AssetCollectionSetting>(
+            FYAssetABSettings.Instance.AssetCollectionSettingPath);
         var augmented = DependencyAnalyzer.Analyze(assets, policies,
             FYAssetABSettings.Instance.DependencyFilterExtensions,
-            out var graph, out var messages);
+            out var graph, out var messages,
+            collectionSetting != null ? collectionSetting.GetEffectiveIgnorePatterns() : null);
 
         // 汇总消息：统一收集，再根据是否有 Error 决定返回 Ok 或 Fail
         var warnings = new List<string>();

@@ -39,7 +39,8 @@ public static class BuildTestEngine
         try
         {
             Stage(request, result, ref stage, BuildTestStage.Preflight, "preflight");
-            BuildTestFixtures.EnsurePermanentFixtures();
+            // 预检只读：永久夹具由 CLI/菜单显式维护，运行不允许在快照前修改项目状态。
+            BuildTestFixtures.AssertPreflight();
 
             targets = BuildTestState.FreezeTargets(request.Backend, request.TargetIds, request.ExternalConfirmIds);
             result.TargetSnapshots = targets;
@@ -440,8 +441,20 @@ public static class BuildTestEngine
         bool projectSnapshotted,
         bool targetsSnapshotted)
     {
+        // 独立 scope 各自尝试，错误集合后统一报告；单个失败预留其他范围机会。
+        var errors = new List<string>();
+
         if (mutatedFixture)
-            BuildTestFixtures.RestoreHotfixFixture(request.Backend);
+        {
+            try
+            {
+                BuildTestFixtures.RestoreHotfixFixture(request.Backend);
+            }
+            catch (Exception ex)
+            {
+                errors.Add("fixture: " + ex.Message);
+            }
+        }
 
         if (targetsSnapshotted && targets != null)
         {
@@ -453,14 +466,25 @@ public static class BuildTestEngine
                 }
                 catch (Exception ex)
                 {
-                    throw new InvalidOperationException(
-                        "Target restore failed for " + targets[i].TargetId + ": " + ex.Message, ex);
+                    errors.Add(targets[i].TargetId + ": " + ex.Message);
                 }
             }
         }
 
         if (projectSnapshotted)
-            BuildTestState.RestoreProject(runRoot, request.Backend);
+        {
+            try
+            {
+                BuildTestState.RestoreProject(runRoot, request.Backend);
+            }
+            catch (Exception ex)
+            {
+                errors.Add("project: " + ex.Message);
+            }
+        }
+
+        if (errors.Count > 0)
+            throw new InvalidOperationException("Restore failed: " + string.Join(" | ", errors));
     }
 
     private static void InvokeBuild(BuildTestBackend backend, bool hotfix, BuildTestResult result)

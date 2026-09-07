@@ -301,8 +301,15 @@ public class TaskBuildBundles : IBuildTask
 
         if (primaryTypes.Count != 1)
         {
+            var members = new System.Text.StringBuilder();
+            for (int i = 0; i < assets.Count; i++)
+            {
+                members.Append("\n  - ").Append(assets[i].AssetPath)
+                    .Append(" [PrimaryType=").Append(assets[i].PrimaryType ?? "")
+                    .Append(", Address=").Append(assets[i].Address ?? "").Append(']');
+            }
             return BuildTaskResult.Fail(BuildErrorCodes.MixedPrimaryTypeBundle,
-                $"Bundle '{bundleName}' 混入了多种 PrimaryType。每个物理 Bundle 必须按精确主类型分桶。", true);
+                $"Bundle '{bundleName}' 混入了多种 PrimaryType。每个物理 Bundle 必须按精确主类型分桶。成员:{members}", true);
         }
 
         EPayloadKind payload = assets[0].Classification.PayloadKind;

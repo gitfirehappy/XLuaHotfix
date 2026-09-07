@@ -115,6 +115,39 @@ public sealed class BuildTestResult
     public bool RecoveryOnly;
 }
 
+/// <summary>
+/// 单个快照范围的 durable 状态。SnapshotState 表达能力上只不可逆前进：
+/// Pending -> SnapshotComplete；RestoreState 不受 SnapshotState 变化影响。
+/// </summary>
+public static class BuildTestRecoveryScopeStates
+{
+    public const string Pending = "Pending";
+    public const string SnapshotComplete = "SnapshotComplete";
+    public const string AbsentBefore = "AbsentBefore";
+    public const string None = "None";
+    public const string Restored = "Restored";
+    public const string RestoreFailed = "RestoreFailed";
+}
+
+/// <summary>恢复分发决策。自检与非破坏路径唯一允许消费的状态判定。</summary>
+public enum BuildTestScopeRestoreAction
+{
+    SkipAlreadyRestored,
+    FailRefuseDestructive,      // 快照不完整 => 任何破坏/删除一律拒绝
+    FailBackupMissing,          // 声明完整但备份内容不可用 => 同样拒绝
+    RestoreFromBackup,
+    DeleteForAbsent
+}
+
+[Serializable]
+public sealed class BuildTestScopeRecoveryState
+{
+    public string ScopeId;
+    public string SnapshotState;
+    public string RestoreState = BuildTestRecoveryScopeStates.None;
+    public string Error;
+}
+
 [Serializable]
 public sealed class BuildTestRecoveryRecord
 {
@@ -129,6 +162,9 @@ public sealed class BuildTestRecoveryRecord
     public List<string> OwnedProjectPaths = new();
     public List<BuildTestTargetSnapshot> Targets = new();
     public List<string> FixturePaths = new();
+
+    // 空列表 = 旧格式记录：恢复方必须拒绝自动恢复并标记为需要人工检查。
+    public List<BuildTestScopeRecoveryState> Scopes = new();
 }
 
 /// <summary>

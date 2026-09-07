@@ -35,7 +35,8 @@ public static class DependencyAnalyzer
         Dictionary<string, SharePolicyConfig> sharePolicies,
         IEnumerable<string> extraFilterExtensions,
         out BundleDependencyGraph graph,
-        out List<BuildMessage> messages)
+        out List<BuildMessage> messages,
+        IEnumerable<string> ignorePatterns = null)
     {
         graph = new BundleDependencyGraph();
         messages = new List<BuildMessage>();
@@ -52,6 +53,12 @@ public static class DependencyAnalyzer
             byPackage[pkg].Add(asset);
         }
 
+        // B05 修正版规则：忽略路径资产成为隐式随打包内容（不产生 manifest 条目、不生成独立 Bundle）；
+        // 非忽略但未收集资产一律按自身类型独立成桶（废止复制进引用方 Bundle 的旧分支）。
+        HashSet<string> effectiveIgnorePatterns = ignorePatterns != null
+            ? new HashSet<string>(ignorePatterns, StringComparer.OrdinalIgnoreCase)
+            : null;
+
         foreach (var kvp in byPackage)
         {
             string packageName = kvp.Key;
@@ -59,7 +66,7 @@ public static class DependencyAnalyzer
             var policy = sharePolicies != null && sharePolicies.TryGetValue(packageName, out var p)
                 ? p : new SharePolicyConfig();
 
-            AnalyzePackage(packageAssets, policy, packageName, filterExtensions, graph, messages, result);
+            AnalyzePackage(packageAssets, policy, packageName, filterExtensions, effectiveIgnorePatterns, graph, messages, result);
         }
 
         return result;
@@ -70,6 +77,7 @@ public static class DependencyAnalyzer
         SharePolicyConfig policy,
         string packageName,
         HashSet<string> filterExtensions,
+        HashSet<string> ignorePatterns,
         BundleDependencyGraph graph,
         List<BuildMessage> messages,
         List<CollectedAssetInfo> result)
@@ -90,7 +98,27 @@ public static class DependencyAnalyzer
         // 第二阶段：报告循环依赖诊断消息
         ReportDependencyCycles(cycleEntries, messages, packageName);
 
-        // 第三阶段：SharePolicy 决策（共享 vs 复制）
+        // 第三阶段之前：忽略路径隐式化。忽略语义 = 只允许随引用方物理带入，
+        // 不允许成为独立可寻址条目；因此这里不产生 manifest 条目也不建立 Bundle 边。
+        if (ignorePatterns != null && implicitCandidates.Count > 0)
+        {
+            var implicitOnly = new List<string>();
+            foreach (var kvp in implicitCandidates)
+            {
+                if (IsIgnoredPath(kvp.Value.AssetPath, ignorePatterns))
+                    implicitOnly.Add(kvp.Key);
+            }
+            foreach (var guid in implicitOnly)
+            {
+                messages.Add(BuildMessage.Warning(
+                    "IMPLICIT_IGNORED_PATH_DEP",
+                    $"Asset '{implicitCandidates[guid].AssetPath}' 位于忽略路径，作为引用方物理随行内容打包（不生成 manifest 条目 / 独立 Bundle）。",
+                    implicitCandidates[guid].AssetPath));
+                implicitCandidates.Remove(guid);
+            }
+        }
+
+        // 第三阶段：隐式依赖一律按自身类型独立成桶（旧复制分支已废止）。
         ApplySharePolicy(implicitCandidates, policy, packageName, graph, messages, result);
     }
 
@@ -270,12 +298,11 @@ public static class DependencyAnalyzer
         {
             string depGuid = kvp.Key;
             var candidate = kvp.Value;
-            int refCount = candidate.ReferencingBundles.Count;
 
             bool forceShare = IsGlobMatch(candidate.AssetPath, policy.ForceSharePatterns);
             bool noShare = IsGlobMatch(candidate.AssetPath, policy.NoSharePatterns);
 
-            // 规则冲突检测：同时匹配 ForceShare 和 NoShare → 配置错误
+            // 规则冲突检测：同时匹配 ForceShare 和 NoShare → 配置错误（保留并生效）
             if (forceShare && noShare)
             {
                 messages.Add(BuildMessage.Error(BuildErrorCodes.SharePolicyConflict,
@@ -284,65 +311,34 @@ public static class DependencyAnalyzer
                 continue;
             }
 
-            // MinAssetSizeBytes 检查：小于阈值的资产不参与共享
-            bool meetsSizeThreshold = true;
-            if (policy.MinAssetSizeBytes > 0)
-            {
-                if (!TryGetAssetFileSize(candidate.AssetPath, out long fileSize, out string sizeError))
-                {
-                    messages.Add(BuildMessage.Error(BuildErrorCodes.SharePolicySizeUnknown,
-                        $"Asset '{candidate.AssetPath}' 无法读取文件大小，Package '{packageName}' 的 MinAssetSizeBytes 策略无法可靠执行: {sizeError}",
-                        candidate.AssetPath));
-                    continue;
-                }
+            // B05 修正版：隐式依赖不再“复制进引用方 Bundle”。旧的 MinReferenceCount /
+            // MinAssetSizeBytes 低引用嵌入分支在 07-05 物理 Bundle 精确类型不变量下不可能合法，故废止；
+            // 保障分桶唯一性：一律按依赖自身（payload + 精确类型）形成独立 Bundle。
+            string bundleName = BundleNameBuilder.BuildShared(
+                packageName,
+                candidate.PrimaryType,
+                EPayloadKind.Serialized,
+                candidate.PrimaryType);
 
-                if (fileSize < policy.MinAssetSizeBytes)
-                    meetsSizeThreshold = false;
-            }
+            var sharedEntry = CreateImplicitEntry(candidate, depGuid, bundleName, isShared: true, isDuplicated: false);
+            result.Add(sharedEntry);
 
-            string bundleName;
-            bool isShared;
-            bool isDuplicated;
-
-            if (forceShare || (refCount >= policy.MinReferenceCount && meetsSizeThreshold))
-            {
-                // 共享：打入 "$shared" Bundle
-                string bundleKey = candidate.PrimaryType;
-                bundleName = BundleNameBuilder.BuildShared(
-                    packageName,
-                    bundleKey,
-                    EPayloadKind.Serialized,
-                    candidate.PrimaryType);
-                isShared = true;
-                isDuplicated = false;
-
-                var sharedEntry = CreateImplicitEntry(candidate, depGuid, bundleName, isShared, isDuplicated);
-                result.Add(sharedEntry);
-
-                // 记录每个引用 Bundle 到共享 Bundle 的依赖边
-                foreach (var refBundle in candidate.ReferencingBundles)
-                    graph.AddEdge(refBundle, bundleName, candidate.AssetPath);
-            }
-            else if (noShare)
-            {
-                // 强制复制：每个引用 Bundle 各一份
-                foreach (var refBundle in candidate.ReferencingBundles)
-                {
-                    var dupEntry = CreateImplicitEntry(candidate, depGuid, refBundle, false, true);
-                    result.Add(dupEntry);
-                }
-            }
-            else
-            {
-                // 引用不足最小阈值 → 复制到每个引用 Bundle
-                foreach (var refBundle in candidate.ReferencingBundles)
-                {
-                    isDuplicated = candidate.ReferencingBundles.Count > 1;
-                    var dupEntry = CreateImplicitEntry(candidate, depGuid, refBundle, false, isDuplicated);
-                    result.Add(dupEntry);
-                }
-            }
+            // 引用方 Bundle 记录到该类型桶的依赖边
+            foreach (var refBundle in candidate.ReferencingBundles)
+                graph.AddEdge(refBundle, bundleName, candidate.AssetPath);
         }
+    }
+
+    private static bool IsIgnoredPath(string assetPath, HashSet<string> ignorePatterns)
+    {
+        if (string.IsNullOrEmpty(assetPath) || ignorePatterns == null || ignorePatterns.Count == 0)
+            return false;
+        foreach (var pattern in ignorePatterns)
+        {
+            if (GlobMatcher.IsMatch(assetPath, pattern))
+                return true;
+        }
+        return false;
     }
 
     private static CollectedAssetInfo CreateImplicitEntry(
@@ -443,35 +439,6 @@ public static class DependencyAnalyzer
         {
             if (GlobMatcher.IsMatch(assetPath, pattern))
                 return true;
-        }
-        return false;
-    }
-
-    private static bool TryGetAssetFileSize(string assetPath, out long size, out string error)
-    {
-        size = 0;
-        error = string.Empty;
-
-        if (string.IsNullOrEmpty(assetPath))
-        {
-            error = "AssetPath is empty.";
-            return false;
-        }
-
-        try
-        {
-            var info = new System.IO.FileInfo(assetPath);
-            if (info.Exists)
-            {
-                size = info.Length;
-                return true;
-            }
-
-            error = "File does not exist.";
-        }
-        catch (Exception ex)
-        {
-            error = $"{ex.GetType().Name}: {ex.Message}";
         }
         return false;
     }

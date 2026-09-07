@@ -99,7 +99,7 @@ public static class E2ETestEngine
             ExitCode = BuildTestExitCodes.PreconditionFailed
         };
 
-        BuildTestFixtures.EnsurePermanentFixtures();
+        BuildTestFixtures.AssertPreflight();
         var targets = BuildTestState.FreezeTargets(request.Backend, request.TargetIds, request.ExternalConfirmIds);
         result.TargetSnapshots = targets;
         var recovery = BuildTestState.WriteRecovery(runRoot, request, targets);
@@ -198,20 +198,15 @@ public static class E2ETestEngine
             result.FirstFailure = ex.Message;
             if (result.ExitCode == BuildTestExitCodes.Passed || result.ExitCode == BuildTestExitCodes.PreconditionFailed)
                 result.ExitCode = BuildTestExitCodes.RuntimeFailed;
-            try
+            if (TryRestoreAfterFailure(request, runRoot, targets, mutated, out string restoreFailure))
             {
-                if (mutated)
-                    BuildTestFixtures.RestoreHotfixFixture(request.Backend);
-                for (int i = 0; targets != null && i < targets.Count; i++)
-                    BuildTestState.RestoreTarget(runRoot, targets[i]);
-                BuildTestState.RestoreProject(runRoot, request.Backend);
                 result.RestorationSucceeded = true;
             }
-            catch (Exception rex)
+            else
             {
                 result.RestorationSucceeded = false;
                 result.ExitCode = BuildTestExitCodes.RestoreFailed;
-                result.FirstFailure += " | restore: " + rex.Message;
+                result.FirstFailure += " | restore: " + restoreFailure;
             }
         }
         finally
@@ -259,10 +254,13 @@ public static class E2ETestEngine
         string targetDir = FYAssetPathUtility.JoinFilePath(runRoot, "targets", "standalone");
         FileHelper.EnsureDirectory(targetDir);
         bool oldStandalone = FYAssetSettings.Instance.StandaloneBuild;
+        // 快照范围依赖 durable recovery 记录；缺失时快照即标记异常（不实际写入），
+        // 完整流程禁止“无账本就破窗”行为。
+        var recovery = BuildTestState.WriteRecovery(runRoot, request, new List<BuildTestTargetSnapshot>());
 
         try
         {
-            BuildTestFixtures.EnsurePermanentFixtures();
+            BuildTestFixtures.AssertPreflight();
             BuildTestState.SnapshotProject(runRoot, request.Backend);
 
             ABBuildProjectManager.BuildStandalonePackage();
@@ -343,6 +341,7 @@ public static class E2ETestEngine
             {
                 // best-effort; already reported above if primary path failed
             }
+            BuildTestState.MarkRecoveryCompleted(runRoot, recovery, result.RestorationSucceeded);
         }
 
         return result;
@@ -415,7 +414,7 @@ public static class E2ETestEngine
             ExitCode = BuildTestExitCodes.PreconditionFailed
         };
 
-        BuildTestFixtures.EnsurePermanentFixtures();
+        BuildTestFixtures.AssertPreflight();
         var targets = BuildTestState.FreezeTargets(request.Backend, request.TargetIds, request.ExternalConfirmIds);
         result.TargetSnapshots = targets;
         var recovery = BuildTestState.WriteRecovery(runRoot, request, targets);
@@ -606,21 +605,11 @@ public static class E2ETestEngine
             result.FirstFailure = ex.Message;
             if (result.ExitCode == BuildTestExitCodes.Passed || result.ExitCode == BuildTestExitCodes.PreconditionFailed)
                 result.ExitCode = BuildTestExitCodes.RuntimeFailed;
-            try
+            result.RestorationSucceeded = TryRestoreAfterFailureWithCleanup(sessions, request, runRoot, targets, mutated, out string restoreFailure);
+            if (!result.RestorationSucceeded)
             {
-                CleanupSessions(sessions);
-                if (mutated)
-                    BuildTestFixtures.RestoreHotfixFixture(request.Backend);
-                for (int i = 0; targets != null && i < targets.Count; i++)
-                    BuildTestState.RestoreTarget(runRoot, targets[i]);
-                BuildTestState.RestoreProject(runRoot, request.Backend);
-                result.RestorationSucceeded = true;
-            }
-            catch (Exception rex)
-            {
-                result.RestorationSucceeded = false;
                 result.ExitCode = BuildTestExitCodes.RestoreFailed;
-                result.FirstFailure += " | restore: " + rex.Message;
+                result.FirstFailure += " | restore: " + restoreFailure;
             }
         }
         finally
@@ -834,6 +823,72 @@ public static class E2ETestEngine
                 "Player exit code " + proc.ExitCode + " phase=" + phase + " log=" + logPath);
         if (!FileHelper.Exists(resultJson))
             throw new InvalidOperationException("Player result missing phase=" + phase + ": " + resultJson);
+    }
+
+
+    /// <summary>失败路径下的聚合恢复：fixture/每个 target/project 各自尝试，任何一步失败也不阻断其他范围。</summary>
+    private static bool TryRestoreAfterFailure(
+        BuildTestRequest request,
+        string runRoot,
+        List<BuildTestTargetSnapshot> targets,
+        bool mutated,
+        out string failure)
+    {
+        var errors = new List<string>();
+        try
+        {
+            if (mutated)
+                BuildTestFixtures.RestoreHotfixFixture(request.Backend);
+        }
+        catch (Exception ex)
+        {
+            errors.Add("fixture: " + ex.Message);
+        }
+        for (int i = 0; targets != null && i < targets.Count; i++)
+        {
+            try
+            {
+                BuildTestState.RestoreTarget(runRoot, targets[i]);
+            }
+            catch (Exception ex)
+            {
+                errors.Add(targets[i].TargetId + ": " + ex.Message);
+            }
+        }
+        try
+        {
+            BuildTestState.RestoreProject(runRoot, request.Backend);
+        }
+        catch (Exception ex)
+        {
+            errors.Add("project: " + ex.Message);
+        }
+        failure = errors.Count > 0 ? string.Join(" | ", errors) : null;
+        return errors.Count == 0;
+    }
+
+    /// <summary>与 <see cref="TryRestoreAfterFailure"/> 一致，但先清理 Player 会话；清理失败也会聚合进结果。</summary>
+    private static bool TryRestoreAfterFailureWithCleanup(
+        List<PlayerSession> sessions,
+        BuildTestRequest request,
+        string runRoot,
+        List<BuildTestTargetSnapshot> targets,
+        bool mutated,
+        out string failure)
+    {
+        string restoreFailure;
+        bool ok = TryRestoreAfterFailure(request, runRoot, targets, mutated, out restoreFailure);
+        try
+        {
+            CleanupSessions(sessions);
+        }
+        catch (Exception ex)
+        {
+            restoreFailure = (restoreFailure ?? string.Empty) + (string.IsNullOrEmpty(restoreFailure) ? string.Empty : " | ") + "sessions: " + ex.Message;
+            ok = false;
+        }
+        failure = restoreFailure;
+        return ok;
     }
 
     private static void CleanupSessions(List<PlayerSession> sessions)

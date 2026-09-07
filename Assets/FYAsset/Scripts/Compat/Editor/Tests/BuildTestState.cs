@@ -42,6 +42,28 @@ public static class BuildTestState
         return settings;
     }
 
+    /// <summary>
+    /// restore 范围内的分发决策，是唯一允许不读取备份内容就判定行为的方法。
+    /// 规则：快照不完整 => 一律拒绝任何破坏性动作；声明完整但备份不可用 => 明确失败；
+    /// 快照前不存在 => 恢复 = 删除运行期新建内容；已恢复 => 跳过。
+    /// </summary>
+    public static BuildTestScopeRestoreAction ClassifyScopeRestore(string snapshotState, string restoreState, bool backupContentExists)
+    {
+        if (string.Equals(restoreState, BuildTestRecoveryScopeStates.Restored, StringComparison.Ordinal))
+            return BuildTestScopeRestoreAction.SkipAlreadyRestored;
+        switch (snapshotState)
+        {
+            case BuildTestRecoveryScopeStates.AbsentBefore:
+                return BuildTestScopeRestoreAction.DeleteForAbsent;
+            case BuildTestRecoveryScopeStates.SnapshotComplete:
+                return backupContentExists
+                    ? BuildTestScopeRestoreAction.RestoreFromBackup
+                    : BuildTestScopeRestoreAction.FailBackupMissing;
+            default:
+                return BuildTestScopeRestoreAction.FailRefuseDestructive;
+        }
+    }
+
     public static BuildTestRecoveryRecord WriteRecovery(
         string runRoot,
         BuildTestRequest request,
@@ -72,9 +94,22 @@ public static class BuildTestState
     {
         if (record == null)
             return;
-        record.Completed = true;
         record.Restored = restored;
+        // Completed 只在所以范围终态后成立；恢复失败保留未完成记录，保证下次启动继续尝试。
+        record.Completed = restored && AllScopesTerminal(record);
         PersistRecovery(runRoot, record);
+    }
+
+    private static bool AllScopesTerminal(BuildTestRecoveryRecord record)
+    {
+        if (record.Scopes == null || record.Scopes.Count == 0)
+            return record.Restored;
+        for (int i = 0; i < record.Scopes.Count; i++)
+        {
+            if (!string.Equals(record.Scopes[i].RestoreState, BuildTestRecoveryScopeStates.Restored, StringComparison.Ordinal))
+                return false;
+        }
+        return true;
     }
 
     public static bool TryRecoverStaleRun(out BuildTestResult result)
@@ -98,8 +133,22 @@ public static class BuildTestState
 
             string runRoot = Path.GetDirectoryName(recoveryPath);
             bool restored = RestoreFromRecord(record, out string failure);
-            record.Completed = true;
-            record.Restored = restored;
+            if (record.Scopes == null || record.Scopes.Count == 0)
+            {
+                // 旧格式记录：没有范围状态可参考，拒绝自动恢复但标记已处理，
+                // 避免每次启动都会无限重试同一个需要人工检查的损坏快照。
+                record.Completed = true;
+                record.Restored = false;
+                restored = false;
+                if (string.IsNullOrEmpty(failure))
+                    failure = "旧格式 recovery 记录缺少范围状态，拒绝自动恢复，请人工检查后清理该 runRoot。";
+            }
+            else
+            {
+                // 恢复失败的记录保持未完成，下次启动会重试尚未 Restored 的范围。
+                record.Restored = restored;
+                record.Completed = restored && AllScopesTerminal(record);
+            }
             PersistRecovery(runRoot, record);
 
             result = new BuildTestResult
@@ -126,54 +175,116 @@ public static class BuildTestState
         return false;
     }
 
+    private static string ScopeProjectId(string name) => "project/" + name;
+    private static string ScopeTargetId(string targetId) => "target/" + targetId;
+
+    private static bool PathExistsAny(string sourcePath)
+    {
+        string abs = ResolveMaybeAsset(sourcePath);
+        return !string.IsNullOrEmpty(abs)
+               && (FileHelper.Exists(abs) || FileHelper.DirectoryExists(abs));
+    }
+
+    /// <summary>
+    /// 按范围快照：每个范围先用 durable 记录声明意图，完成后再标记，异常只会使状态保持在 Pending，
+    /// 万劫不复的“不完整快照”在恢复时拒绝任何删除动作。
+    /// </summary>
+    private static void SnapshotScopeEntry(string runRoot, string scopeId, Func<bool> existsBefore, Action snapshot)
+    {
+        if (!existsBefore())
+        {
+            MarkScopeSnapshot(runRoot, scopeId, BuildTestRecoveryScopeStates.AbsentBefore);
+            return;
+        }
+
+        MarkScopeSnapshot(runRoot, scopeId, BuildTestRecoveryScopeStates.Pending);
+        snapshot();
+        MarkScopeSnapshot(runRoot, scopeId, BuildTestRecoveryScopeStates.SnapshotComplete);
+    }
+
     public static void SnapshotProject(string runRoot, BuildTestBackend backend)
     {
         string backup = BuildTestPaths.ProjectBackupRoot(runRoot);
         FileHelper.EnsureDirectory(backup);
 
-        SnapshotVersion(backup);
-        SnapshotSettings(backup);
-        SnapshotPath(FYAssetSettings.Instance.VersionRecordPath, backup, "version.asset");
-        SnapshotPath(FYAssetSettings.Instance.BuildIndexJsonPath, backup, "bootstrap_buildindex.json");
-
-        string packageIndex = BuildPathManager.PackageIndexPath;
-        SnapshotPath(packageIndex, backup, "package_index.json");
-
-        string packagesDir = BuildPathManager.PackagesDir;
-        SnapshotDirectory(packagesDir, backup, "packages");
-
-        // Repository lives under project-root BuildData/Baselines (not HotfixOutput).
-        SnapshotDirectory(
-            FYAssetPathUtility.JoinFilePath(BuildPathManager.ProjectRoot, "BuildData"),
-            backup,
-            "builddata");
-
-        SnapshotDirectory(Application.streamingAssetsPath, backup, "streamingassets");
-        SnapshotPath(BuildTestConstants.SyncAssetPath, backup, "fixture_sync.txt");
-        SnapshotPath(BuildTestConstants.RawAssetPath, backup, "fixture_raw.fyraw");
-        SnapshotPath(BuildTestConstants.AsyncAssetPath, backup, "fixture_async.asset");
-        // AA Hotfix group move undo log is project-owned state that blocks subsequent Hotfix builds.
-        SnapshotPath("Assets/FYAsset/Editor/Generated/HotfixGroupUndoLog.json", backup, "aa_hotfix_group_undo.json");
+        SnapshotScopeEntry(runRoot, ScopeProjectId("version.json"), () => true, () => SnapshotVersion(backup));
+        SnapshotScopeEntry(runRoot, ScopeProjectId("settings.json"), () => true, () => SnapshotSettings(backup));
+        SnapshotScopeEntry(runRoot, ScopeProjectId("version.asset"), () => PathExistsAny(FYAssetSettings.Instance.VersionRecordPath),
+            () => SnapshotPath(FYAssetSettings.Instance.VersionRecordPath, backup, "version.asset"));
+        SnapshotScopeEntry(runRoot, ScopeProjectId("bootstrap_buildindex.json"), () => PathExistsAny(FYAssetSettings.Instance.BuildIndexJsonPath),
+            () => SnapshotPath(FYAssetSettings.Instance.BuildIndexJsonPath, backup, "bootstrap_buildindex.json"));
+        SnapshotScopeEntry(runRoot, ScopeProjectId("package_index.json"), () => PathExistsAny(BuildPathManager.PackageIndexPath),
+            () => SnapshotPath(BuildPathManager.PackageIndexPath, backup, "package_index.json"));
+        SnapshotScopeEntry(runRoot, ScopeProjectId("packages"), () => FileHelper.DirectoryExists(BuildPathManager.PackagesDir),
+            () => SnapshotDirectory(BuildPathManager.PackagesDir, backup, "packages"));
+        SnapshotScopeEntry(runRoot, ScopeProjectId("builddata"),
+            () => FileHelper.DirectoryExists(FYAssetPathUtility.JoinFilePath(BuildPathManager.ProjectRoot, "BuildData")),
+            () => SnapshotDirectory(
+                FYAssetPathUtility.JoinFilePath(BuildPathManager.ProjectRoot, "BuildData"),
+                backup,
+                "builddata"));
+        SnapshotScopeEntry(runRoot, ScopeProjectId("streamingassets"), () => FileHelper.DirectoryExists(Application.streamingAssetsPath),
+            () => SnapshotDirectory(Application.streamingAssetsPath, backup, "streamingassets"));
+        SnapshotScopeEntry(runRoot, ScopeProjectId("fixture_sync.txt"), () => PathExistsAny(BuildTestConstants.SyncAssetPath),
+            () => SnapshotPath(BuildTestConstants.SyncAssetPath, backup, "fixture_sync.txt"));
+        SnapshotScopeEntry(runRoot, ScopeProjectId("fixture_raw.fyraw"), () => PathExistsAny(BuildTestConstants.RawAssetPath),
+            () => SnapshotPath(BuildTestConstants.RawAssetPath, backup, "fixture_raw.fyraw"));
+        SnapshotScopeEntry(runRoot, ScopeProjectId("aa_hotfix_group_undo.json"), () => PathExistsAny("Assets/FYAsset/Editor/Generated/HotfixGroupUndoLog.json"),
+            () => SnapshotPath("Assets/FYAsset/Editor/Generated/HotfixGroupUndoLog.json", backup, "aa_hotfix_group_undo.json"));
     }
 
     public static void RestoreProject(string runRoot, BuildTestBackend backend)
     {
+        var errors = new List<string>();
+        RestoreProject(runRoot, backend, errors);
+        ThrowIfRestoreErrors("project", errors);
+    }
+
+    private static void RestoreProject(string runRoot, BuildTestBackend backend, List<string> errors)
+    {
         string backup = BuildTestPaths.ProjectBackupRoot(runRoot);
-        RestoreVersion(backup);
-        RestoreSettings(backup);
-        RestorePath(FYAssetSettings.Instance.BuildIndexJsonPath, backup, "bootstrap_buildindex.json");
-        RestorePath(BuildPathManager.PackageIndexPath, backup, "package_index.json");
-        RestoreDirectory(BuildPathManager.PackagesDir, backup, "packages");
-        RestoreDirectory(
-            FYAssetPathUtility.JoinFilePath(BuildPathManager.ProjectRoot, "BuildData"),
-            backup,
-            "builddata");
-        RestoreDirectory(Application.streamingAssetsPath, backup, "streamingassets");
-        RestorePath(BuildTestConstants.SyncAssetPath, backup, "fixture_sync.txt");
-        RestorePath(BuildTestConstants.RawAssetPath, backup, "fixture_raw.fyraw");
-        RestorePath("Assets/FYAsset/Editor/Generated/HotfixGroupUndoLog.json", backup, "aa_hotfix_group_undo.json");
-        // Keep async SO content from fixture ensure path; versioned marker is fixed.
+
+        ExecuteScopeRestore(runRoot, ScopeProjectId("version.json"), BackupEntryExists(backup, "version.json"),
+            () => RestoreVersion(backup), () => { }, errors);
+        ExecuteScopeRestore(runRoot, ScopeProjectId("settings.json"), BackupEntryExists(backup, "settings.json"),
+            () => RestoreSettings(backup), () => { }, errors);
+        ExecuteScopeRestore(runRoot, ScopeProjectId("version.asset"), BackupEntryExists(backup, "version.asset"),
+            () => RestorePath(FYAssetSettings.Instance.VersionRecordPath, backup, "version.asset"),
+            () => DeleteExistingPath(FYAssetSettings.Instance.VersionRecordPath), errors);
+        ExecuteScopeRestore(runRoot, ScopeProjectId("bootstrap_buildindex.json"), BackupEntryExists(backup, "bootstrap_buildindex.json"),
+            () => RestorePath(FYAssetSettings.Instance.BuildIndexJsonPath, backup, "bootstrap_buildindex.json"),
+            () => DeleteExistingPath(FYAssetSettings.Instance.BuildIndexJsonPath), errors);
+        ExecuteScopeRestore(runRoot, ScopeProjectId("package_index.json"), BackupEntryExists(backup, "package_index.json"),
+            () => RestorePath(BuildPathManager.PackageIndexPath, backup, "package_index.json"),
+            () => DeleteExistingPath(BuildPathManager.PackageIndexPath), errors);
+        ExecuteScopeRestore(runRoot, ScopeProjectId("packages"), BackupEntryExists(backup, "packages"),
+            () => RestoreDirectory(BuildPathManager.PackagesDir, backup, "packages"),
+            () => DeleteExistingPath(BuildPathManager.PackagesDir), errors);
+        string buildDataDir = FYAssetPathUtility.JoinFilePath(BuildPathManager.ProjectRoot, "BuildData");
+        ExecuteScopeRestore(runRoot, ScopeProjectId("builddata"), BackupEntryExists(backup, "builddata"),
+            () => RestoreDirectory(buildDataDir, backup, "builddata"),
+            () => DeleteExistingPath(buildDataDir), errors);
+        ExecuteScopeRestore(runRoot, ScopeProjectId("streamingassets"), BackupEntryExists(backup, "streamingassets"),
+            () => RestoreDirectory(Application.streamingAssetsPath, backup, "streamingassets"),
+            () => DeleteExistingPath(Application.streamingAssetsPath), errors);
+        ExecuteScopeRestore(runRoot, ScopeProjectId("fixture_sync.txt"), BackupEntryExists(backup, "fixture_sync.txt"),
+            () => RestorePath(BuildTestConstants.SyncAssetPath, backup, "fixture_sync.txt"),
+            () => DeleteExistingPath(BuildTestConstants.SyncAssetPath), errors);
+        ExecuteScopeRestore(runRoot, ScopeProjectId("fixture_raw.fyraw"), BackupEntryExists(backup, "fixture_raw.fyraw"),
+            () => RestorePath(BuildTestConstants.RawAssetPath, backup, "fixture_raw.fyraw"),
+            () => DeleteExistingPath(BuildTestConstants.RawAssetPath), errors);
+        ExecuteScopeRestore(runRoot, ScopeProjectId("aa_hotfix_group_undo.json"), BackupEntryExists(backup, "aa_hotfix_group_undo.json"),
+            () => RestorePath("Assets/FYAsset/Editor/Generated/HotfixGroupUndoLog.json", backup, "aa_hotfix_group_undo.json"),
+            () => DeleteExistingPath("Assets/FYAsset/Editor/Generated/HotfixGroupUndoLog.json"), errors);
+
+        // fixture_async.asset 刻意不纳入恢复快照：它属于静态夹具本体，运行期不应被修改。
         AssetDatabase.Refresh();
+    }
+
+    private static void ThrowIfRestoreErrors(string sourceLabel, List<string> errors)
+    {
+        if (errors != null && errors.Count > 0)
+            throw new InvalidOperationException(sourceLabel + " restore failed: " + string.Join(" | ", errors));
     }
 
     public static void PrepareIsolatedFullProject(BuildTestBackend backend)
@@ -288,11 +399,18 @@ public static class BuildTestState
         {
             BuildTestTargetSnapshot target = targets[i];
             string targetBackup = FYAssetPathUtility.JoinFilePath(backupRoot, Sanitize(target.TargetId));
-            FileHelper.EnsureDirectory(targetBackup);
-            SnapshotDirectory(target.ServiceRoot, targetBackup, "service");
-
-            if (target.TargetType == PushTargetType.CloudflarePages)
-                AssertCloudflareMirrorConsistent(target);
+            string scopeId = ScopeTargetId(target.TargetId);
+            SnapshotScopeEntry(
+                runRoot,
+                scopeId,
+                () => FileHelper.DirectoryExists(target.ServiceRoot),
+                () =>
+                {
+                    FileHelper.EnsureDirectory(targetBackup);
+                    SnapshotDirectory(target.ServiceRoot, targetBackup, "service");
+                    if (target.TargetType == PushTargetType.CloudflarePages)
+                        AssertCloudflareMirrorConsistent(target);
+                });
 
             var meta = new
             {
@@ -310,19 +428,29 @@ public static class BuildTestState
 
     public static void RestoreTarget(string runRoot, BuildTestTargetSnapshot target)
     {
-        string targetBackup = FYAssetPathUtility.JoinFilePath(
-            BuildTestPaths.TargetsBackupRoot(runRoot),
-            Sanitize(target.TargetId),
-            "service");
-        RestoreDirectory(target.ServiceRoot, Path.GetDirectoryName(targetBackup), "service");
+        var errors = new List<string>();
+        RestoreTargetScope(runRoot, target, errors);
+        ThrowIfRestoreErrors(target.TargetId, errors);
+    }
 
-        if (target.TargetType == PushTargetType.CloudflarePages)
-        {
-            PushTargetConfig config = PushTargetUtility.FindConfig(target.TargetId);
-            IPushTarget pushTarget = CompatPushTargetFactory.CreateFull(config);
-            // Redeploy restored mirror via Cloudflare target by pushing empty? Use wrangler deploy of service root.
-            RedeployCloudflareServiceRoot(target);
-        }
+    private static void RestoreTargetScope(string runRoot, BuildTestTargetSnapshot target, List<string> errors)
+    {
+        string targetBackupRoot = FYAssetPathUtility.JoinFilePath(
+            BuildTestPaths.TargetsBackupRoot(runRoot),
+            Sanitize(target.TargetId));
+        string serviceBackup = FYAssetPathUtility.JoinFilePath(targetBackupRoot, "service");
+        ExecuteScopeRestore(
+            runRoot,
+            ScopeTargetId(target.TargetId),
+            FileHelper.DirectoryExists(serviceBackup),
+            () =>
+            {
+                RestoreDirectory(target.ServiceRoot, targetBackupRoot, "service");
+                if (target.TargetType == PushTargetType.CloudflarePages)
+                    RedeployCloudflareServiceRoot(target);
+            },
+            () => DeleteExistingPath(target.ServiceRoot),
+            errors);
     }
 
     public static void ProbeTargetIdentity(
@@ -420,23 +548,93 @@ public static class BuildTestState
             SerializationUtility.SerializeToJson(record, true));
     }
 
+    private static BuildTestRecoveryRecord TryLoadRecovery(string runRoot)
+    {
+        string path = BuildTestPaths.RecoveryJson(runRoot);
+        if (!FileHelper.Exists(path))
+            return null;
+        return SerializationUtility.DeserializeJson<BuildTestRecoveryRecord>(File.ReadAllText(path, Encoding.UTF8));
+    }
+
+    private static void MarkScopeSnapshot(string runRoot, string scopeId, string snapshotState)
+    {
+        BuildTestRecoveryRecord record = TryLoadRecovery(runRoot);
+        if (record == null)
+            throw new InvalidOperationException("recovery.json missing: " + runRoot);
+        BuildTestScopeRecoveryState scope = FindOrCreateScope(record, scopeId);
+        switch (snapshotState)
+        {
+            case BuildTestRecoveryScopeStates.Pending:
+                scope.SnapshotState = BuildTestRecoveryScopeStates.Pending;
+                scope.RestoreState = BuildTestRecoveryScopeStates.None;
+                scope.Error = null;
+                break;
+            case BuildTestRecoveryScopeStates.SnapshotComplete:
+                scope.SnapshotState = BuildTestRecoveryScopeStates.SnapshotComplete;
+                break;
+            case BuildTestRecoveryScopeStates.AbsentBefore:
+                scope.SnapshotState = BuildTestRecoveryScopeStates.AbsentBefore;
+                scope.RestoreState = BuildTestRecoveryScopeStates.None;
+                scope.Error = null;
+                break;
+        }
+        PersistRecovery(runRoot, record);
+    }
+
+    private static void MarkScopeRestore(string runRoot, string scopeId, bool success, string error)
+    {
+        BuildTestRecoveryRecord record = TryLoadRecovery(runRoot);
+        if (record == null)
+            throw new InvalidOperationException("recovery.json missing: " + runRoot);
+        BuildTestScopeRecoveryState scope = FindOrCreateScope(record, scopeId);
+        scope.RestoreState = success
+            ? BuildTestRecoveryScopeStates.Restored
+            : BuildTestRecoveryScopeStates.RestoreFailed;
+        scope.Error = error;
+        PersistRecovery(runRoot, record);
+    }
+
+    private static BuildTestScopeRecoveryState FindOrCreateScope(BuildTestRecoveryRecord record, string scopeId)
+    {
+        if (record.Scopes == null)
+            record.Scopes = new List<BuildTestScopeRecoveryState>();
+        for (int i = 0; i < record.Scopes.Count; i++)
+        {
+            if (string.Equals(record.Scopes[i].ScopeId, scopeId, StringComparison.Ordinal))
+                return record.Scopes[i];
+        }
+        var scope = new BuildTestScopeRecoveryState { ScopeId = scopeId };
+        record.Scopes.Add(scope);
+        return scope;
+    }
+
     private static bool RestoreFromRecord(BuildTestRecoveryRecord record, out string failure)
     {
         failure = string.Empty;
+        if (record.Scopes == null || record.Scopes.Count == 0)
+        {
+            failure = "旧格式 recovery 记录缺少范围状态，拒绝自动恢复，请人工检查后清理该 runRoot。";
+            return false;
+        }
+
         try
         {
             if (!Enum.TryParse(record.Backend, true, out BuildTestBackend backend))
                 backend = BuildTestBackend.AA;
 
-            string runRoot = Path.GetDirectoryName(
-                FYAssetPathUtility.JoinFilePath(record.ProjectBackupRoot, "..", ".."));
-            // recovery path layout: runRoot/backup/project
-            runRoot = Path.GetFullPath(Path.Combine(record.ProjectBackupRoot, "..", ".."));
-            RestoreProject(runRoot, backend);
+            string runRoot = Path.GetFullPath(Path.Combine(record.ProjectBackupRoot, "..", ".."));
+            var errors = new List<string>();
+            RestoreProject(runRoot, backend, errors);
             if (record.Targets != null)
             {
                 for (int i = 0; i < record.Targets.Count; i++)
-                    RestoreTarget(runRoot, record.Targets[i]);
+                    RestoreTargetScope(runRoot, record.Targets[i], errors);
+            }
+
+            if (errors.Count > 0)
+            {
+                failure = string.Join(" | ", errors);
+                return false;
             }
             return true;
         }
@@ -444,6 +642,78 @@ public static class BuildTestState
         {
             failure = ex.Message;
             return false;
+        }
+    }
+
+    /// <summary>为正常运行与遗留恢复共享的范围恢复执行器：结果同时写入 durable 状态与错误表。</summary>
+    private static void ExecuteScopeRestore(
+        string runRoot,
+        string scopeId,
+        bool backupContentExists,
+        Action restoreFromBackup,
+        Action deleteForAbsent,
+        List<string> errors)
+    {
+        BuildTestRecoveryRecord record = TryLoadRecovery(runRoot);
+        BuildTestScopeRecoveryState scope = record?.Scopes?.Find(
+            s => string.Equals(s.ScopeId, scopeId, StringComparison.Ordinal));
+        string snapshotState = scope?.SnapshotState ?? BuildTestRecoveryScopeStates.Pending;
+        var action = ClassifyScopeRestore(snapshotState, scope?.RestoreState, backupContentExists);
+        try
+        {
+            switch (action)
+            {
+                case BuildTestScopeRestoreAction.SkipAlreadyRestored:
+                    return;
+                case BuildTestScopeRestoreAction.FailRefuseDestructive:
+                    throw new InvalidOperationException(
+                        $"快照范围 '{scopeId}' 未完成（状态 {snapshotState ?? "未知"}），它不是“原状不存在”的证据，拒绝任何破坏性恢复。");
+                case BuildTestScopeRestoreAction.FailBackupMissing:
+                    throw new InvalidOperationException(
+                        $"快照范围 '{scopeId}' 声明完整但备份内容不存在/不可用。");
+                case BuildTestScopeRestoreAction.RestoreFromBackup:
+                    restoreFromBackup();
+                    break;
+                case BuildTestScopeRestoreAction.DeleteForAbsent:
+                    deleteForAbsent();
+                    break;
+            }
+
+            TryMarkScopeRestore(runRoot, scopeId, true, null);
+        }
+        catch (Exception ex)
+        {
+            TryMarkScopeRestore(runRoot, scopeId, false, ex.Message);
+            errors.Add(scopeId + ": " + ex.Message);
+        }
+    }
+
+    private static bool BackupEntryExists(string backupRoot, string name)
+    {
+        string backup = FYAssetPathUtility.JoinFilePath(backupRoot, name);
+        return FileHelper.Exists(backup) || FileHelper.DirectoryExists(backup);
+    }
+
+    private static void DeleteExistingPath(string sourcePath)
+    {
+        string abs = ResolveMaybeAsset(sourcePath);
+        if (string.IsNullOrEmpty(abs))
+            return;
+        if (FileHelper.DirectoryExists(abs))
+            FileHelper.TryDeleteDirectory(abs, true);
+        else if (FileHelper.Exists(abs))
+            FileHelper.TryDelete(abs);
+    }
+
+    private static void TryMarkScopeRestore(string runRoot, string scopeId, bool success, string error)
+    {
+        try
+        {
+            MarkScopeRestore(runRoot, scopeId, success, error);
+        }
+        catch (Exception persistEx)
+        {
+            Debug.LogWarning($"[BuildTestState] 范围恢复状态写失败 {scopeId}: {persistEx.Message}");
         }
     }
 
@@ -551,31 +821,28 @@ public static class BuildTestState
             return;
         }
 
-        // No backup means original was absent.
-        if (FileHelper.Exists(abs))
-            FileHelper.TryDelete(abs);
-        else if (FileHelper.DirectoryExists(abs))
-            FileHelper.TryDeleteDirectory(abs, true);
+        // 备份缺失不再允许假定“原状不存在”；删除语义只能由范围状态 AbsentBefore 显式驱动。
+        throw new FileNotFoundException($"快照备份缺失，拒绝恢复: source={abs}, backup={backup}");
     }
 
     private static void SnapshotDirectory(string sourceDir, string backupRoot, string name)
     {
         string dest = FYAssetPathUtility.JoinFilePath(backupRoot, name);
-        if (FileHelper.DirectoryExists(sourceDir))
-            CopyDir(sourceDir, dest);
-        else
-            FileHelper.EnsureDirectory(dest);
+        // 调用方（SnapshotScopeEntry）保证源目录必存在才进入该函数；
+        // 空目录也是合法状态，复制结果同样是一个空 dest。
+        if (!FileHelper.DirectoryExists(sourceDir))
+            throw new DirectoryNotFoundException($"快照源目录不存在: {sourceDir}");
+        CopyDir(sourceDir, dest);
     }
 
     private static void RestoreDirectory(string sourceDir, string backupRoot, string name)
     {
         string backup = FYAssetPathUtility.JoinFilePath(backupRoot, name);
+        if (!FileHelper.DirectoryExists(backup))
+            throw new DirectoryNotFoundException($"快照备份缺失，拒绝目录恢复: {backup}");
         if (FileHelper.DirectoryExists(sourceDir))
             FileHelper.TryDeleteDirectory(sourceDir, true);
-        if (FileHelper.DirectoryExists(backup) && Directory.GetFileSystemEntries(backup).Length > 0)
-            CopyDir(backup, sourceDir);
-        else
-            FileHelper.EnsureDirectory(sourceDir);
+        CopyDir(backup, sourceDir);
     }
 
     private static void CopyDir(string source, string dest)
