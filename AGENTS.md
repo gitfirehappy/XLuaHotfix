@@ -1,76 +1,58 @@
-# XLuaHotfix - AI Collaboration Guide
+# AI Collaboration Guide
 
 ## Core Rules
-- Speak with the developer in Chinese; keep code, identifiers, and AI-facing files in English.
-- Read `context/INDEX.md` before non-trivial work. For risky work, also read `context/mistakes/INDEX.md`.
-- Treat this file as collaboration guidance only. Verify concrete file paths, symbol relationships, and current behavior
-  from code; use Codegraph too when it is available and use `context/` only for stable human-curated knowledge.
-- Do not modify code without explicit developer approval.
-- Ask before changing runtime loading, hot-update flow, build artifact format, package distribution, Addressables/AB
-  replacement, or Lua-C# bridge behavior.
-- Keep changes scoped and maintainable. Explain important decisions with reasons.
+
+- Respond to the developer in Chinese.
+- Use plain, objective language. Describe observable behavior, constraints, ownership, lifetime, ordering, and reasons in terms a developer can verify.
+- Keep this file to cross-project collaboration rules. Project names, paths, types, modules, architecture decisions, tool versions, current status, and historical cases belong elsewhere.
+- Do not modify code or workflow files without explicit developer approval.
+- Keep changes scoped and aligned with the existing repository conventions.
+
+## Workflow
+
+Non-trivial work follows `grill -> plan -> implement`.
+
+- Read the current state before asking a design question.
+- Ask one decision at a time. Include a recommended answer and a rebuttal test.
+- The plan starts with purpose, constraints, and success criteria.
+- Do not implement until the plan is explicitly approved.
+- Split work into independently testable and reviewable tasks.
+- Keep `requirements/progress.txt` concise and current. Put detailed analysis and verification evidence in the active plan or review report.
+
+## Testing And Verification
+
+- Start a bug fix with a reproduction or the smallest runnable check that fails for the reported behavior.
+- Locate the root cause before changing code. After three failed fix attempts, stop patching and reopen the design.
+- Use the narrowest verification that proves the changed behavior; record the command and result in the relevant plan or review.
+- Do not claim completion, passing, or correctness without fresh verification output.
+- When blocked or uncertain, stop and ask instead of guessing.
+
+## Change Safety
+
+- Check `git status --short` before editing. Do not overwrite, revert, or clean changes not created by the current task.
+- Before deleting, moving, batch-rewriting files, changing ignore rules, or rewriting history, state the impact and obtain separate explicit approval.
+- Verify according to the change type: for code, verify behavior; for documentation, check links and factual boundaries; for indexes, check paths and duplicates. Cover the affected scope.
 
 ## Knowledge Boundaries
-- `context/`: AI-facing stable knowledge, English only. No generated code index, TODOs, plan status, approval text, or
-  next-step workflow.
-- `context/reference/`: external references only. Do not store installed-package inventories or direct project
-  integration notes there.
-- `requirements/`: plans, approvals, progress, drafts, and reviews.
-- `docs/`: human-facing Chinese documentation, updated only when there is a real documentation need.
-- For UI/editor/human-facing documents, prefer HTML over Markdown when readability matters; ask if the format is unclear.
 
-## Requirements
-- Use `requirements/README.md` for the detailed requirements workspace rules.
-- Keep the authoritative plan in `requirements/plan.md`.
-- Use `requirements/plan/` only as the shared active-plan queue and `requirements/plan/archive/` as the shared plan
-  archive.
-- Do not create independent `plan.md` files or `plan/` folders inside requirement-specific directories unless the
-  developer explicitly asks for that structure.
-- Do not keep scattered requirement-specific progress logs long term. Merge their entries into
-  `requirements/progress.txt` before deleting the standalone folder.
-- Never delete progress history silently. Small `progress.txt` files may be removed only after their entries are copied
-  into the main progress log with the requirement id preserved.
+- Source and tests define current behavior.
+- `context/` stores stable, verified, reusable knowledge. It is not a current-status board, plan queue, TODO list, or document archive.
+- `requirements/` stores plans, approvals, concise progress, and reviews.
+- `docs/` stores human-facing explanations, current architecture, design history, and tool instructions.
+- Keep external-source notes separate from project rules and current implementation facts.
 
-## Workflow (Non-Trivial Work)
-Non-trivial: new feature, mechanism replacement, or cross-file behavior change; when unsure, treat it as non-trivial.
-- Pipeline: grill → plan → implement. The plan carries its own spec (purpose, constraints, success criteria) as its first section; no implementation before the plan is approved and landed.
-- Grilling: read the current state first; verify facts from code yourself; present decisions one at a time, each with a recommended answer; keep going until no silently assumed residue remains on the design tree. Land the conclusions into the plan's spec section.
-- Plan location: `requirements/plan/drafts/YYYY-MM-DD-<topic>.md` (pre-approval), `requirements/plan/YYYY-MM-DD-<topic>.md` (approved); move to `requirements/plan/archive/` on completion. Never write planning docs into human-facing `docs/`.
-- Split the plan into tasks that are independently testable and reviewable. Replace existing mechanisms as: run the new one alongside → atomic switch → delete the old.
-- After each committed task, have a clean-context subagent review the commit range independently (give it only the spec and the diff, no session history). Fix Critical/Important findings before continuing; record Minor ones for the final branch review. Review the whole branch before merge/PR.
-- On review feedback: verify each point against the codebase before accepting or raising a technical objection. No performative agreement, no blind implementation.
-- Record task progress in `requirements/progress.txt`.
+## Comments
 
-## Iron Rules
-1. No production code without a failing test; bug fixes start with a test that reproduces the bug. Where test infrastructure cannot cover the change (UI, scene, build pipeline, hot-update style work), substitute the smallest runnable verification and record the exact command and output.
-2. No fix without a located root cause; after 3 failed fix attempts stop patching, switch to grilling mode and question the architecture.
-3. No completion/pass/fixed claims without this round's verification output (full command + output + exit code). Personally verify subagent success reports: the diff, the run results, the landing point.
-4. When blocked or uncertain, stop and ask the developer. Never guess and proceed.
-
-## File Discipline
-- Survey before creating files.
-- Reuse existing directories and naming patterns.
-- Keep generated files inside the project tree.
-- Ask before moving, renaming, or restructuring existing directories.
-- Do not encode volatile implementation file paths in this guide.
-
-## Project Guardrails
-- Follow nearby C# and Lua naming/style conventions.
-- Lua scripts must clearly follow the project’s Class-style or Module-style pattern.
-- New Lua-callable C# APIs must be checked against the current XLua exposure configuration.
-- Prefer the current project-approved resource loading facade in new runtime code; verify the current facade from code
-  and use Codegraph too when it is available.
-- Do not manually edit generated or pipeline-owned resource grouping/output unless the approved plan requires it.
-- Cross-language event registration must follow the project’s current event system conventions.
+- Add comments for non-obvious behavior, constraints, ownership, lifetime, ordering, or reasons.
+- Write comments in human-readable, objective language. Explain technical terms when they are not obvious from the code.
+- Do not hide meaning behind unexplained shorthand, metaphors, compressed arrows, or internal nicknames.
+- Keep comments concise. Put design history, broad rationale, and workflow instructions in documentation.
+- Follow the language and syntax requirements of the source language, but do not impose a language-specific comment style on this file.
 
 ## Git
-- Commit types: `feat`, `fix`, `refactor`, `docs`, `chore`, `test`.
-- Keep commits focused on one logical change.
-- **Commit scope and approval**: every commit must stay within one module or one tightly related documentation/test unit, keep the diff minimal, and use a concise one-line Chinese summary. Before committing, present the proposed scope, paths, and message to the developer and commit only after explicit developer approval. Do not create unapproved iterative, progress, or mechanical commits.
-- **History cleanup**: before rewriting or folding commit history, present the grouping and preservation plan to the developer and obtain explicit approval; preserve a recoverable backup reference until the developer approves its removal.
-- Run required generation or verification before committing; confirm XLua generation needs for XLua exposure changes.
-- Develop non-trivial changes in isolated worktrees; prefer the harness-native worktree tool. Branch names: `<type (feat/fix/chore, ...)>/<description>`.
-- Commit message: English type prefix + one-line Chinese summary.
-- Group each requirement round with a `--no-ff` merge commit; fold un-pushed iterative commits of the same round back into the group (no interactive rebase in this environment; use `git reset --soft` or `--autosquash`).
-- Re-run the full verification on the merged result. Ask before deleting worktrees or branches.
-- Do not commit generated local editor state.
+
+- Keep each commit focused on one logical change.
+- Use an English type prefix followed by one concise Chinese summary, unless the repository has an explicit established exception.
+- Before committing, show the proposed scope, paths, and message and obtain explicit approval.
+- Do not commit secrets, editor state, build caches, or generated local output unless the repository explicitly tracks it.
+- Verify the committed result again. Ask before deleting worktrees or branches.

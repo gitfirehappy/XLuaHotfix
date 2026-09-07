@@ -1,5 +1,10 @@
 # refactor-2026 Progress Log
 
+Historical entries are retained as evidence. New entries use `[type] YYYY-MM-DD scope: result` with short `start`,
+`decision`, `done`, `blocked`, or `next` types. Keep entries concise and current; put detailed analysis and verification
+output in the plan or review report. Historical content may be normalized for formatting and repetition, but meaningful
+decisions, actions, blockers, and verification results must remain.
+
 [done] 2026-05-25 docs-audit - Cross-referenced code vs docs, fixed 8+ discrepancies, created 2 new docs, added JSON/Binary serialization field tables
   - Fixed: 资源管理架构文档.md (BundleType int->string, AssetLoadError->RuntimeMessage, ResolveResult.Ambiguous->Conflict, directory paths)
   - Fixed: build-pipeline-构建管线.md (BackendMode enum, removed DefaultBackendMode, Task list 7->17, Key table expanded)
@@ -9,9 +14,6 @@
   - Created: repository-构建仓库.md (IBuildRepository, FileBuildRepository, Push models, CLI, JSON field tables)
   - Created: snapshots-差异快照.md (ArtifactDigest, ArtifactDelta, ArtifactDiffer, JSON field tables)
 
-# Format: [type] YYYY-MM-DD description
-# Types: start / done / decision / blocked / next
-# Sign-off format: [done] YYYY-MM-DD plan-XX SIGNED OFF - {summary}
 
 [start] 2026-06-01 dag-staged-write-order-fix-20260601: Started approved workflow for AB validation failure where legacy W-W fatal validation rejects staged `CollectedAssets` writes by TaskCollectAssets, TaskCollectBuiltins, and TaskAnalyzeDependencies.
 [decision] 2026-06-01 dag-staged-write-order-fix-20260601: Treat `WriteKeys` as BuildContext write/update declarations, not exclusive write locks; allow same-key staged writes when task dependencies define order. Builtin collection must run before dependency analysis.
@@ -1704,3 +1706,22 @@
 [clean] 2026-09-05 housekeeping-audit: Moved the machine-generated history inventory out of requirements/review into ignored Logs/history-cleanup-20260905/history-inventory.json. Review root now contains only INDEX.md, the formal review report, and archive/.
 [review] 2026-09-05 AUDIT-20260905: Delivered requirements/review/review-xluaframework-fyasset-20260905.md with 39 parent-verified findings (10 P1, 28 P2, 1 P3), plus 15 unverified candidates. Findings remain open and are discussion inputs, not production-fix authorization.
 [final] 2026-09-05 HISTORY-20260905: Main history cleanup landed. 66 historical commits were reduced to 17 approved H01-H17 module commits plus no-ff merge `20d0af2`; current separate commits are `429421e` (backend selection/runtime wiring) and `0345dfa` (AGENTS, docs, plan/archive, review, progress). Current main is `0345dfacfb669846580d1fcf7fab1b6e040bb477`, 20 commits ahead of the stale local origin/main ref, and has not been pushed. Historical reconstruction endpoint tree matched original e5de777 exactly before the separate current-round commits. Main worktree is clean; backup ref and ignored Logs/history-cleanup-20260905 bundle/dirty-state copies remain. Review root contains no history inventory JSON.
+[2026-09-05] workflow-normalization: Simplified project-init, generic AGENTS, context indexes, requirements indexes, convention boundaries, and mistake/reference indexes; preserved historical progress and implementation records.
+
+[start] 2026-09-06 ab-delivery-ownership-20260906: Developer approved plan-ab-delivery-ownership-20260906 (Runner 独占交付提交 + attempt staging + Standalone 原子换入；AA 与 Android 同级搁置；T01/T03/T04 测试恢复归自治范围).
+[done] 2026-09-06 ab-delivery-ownership-20260906 T1: BuildPackageRequest 增加 attempt 布局（OutputDir=attempt、DeliveryOutputDir=最终出口、WithPromotedOutput 派生交付请求）；BuildPathManager 增加 _attempt 根；BuildProjectRunner 公开方法增加 attemptDelivery 注入；AB manager 三个入口传 true，AA 默认 false 行为不变.
+[done] 2026-09-06 ab-delivery-ownership-20260906 T2: TaskOrganizeOutput/TaskWriteABPackageManifest 收窄为只写 attempt（Windows 路径分隔符 guard）；AB 报表头记录 DeliveryOutputDir.
+[done] 2026-09-06 ab-delivery-ownership-20260906 T3/T4: 新增 BuildDeliveryPromoter（同卷 move promote、shared-dir 原子换出、Rollback/Commit token、空 attempt 根清理）；TaskExportLocalBuildData 拆 Begin/Commit/Rollback 交付 token（Publish 语义不变）；BuildProjectRunner 新增 DeliverAttemptBuild 事务（validate→promote→本地数据→PackageIndex→baseline→VersionRecord，逆序补偿）；BuildBaselineStore 增加 raw capture/restore；HandleFailedPackage attempt 布局只允许清 attempt 根.
+[red/green] 2026-09-06 ab-delivery-ownership-20260906: RED=dotnet CS0103×8（BuildDeliveryPromoter 缺失）；GREEN 后 Unity batchmode BuildDeliveryPromoteSelfCheck PASS（新包 promote / swap rollback 恢复旧包 / commit 保留新包 / 越根拒绝 / 空根清理）.
+[done] 2026-09-06 ab-delivery-ownership-20260906 T5: BuildTestRecoveryRecord 增加 per-scope durable 状态（Pending/SnapshotComplete/AbsentBefore × Restore）；SnapshotProject/SnapshotTargets 逐 scope 原子标记；RestoreProject/RestoreTarget 按 ClassifyScopeRestore 分发（不完整快照拒绝破坏、失败聚合继续、全终态才 Completed）；旧格式记录拒绝自动恢复；RestorePath/RestoreDirectory 禁止缺备份删除源；预制检查改只读 AssertPreflight（provision 归 CLI/菜单）；Build/E2E restore 聚合错误.
+[red/green] 2026-09-06 ab-delivery-ownership-20260906: RED=dotnet CS0117（ClassifyScopeRestore 缺失）；GREEN 后 Unity batchmode BuildTestRecoveryManifestSelfCheck PASS（7 决策路径）；期间自检自身参数写错一次已修正.
+[verified] 2026-09-06 ab-delivery-ownership-20260906: dotnet build XLuaHotfix.sln --no-restore 0 errors（既有 System.Net.Http 警告）；Unity batchmode 两次自检 exit 0；Unity 顺带删除悬空 Shared/Helpers/Editor.meta（目录早已不存在，保留删除）.
+[next] 2026-09-06 ab-delivery-ownership-20260906: T6 实状矩阵 ab build full/hotfix/chain + ab e2e standalone.
+[device-failure] 2026-09-06 ab-delivery-ownership-20260906 T6: 首轮 ab build full 失败于 MIXED_PRIMARY_TYPE_BUNDLE（bundle 明细补充后确认为 GameLauncher.prefab -> FYAssetBackendSettings.asset 隐式拷贝），新恢复 manifest 两次失败均 RestorationSucceeded=true，拒破可证.
+[decision] 2026-09-06 ab-delivery-ownership-20260906 B05-blocker: Developer approved 修正版规则——忽略路径资产隐式化（不生成 manifest 条目/独立 Bundle，随引用方物理带入）；非忽略未收集依赖一律按自身类型独立成桶；整体废止“复制进引用方 Bundle”分支；SharePolicyConfig 三字段降级为序列化兼容残留.
+[done] 2026-09-06 ab-delivery-ownership-20260906 B05-blocker: DependencyAnalyzer 增加 ignorePatterns 语义 + 单引用 typed bucket；TaskAnalyzeDependencies 传 GetEffectiveIgnorePatterns()；SharePolicyConfig 注释澄清. ab build full/chain 均 PASS(exit 0).
+[device-failure] 2026-09-06 ab-delivery-ownership-20260906 T6: ab e2e standalone 失败于 facade 未绑定（Player exit 1）。根因 = 09-03 hotfix 绑定脱离 facade 时删除 BindPackageManager override，但 Compat 侧未补接；自 09-03 起真机启动路径全部未绑定（scenario 静态门禁无法覆盖）.
+[done] 2026-09-06 ab-delivery-ownership-20260906 facade-bind-blocker: Compat HotfixManager 接管完成事件——内部先 AssetPackageManager.Instance.Bind(selectedMode) 再广播外部订阅，时序还原（指针持久化后、消费方响应前）. ab e2e standalone PASS；补验 ab e2e full （在线 Player + localhost） PASS.
+[done] 2026-09-06 ab-delivery-ownership-20260906 T5 补充: RunStandaloneE2E 补上缺失的 WriteRecovery/MarkRecoveryCompleted 生命周期（新 manifest 契约下首轮失败曾在恢复拒绝保护下安全中止）.
+[verified] 2026-09-06 ab-delivery-ownership-20260906 T6 全量矩阵: ab build full / hotfix / chain / e2e standalone / e2e full 全 PASS(exit 0, RestorationSucceeded=true)；四套 scenario(S2 5/5, S3 6/6, runtime-resource 10/10, Hotfix state) 全 PASS; dotnet 0 errors; git diff --check 干净. link.xml 残留已清；FYAssetBackendSettings.asset 仅 YAML 字段规范化重排（Backend=ABManifest 内容不变）；Shared/Helpers/Editor.meta 悬空删除保留.
+[next] 2026-09-06 ab-delivery-ownership-20260906: 计划规定手动全量审查 + AA 对齐（与 Android 同级搁置）及 review 中 B03/B04/R01 等后续项; 交付补偿链的 Unity 级 fault-injection 未做（promoter 级与 BuildTest 实联已覆盖）.

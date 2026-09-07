@@ -559,3 +559,22 @@ EXIT=0
 - Keep candidate findings separate until their remaining checks are complete.
 - Obtain exact history-group approval and H17 disposition before rewriting.
 - ACCEPT-01/02 retain native build/runtime acceptance; ACCEPT-03 retains the newly identified missing executable custom-task gate.
+
+## Remediation 2026-09-06
+
+`plan-ab-delivery-ownership-20260906` 执行完毕（T1-T6 验证矩阵全过）。以下条目的修复已落入代码并完成验证：
+
+| Finding | 处置 | 证据 |
+|---------|------|------|
+| B01 | 已修复（Runner 独占交付提交 + 逆序补偿） | `BuildProjectRunner.DeliverAttemptBuild`；矩阵 full/hotfix/chain/e2e 全过 |
+| B02 | 已修复（Standalone attempt → 原子换入，老包在失败时保留） | `BuildDeliveryPromoter`；promote 自检 + standalone E2E |
+| T01 | 已修复（per-scope durable manifest，不完整快照拒绝破坏） | `BuildTestState.SnapshotScopeEntry` + `ClassifyScopeRestore`；manifest 自检 |
+| T03 | 已修复（恢复失败不标记 Completed；按 scope 聚合继续） | `MarkRecoveryCompleted`/`TryRecoverStaleRun`；矩阵失败轮两次 RestorationSucceeded=true |
+| T04 | 已修复（preflight 只读 AssertPreflight；provision 归 CLI/菜单） | BuildTestEngine/E2ETestEngine 调用点 |
+
+同期发现并修复的两个 blocker（不在 review 39 项清单内，但根源与其中的 B05 / Compat 边界契约同族）：
+
+1. B05 首次实机触发：忽略路径隐式依赖规则升上一版（忽略路径隐式化 + typed bucket；复制分支废止）。B05 视为已修复。
+2. `59b19e11` 遗留 facade-Bind 断路（09-03 删除 `BindPackageManager` override 后 Compat 未补接，真机启动全废），Compat HotfixManager 已补接并完成线上/离线两侧验证。
+
+其余 findings（B03/B04/R01/R02/X 系列/E 系列等）状态不变，均为后续工作。

@@ -1,4 +1,9 @@
-# Conventions Knowledge Index
+# Conventions Index
 
-## Files
-- `collaboration.md` — AI collaboration, requirement workflow, error handling, logging, and project-specific rules
+Stable project-specific engineering rules only. Current architecture, implementation snapshots, dated decisions, and
+document-sized explanations belong in `docs/` or `requirements/`.
+
+- `field-semantics.md` - stable distinctions between similarly named resource-management fields.
+- `project-boundaries.md` - high-risk change approval and generated/pipeline-owned output boundaries.
+
+Each file should contain one subject, stable rules, and no implementation status or historical narrative.
