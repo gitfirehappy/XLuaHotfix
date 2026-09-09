@@ -21,8 +21,6 @@ public enum AssetAddressStyle
 /// </summary>
 public class AssetCollectionSetting : ScriptableObject
 {
-    #region 字段
-
     /// <summary>所有资产包配置列表</summary>
     public List<AssetCollectionPackage> Packages = new();
 
@@ -37,10 +35,6 @@ public class AssetCollectionSetting : ScriptableObject
 
     /// <summary>资产级元数据，按 Unity GUID 作为权威键</summary>
     public List<AssetEntry> AssetEntries = new();
-
-    #endregion
-
-    #region 公共方法
 
     public AssetEntry FindAssetEntry(string assetGuid)
     {
@@ -222,8 +216,6 @@ public class AssetCollectionSetting : ScriptableObject
     {
         return string.IsNullOrEmpty(assetPath) ? string.Empty : assetPath.Replace('\\', '/').TrimEnd('/');
     }
-
-    #endregion
 }
 
 /// <summary>
@@ -242,8 +234,6 @@ public class AssetExclusion
 [Serializable]
 public class AssetCollectionPackage
 {
-    #region 字段
-
     /// <summary>包名，用于构建 Bundle 逻辑名的第一段前缀</summary>
     public string PackageName;
     
@@ -252,8 +242,6 @@ public class AssetCollectionPackage
     
     /// <summary>Package 级共享提取策略，由依赖分析 Task 读取</summary>
     public SharePolicyConfig SharePolicy = new();
-
-    #endregion
 }
 
 /// <summary>
@@ -262,8 +250,6 @@ public class AssetCollectionPackage
 [Serializable]
 public class AssetCollectionGroup
 {
-    #region 字段
-
     /// <summary>组名，用于构建 Bundle 逻辑名的第二段</summary>
     public string GroupName;
 
@@ -278,8 +264,6 @@ public class AssetCollectionGroup
 
     /// <summary>该组下的所有采集器配置</summary>
     public List<Collector> Collectors = new();
-
-    #endregion
 }
 
 /// <summary>
@@ -288,8 +272,6 @@ public class AssetCollectionGroup
 [Serializable]
 public class Collector
 {
-    #region 字段
-
     /// <summary>采集根路径（相对于 Assets/，可指向目录或单个文件）</summary>
     public string CollectPath;
 
@@ -307,8 +289,6 @@ public class Collector
 
     /// <summary>分组规则类名，由 RuleResolver 反射解析为 IGroupRule 实例</summary>
     public string GroupRuleName;
-
-    #endregion
 }
 
 /// <summary>

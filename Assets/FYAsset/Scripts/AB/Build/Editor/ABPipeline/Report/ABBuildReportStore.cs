@@ -16,8 +16,6 @@ public static class ABBuildReportStore
     private const string ReportsFolderSegment = "Reports";
     private const string BackendFolderSegment = "AB";
 
-    #region Paths
-
     public static string ReportsDirectory =>
         FYAssetPathUtility.JoinFilePath(BuildPathManager.ProjectRoot, ReportsRootSegment, ReportsFolderSegment, BackendFolderSegment);
 
@@ -30,10 +28,6 @@ public static class ABBuildReportStore
         string fileName = packageName + "_ABBuildReport" + ReportFileExtension;
         return FYAssetPathUtility.JoinFilePath(ReportsDirectory, fileName);
     }
-
-    #endregion
-
-    #region Read Write
 
     public static string Write(ABBuildReport report, string path)
     {
@@ -195,7 +189,5 @@ public static class ABBuildReportStore
         FileHelper.EnsureDirectory(ReportsDirectory);
         UnityEditor.EditorUtility.RevealInFinder(ReportsDirectory);
     }
-
-    #endregion
 }
 #endif

@@ -1,12 +1,11 @@
 /// <summary>
-/// 下载入口索引，默认从 https://your-domain-name/HotfixOutput/PackageIndex.json 获取。
-/// 用于定位最新包体目录，不承载 AA/AB 资源清单，但必须声明后端类型。
-/// 本身只在导出包中，不会存到用户端
+/// 指向最新远端包或本地最近成功激活的包，包含后端身份和版本。
+/// 不包含资产与 Bundle 清单，实际路径由运行时或发布流程组合。
 /// </summary>
 [System.Serializable]
 public class PackageIndex
 {
-    public string LatestPackage;    // 例如 "Build_20250101123045_1.0.0"
-    public VersionNumber LatestVersion;    // 例如 "1.0.0"
-    public string BackendMode;      // "AA" 或 "AB"
+    public string LatestPackage;
+    public VersionNumber LatestVersion;
+    public string BackendMode;
 }

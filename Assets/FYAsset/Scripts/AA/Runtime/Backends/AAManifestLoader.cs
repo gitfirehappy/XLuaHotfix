@@ -4,28 +4,20 @@ using System.Threading.Tasks;
 using UnityEngine;
 
 /// <summary>
-/// AA Manifest 加载器 — 负责从包目录读取 AAManifest.bin/.json 并反序列化。
-///
-/// 职责边界：
-/// - 只加载 AA manifest 和其中的索引数据。
-/// - 不初始化 Addressables catalog。
-/// - 不加载资源对象；资源对象加载由 AAPackageManager 负责。
-///
-/// 文件搜索顺序（每个目录）：
-/// 1. AAManifest.bin（二进制格式，优先）
-/// 2. AAManifest.json（JSON 格式，fallback）
-///
-/// 目录搜索顺序：
-/// 1. RuntimePathManager.CurrentGUIDRoot（热更目录）
-/// 2. Application.streamingAssetsPath（包内首包 baseline）
+/// 从包目录或 StreamingAssets 基线读取 AAManifest。
 /// </summary>
+/// <remarks>
+/// LoadAsync 先读 CurrentGUIDRoot，失败后再读 StreamingAssets；按目录读取时不跨目录回退。
+/// 异步在二进制读取失败后尝试 JSON；同步仅在二进制文件不存在时改读 JSON。JSON 必须含 Version 对象。
+/// 不初始化 Addressables catalog，也不加载资源对象。
+/// </remarks>
 public static class AAManifestLoader
 {
     private const string ManifestFileNameBin = FYAssetSettings.AA_MANIFEST_FILE_NAME_BIN;
     private const string ManifestFileNameJson = FYAssetSettings.AA_MANIFEST_FILE_NAME;
 
     /// <summary>
-    /// 从热更目录异步加载 AAManifest，失败后回退到 StreamingAssets baseline。
+    /// 加载当前 Manifest；失败后回退 StreamingAssets。
     /// </summary>
     public static async Task<AAManifest> LoadAsync()
     {
@@ -42,7 +34,7 @@ public static class AAManifestLoader
     }
 
     /// <summary>
-    /// 从指定包目录异步加载 AAManifest。
+    /// 在指定目录先读二进制再读 JSON；失败返回 null。
     /// </summary>
     public static async Task<AAManifest> LoadFromDirectoryAsync(string packageRoot)
     {
@@ -77,7 +69,7 @@ public static class AAManifestLoader
     }
 
     /// <summary>
-    /// 从指定包目录同步加载 AAManifest。
+    /// 二进制文件存在则读二进制，否则读 JSON；失败返回 null。
     /// </summary>
     public static AAManifest LoadFromDirectory(string packageRoot)
     {
@@ -113,7 +105,16 @@ public static class AAManifestLoader
                 return null;
             }
 
-            return SerializationUtility.Deserialize<AAManifest>(data);
+            AAManifest manifest = SerializationUtility.Deserialize<AAManifest>(data);
+            if (manifest == null)
+                return null;
+            if (!BinaryHeader.HasValidMagic(data) && !VersionNumber.JsonHasObjectField(data, nameof(AAManifest.Version)))
+            {
+                Debug.LogWarning($"[AAManifestLoader] JSON 缺少 Version 对象: {path}");
+                return null;
+            }
+
+            return manifest;
         }
         catch (Exception ex)
         {
@@ -126,7 +127,17 @@ public static class AAManifestLoader
     {
         try
         {
-            return SerializationUtility.ReadFromFile<AAManifest>(path);
+            byte[] data = FileHelper.ReadAllBytes(path);
+            AAManifest manifest = SerializationUtility.Deserialize<AAManifest>(data);
+            if (manifest == null)
+                return null;
+            if (!BinaryHeader.HasValidMagic(data) && !VersionNumber.JsonHasObjectField(data, nameof(AAManifest.Version)))
+            {
+                Debug.LogWarning($"[AAManifestLoader] JSON 缺少 Version 对象: {path}");
+                return null;
+            }
+
+            return manifest;
         }
         catch (Exception ex)
         {

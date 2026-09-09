@@ -1,10 +1,9 @@
 /// <summary>
-/// 热更流程所需的上下文参数。
-/// 由 HotfixManager 构建并传递给后端方法。
+/// 一次热更流程的身份、检查结果和目标路径，由 HotfixFlowBase 填充并传给后端。
 /// </summary>
 public class HotfixContext
 {
-    /// <summary>构建索引数据，包含包名到路径的映射</summary>
+    /// <summary>安装包内置基线的版本、身份、平台和后端数据。</summary>
     public BuildIndexData BuildIndex;
 
     /// <summary>应用本地热更指针前，由 BuildIndex 指定的内置包名。</summary>

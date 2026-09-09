@@ -4,7 +4,7 @@ using UnityEditor;
 using UnityEngine;
 
 /// <summary>
-/// 热更包大小校验器，检验其是否超过阈值
+/// 热更包大小校验：超过阈值时警告并阻断交互构建；批处理模式下直接抛异常终止。
 /// </summary>
 public static class HotfixPackageSizeGuard
 {

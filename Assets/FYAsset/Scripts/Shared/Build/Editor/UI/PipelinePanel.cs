@@ -271,9 +271,6 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
             _taskRows[taskName] = rowState;
     }
 
-    /// <summary>
-    /// 加载 BuildPipelineConfig。
-    /// </summary>
     private void LoadConfig()
     {
         _config = AssetDatabase.LoadAssetAtPath<BuildPipelineConfig>(GetConfigPath());
@@ -287,9 +284,6 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
         }
     }
 
-    /// <summary>
-    /// 按当前 Build Mode 触发构建。
-    /// </summary>
     private void HandleBuild()
     {
         if (_config == null || _isBuildRunning)
@@ -355,9 +349,6 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
         _window?.Repaint();
     }
 
-    /// <summary>
-    /// 刷新任务计数摘要。
-    /// </summary>
     private void RefreshStatus()
     {
         int taskCount = _config?.Tasks?.Count ?? 0;

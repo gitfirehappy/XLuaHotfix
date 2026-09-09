@@ -9,8 +9,6 @@ using UnityEditor;
 /// </summary>
 public static class ABBuildReportBuilder
 {
-    #region Public API
-
     public static ABBuildReport Build(
         BuildPackageRequest request,
         BuildResult buildResult,
@@ -37,10 +35,6 @@ public static class ABBuildReportBuilder
         report.Summary.AssetCount = report.Assets.Count;
         return report;
     }
-
-    #endregion
-
-    #region Header
 
     private static void FillHeader(
         ABBuildReport report,
@@ -96,10 +90,6 @@ public static class ABBuildReportBuilder
 
         return null;
     }
-
-    #endregion
-
-    #region Tasks And Issues
 
     private static void FillTasks(ABBuildReport report, BuildResult buildResult)
     {
@@ -188,10 +178,6 @@ public static class ABBuildReportBuilder
             Message = message ?? string.Empty
         });
     }
-
-    #endregion
-
-    #region Manifest Data
 
     private static void FillManifestData(
         ABBuildReport report,
@@ -508,7 +494,5 @@ public static class ABBuildReportBuilder
         public long TotalSize;
         public readonly HashSet<string> BundleNames = new(StringComparer.Ordinal);
     }
-
-    #endregion
 }
 #endif

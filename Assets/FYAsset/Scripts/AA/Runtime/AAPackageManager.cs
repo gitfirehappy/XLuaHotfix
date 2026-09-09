@@ -6,8 +6,12 @@ using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
 
 /// <summary>
-/// AA 运行时包加载入口：Addressables 句柄票据 + Manifest 索引查询。
+/// 加载 Addressables 资源，并查询 AA Manifest 索引。
 /// </summary>
+/// <remarks>
+/// 每次成功加载保留一个 Addressables handle，调用方须按相同 address 和 T 配对调用 UnloadAsset。
+/// 初始化只读取索引，不激活 catalog；catalog 由 AA 热更流程先行准备。
+/// </remarks>
 public sealed class AAPackageManager
 {
     private static readonly object LockObject = new();

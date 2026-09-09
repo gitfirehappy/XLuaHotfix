@@ -12,9 +12,6 @@ public class FYAssetSettings : ScriptableObject
     [Header("Project")]
     public string ProjectName = "ProjectName";
 
-    [Header("AB Editor PlayMode")]
-    public EPlayMode PlayMode = EPlayMode.Runtime;
-
     [Header("Build")]
     public string BuildOutputRoot = "HotfixOutput";
     public string BuildPackagesFolderName = "Packages";
@@ -29,11 +26,10 @@ public class FYAssetSettings : ScriptableObject
 
     // ═══ 纯编译期常量（static const） ═══
 
-    // --- 旧管线标识符 ---
     public const string HOTFIX_GROUP_NAME = "HotfixGroup";
     public const string BUILD_INDEX_FILENAME = "BuildIndex.json";
 
-    // --- 新管线文件命名 ---
+    // --- 输出文件命名 ---
     public const string PACKAGE_INDEX_FILE_NAME = "PackageIndex.json";
     public const string MANIFEST_FILE_NAME = "ABManifest.json";
     public const string MANIFEST_FILE_NAME_BIN = "ABManifest.bin";
@@ -42,9 +38,6 @@ public class FYAssetSettings : ScriptableObject
     public const string BUNDLES_DIRECTORY_NAME = "bundles";
     public const string STANDALONE_DIRECTORY_NAME = "Standalone";
     public const string ADDRESSABLES_CATALOG_FILE_NAME = "catalog.json";
-
-    // --- 编辑器路径 ---
-    public const string BINARY_SERIALIZER_GENERATE_PATH = "Assets/Tools/Scripts/Serialization/Generated";
 
     // --- Collector 规则名 ---
     public const string RULE_COLLECT_ALL = "CollectAll";

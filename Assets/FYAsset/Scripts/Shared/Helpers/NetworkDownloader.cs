@@ -11,13 +11,17 @@ public static class NetworkDownloader
     public static async Task<bool> DownloadFile(
         string url,
         string savePath,
-        HotfixDownloadOptions options)
+        int timeoutSeconds,
+        int maxRetryCount,
+        float retryBaseDelaySeconds)
     {
-        int totalAttempts = options.MaxRetryCount + 1;
+        timeoutSeconds = Mathf.Max(1, timeoutSeconds);
+        retryBaseDelaySeconds = Mathf.Max(0f, retryBaseDelaySeconds);
+        int totalAttempts = Mathf.Max(0, maxRetryCount) + 1;
         for (int attempt = 1; attempt <= totalAttempts; attempt++)
         {
             FileHelper.TryDelete(savePath);
-            NetworkDownloadResult result = await DownloadFileAttempt(url, savePath, options.TimeoutSeconds);
+            NetworkDownloadResult result = await DownloadFileAttempt(url, savePath, timeoutSeconds);
             if (result.Success)
                 return true;
             if (result.NotFound)
@@ -30,7 +34,7 @@ public static class NetworkDownloader
             {
                 Debug.LogWarning(
                     $"[NetworkDownloader] 文件请求失败，准备重试：{url}，次数={attempt}/{totalAttempts}，错误={result.Error}");
-                await DelayBeforeRetry(options, attempt);
+                await DelayBeforeRetry(retryBaseDelaySeconds, attempt);
             }
             else
             {
@@ -45,19 +49,25 @@ public static class NetworkDownloader
     public static async Task<bool> DownloadFileOnce(
         string url,
         string savePath,
-        HotfixDownloadOptions options)
+        int timeoutSeconds)
     {
-        NetworkDownloadResult result = await DownloadFileAttempt(url, savePath, options.TimeoutSeconds);
+        NetworkDownloadResult result = await DownloadFileAttempt(url, savePath, Mathf.Max(1, timeoutSeconds));
         return result.Success;
     }
 
-    public static async Task<string> DownloadText(string url, HotfixDownloadOptions options)
+    public static async Task<string> DownloadText(
+        string url,
+        int timeoutSeconds,
+        int maxRetryCount,
+        float retryBaseDelaySeconds)
     {
-        int totalAttempts = options.MaxRetryCount + 1;
+        timeoutSeconds = Mathf.Max(1, timeoutSeconds);
+        retryBaseDelaySeconds = Mathf.Max(0f, retryBaseDelaySeconds);
+        int totalAttempts = Mathf.Max(0, maxRetryCount) + 1;
         for (int attempt = 1; attempt <= totalAttempts; attempt++)
         {
             using var request = UnityWebRequest.Get(url);
-            request.timeout = options.TimeoutSeconds;
+            request.timeout = timeoutSeconds;
             await SendAsync(request);
             if (request.result == UnityWebRequest.Result.Success)
                 return request.downloadHandler.text;
@@ -71,7 +81,7 @@ public static class NetworkDownloader
             {
                 Debug.LogWarning(
                     $"[NetworkDownloader] 文本请求失败，准备重试：{url}，次数={attempt}/{totalAttempts}，错误={request.error}");
-                await DelayBeforeRetry(options, attempt);
+                await DelayBeforeRetry(retryBaseDelaySeconds, attempt);
             }
             else
             {
@@ -83,13 +93,19 @@ public static class NetworkDownloader
         return null;
     }
 
-    public static async Task<byte[]> DownloadBytes(string url, HotfixDownloadOptions options)
+    public static async Task<byte[]> DownloadBytes(
+        string url,
+        int timeoutSeconds,
+        int maxRetryCount,
+        float retryBaseDelaySeconds)
     {
-        int totalAttempts = options.MaxRetryCount + 1;
+        timeoutSeconds = Mathf.Max(1, timeoutSeconds);
+        retryBaseDelaySeconds = Mathf.Max(0f, retryBaseDelaySeconds);
+        int totalAttempts = Mathf.Max(0, maxRetryCount) + 1;
         for (int attempt = 1; attempt <= totalAttempts; attempt++)
         {
             using var request = UnityWebRequest.Get(url);
-            request.timeout = options.TimeoutSeconds;
+            request.timeout = timeoutSeconds;
             await SendAsync(request);
             if (request.result == UnityWebRequest.Result.Success)
                 return request.downloadHandler.data;
@@ -103,7 +119,7 @@ public static class NetworkDownloader
             {
                 Debug.LogWarning(
                     $"[NetworkDownloader] 字节数据请求失败，准备重试：{url}，次数={attempt}/{totalAttempts}，错误={request.error}");
-                await DelayBeforeRetry(options, attempt);
+                await DelayBeforeRetry(retryBaseDelaySeconds, attempt);
             }
             else
             {
@@ -139,13 +155,13 @@ public static class NetworkDownloader
             await Task.Yield();
     }
 
-    private static Task DelayBeforeRetry(HotfixDownloadOptions options, int completedAttempt)
+    private static Task DelayBeforeRetry(float retryBaseDelaySeconds, int completedAttempt)
     {
-        if (options.RetryBaseDelaySeconds <= 0f)
+        if (retryBaseDelaySeconds <= 0f)
             return Task.CompletedTask;
 
         int delayMs = Mathf.RoundToInt(
-            options.RetryBaseDelaySeconds * 1000f * Mathf.Pow(2f, completedAttempt - 1));
+            retryBaseDelaySeconds * 1000f * Mathf.Pow(2f, completedAttempt - 1));
         return Task.Delay(delayMs);
     }
 

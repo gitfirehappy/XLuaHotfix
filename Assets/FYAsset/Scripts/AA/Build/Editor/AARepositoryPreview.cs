@@ -25,20 +25,4 @@ public static class AARepositoryPreview
         return delta;
     }
 }
-
-/// <summary>AA preview 数据源 adapter：供共享 Repository 面板注入。</summary>
-public sealed class AARepositoryPreviewProvider : IRepositoryPreviewProvider
-{
-    public bool SupportsDeliveryPreview => false;
-
-    public ArtifactDelta RunChangesPreview(BuildPackageRequest request)
-    {
-        return AARepositoryPreview.Run(request);
-    }
-
-    public RepositoryDeliveryPreview RunDeliveryPreview(BuildPackageRequest request)
-    {
-        return null;
-    }
-}
 #endif

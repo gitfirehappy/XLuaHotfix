@@ -12,7 +12,6 @@ public class TaskAnalyzeDependencies : IBuildTask
     public string TaskName => "TaskAnalyzeDependencies";
     public BuildTaskResult Execute(BuildContext ctx)
     {
-        // 读取收集扫描产出的资产列表
         var assets = ctx.Get<List<CollectedAssetInfo>>(ABBuildContextKeys.CollectedAssets);
         if (assets == null || assets.Count == 0)
         {
@@ -20,8 +19,7 @@ public class TaskAnalyzeDependencies : IBuildTask
                 "TaskCollectAssets 未产出 Asset。请检查 Collector 配置。", false);
         }
 
-        // 读取 Package 级 SharePolicy：优先从 BuildContext 取（显式数据流），
-        // 不存在时回退到 AssetDatabase 加载 AssetCollectionSetting SO
+        // SharePolicy 优先从 BuildContext 取，不存在时回退到 AssetCollectionSetting SO
         var policies = ctx.Get<Dictionary<string, SharePolicyConfig>>(ABBuildContextKeys.SharePolicies);
         if (policies == null)
         {
@@ -47,7 +45,6 @@ public class TaskAnalyzeDependencies : IBuildTask
             out var graph, out var messages,
             collectionSetting != null ? collectionSetting.GetEffectiveIgnorePatterns() : null);
 
-        // 汇总消息：统一收集，再根据是否有 Error 决定返回 Ok 或 Fail
         var warnings = new List<string>();
         bool hasFatal = false;
         foreach (var msg in messages)
@@ -65,7 +62,6 @@ public class TaskAnalyzeDependencies : IBuildTask
             return result;
         }
 
-        // 写回 BuildContext
         ctx.Set(ABBuildContextKeys.CollectedAssets, augmented);
         ctx.Set(ABBuildContextKeys.BundleDependencyGraph, graph);
 

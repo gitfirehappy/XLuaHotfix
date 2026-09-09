@@ -2,14 +2,13 @@
 using System.Collections.Generic;
 
 /// <summary>
-/// 构建后端的结构化执行结果 —— 替代裸 bool + BuildSummary。
-/// Success 为 true 时 Error 为 null。
+/// 构建后端的结构化执行结果。Success 为 true 时 Error 为 null。
 /// </summary>
 public class BuildBackendResult
 {
     public bool Success { get; }
     public BuildMessage Error { get; }
-    public List<ArtifactDigest> Artifacts { get; }
+    public List<BuildDiffEntry> Artifacts { get; }
     public BuildResult PipelineResult { get; }
     public BuildPackageRequest Request { get; }
     public string ReportPath { get; }
@@ -18,7 +17,7 @@ public class BuildBackendResult
     private BuildBackendResult(
         bool success,
         BuildMessage error,
-        List<ArtifactDigest> artifacts,
+        List<BuildDiffEntry> artifacts,
         BuildResult pipelineResult,
         BuildPackageRequest request,
         string reportPath,
@@ -26,7 +25,7 @@ public class BuildBackendResult
     {
         Success = success;
         Error = error;
-        Artifacts = artifacts ?? new List<ArtifactDigest>();
+        Artifacts = artifacts ?? new List<BuildDiffEntry>();
         PipelineResult = pipelineResult;
         Request = request;
         ReportPath = reportPath ?? string.Empty;
@@ -34,13 +33,13 @@ public class BuildBackendResult
     }
 
     public static BuildBackendResult Ok()
-        => new BuildBackendResult(true, null, new List<ArtifactDigest>(), null, null, string.Empty, null);
+        => new BuildBackendResult(true, null, new List<BuildDiffEntry>(), null, null, string.Empty, null);
 
-    public static BuildBackendResult Ok(IReadOnlyList<ArtifactDigest> artifacts)
+    public static BuildBackendResult Ok(IReadOnlyList<BuildDiffEntry> artifacts)
         => Ok(artifacts, null, null, string.Empty);
 
     public static BuildBackendResult Ok(
-        IReadOnlyList<ArtifactDigest> artifacts,
+        IReadOnlyList<BuildDiffEntry> artifacts,
         BuildResult pipelineResult,
         BuildPackageRequest request,
         string reportPath,
@@ -48,7 +47,7 @@ public class BuildBackendResult
         => new BuildBackendResult(
             true,
             null,
-            artifacts != null ? new List<ArtifactDigest>(artifacts) : new List<ArtifactDigest>(),
+            artifacts != null ? new List<BuildDiffEntry>(artifacts) : new List<BuildDiffEntry>(),
             pipelineResult,
             request,
             reportPath,
@@ -62,6 +61,6 @@ public class BuildBackendResult
         BuildResult pipelineResult,
         BuildPackageRequest request,
         string reportPath)
-        => new BuildBackendResult(false, error, new List<ArtifactDigest>(), pipelineResult, request, reportPath, null);
+        => new BuildBackendResult(false, error, new List<BuildDiffEntry>(), pipelineResult, request, reportPath, null);
 }
 #endif

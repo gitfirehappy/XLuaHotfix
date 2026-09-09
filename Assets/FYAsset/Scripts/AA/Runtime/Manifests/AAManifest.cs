@@ -7,7 +7,7 @@ using System.Collections.Generic;
 /// 支持 JSON 和 Binary 两种序列化格式，Binary 由 BinarySerializable 属性驱动。
 /// </summary>
 [Serializable]
-[BinarySerializable(Magic = 0x41414D46, SchemaVersion = 1)]
+[BinarySerializable(Magic = 0x41414D46, SchemaVersion = 2)]
 public class AAManifest
 {
     /// <summary>包体版本号</summary>

@@ -1,161 +1,58 @@
-# 依赖分析与共享抽取
+# 依赖分析与共享 Bundle
 
-> 返回总览：[资源管理架构文档](./资源管理架构文档.md)
+> **关联代码** | [DependencyAnalysis](../../Assets/FYAsset/Scripts/AB/Build/Collector/Editor/DependencyAnalysis/) · [SharePolicyConfig](../../Assets/FYAsset/Scripts/AB/Build/Collector/SharePolicyConfig.cs)
 
-> **关联代码**
->
-> `Assets/FYAsset/Scripts/AB/Build/Collector/Editor/DependencyAnalysis/` · `Assets/FYAsset/Scripts/AB/Build/Collector/SharePolicyConfig.cs`
+依赖分析在普通资产与内置资产采集之后、Bundle 构建之前执行。它发现隐式依赖、建立 Bundle 依赖边，并把新增条目写回构建上下文。它不负责运行时引用计数。
 
----
+## 输入与输出
 
-## 概述
+`TaskAnalyzeDependencies` 从 BuildContext 读取 `CollectedAssets` 和 `SharePolicies`，调用 `DependencyAnalyzer.Analyze`，再写回扩展后的资产列表及 `BundleDependencyGraph`。Error 消息使 Task 返回 Fatal；Warning 随结果返回。配置来源与具体回退以 Task 代码为准。
 
-依赖分析系统在 Collector 采集资产之后、打包 Bundle 之前运行。它完成三项工作：
+| 结构 | 职责 |
+|---|---|
+| CollectedAssetInfo | 已采集资产及新增隐式资产的构建视图 |
+| DependencyAnalyzer | 按 Package 分析直接依赖、归属和隐式候选 |
+| BundleDependencyGraph | FromBundle → ToBundle 依赖边及触发资产路径 |
+| SharePolicyConfig | 共享规则配置；部分字段是保留配置，不等于当前决策分支 |
 
-1. **构建 Bundle 依赖图** — 分析资产间的引用关系，推导 Bundle 级别的依赖边
-2. **发现隐式依赖** — 找出被采集资产引用但不在 Collector 范围内的资产，自动补入
-3. **共享提取决策** — 被多个 Bundle 引用的隐式依赖，按策略决定是提取到共享 Bundle 还是复制到各引用 Bundle
-
-核心组件：
-
-| 组件 | 职责 |
-|------|------|
-| `DependencyAnalyzer` | 单次 BFS 遍历，完成依赖边构建 + 隐式发现 + 共享决策 |
-| `BundleDependencyGraph` | Bundle 依赖图，存储有向边列表，支持按需构建索引 |
-| `TaskAnalyzeDependencies` | IBuildTask 实现，将依赖分析接入构建管线 |
-| `SharePolicyConfig` | Per-Package 共享策略配置 |
-| `AssetConflictRules` | 资源冲突处理规则 |
-
----
-
-## BFS 依赖扫描
-
-`DependencyAnalyzer.Analyze` 是唯一入口。对每个 Package 独立执行分析。
-
-### 算法
+## 分析流程
 
 ```mermaid
 flowchart TD
-    A[遍历 Package 内所有 CollectedAssetInfo] --> B{asset.GUID 已在 globalVisited?}
-    B -->|是| A
-    B -->|否| C[初始化 BFS: queue=asset.GUID, bfsStack 为空]
-    C --> D[BFS 出队一个 GUID]
-    D --> E{globalVisited 已包含?}
-    E -->|是| D
-    E -->|否| F[AssetDatabase.GUIDToAssetPath]
-    F --> G[AssetDatabase.GetDependencies 获取直接依赖]
-    G --> H[遍历每个依赖]
-    H --> I{应跳过?<br/>.meta/.cs/.dll/Editor/}
-    I -->|是| H
-    I -->|否| J{bfsStack 中已有此 GUID?}
-    J -->|是| K[记录循环依赖, 跳过]
-    J -->|否| L{ownedGUIDs 包含?}
-    L -->|是: Owned| M[记录 Bundle 依赖边<br/>不展开子依赖]
-    L -->|否: Unowned| N[隐式依赖候选<br/>refCount++, 入队继续展开]
-    K --> H
-    M --> H
-    N --> H
-    H --> O{遍历完?}
-    O -->|否| H
-    O -->|是| P{queue 为空?}
-    P -->|否| D
-    P -->|是| Q{所有 Asset 遍历完?}
-    Q -->|否| A
-    Q -->|是| R[进入 SharePolicy 决策]
+    A[已采集资产与 Package 归属] --> B[遍历 AssetDatabase 直接依赖]
+    B --> C{路径和类型是否可参与}
+    C -->|否| B
+    C -->|是| D{已有采集归属}
+    D -->|是| E[记录 Bundle 依赖边]
+    D -->|否| F[记录隐式候选与引用 Bundle]
+    F --> B
+    E --> G[处理隐式候选]
+    G --> H{同时匹配 ForceShare 和 NoShare}
+    H -->|是| I[SharePolicyConflict Error]
+    H -->|否| J[BuildShared 按 Payload 和精确类型分桶]
+    J --> K[新增隐式条目与引用边]
 ```
 
-### 关键机制
+过滤不仅看扩展名，也检查路径与不支持的 Bundle entry。被忽略的编辑器或代码文件不应被当成运行时资源；精确过滤集合以 `DefaultFilterExtensions`、`ShouldSkip` 及资产分类器为准。依赖重复展开与循环诊断属于构建分析，不替代运行时 BundleLoader 的路径循环检查。
 
-**全局 visited 集合**（`globalVisited`）：跨资产共享的 BFS 访问记录，防止同一个 GUID 被重复展开。
+## 当前共享规则
 
-**BFS 路径栈**（`bfsStack`）：记录当前 BFS 路径上的 GUID 和路径。检测到 `depGuid` 已在 `bfsStack` 中 → 循环依赖，报告 `CYCLE_DEPENDENCY` 并跳过。最多报告前 20 个循环，超出部分给出 `CYCLE_TRUNCATED` 警告。
+当前 `ApplySharePolicy` 的行为是：
 
-**Owned vs Unowned**：
-- Owned — 依赖的 GUID 在 Collector 采集结果中 → 记录一条 Bundle 依赖边（From=触发资产 Bundle, To=被依赖资产 Bundle），不展开其子依赖
-- Unowned — 依赖的 GUID 不在采集结果中 → 这是隐式依赖，标记为候选，`refCount++`，继续 BFS 展开其子依赖
+1. 同时匹配 `ForceSharePatterns` 与 `NoSharePatterns` 时报告配置冲突并跳过该候选。
+2. 其他隐式候选统一调用 `BundleNameBuilder.BuildShared`，按 Serialized Payload 和精确 PrimaryType 形成共享 Bundle。
+3. 为每个引用 Bundle 添加指向共享 Bundle 的边。
 
-**过滤规则**：跳过的文件类型 — `.meta`、`.cs`、`.dll`、`.asmdef`、`.asmref`、`.py`、`.js`、`.shader`；跳过的目录段 — `/Editor/`、`\Editor\`；跳过非 `Assets/` 路径。
+**当前没有按 MinReferenceCount 或 MinAssetSizeBytes 决定共享的分支，也没有匹配 NoShare 后复制进引用 Bundle 的分支。** 配置字段存在不表示对应旧策略仍在执行；不要根据旧阈值图配置行为预期。
 
----
+新增隐式条目使用 `$shared` Group、`ImplicitDependency` Role、`Implicit` CollectorType，Labels 为空；Address 使用短名样式。它们是分析结果，不反向创建 Collection 的人工 AssetEntry。
 
-## 共享提取决策
+## 依赖图
 
-隐式依赖候选收集完毕后，进入 SharePolicy 决策。每个候选按以下优先级判断：
+`BundleDependencyGraph.Edges` 保存 `FromBundle`、`ToBundle`、`ViaAssets`。`AddEdge` 合并相同起终点，自引用边不添加。查询索引由图内部建立；调用方应使用提供的变更方法，不能把公开集合任意修改等同于自动维护索引。
 
-```mermaid
-flowchart TD
-    A[隐式依赖候选] --> B{匹配 ForceSharePatterns<br/>且匹配 NoSharePatterns?}
-    B -->|是| C[Error: SHAREPOLICY_CONFLICT]
-    B -->|否| D{匹配 ForceSharePatterns?}
-    D -->|是| E[共享到 $shared Bundle]
-    D -->|否| F{匹配 NoSharePatterns?}
-    F -->|是| G[复制到每个引用 Bundle]
-    F -->|否| H{refCount >= MinReferenceCount<br/>且文件大小 >= MinAssetSizeBytes?}
-    H -->|是| E
-    H -->|否| I[复制到每个引用 Bundle]
-```
+图被后续 Bundle 构建和 Manifest 生成消费。最终运行时加载使用 Manifest 中的 Bundle 依赖索引，不读取 Editor 图对象。
 
-### SharePolicyConfig 配置
+## 验证边界
 
-| 字段 | 默认值 | 说明 |
-|------|--------|------|
-| `MinReferenceCount` | 2 | 触发共享的最小引用 Bundle 数 |
-| `MinAssetSizeBytes` | 0 | 小于此值的资产不参与共享 |
-| `ForceSharePatterns` | 空 | Glob 匹配的资产强制共享 |
-| `NoSharePatterns` | 空 | Glob 匹配的资产永不共享 |
-
-`ForceSharePatterns` 和 `NoSharePatterns` 使用 Glob 模式匹配（`GlobMatcher.IsMatch`）。同一资产同时匹配两者 → `SHAREPOLICY_CONFLICT` 错误，配置错误不会静默降级。
-
-### 隐式依赖条目的生成
-
-共享型隐式依赖：
-- `GroupName` = `$shared`（`SystemIdentifiers.SharedGroupName`）
-- `CollectorType` = `Implicit`
-- `EAssetRole` = `ImplicitDependency`
-- `BundleName` = `{package}_shared_{primaryType}`
-- `Address` = 隐式依赖条目没有 AssetCollectionSetting 上下文，固定使用短名样式生成；显式资产/Group 操作可在采集面板中使用 `Name#Type`
-- `Labels` = 空
-
-复制型隐式依赖：
-- `GroupName` = 对应 Package 名
-- `BundleName` = 引用方 Bundle 名（打入引用 Bundle）
-- 其余同上
-
----
-
-## BundleDependencyGraph
-
-`DependencyAnalyzer` 的输出之一，存储所有 Bundle 间的有向依赖边。
-
-```
-BundleDependencyGraph
-└─ Edges: List<BundleDependencyEdge>
-     ├─ FromBundle   (引用方 Bundle 名)
-     ├─ ToBundle     (被引用方 Bundle 名)
-     └─ ViaAssets    (触发此边的资产路径列表)
-```
-
-`AddEdge(from, to, viaAsset)` 自动去重——相同 From+To 组合的边合并，ViaAssets 追加。自引用边（From == To）被忽略。
-
-`GetDependencyMap()` 按需构建 `Dict<string, HashSet<string>>` 索引，O(1) 查询某个 Bundle 依赖哪些 Bundle。Edges 变更后懒缓存自动失效。
-
----
-
-## TaskAnalyzeDependencies
-
-实现 `IBuildTask`，将依赖分析接入构建管线。
-
-`TaskName` 为 `TaskAnalyzeDependencies`。它位于 `TaskCollectBuiltins` 之后，通过 `BuildContext` 读取 `CollectedAssets` / `SharePolicies`，再写回增强后的 `CollectedAssets` 与 `BundleDependencyGraph`。`IBuildTask` 不再重复声明 `DependsOn`、`ReadKeys` 或 `WriteKeys`。
-
-执行流程：
-1. 从 `BuildContext` 读取 `CollectedAssets`（由前置 Task 写入）
-2. 读取 `SharePolicies`；不存在时从 `AssetCollectionSetting` SO 回退加载
-3. 调用 `DependencyAnalyzer.Analyze`
-4. 将增强后的资产列表和 `BundleDependencyGraph` 写回 `BuildContext`
-5. Error 级别消息 → `DEPENDENCY_ANALYSIS_FAILED`（Fatal），Warning 随 Ok 结果携带
-
----
-
-## AssetConflictRules
-
-处理资源冲突场景（同名资源、同 GUID 冲突等）。由 Collector 和依赖分析阶段共同消费。
+本说明来自当前源码，不证明 Unity 对所有资产类型都能构建成功。阈值字段、NoShare 名称与当前规则之间的差异是现存限制，不能为使文档与旧设计一致而擅自恢复旧算法。核心构建流程与文件角色见 [HTML 建模文档](./fyasset-modeling.html)。

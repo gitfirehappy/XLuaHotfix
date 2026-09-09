@@ -37,7 +37,7 @@ public class TaskScanABHotfixDiff : IBuildTask
             string channelKey = BuildBaselineStore.GetChannelKey(request.Version, request.BackendKey);
             Debug.Log($"[{nameof(TaskScanABHotfixDiff)}] 开始 AB diff scan，对比本次 Bundle 输出与 baseline。Package={request.PackageName}");
             var headBaseline = BuildBaselineStore.LoadLatest(channelKey);
-            var baseline = headBaseline?.Artifacts ?? new List<ArtifactDigest>();
+            var baseline = headBaseline?.Artifacts ?? new List<BuildDiffEntry>();
             var delta = ArtifactDiffer.Diff(baseline, current);
             ctx.Set(BuildContextKeys.ArtifactDelta, delta);
             LogDelta(delta);
@@ -106,14 +106,14 @@ public class TaskScanABHotfixDiff : IBuildTask
     }
 
     /// <summary>
-    /// 返回同 Major 的最新 Full baseline；双槽存储中不存在成熟 Major 分支检索，跨 Major 交付后旧 Major 热更必须换 channel。
+    /// 返回同 Major 的最新 Full baseline；双槽存储不做跨 Major 检索，跨 Major 交付后旧 Major 热更需换 channel。
     /// </summary>
     public static BuildBaseline FindFullBaseline(string channelKey, VersionNumber currentVersion)
     {
         BuildBaseline latestFull = BuildBaselineStore.LoadLatestFull(channelKey);
-        if (latestFull?.Version == null)
+        if (latestFull == null)
             return null;
-        if (currentVersion != null && latestFull.Version.Major != currentVersion.Major)
+        if (latestFull.Version.Major != currentVersion.Major)
             return null;
         return latestFull;
     }
@@ -144,7 +144,7 @@ public class TaskScanABHotfixDiff : IBuildTask
     public static string ValidateFullBaselineFallback(
         ABManifest manifest,
         IReadOnlyList<ManifestBundleEntry> deliveryBundles,
-        IReadOnlyList<ArtifactDigest> fullBaselineArtifacts)
+        IReadOnlyList<BuildDiffEntry> fullBaselineArtifacts)
     {
         var delivered = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         if (deliveryBundles != null)
@@ -156,7 +156,7 @@ public class TaskScanABHotfixDiff : IBuildTask
             }
         }
 
-        var baselineByName = new Dictionary<string, ArtifactDigest>(StringComparer.OrdinalIgnoreCase);
+        var baselineByName = new Dictionary<string, BuildDiffEntry>(StringComparer.OrdinalIgnoreCase);
         if (fullBaselineArtifacts != null)
         {
             for (int i = 0; i < fullBaselineArtifacts.Count; i++)
@@ -189,7 +189,7 @@ public class TaskScanABHotfixDiff : IBuildTask
         return string.Empty;
     }
 
-    private static List<ArtifactDigest> ScanCurrentArtifacts(ABManifest manifest)
+    private static List<BuildDiffEntry> ScanCurrentArtifacts(ABManifest manifest)
     {
         if (manifest != null && manifest.BundleEntries != null)
             return ScanFromManifest(manifest.BundleEntries);
@@ -197,16 +197,16 @@ public class TaskScanABHotfixDiff : IBuildTask
         return ScanOutputDirectory();
     }
 
-    private static List<ArtifactDigest> ScanFromManifest(IList<ManifestBundleEntry> bundleEntries)
+    private static List<BuildDiffEntry> ScanFromManifest(IList<ManifestBundleEntry> bundleEntries)
     {
-        var result = new List<ArtifactDigest>(bundleEntries.Count);
+        var result = new List<BuildDiffEntry>(bundleEntries.Count);
         for (int i = 0; i < bundleEntries.Count; i++)
         {
             var entry = bundleEntries[i];
             if (entry == null || string.IsNullOrEmpty(entry.BundleName))
                 continue;
 
-            result.Add(new ArtifactDigest
+            result.Add(new BuildDiffEntry
             {
                 Name = entry.BundleName,
                 Hash = entry.FileHash,
@@ -217,11 +217,11 @@ public class TaskScanABHotfixDiff : IBuildTask
         return result;
     }
 
-    private static List<ArtifactDigest> ScanOutputDirectory()
+    private static List<BuildDiffEntry> ScanOutputDirectory()
     {
         string outputDir = FYAssetPathUtility.JoinFilePath(BuildPathManager.ProjectRoot, "Temp", "BuildRepositoryPreview");
         var files = FileHelper.GetFiles(outputDir, "*", SearchOption.TopDirectoryOnly);
-        var result = new List<ArtifactDigest>(files.Length);
+        var result = new List<BuildDiffEntry>(files.Length);
         for (int i = 0; i < files.Length; i++)
         {
             string path = files[i];
@@ -232,7 +232,7 @@ public class TaskScanABHotfixDiff : IBuildTask
             if (!info.Exists)
                 continue;
 
-            result.Add(new ArtifactDigest
+            result.Add(new BuildDiffEntry
             {
                 Name = info.Name,
                 Hash = HashGenerator.GenerateFileHash(path),
@@ -253,7 +253,7 @@ public class TaskScanABHotfixDiff : IBuildTask
             Debug.Log($"[{nameof(TaskScanABHotfixDiff)}] Artifact 已移除：{delta.Removed[i]}");
     }
 
-    private static void AddArtifactNames(HashSet<string> names, IList<ArtifactDigest> artifacts)
+    private static void AddArtifactNames(HashSet<string> names, IList<BuildDiffEntry> artifacts)
     {
         if (names == null || artifacts == null)
             return;

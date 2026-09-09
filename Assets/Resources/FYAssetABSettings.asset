@@ -12,6 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4d9d7905f9104f988835d4756242d2df, type: 3}
   m_Name: FYAssetABSettings
   m_EditorClassIdentifier: 
+  PlayMode: 2
   HotfixUrl: https://firehappy-cfy.com/AB/
   HotfixMaxRetryCount: 3
   HotfixRetryBaseDelaySeconds: 1

@@ -1,107 +1,38 @@
 # 版本号系统
 
-> 返回总览：[资源管理架构文档](./资源管理架构文档.md)
+> **关联代码** | [VersionNumber](../../Assets/FYAsset/Scripts/Shared/Build/Versioning/VersionNumber.cs) · [VersionRecord](../../Assets/FYAsset/Scripts/Shared/Build/Versioning/VersionRecord.cs)
 
-> **关联代码**
->
-> `Assets/FYAsset/Scripts/Shared/Build/Versioning/VersionRecord.cs` · `Assets/FYAsset/Scripts/Shared/Build/Versioning/VersionNumber.cs`
+`VersionNumber` 是含解析与比较逻辑的 struct。发布字符串是 `Major.Minor.Patch[-Channel]`；Build 独立存储，不拼入字符串，也不参与排序和相等性。
 
----
+## 值语义
 
-## 概述
+赋值、参数传递和返回会复制版本值。修改副本不会更新原 VersionRecord 或 Manifest；需要修改所有者字段或把修改后的值赋回。Channel 是 string，但 string 自身不可变。
 
-项目统一使用 `VersionNumber`。发布版本字符串采用 `Major.Minor.Patch[-Channel]`；`Build` 是单独存储的本地构建计数，不拼入版本字符串，也不参与版本比较。版本号在构建期由 `VersionRecord` 管理，运行期参与热更 Major 策略判断。
+`default(VersionNumber)` 的数值字段均为零、Channel 为 null，格式化得到 `0.0.0`。`TryParse` 失败返回 false 并输出 default；调用方必须检查返回值，不能仅看输出值是否为零。`Parse` 失败抛 FormatException。
 
----
+字段没有内置范围保护；手工写负数或非法 Channel 不会在赋值时自动失败。入口校验与 Parse 负责相应边界。
 
-## VersionNumber — 版本号数据类型
+## 字符串与比较
 
-### 格式
+- 格式示例：`1.2.3`、`2.0.0-alpha`、`1.5.0-rc`。
+- Parse 接受三个非负整数段及可选小写 alpha/beta/rc，拒绝 `+Build`，不是完整 SemVer 2.0 实现。
+- 排序顺序：Major、Minor、Patch，然后 alpha < beta < rc < release。
+- Build=1 和 Build=99 的两个 `1.0.0` 值比较相等；`1.0.0+1` 本身不是合法输入格式。
+- `GetReleaseVersionString()` 与 `ToString()` 输出相同，没有 `GetVersionString()` API。
+- 保留现有 Channel 语义：排序将 null/empty 都视为 release，但 Equals 使用字符串比较，null 与 empty 不相等。不要用排序结果为零代替所有相等性判断。
 
-```
-Major.Minor.Patch[-Channel]
+## VersionRecord
 
-示例：
-  1.2.3              → release 版本，Build=0
-  2.0.0-alpha        → alpha 渠道
-  1.5.0-rc           → RC 渠道
-```
+VersionRecord 是位于非 Editor 目录的 ScriptableObject；保存操作中的 UnityEditor 调用由条件编译隔离。CurrentVersion、LastBuildTime、DailyBuildCount 保存当前版本与每日计数。
 
-### 字段
+`BuildNextVersion(isMajor, isMinor)` 计算候选，不直接消耗已保存版本。Major 模式清零 Minor/Patch；Minor 模式清零 Patch；默认模式增加 Patch。正式 Full/Standalone 入口选择 Major，Hotfix 选择默认 Patch；方法支持 Minor 参数不意味着存在独立“功能性热更”构建菜单。
 
-| 字段 | 类型 | 语义 |
-|------|------|------|
-| `Major` | int | 主版本号 — 不兼容的大版本更新，客户端必须强制更新 |
-| `Minor` | int | 次版本号 — 功能性更新，热更可达 |
-| `Patch` | int | 修订号 — Bug 修复和资源微调，热更可达 |
-| `Build` | int | 当日构建计数，单独存储，不参与版本比较或发布字符串 |
-| `Channel` | string | 发布渠道 — `""`(release)、`"alpha"`、`"beta"`、`"rc"`。参与版本比较 |
+路径由 `FYAssetSettings.VersionRecordPath` 配置。构建缺少资产时失败。AB attempt 交付中应用版本并登记补偿；AA 非 attempt 路径在构建交付返回成功后应用。实际事务差异见 [构建基线与发布](./repository-构建仓库.md)。
 
-### 版本比较规则
+## 热更与数据格式
 
-比较优先级：**Major → Minor → Patch → ChannelRank**
+BuildIndex.Version 表示安装包基线，PackageIndex.LatestVersion 表示目标或已激活包版本。Major 是客户端兼容判断的输入，具体决策仍需结合本地完整性、包名和前向版本规则；BuildGUID 不参与版本排序。
 
-Channel 排序：`alpha(0) < beta(1) < rc(2) < release("", 3)`
+BinaryReflectionSerializer 对 struct 不写引用存在标记。class 改为 struct 后，即使字段 Order 不变，旧二进制也不兼容；FYAsset 根 Manifest schema 已更新，旧数据需要重新构建。JSON 读取边界要求版本字段存在且为对象：缺失或 null 拒绝；显式 `0.0.0` 仍合法。PackageIndex 检查 LatestVersion，BuildIndex 与 AAManifest 检查 Version，ABManifest 检查 PackageVersion。
 
-`Build` 不参与版本比较——例如 `1.0.0+1` 和 `1.0.0+99` 视为同一版本。
-
-调用方直接使用标准比较运算符；具体顺序以 `VersionNumber.CompareTo` 为准。
-
-### 字符串解析
-
-使用 `TryParse` / `Parse` 解析 SemVer 字符串。解析会拒绝负数、非法 Channel 和包含 `+Build` 的旧格式。
-
-### 格式化
-
-`GetVersionString()` 只返回三段版本；`GetReleaseVersionString()` 与 `ToString()` 返回包含可选 Channel 的发布身份。
-
-### 强制更新判断
-
-Major 是客户端兼容边界，判断必须区分方向：
-
-- 本地 `PackageIndex.Major != BuildIndex.Major`：按缺失或损坏指针处理，暂以内置整包身份等待远端修复，不提前删除目录。
-- `Remote PackageIndex.Major > BuildIndex.Major`：本地完整则提示新客户端并启动，否则阻断。
-- `Remote PackageIndex.Major < BuildIndex.Major`：视为发布或 Channel 异常；本地完整则告警启动，否则阻断。
-- Major 相同时只接受严格更高版本且使用新包名的前向更新；回滚、同版本换包和同目录换版本均拒绝。
-
-`BuildGUID` 是 Full baseline 的唯一包身份和路径名称，不参与兼容判断。
-
----
-
-## VersionRecord — 版本管理 ScriptableObject
-
-`VersionRecord` 是 Editor 程序集的 ScriptableObject，负责在构建时管理和递增版本号。
-
-### 字段
-
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| `CurrentVersion` | VersionNumber | 当前版本号 |
-| `LastBuildTime` | string | 上次构建时间（`yyyy-MM-dd HH:mm:ss`） |
-| `DailyBuildCount` | int | 当日构建次数 |
-
-### 版本递增逻辑
-
-跨天时先重置每日构建计数，再按构建类型递增 Major、Minor 或 Patch；Channel 只接受 alpha、beta、rc 或空值。
-
-三种递增模式对应三种构建类型：
-
-| 构建类型 | isMajor | isMinor | 效果 |
-|----------|---------|---------|------|
-| 整包构建 | true | false | Major+1, Minor=0, Patch=0 |
-| 功能性热更 | false | true | Minor+1, Patch=0 |
-| 修复性热更 | false | false | Patch+1 |
-
-### 资产位置与提交时机
-
-路径在 `FYAssetSettings.VersionRecordPath` 中配置，默认为 `Assets/Build/VersionRecord.asset`。当前没有独立 `VersionPanel` 或 `CreateAssetMenu` 创建入口，项目使用已提交的共享资产；缺失时构建会报错。
-
-`BuildProjectRunner` 先用 `BuildNextVersion()` 计算候选版本，只有构建与 Repository commit 都成功后才调用 `ApplyVersion()` 写回，避免失败构建提前消耗版本号。Repository 面板只提供测试用的 `Reset Version`。
-
----
-
-## 与热更流程的关系
-
-1. **构建时**：预计算候选版本，写入当前后端 manifest 与 `PackageIndex`；成功 commit 后再更新 `VersionRecord`
-2. **整包启动**：`BuildIndex.Version` 表示客户端基线 Major
-3. **热更时**：远端 `PackageIndex` 指向目标包；本地 `PackageIndex` 记录完成 runtime manager 初始化后的整包占位或 Hotfix 包
+参见 [序列化工具](../Tools/序列化工具.md)、[热更系统](./hotfix-热更新系统.md) 与 [HTML 流程图](./fyasset-modeling.html)。

@@ -12,7 +12,6 @@ using UnityEngine;
 /// </summary>
 public sealed class CollectorReverseIndex
 {
-    #region 类型
 
     public struct CollectorRef : IEquatable<CollectorRef>
     {
@@ -48,10 +47,6 @@ public sealed class CollectorReverseIndex
         public CollectorRef Reference;
     }
 
-    #endregion
-
-    #region 单例
-
     private static readonly CollectorReverseIndex _instance = new CollectorReverseIndex();
 
     public static CollectorReverseIndex Instance => _instance;
@@ -61,16 +56,8 @@ public sealed class CollectorReverseIndex
         Undo.undoRedoPerformed += MarkDirty;
     }
 
-    #endregion
-
-    #region 状态
-
     private readonly Dictionary<string, CollectorRef> _map = new Dictionary<string, CollectorRef>(StringComparer.OrdinalIgnoreCase);
     private bool _dirty = true;
-
-    #endregion
-
-    #region 公共接口
 
     /// <summary>
     /// 标记脏状态，下次 RebuildIfDirty 调用时重建全量索引。
@@ -125,10 +112,6 @@ public sealed class CollectorReverseIndex
     {
         return TryGetCollector(assetPath, out _);
     }
-
-    #endregion
-
-    #region 索引构建
 
     private List<CollectorBuildEntry> BuildEntries(AssetCollectionSetting setting)
     {
@@ -298,6 +281,4 @@ public sealed class CollectorReverseIndex
 
         return !string.IsNullOrEmpty(AssetDatabase.AssetPathToGUID(collectPath));
     }
-
-    #endregion
 }

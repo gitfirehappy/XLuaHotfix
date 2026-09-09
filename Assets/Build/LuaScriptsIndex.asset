@@ -27,9 +27,6 @@ MonoBehaviour:
     - DialogueModel
     - DialogueView
     - StringUtil
-  - containerAddress: EventCentre
-    scriptNames:
-    - EventCentre
   - containerAddress: LuaText
     scriptNames:
     - TalkTest1

@@ -18,22 +18,21 @@
 
 | 数据类型 | 文件 | 用途 |
 |----------|------|------|
-| **BuildIndexData** | Bootstrap | 整包构建唯一标识(guid)、版本号、时间、后端模式，大版本检测依赖 |
+| **BuildIndexData** | Shared/Runtime，写出到 StreamingAssets | 整包构建唯一标识(guid)、版本号、时间、后端模式，大版本检测依赖 |
 | **AAManifest** | AAManifest.json / AAManifest.bin | AA 版本号 + Bundle哈希/CRC/size 映射表，并嵌入 AA 资源索引数据 |
 | **LuaScriptsIndex** | Build/LuaScriptsIndex.asset | AddressableKey → 内部脚本名映射，运行期加载Lua；按普通 Addressable 资产参与索引；类型定义归属 XLuaFramework |
 | **PackageIndex** | PackageIndex.json | 远程构建定位，指向最新导出包路径，并声明 AA/AB 后端模式 |
 
-### 1.2 Build Repository 与差异系统
+### 1.2 构建基线与差异系统
 
-- **Build Repository**: 使用项目根 `BuildData/Snapshots/{BuildTarget}[-Channel]/{AA|AB}/` 下的 JSON commit 管理构建基线；`HEAD.json` 只保存当前 `HeadVersion`，`PushHistory.json` 记录推送历史
-- **Build Repository HEAD 状态**: `HEAD` 读取会区分空仓库与损坏状态；`RepositoryStatus` 现在可暴露 `HasHeadError` / `HeadErrorReason`，UI 会显示明确错误而不是混成空仓库
-- **VersionDataBase**: 保持产品版本源，不按 AA/AB 拆分；AA/AB 作为构建后端维度写入 Repository channel、PackageIndex 和 BuildIndex
+- **BuildBaseline**: 保存在 `BuildData/Baselines/{BuildTarget}[-Channel]/{AA|AB}/baseline.json`；`Latest` 是最近一次交付，`LatestFull` 是最近 Full。不是 git 式 commit 链，也没有 `HEAD.json`。
+- **VersionRecord**: 产品版本源，不按 AA/AB 拆分；AA/AB 作为构建后端维度写入 baseline channel、PackageIndex 和 BuildIndex
 - **构建配置资产**: 当前只保留三份 `Assets/Resources/` 配置资产：`FYAssetSettings` 保存全局项目/构建输出/版本/PushTargets，`FYAssetAASettings` 保存 AA 热更与构建参数，`FYAssetABSettings` 保存 AB 热更、构建与 AssetCollection 参数
-- **ArtifactDigest / ArtifactDelta / ArtifactDiffer**: 统一的 artifact 差异模型与纯 diff 计算，AA 使用 asset GUID 粒度，AB 使用 bundle name 粒度
-- **TaskScanAddressableHotfixDiff / TaskScanABHotfixDiff**: AA / AB DAG 的 artifact 扫描与 diff 统一入口；Task 直接产出 `ArtifactDelta` 和 `RepositoryArtifacts`，仓库 commit 不再依赖独立 scanner 类
-- **TaskScanAddressableHotfixDiff / TaskMoveAddressableHotfixGroups**: AA Hotfix DAG 前置 Task；先扫描 current source vs Repository HEAD，再把 Added + Modified 资源移入 Hotfix 组。无变更时继续构建；group move 记录 JSON undo log，若存在未还原迁移会阻断下一次移动并要求先 Reset/Restore
-- **TaskScanABHotfixDiff**: AB DAG diff Task；在 bundle build 与校验完成后扫描 AB bundle 输出 vs Repository HEAD，写入 `ArtifactDelta`，standalone diff 在该 Task 后停止
-- **BuildRepositoryCLI / PushTarget**: Repository CLI 提供 `Status`、`Diff`、`Push`、`ListCommits`；`Diff` 通过 AA/AB DAG stop-after 执行 current-vs-HEAD 对比。`LocalDirectoryPushTarget` 仅负责写 delta bundles、`ABManifest.json` 和 `PackageIndex.json`，`PushHistory.json` 由 repository 侧写入；`Push` 会显式校验编辑器侧 `PackageIndexPath`，缺失时直接失败
+- **BuildDiffEntry / ArtifactDelta / ArtifactDiffer**: 统一的 artifact 差异模型与纯 diff 计算；Name 区分大小写，只比较 Hash。AA 的 Name 是 asset GUID，AB 是 BundleName
+- **TaskScanAAHotfixDiff / TaskScanABHotfixDiff**: AA / AB DAG 的 artifact 扫描与 diff 入口；Task 产出 `ArtifactDelta`
+- **TaskScanAAHotfixDiff / TaskMoveAAHotfixGroups**: AA Hotfix 前置 Task；先扫描 current source vs Latest baseline，再把 Added + Modified 资源移入 Hotfix 组。无变更时继续构建；group move 记录 JSON undo log，若存在未还原迁移会阻断下一次移动并要求先 Restore
+- **TaskScanABHotfixDiff**: AB DAG diff Task；在 bundle build 与校验完成后扫描 AB bundle 输出 vs Latest/LatestFull，写入 `ArtifactDelta`
+- **BuildRepositoryCLI / PushTarget**: CLI 提供 `Status`、`Diff`、`Push`。`LocalDirectoryPushTarget` 发布已交付包与 PackageIndex；`HotfixOutput` 与 `HotfixPublish` 职责隔离
 
 ### 1.3 构建流程
 

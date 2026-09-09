@@ -15,8 +15,6 @@ public static class AssetClassifier
         ".hlslinc"
     };
 
-    #region 公共方法
-
     /// <summary>
     /// 根据路径和采集器配置生成分类结果。
     /// </summary>
@@ -85,10 +83,6 @@ public static class AssetClassifier
 
         return true;
     }
-
-    #endregion
-
-    #region 私有方法
 
     private static EAssetRole MapRole(ECollectorType collectorType)
     {
@@ -166,6 +160,4 @@ public static class AssetClassifier
     {
         return type != null && string.Equals(type.Name, "ShaderInclude", StringComparison.Ordinal);
     }
-
-    #endregion
 }

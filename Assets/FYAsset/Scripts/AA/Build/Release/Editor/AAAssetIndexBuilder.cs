@@ -36,7 +36,6 @@ public static class AAAssetIndexBuilder
 
                 string key = entry.address;
                 List<string> labels = entry.labels.ToList();
-                // Type = 首标签，无标签时默认 "Untyped"
                 string entryType = labels.Count > 0 ? labels[0] : "Untyped";
 
                 data.AssetEntries.Add(new PackageEntry

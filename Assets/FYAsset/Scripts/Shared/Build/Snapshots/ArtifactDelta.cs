@@ -2,20 +2,19 @@ using System;
 using System.Collections.Generic;
 
 /// <summary>
-/// ArtifactDiffer 的三段式输出：新增、修改、删除。
+/// ArtifactDiffer 的结果：目标新增/修改条目，以及基线中已移除的 Name。
 /// </summary>
 [Serializable]
 public class ArtifactDelta
 {
-    /// <summary>目标侧存在、基准侧不存在的产物。</summary>
-    public List<ArtifactDigest> Added = new();
+    /// <summary>仅目标侧存在的条目。</summary>
+    public List<BuildDiffEntry> Added = new();
 
-    /// <summary>两侧 Name 相同但 Hash 不同的产物。</summary>
-    public List<ArtifactDigest> Modified = new();
+    /// <summary>Name 相同但 Hash 不同的目标条目。</summary>
+    public List<BuildDiffEntry> Modified = new();
 
-    /// <summary>基准侧存在、目标侧不存在的产物，只需要保留 Name。</summary>
+    /// <summary>仅基线侧存在的 Name。</summary>
     public List<string> Removed = new();
 
-    /// <summary>没有任何新增、修改或删除。</summary>
     public bool IsEmpty => Added.Count == 0 && Modified.Count == 0 && Removed.Count == 0;
 }

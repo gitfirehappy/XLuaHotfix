@@ -40,6 +40,8 @@ Use a short type such as `start`, `decision`, `done`, `blocked`, or `next`. Keep
 output, and review findings in the active plan or review report. Historical entries may be normalized for format and
 repetition, but meaningful decisions, actions, blockers, and verification results must remain.
 
+Append new entries only at the end of `progress.txt`. Never insert at the head or in the middle. Read the end of the file for the latest state.
+
 ## Plan Lifecycle
 
 - Use the shared `plan/` queues; do not create `requirements/{id}/plan.md` or `requirements/{id}/plan/` by default.

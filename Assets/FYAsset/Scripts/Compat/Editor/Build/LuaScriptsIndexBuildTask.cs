@@ -7,11 +7,13 @@ using UnityEngine;
 
 /// <summary>
 /// 项目胶水层的 LuaScriptsIndex 构建 Task。
-/// 骨架管线保持 lua 无关；本 Task 由 BuildPipelineConfig 按名注入。
+/// 骨架管线保持 lua 无关，本 Task 由 BuildPipelineConfig 按名注入。
+/// </summary>
+/// <remarks>
 /// AA：重建索引并注册到 Addressables。
 /// AB：按已采集容器重建索引，并把索引资产收编进 CollectedAssets。
 /// Preview 模式不改写资产。
-/// </summary>
+/// </remarks>
 public sealed class LuaScriptsIndexBuildTask : IBuildTask
 {
     public string TaskName => "LuaScriptsIndexBuildTask";

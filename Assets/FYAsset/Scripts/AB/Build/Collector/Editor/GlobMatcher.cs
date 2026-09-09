@@ -5,18 +5,15 @@
 public static class GlobMatcher
 {
     /// <summary>
-    /// 判断输入字符串是否匹配给定的 Glob 模式。
-    /// 将模式按 * 分割后，顺序检查每个片段是否按序出现在输入中。
+    /// 判断输入字符串是否匹配给定的 Glob 模式（不区分大小写）。
     /// </summary>
     public static bool IsMatch(string input, string pattern)
     {
         if (string.IsNullOrEmpty(pattern))
             return true;
 
-        // 按 * 分割，得到所有非通配符片段
         string[] segments = pattern.Split('*');
 
-        // 快路径：模式就是单独的 *，匹配一切
         if (segments.Length == 2 && segments[0].Length == 0 && segments[1].Length == 0)
             return true;
 
@@ -27,7 +24,6 @@ public static class GlobMatcher
             if (seg.Length == 0)
                 continue;
 
-            // 在 input 剩余部分中查找当前片段
             int found = input.IndexOf(seg, pos, System.StringComparison.OrdinalIgnoreCase);
             if (found < 0)
                 return false;

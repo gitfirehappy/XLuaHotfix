@@ -29,9 +29,7 @@ public static class AssetAddressGenerator
     }
 
     /// <summary>
-    /// 生成带类型后缀的升级 Address。
-    /// 格式：{shortName}_{primaryType}
-    /// 示例：player-idle -> player-idle_Sprite
+    /// 生成带类型后缀的 Address，格式 {shortName}#{primaryType}。
     /// </summary>
     private static string GenerateTypeSuffixAddress(string shortName, string primaryType)
     {

@@ -106,9 +106,6 @@ public sealed class CollectorTargetPickerWindow : EditorWindow
         rootVisualElement.Add(footer);
     }
 
-    /// <summary>
-    /// 加载当前 AssetCollectionSetting，并初始化默认选择项。
-    /// </summary>
     private void LoadSetting()
     {
         _setting = AssetDatabase.LoadAssetAtPath<AssetCollectionSetting>(FYAssetABSettings.Instance.AssetCollectionSettingPath);
@@ -116,9 +113,6 @@ public sealed class CollectorTargetPickerWindow : EditorWindow
         _selectedGroupIndex = 0;
     }
 
-    /// <summary>
-    /// 获取 Package 下拉框显示名列表。
-    /// </summary>
     private string[] GetPackageNames()
     {
         List<string> names = new List<string>();
@@ -130,9 +124,6 @@ public sealed class CollectorTargetPickerWindow : EditorWindow
         return names.ToArray();
     }
 
-    /// <summary>
-    /// 获取指定 Package 下的 Group 下拉框显示名列表。
-    /// </summary>
     private string[] GetGroupNames(int packageIndex)
     {
         if (packageIndex < 0 || packageIndex >= _setting.Packages.Count)

@@ -81,5 +81,31 @@ public sealed class ABConfigPanel : IBuildPipelinePanel
         card.Add(new PropertyField(_buildSettingsSo.FindProperty(nameof(FYAssetABSettings.DependencyFilterExtensions)), "Dependency Filter Extensions"));
         card.Bind(_buildSettingsSo);
         _root.Add(card);
+
+        DrawPlayMode();
+    }
+
+    private void DrawPlayMode()
+    {
+        if (_buildSettings == null || _buildSettingsSo == null)
+            return;
+
+        VisualElement card = BuildPipelineUI.Card();
+        card.Add(BuildPipelineUI.Header("AB Editor PlayMode"));
+        SerializedProperty playModeProp = _buildSettingsSo.FindProperty(nameof(FYAssetABSettings.PlayMode));
+        if (playModeProp != null)
+            card.Add(new PropertyField(playModeProp));
+
+        string note = _buildSettings.PlayMode == EPlayMode.Simulate
+            ? "Simulate 未实现，当前与 Runtime 行为一致。"
+            : _buildSettings.PlayMode == EPlayMode.Editor
+                ? "Editor：Collector 扫描 + AssetDatabase 直读，无需构建 AB。"
+                : "Runtime：读 ABManifest 并经 AssetBundle 加载。";
+        var noteLabel = new Label(note);
+        noteLabel.style.marginTop = 4;
+        noteLabel.style.whiteSpace = WhiteSpace.Normal;
+        card.Add(noteLabel);
+        card.Bind(_buildSettingsSo);
+        _root.Add(card);
     }
 }

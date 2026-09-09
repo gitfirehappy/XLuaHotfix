@@ -34,7 +34,6 @@ public class BundleDependencyGraph
     /// <summary>添加一条依赖边，自动去重（相同 From+To 仅追加 ViaAssets）</summary>
     public void AddEdge(string fromBundle, string toBundle, string viaAsset)
     {
-        // 排除自引用边
         if (fromBundle == toBundle)
             return;
 

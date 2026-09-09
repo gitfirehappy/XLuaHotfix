@@ -25,14 +25,14 @@ public sealed class HotfixPackageInspection
         string metadataFailureReason,
         bool requirePackageDirectoryMatch = true)
     {
-        if (versionInfo == null || versionInfo.Version == null)
+        if (versionInfo == null || !HotfixPackageValidator.IsVersionValid(versionInfo.Version))
             return Incomplete(versionInfo, "包 manifest 缺失或无效。");
         if (expectedIndex == null || string.IsNullOrEmpty(expectedIndex.LatestPackage))
             return Incomplete(versionInfo, "本地 PackageIndex 缺失或无效。");
         if (requirePackageDirectoryMatch
             && !string.Equals(Path.GetFileName(packageRoot), expectedIndex.LatestPackage, StringComparison.Ordinal))
             return Incomplete(versionInfo, "包目录与 PackageIndex.LatestPackage 不匹配。");
-        if (expectedIndex.LatestVersion == null || versionInfo.Version != expectedIndex.LatestVersion)
+        if (!HotfixPackageValidator.IsVersionValid(expectedIndex.LatestVersion) || versionInfo.Version != expectedIndex.LatestVersion)
             return Incomplete(versionInfo, "Manifest 版本与 PackageIndex.LatestVersion 不匹配。");
         if (!requiredMetadataPresent)
             return Incomplete(versionInfo, metadataFailureReason);

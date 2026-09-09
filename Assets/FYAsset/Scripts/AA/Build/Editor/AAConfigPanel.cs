@@ -41,9 +41,6 @@ public sealed class AAConfigPanel : IBuildPipelinePanel
         _buildSettingsSo = null;
     }
 
-    /// <summary>
-    /// 重建 AA 配置面板内容。
-    /// </summary>
     private void Rebuild()
     {
         _root.Clear();
@@ -96,9 +93,6 @@ public sealed class AAConfigPanel : IBuildPipelinePanel
         _root.Add(card);
     }
 
-    /// <summary>
-    /// Addressables Settings 缺失时显示提示和跳转入口。
-    /// </summary>
     private void DrawNoSettings()
     {
         VisualElement card = BuildPipelineUI.Card();
@@ -109,9 +103,6 @@ public sealed class AAConfigPanel : IBuildPipelinePanel
         _root.Add(card);
     }
 
-    /// <summary>
-    /// 汇总展示 Addressables 的关键只读信息。
-    /// </summary>
     private void DrawSummary(AddressableAssetSettings settings)
     {
         VisualElement card = BuildPipelineUI.Card();
@@ -130,9 +121,6 @@ public sealed class AAConfigPanel : IBuildPipelinePanel
         _root.Add(card);
     }
 
-    /// <summary>
-    /// 绘制打开 Addressables Groups 窗口的入口。
-    /// </summary>
     private void DrawOpenGroupsButton()
     {
         VisualElement card = BuildPipelineUI.Card();
@@ -141,9 +129,6 @@ public sealed class AAConfigPanel : IBuildPipelinePanel
         _root.Add(card);
     }
 
-    /// <summary>
-    /// 解析当前 Profile 下的 Addressables 路径变量。
-    /// </summary>
     private static string EvaluateProfilePath(AddressableAssetSettings settings, string variableName)
     {
         if (settings == null || settings.profileSettings == null)
@@ -156,9 +141,7 @@ public sealed class AAConfigPanel : IBuildPipelinePanel
         return settings.profileSettings.EvaluateString(settings.activeProfileId, value);
     }
 
-    /// <summary>
-    /// 通过反射打开 Unity Addressables Groups 窗口。
-    /// </summary>
+    // Addressables Groups 窗口非公开 API，通过反射调用 Init 打开。
     private static void OpenGroupsWindow()
     {
         Type windowType = typeof(AddressableAssetSettings).Assembly.GetType("UnityEditor.AddressableAssets.GUI.AddressableAssetsWindow");

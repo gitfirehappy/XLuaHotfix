@@ -19,11 +19,11 @@ public class TaskPrepareContext : IBuildTask
         string buildVersionString = GetCommandLineArg("--version")
             ?? DateTime.UtcNow.ToString("yyyyMMdd-HHmmss");
 
-        // CLI --version 只在没有 BuildPackageRequest 的旧/诊断路径中覆盖本次 BuildConfig，不提前写回 VersionRecord。
+        // CLI --version 仅在没有 BuildPackageRequest 的诊断路径中生效，不提前写回 VersionRecord。
         var versionData = AssetDatabase.LoadAssetAtPath<VersionRecord>(
             FYAssetSettings.Instance.VersionRecordPath);
         string cliVersion = GetCommandLineArg("--version");
-        VersionNumber cliParsedVersion = request == null
+        VersionNumber? cliParsedVersion = request == null
             && !string.IsNullOrEmpty(cliVersion)
             && VersionNumber.TryParse(cliVersion, out var cliVer)
             ? cliVer
@@ -48,10 +48,10 @@ public class TaskPrepareContext : IBuildTask
             ?? ctx.Get<string>(BuildContextKeys.RepositoryPreviewOutput)
             ?? FYAssetPathUtility.JoinFilePath(BuildPathManager.ProjectRoot, "Build", platform.ToString());
 
-        var version = request != null && request.Version != null
+        var version = request != null
             ? request.Version
             : cliParsedVersion != null
-            ? cliParsedVersion
+            ? cliParsedVersion.Value
             : versionData != null
             ? versionData.CurrentVersion
             : new VersionNumber { Major = 1, Minor = 0, Patch = 0 };

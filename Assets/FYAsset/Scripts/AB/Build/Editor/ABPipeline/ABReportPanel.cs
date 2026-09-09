@@ -79,8 +79,6 @@ public sealed class ABReportPanel : BuildPipelineUIToolkitPanel
         LoadReports(true);
     }
 
-    #region Toolbar
-
     private void DrawToolbar()
     {
         VisualElement toolbar = BuildPipelineUI.Toolbar();
@@ -153,10 +151,6 @@ public sealed class ABReportPanel : BuildPipelineUIToolkitPanel
         button.style.unityFontStyleAndWeight = _activeTab == tab ? FontStyle.Bold : FontStyle.Normal;
         return button;
     }
-
-    #endregion
-
-    #region Loading
 
     private void LoadReports(bool forceLatest)
     {
@@ -233,10 +227,6 @@ public sealed class ABReportPanel : BuildPipelineUIToolkitPanel
         _statusLabel.text = text ?? string.Empty;
         _statusLabel.style.color = color;
     }
-
-    #endregion
-
-    #region Rendering
 
     private void RefreshBody()
     {
@@ -504,10 +494,6 @@ public sealed class ABReportPanel : BuildPipelineUIToolkitPanel
         }
     }
 
-    #endregion
-
-    #region Details
-
     private void DrawBundleDetails(ABBuildReportBundle bundle)
     {
         _details.Clear();
@@ -577,10 +563,6 @@ public sealed class ABReportPanel : BuildPipelineUIToolkitPanel
         _details.Add(BuildPipelineUI.Header("Details"));
         _details.Add(BuildPipelineUI.SmallText(text));
     }
-
-    #endregion
-
-    #region Shared UI
 
     private static ScrollView CreateScroll()
     {
@@ -749,7 +731,5 @@ public sealed class ABReportPanel : BuildPipelineUIToolkitPanel
 
         LoadReports(true);
     }
-
-    #endregion
 }
 #endif

@@ -2,8 +2,7 @@
 using System;
 
 /// <summary>
-/// 单次构建包请求。
-/// BuildProjectManager 是正式 release flow 的权威创建者；后端和 Task 只消费，不重新计算包名或最终输出路径。
+/// 单次构建包请求。包名与最终输出路径只在创建时计算一次；后端和 Task 只消费，不重新计算。
 /// </summary>
 public sealed class BuildPackageRequest
 {
@@ -13,11 +12,13 @@ public sealed class BuildPackageRequest
     public BuildType BuildType { get; }
     public string BackendKey { get; }
     public string PackageName { get; }
+
     /// <summary>
-    /// 任务链的写入目录。attempt 布局下是 attempt 目录（仅 Runner finalize 可读它并 promote）；
-    /// 非 attempt 布局（AA 现状）保持最终包目录语义不变。
+    /// 任务链的写入目录。attempt 布局下仅 Runner finalize 可读它并 promote；
+    /// 非 attempt 布局时该目录即最终包目录。
     /// </summary>
     public string OutputDir { get; }
+
     public string BundlesDir { get; }
     public string PackageIndexPath { get; }
     public DateTime CreatedAt { get; }
@@ -78,7 +79,8 @@ public sealed class BuildPackageRequest
     }
 
     /// <param name="attemptLayout">true 时任务链所有产物只写入 attempt 目录；最终出口由 Runner finalize 决定。</param>
-    public static BuildPackageRequest Create(VersionNumber version, BuildType buildType, string backendKey, bool attemptLayout = false)
+    public static BuildPackageRequest Create(VersionNumber version, BuildType buildType, string backendKey,
+        bool attemptLayout = false)
     {
         var createdAt = DateTime.UtcNow;
         string packageName = CreatePackageName(version, createdAt);

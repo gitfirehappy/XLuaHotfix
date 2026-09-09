@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 
 /// <summary>
-/// AA包索引
+/// 序列化的 AA key、Type 与 Labels。
 /// </summary>
 [Serializable]
 [BinarySerializable]
@@ -12,7 +12,7 @@ public class PackageEntry
     public string key;
 
     [BinaryField(1)]
-    public string Type;         // 默认第一个 Label 作为 Type
+    public string Type; // AA 索引构建时取第一个 Label；无 Label 时为 Untyped。
 
     [BinaryField(2)]
     public List<string> Labels;

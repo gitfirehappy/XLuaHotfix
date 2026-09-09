@@ -13,7 +13,6 @@ using UnityEngine;
 public class TaskCollectBuiltins : IBuildTask
 {
     public string TaskName => "TaskCollectBuiltins";
-    /// <summary>可扩展的扫描类别：新增类型只需追加一行</summary>
     private static readonly BuiltinCategory[] Categories = new[]
     {
         new BuiltinCategory { Filter = "t:Shader", Dir = null,                 BundleKey = "shaders",   Label = "Shader" },
@@ -39,10 +38,8 @@ public class TaskCollectBuiltins : IBuildTask
             return BuildTaskResult.Fail(BuildErrorCodes.NoCollectedAssets,
                 "TaskCollectAssets 未产出 Asset。无法收集 Builtin。", false);
 
-        // 取第一个 Package 的 PackageName
         string pkgName = assets[0].PackageName ?? "Default";
 
-        // 构建已有 GUID 集合
         var existingGUIDs = new HashSet<string>(StringComparer.Ordinal);
         for (int i = 0; i < assets.Count; i++)
         {

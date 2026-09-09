@@ -1,13 +1,13 @@
 using System;
+using System.Text;
 
 /// <summary>
-/// 版本号数据类型，整个项目统一使用。
-/// Release version 字符串格式：Major.Minor.Patch[-Channel]。
-/// Build 单独存储，不得追加到 version 字符串。
+/// 发布版本值，格式为 Major.Minor.Patch[-Channel]。
+/// Build 单独存储，不参与排序和相等性比较。
 /// </summary>
 [Serializable]
 [BinarySerializable]
-public class VersionNumber : IComparable<VersionNumber>
+public struct VersionNumber : IComparable<VersionNumber>, IEquatable<VersionNumber>
 {
     [BinaryField(0)] public int Major;
     [BinaryField(1)] public int Minor;
@@ -45,7 +45,6 @@ public class VersionNumber : IComparable<VersionNumber>
 
     public int CompareTo(VersionNumber other)
     {
-        if (other == null) return 1;
         int cmp = Major.CompareTo(other.Major);
         if (cmp != 0) return cmp;
         cmp = Minor.CompareTo(other.Minor);
@@ -56,28 +55,26 @@ public class VersionNumber : IComparable<VersionNumber>
     }
 
     public static bool operator >(VersionNumber a, VersionNumber b) =>
-        a != null && b != null && a.CompareTo(b) > 0;
+        a.CompareTo(b) > 0;
     public static bool operator <(VersionNumber a, VersionNumber b) =>
-        a != null && b != null && a.CompareTo(b) < 0;
+        a.CompareTo(b) < 0;
     public static bool operator >=(VersionNumber a, VersionNumber b) =>
-        a != null && b != null && a.CompareTo(b) >= 0;
+        a.CompareTo(b) >= 0;
     public static bool operator <=(VersionNumber a, VersionNumber b) =>
-        a != null && b != null && a.CompareTo(b) <= 0;
+        a.CompareTo(b) <= 0;
 
     #endregion
 
     #region Equality
 
-    public override bool Equals(object obj)
+    public override bool Equals(object obj) => obj is VersionNumber other && Equals(other);
+
+    public bool Equals(VersionNumber other)
     {
-        if (obj is VersionNumber other)
-        {
-            return Major == other.Major &&
-                   Minor == other.Minor &&
-                   Patch == other.Patch &&
-                   string.Equals(Channel, other.Channel, StringComparison.OrdinalIgnoreCase);
-        }
-        return false;
+        return Major == other.Major &&
+               Minor == other.Minor &&
+               Patch == other.Patch &&
+               string.Equals(Channel, other.Channel, StringComparison.OrdinalIgnoreCase);
     }
 
     public override int GetHashCode()
@@ -85,12 +82,7 @@ public class VersionNumber : IComparable<VersionNumber>
         return HashCode.Combine(Major, Minor, Patch, Channel?.ToLowerInvariant() ?? "");
     }
 
-    public static bool operator ==(VersionNumber a, VersionNumber b)
-    {
-        if (ReferenceEquals(a, b)) return true;
-        if (ReferenceEquals(a, null) || ReferenceEquals(b, null)) return false;
-        return a.Equals(b);
-    }
+    public static bool operator ==(VersionNumber a, VersionNumber b) => a.Equals(b);
 
     public static bool operator !=(VersionNumber a, VersionNumber b) => !(a == b);
 
@@ -99,7 +91,7 @@ public class VersionNumber : IComparable<VersionNumber>
     #region Parse
 
     /// <summary>
-    /// 解析发布版本格式: X.Y.Z[-channel]
+    /// 解析 X.Y.Z[-channel]；输入无效时抛出 FormatException。
     /// </summary>
     public static VersionNumber Parse(string input)
     {
@@ -108,9 +100,10 @@ public class VersionNumber : IComparable<VersionNumber>
         throw new FormatException($"无效版本号字符串: '{input}'");
     }
 
+    /// <summary>输入无效时返回 false，并将 <paramref name="result"/> 设为 default。</summary>
     public static bool TryParse(string input, out VersionNumber result)
     {
-        result = null;
+        result = default;
         if (string.IsNullOrEmpty(input))
             return false;
 
@@ -119,7 +112,6 @@ public class VersionNumber : IComparable<VersionNumber>
         if (remaining.IndexOf('+') >= 0)
             return false;
 
-        // 解析 -Channel
         string channel = "";
         int dashIdx = remaining.IndexOf('-');
         if (dashIdx >= 0)
@@ -128,7 +120,6 @@ public class VersionNumber : IComparable<VersionNumber>
             remaining = remaining.Substring(0, dashIdx);
         }
 
-        // 解析 X.Y.Z
         string[] parts = remaining.Split('.');
         if (parts.Length != 3)
             return false;
@@ -153,6 +144,149 @@ public class VersionNumber : IComparable<VersionNumber>
             Channel = channel
         };
         return true;
+    }
+
+    #endregion
+
+    #region JSON presence
+
+    /// <summary>
+    /// 判断 JSON 对象是否包含指定字段且值为对象。
+    /// struct 反序列化后无法用字段值区分缺失与显式 0.0.0，读取边界必须先检查字段存在。
+    /// </summary>
+    public static bool JsonHasObjectField(string json, string fieldName)
+    {
+        return TryFindObjectValue(json, 0, json == null ? 0 : json.Length, fieldName, out _);
+    }
+
+    /// <summary>
+    /// 在 UTF-8 JSON 字节中检查对象字段；会去掉 BOM。二进制数据应先按 Magic 分流，不要调用本方法。
+    /// </summary>
+    public static bool JsonHasObjectField(byte[] data, string fieldName)
+    {
+        if (data == null || data.Length == 0)
+            return false;
+
+        string json = Encoding.UTF8.GetString(data);
+        if (json.Length > 0 && json[0] == '\uFEFF')
+            json = json.Substring(1);
+        return JsonHasObjectField(json, fieldName);
+    }
+
+    /// <summary>
+    /// 当父字段存在且为对象时，检查其子对象是否包含指定对象字段。父字段缺失时返回 false。
+    /// </summary>
+    public static bool JsonHasNestedObjectField(string json, string parentField, string fieldName)
+    {
+        if (!TryFindObjectValue(json, 0, json == null ? 0 : json.Length, parentField, out int objectStart))
+            return false;
+
+        int objectEnd = MatchObjectEnd(json, objectStart);
+        if (objectEnd < 0)
+            return false;
+        return TryFindObjectValue(json, objectStart + 1, objectEnd, fieldName, out _);
+    }
+
+    private static bool TryFindObjectValue(string json, int start, int end, string fieldName, out int objectStart)
+    {
+        objectStart = -1;
+        if (string.IsNullOrEmpty(json) || string.IsNullOrEmpty(fieldName) || start < 0 || end > json.Length || start >= end)
+            return false;
+
+        string key = "\"" + fieldName + "\"";
+        int i = SkipJsonWhitespace(json, start, end);
+        if (i < end && json[i] == '{')
+            i++;
+
+        int relativeDepth = 0;
+        bool inString = false;
+        bool escape = false;
+        for (; i < end; i++)
+        {
+            char c = json[i];
+            if (inString)
+            {
+                if (escape)
+                    escape = false;
+                else if (c == '\\')
+                    escape = true;
+                else if (c == '"')
+                    inString = false;
+                continue;
+            }
+
+            if (c == '"')
+            {
+                if (relativeDepth == 0
+                    && i + key.Length <= end
+                    && string.CompareOrdinal(json, i, key, 0, key.Length) == 0)
+                {
+                    int colon = SkipJsonWhitespace(json, i + key.Length, end);
+                    if (colon < end && json[colon] == ':')
+                    {
+                        int value = SkipJsonWhitespace(json, colon + 1, end);
+                        if (value < end && json[value] == '{')
+                        {
+                            objectStart = value;
+                            return true;
+                        }
+
+                        return false;
+                    }
+                }
+
+                inString = true;
+                continue;
+            }
+
+            if (c == '{')
+                relativeDepth++;
+            else if (c == '}')
+                relativeDepth--;
+        }
+
+        return false;
+    }
+
+    private static int MatchObjectEnd(string json, int objectStart)
+    {
+        int depth = 0;
+        bool inString = false;
+        bool escape = false;
+        for (int i = objectStart; i < json.Length; i++)
+        {
+            char c = json[i];
+            if (inString)
+            {
+                if (escape)
+                    escape = false;
+                else if (c == '\\')
+                    escape = true;
+                else if (c == '"')
+                    inString = false;
+                continue;
+            }
+
+            if (c == '"')
+                inString = true;
+            else if (c == '{')
+                depth++;
+            else if (c == '}')
+            {
+                depth--;
+                if (depth == 0)
+                    return i;
+            }
+        }
+
+        return -1;
+    }
+
+    private static int SkipJsonWhitespace(string json, int index, int end)
+    {
+        while (index < end && char.IsWhiteSpace(json[index]))
+            index++;
+        return index;
     }
 
     #endregion

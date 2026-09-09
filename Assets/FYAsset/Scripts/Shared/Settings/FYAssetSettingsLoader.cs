@@ -5,7 +5,7 @@ using UnityEditor;
 #endif
 
 /// <summary>
-/// runtime-safe FYAsset settings asset 的共享 loader。
+/// FYAsset Settings 资产的共享加载器。Editor 下按 assetPath 加载或创建并保存，Runtime 下从 Resources 加载。
 /// </summary>
 public static class FYAssetSettingsLoader
 {

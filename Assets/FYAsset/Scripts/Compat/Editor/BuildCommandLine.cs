@@ -6,17 +6,11 @@ using UnityEngine;
 
 /// <summary>
 /// CI/CD 命令行构建入口。
-/// 用法示例：
-///   Unity.exe -batchmode -quit -projectPath "E:/unity/project/XLuaHotfix"
-///             -executeMethod BuildCommandLine.Build -buildType hotfix
-///   Unity.exe -batchmode -quit -projectPath "E:/unity/project/XLuaHotfix"
-///             -executeMethod BuildCommandLine.Build -buildType full
-///   Unity.exe -batchmode -quit -projectPath "E:/unity/project/XLuaHotfix"
-///             -executeMethod BuildCommandLine.Build -buildType standalone
-/// 附加参数：
-///   -backend / -channel 由 BuildRepositoryCLI 的 status / diff 使用
-///   -target / -from / -to 由 BuildRepositoryCLI 的 push 使用
+/// 通过 Unity -batchmode -executeMethod BuildCommandLine.Build -buildType full|hotfix|standalone 调用。
 /// </summary>
+/// <remarks>
+/// 附加参数 -backend / -channel 供 BuildRepositoryCLI 的 status / diff 使用，-target / -from / -to 供 push 使用。
+/// </remarks>
 public static class BuildCommandLine
 {
     /// <summary>

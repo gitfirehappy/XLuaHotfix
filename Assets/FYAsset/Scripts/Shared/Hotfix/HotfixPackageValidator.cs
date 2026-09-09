@@ -29,8 +29,7 @@ public static class HotfixPackageValidator
 
     public static bool IsVersionValid(VersionNumber version)
     {
-        return version != null
-               && version.Major >= 0
+        return version.Major >= 0
                && version.Minor >= 0
                && version.Patch >= 0
                && VersionNumber.TryParse(version.GetReleaseVersionString(), out _);

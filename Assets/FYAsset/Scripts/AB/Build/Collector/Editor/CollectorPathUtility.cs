@@ -2,8 +2,7 @@ using System;
 using System.Collections.Generic;
 
 /// <summary>
-/// Collector 路径工具方法 — 集中管理 NormalizePath / PathDepth / IsPathContained / MatchesIgnorePattern，
-/// 消除各文件中的私有副本。
+/// Collector 路径工具：路径规范化、深度计算、包含判断与忽略模式匹配。
 /// </summary>
 public static class CollectorPathUtility
 {

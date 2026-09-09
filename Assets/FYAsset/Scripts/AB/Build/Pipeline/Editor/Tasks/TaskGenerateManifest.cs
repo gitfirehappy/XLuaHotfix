@@ -23,7 +23,7 @@ public class TaskGenerateManifest : IBuildTask
         if (!validation.Success)
             return validation;
 
-        // ③ bundleNameToIndex（依赖图仍以逻辑 BundleName 表达）
+        // 依赖图仍以逻辑 BundleName 表达，先建立名称 -> 索引映射
         var bundleNameToIndex = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         for (int i = 0; i < buildResults.Count; i++)
             bundleNameToIndex[buildResults[i].BundleName] = i;
@@ -48,7 +48,7 @@ public class TaskGenerateManifest : IBuildTask
             }
         }
 
-        // ④ BundleBuildInfo → ManifestBundleEntry（基础字段，BundleType/DependBundleIndices/Tags 待填）
+        // 先填基础字段，BundleType / DependBundleIndices / Tags 在后续步骤填充
         var bundleEntries = new List<ManifestBundleEntry>(buildResults.Count);
         for (int i = 0; i < buildResults.Count; i++)
         {
@@ -75,7 +75,6 @@ public class TaskGenerateManifest : IBuildTask
             });
         }
 
-        // ⑤ CollectedAssetInfo → ManifestAssetEntry
         var assetEntries = new List<ManifestAssetEntry>(collected.Count);
         for (int i = 0; i < collected.Count; i++)
         {
@@ -108,7 +107,7 @@ public class TaskGenerateManifest : IBuildTask
             });
         }
 
-        // ⑥ DependBundleIndices 解析
+        // 由依赖图填充 DependBundleIndices
         if (depGraph != null)
         {
             for (int i = 0; i < bundleEntries.Count; i++)
@@ -128,7 +127,7 @@ public class TaskGenerateManifest : IBuildTask
             }
         }
 
-        // ⑦ BundleType 推断（>80% 阈值）
+        // 主导类型占比 >80% 时记为该 PrimaryType，否则 "Mixed"
         for (int bi = 0; bi < bundleEntries.Count; bi++)
         {
             string logicalName = buildResults[bi].BundleName;
@@ -167,7 +166,7 @@ public class TaskGenerateManifest : IBuildTask
             bundleEntries[bi].BundleType = ratio > 0.8 ? dominantType : "Mixed";
         }
 
-        // ⑧ 组装 ABManifest（Tags 保留为下载策略标签，不从 asset Labels 自动聚合）
+        // Tags 为 Bundle 级下载策略标签，不从 asset Labels 自动聚合
         var manifest = new ABManifest
         {
             PackageName = "MainPackage",
@@ -177,7 +176,7 @@ public class TaskGenerateManifest : IBuildTask
             BundleEntries = bundleEntries
         };
 
-        // ⑨ Initialize() 校验
+        // Initialize 同时做完整性校验（重复 BundleName 会抛异常）
         try
         {
             manifest.Initialize();
@@ -188,7 +187,6 @@ public class TaskGenerateManifest : IBuildTask
                 $"ABManifest.Initialize() 执行异常: {ex.Message}", true);
         }
 
-        // ⑩ 写入 Context
         ctx.Set(ABBuildContextKeys.ABManifest, manifest);
 
         return BuildTaskResult.Ok(new List<string>

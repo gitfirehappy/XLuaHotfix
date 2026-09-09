@@ -28,7 +28,7 @@ public class TaskScanAAHotfixDiff : IBuildTask
 
         try
         {
-            Debug.Log($"[{nameof(TaskScanAAHotfixDiff)}] 开始 AA Hotfix diff scan，对比当前 Addressables source 与 Repository HEAD。");
+            Debug.Log($"[{nameof(TaskScanAAHotfixDiff)}] 开始 AA Hotfix diff scan，对比当前 Addressables source 与 Latest baseline。");
             var current = ScanCurrentArtifacts();
             ctx.Set(BuildContextKeys.RepositoryArtifacts, current);
 
@@ -54,7 +54,7 @@ public class TaskScanAAHotfixDiff : IBuildTask
         }
     }
 
-    public static List<ArtifactDigest> ScanCurrentArtifacts()
+    public static List<BuildDiffEntry> ScanCurrentArtifacts()
     {
         var settings = AddressableAssetSettingsDefaultObject.Settings;
         if (settings == null)
@@ -62,23 +62,23 @@ public class TaskScanAAHotfixDiff : IBuildTask
         return ScanAddressableSource(settings);
     }
 
-    private static ArtifactDelta ScanDiff(BuildPackageRequest request, List<ArtifactDigest> current, bool repositoryPreviewMode)
+    private static ArtifactDelta ScanDiff(BuildPackageRequest request, List<BuildDiffEntry> current, bool repositoryPreviewMode)
     {
         var delta = ArtifactDiffer.Diff(GetBaselineArtifacts(request, repositoryPreviewMode), current);
         LogDelta(delta);
         return delta;
     }
 
-    private static List<ArtifactDigest> GetBaselineArtifacts(BuildPackageRequest request, bool repositoryPreviewMode)
+    private static List<BuildDiffEntry> GetBaselineArtifacts(BuildPackageRequest request, bool repositoryPreviewMode)
     {
         var channelKey = BuildBaselineStore.GetChannelKey(request.Version, request.BackendKey);
         BuildBaseline baseline = BuildBaselineStore.LoadLatest(channelKey);
-        return baseline?.Artifacts ?? new List<ArtifactDigest>();
+        return baseline?.Artifacts ?? new List<BuildDiffEntry>();
     }
 
-    private static List<ArtifactDigest> ScanAddressableSource(AddressableAssetSettings settings)
+    private static List<BuildDiffEntry> ScanAddressableSource(AddressableAssetSettings settings)
     {
-        var result = new List<ArtifactDigest>();
+        var result = new List<BuildDiffEntry>();
         foreach (var group in settings.groups)
         {
             if (group == null)
@@ -100,7 +100,7 @@ public class TaskScanAAHotfixDiff : IBuildTask
 
                 string metaPath = assetPath + ".meta";
                 long size = GetFileSize(assetPath) + GetFileSize(metaPath);
-                result.Add(new ArtifactDigest
+                result.Add(new BuildDiffEntry
                 {
                     Name = entry.guid,
                     Hash = HashGenerator.GenerateCompositeFileHash(assetPath, metaPath),

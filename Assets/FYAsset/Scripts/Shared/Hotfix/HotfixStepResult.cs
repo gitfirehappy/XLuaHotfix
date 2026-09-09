@@ -1,6 +1,6 @@
 /// <summary>
-/// 热更步骤的结构化执行结果 —— 替代裸 bool 返回值。
-/// Success 为 true 时 Error 为 null；为 false 时 Error 携带 RuntimeMessage 诊断信息。
+/// 热更步骤的执行结果，分别记录 Success 和可选诊断。
+/// default 为失败且 Error 为空，调用方不能假定失败必有诊断。
 /// </summary>
 public readonly struct HotfixStepResult
 {

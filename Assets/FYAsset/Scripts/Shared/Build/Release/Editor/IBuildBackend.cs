@@ -13,9 +13,6 @@ public interface IBuildBackend
     Task<BuildBackendResult> BuildAsync(BuildPackageRequest request, BuildExecutionOptions options);
 }
 
-/// <summary>
-/// BuildProjectManager 暴露给后端的构建类型。
-/// </summary>
 public enum BuildType
 {
     Full,

@@ -28,7 +28,7 @@ internal static class ConcretePackageOwnershipTests
             "shared asset index interface must be deleted");
         RepoAssert.False(RepoSource.Exists("Assets/FYAsset/Scripts/Shared/Runtime/Contracts/IPackageBackend.cs"),
             "shared package backend interface must be deleted");
-        RepoAssert.True(RepoSource.Exists("Assets/FYAsset/Scripts/AB/Runtime/Backends/AssetResolver.cs"),
+        RepoAssert.True(RepoSource.Exists("Assets/FYAsset/Scripts/AB/Runtime/AssetResolver.cs"),
             "resolver must live under AB runtime ownership");
         RepoAssert.NotContains(runtimeMessage, "RuntimeAssetEntry", "shared diagnostics must not depend on AB models");
     }

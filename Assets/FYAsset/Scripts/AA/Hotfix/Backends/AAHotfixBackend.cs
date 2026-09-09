@@ -6,8 +6,12 @@ using UnityEngine;
 using UnityEngine.AddressableAssets;
 
 /// <summary>
-/// 支持精确本地检查与显式 catalog 激活的 Addressables 热更后端。
+/// 检查 AA 包、持久化远端元数据并激活 catalog。
 /// </summary>
+/// <remarks>
+/// FetchRemoteVersionAsync 缓存原始 Manifest，PersistRemoteMetadataAsync 依赖该缓存；二进制下载为空才回退 JSON，解析失败不回退。
+/// Bundle 准备与本地 PackageIndex 提交由 HotfixFlowBase 管理，catalog 激活不写指针。
+/// </remarks>
 public sealed class AAHotfixBackend : IHotfixPipeline
 {
     private byte[] _remoteManifestData;
@@ -58,12 +62,15 @@ public sealed class AAHotfixBackend : IHotfixPipeline
 
     public async Task<HotfixVersionInfo> FetchRemoteVersionAsync(
         string remoteUrlRoot,
-        HotfixDownloadOptions metadataOptions)
+        int timeoutSeconds,
+        int maxRetryCount,
+        float retryBaseDelaySeconds)
     {
         string binaryUrl = FYAssetPathUtility.JoinUrl(
             remoteUrlRoot,
             FYAssetSettings.AA_MANIFEST_FILE_NAME_BIN);
-        _remoteManifestData = await NetworkDownloader.DownloadBytes(binaryUrl, metadataOptions);
+        _remoteManifestData = await NetworkDownloader.DownloadBytes(
+            binaryUrl, timeoutSeconds, maxRetryCount, retryBaseDelaySeconds);
         _remoteManifestIsBinary = _remoteManifestData != null && _remoteManifestData.Length > 0;
 
         if (!_remoteManifestIsBinary)
@@ -71,7 +78,8 @@ public sealed class AAHotfixBackend : IHotfixPipeline
             string jsonUrl = FYAssetPathUtility.JoinUrl(
                 remoteUrlRoot,
                 FYAssetSettings.AA_MANIFEST_FILE_NAME);
-            string json = await NetworkDownloader.DownloadText(jsonUrl, metadataOptions);
+            string json = await NetworkDownloader.DownloadText(
+                jsonUrl, timeoutSeconds, maxRetryCount, retryBaseDelaySeconds);
             if (string.IsNullOrEmpty(json))
                 return null;
             _remoteManifestData = Encoding.UTF8.GetBytes(json);
@@ -104,7 +112,9 @@ public sealed class AAHotfixBackend : IHotfixPipeline
 
     public async Task<HotfixStepResult> PersistRemoteMetadataAsync(
         HotfixContext ctx,
-        HotfixDownloadOptions metadataOptions,
+        int timeoutSeconds,
+        int maxRetryCount,
+        float retryBaseDelaySeconds,
         bool refreshRequiredMetadata)
     {
         if (_remoteManifestData == null || _remoteManifestData.Length == 0 || _remoteManifest == null)
@@ -123,7 +133,8 @@ public sealed class AAHotfixBackend : IHotfixPipeline
                 FYAssetSettings.ADDRESSABLES_CATALOG_FILE_NAME);
             string catalogTempPath = catalogPath + ".download";
             FileHelper.TryDelete(catalogTempPath);
-            bool downloaded = await NetworkDownloader.DownloadFile(catalogUrl, catalogTempPath, metadataOptions);
+            bool downloaded = await NetworkDownloader.DownloadFile(
+                catalogUrl, catalogTempPath, timeoutSeconds, maxRetryCount, retryBaseDelaySeconds);
             if (!downloaded)
             {
                 FileHelper.TryDelete(catalogTempPath);

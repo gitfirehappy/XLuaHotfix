@@ -8,15 +8,19 @@ using UnityEngine.ResourceManagement.AsyncOperations;
 using UnityEngine.AddressableAssets.ResourceLocators;
 
 /// <summary>
-/// 合并更新下载的Catalog
+/// 用外部 catalog 替换 Addressables locator，并重定向 Bundle 路径。
 /// </summary>
 public static class CatalogUpdater
 {
     private static bool _transformInstalled = false;
 
     /// <summary>
-    /// 加载 HotfixRoot下的外部 Catalog
+    /// 从给定路径加载 catalog，并移除其余 locator。
     /// </summary>
+    /// <remarks>
+    /// 此方法不释放 catalog operation handle，也不卸载已加载的资源对象。
+    /// 文件缺失或 operation 状态失败时返回 false；await 或 Addressables 抛出的异常由调用方处理。
+    /// </remarks>
     public static async Task<bool> LoadExternalCatalog(string catalogFullPath)
     {
         if (!FileHelper.Exists(catalogFullPath))
@@ -44,29 +48,22 @@ public static class CatalogUpdater
 
         Debug.Log($"[CatalogUpdater] Catalog 加载成功: {newLocator.LocatorId}, Keys 数量: {newLocator.Keys.Count()}");
 
-        // 移除旧的定位器
-        // Addressables 默认会优先查询第一个加载的 Locator。
-        // 如果不移除内置的 Locator，系统会一直使用包体内的旧资源配置。
+        // 只保留新 catalog 的定位器，避免相同 Key 仍解析到旧配置。
         var locators = Addressables.ResourceLocators.ToList();
         foreach (var loc in locators)
         {
-            // 跳过刚刚加载的这个新 Locator
             if (loc == newLocator) continue;
 
-            // 移除默认的 "AddressablesMainContent" 或其他旧的 Locator
-            // 这样 Addressables 在解析 Key 时，只能查阅新的 Locator
             Debug.Log($"[CatalogUpdater] 移除旧定位器: {loc.LocatorId}，确保热更生效。");
             Addressables.RemoveResourceLocator(loc);
         }
 
-        // 注意：不能 Addressables.Release(handle)，否则新 catalog 会被卸载
         return true;
     }
     
     /// <summary>
-    /// InternalId 路径重定向，热更后的资源
+    /// 安装 InternalId 重定向：remote URL 优先映射到 CurrentGUIDRoot/bundles 下的热更文件，其次映射到 StreamingAssets baseline。
     /// </summary>
-        // Android 暂缓：本轮仅解析 Windows 文件系统路径。
     public static void InstallInternalIdRedirect()
     {
         if (_transformInstalled) return;
@@ -75,17 +72,14 @@ public static class CatalogUpdater
         {
             string id = location.InternalId;
 
-            // 如果 internalId 是 HTTP(S)，说明来自 remote catalog
             if (FYAssetPathUtility.IsHttpUrl(id))
             {
                 string fileName = Path.GetFileName(id);
-                // 所有有效资源位于 CurrentGUIDRoot/bundles 下
                 string localPath = FYAssetPathUtility.JoinFilePath(RuntimePathManager.CurrentGUIDRoot, FYAssetSettings.BUNDLES_DIRECTORY_NAME, fileName);
 
-                // 如果本地已有下载的包，则强制使用本地路径
                 if (FileHelper.Exists(localPath))
                 {
-                    // 必须转换为 URI 格式 (file://)，否则 Windows 平台下 AssetBundleProvider 创建 Uri 时会报 "Invalid port specified"
+                    // 使用 file URI，避免 Windows 盘符被 Provider 当作 URI 端口解析。
                     return new System.Uri(localPath).AbsoluteUri;
                 }
 

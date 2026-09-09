@@ -1,12 +1,12 @@
 using UnityEngine;
 
 /// <summary>
-/// AA backend 的 runtime 与构建设置。
+/// AA 运行时与构建设置，经 FYAssetSettingsLoader 加载。
 /// </summary>
 public sealed class FYAssetAASettings : ScriptableObject
 {
     [Header("Hotfix")]
-    public string HotfixUrl = "https://firehappy-cfy.com/";
+    public string HotfixUrl = string.Empty;
     public int HotfixMaxRetryCount = 3;
     public float HotfixRetryBaseDelaySeconds = 1f;
     public int HotfixMetadataTimeoutSeconds = 15;

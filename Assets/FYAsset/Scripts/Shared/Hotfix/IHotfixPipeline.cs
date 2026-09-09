@@ -2,20 +2,8 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 
 /// <summary>
-/// 热更后端接口。HotfixManager 负责公共编排；后端只实现自身差异步骤。
-///
-/// 设计说明：
-/// - 精确包检查不回退到 StreamingAssets。
-/// - 远端元数据持久化与包激活相互独立。
-/// - AA 激活外部 catalog；AB 激活为空操作。
-///
-/// 编排流程（HotfixManager 控制）：
-/// 1. InitializeBackendAsync → 后端初始化
-/// 2. InspectPackageAsync → 精确检查本地包
-/// 3. FetchRemoteVersionAsync → 仅在需要时获取远端 manifest
-/// 4. GetBundleDownloadList → 提取下载列表
-/// 5. PersistRemoteMetadataAsync → 持久化 manifest/catalog
-/// 6. ActivatePackageAsync → 激活已验证的本地内容
+/// 热更后端差异接口，由 HotfixFlowBase 编排调用。
+/// 包检查不跨目录回退，元数据持久化与激活分开执行。
 /// </summary>
 public interface IHotfixPipeline
 {
@@ -39,7 +27,9 @@ public interface IHotfixPipeline
     /// </summary>
     Task<HotfixVersionInfo> FetchRemoteVersionAsync(
         string remoteUrlRoot,
-        HotfixDownloadOptions metadataOptions);
+        int timeoutSeconds,
+        int maxRetryCount,
+        float retryBaseDelaySeconds);
 
     /// <summary>
     /// 从统一版本视图中提取待下载 Bundle 列表。
@@ -56,7 +46,9 @@ public interface IHotfixPipeline
     /// </summary>
     Task<HotfixStepResult> PersistRemoteMetadataAsync(
         HotfixContext ctx,
-        HotfixDownloadOptions metadataOptions,
+        int timeoutSeconds,
+        int maxRetryCount,
+        float retryBaseDelaySeconds,
         bool refreshRequiredMetadata);
 
     /// <summary>

@@ -6,8 +6,11 @@ using UnityEngine;
 /// </summary>
 public sealed class FYAssetABSettings : ScriptableObject
 {
+    [Header("Editor PlayMode")]
+    public EPlayMode PlayMode = EPlayMode.Runtime;
+
     [Header("Hotfix")]
-    public string HotfixUrl = "https://firehappy-cfy.com/";
+    public string HotfixUrl = string.Empty;
     public int HotfixMaxRetryCount = 3;
     public float HotfixRetryBaseDelaySeconds = 1f;
     public int HotfixMetadataTimeoutSeconds = 15;

@@ -12,11 +12,6 @@ using UnityEngine;
 public class TaskBuildBundles : IBuildTask
 {
     public string TaskName => "TaskBuildBundles";
-    /// <summary>
-    /// AssetBundle 构建执行。
-    /// 流程：按 BundleName 分组 -> 按 PayloadKind 分流（Serialized 走 BuildPipeline / Scene 独立打包 / RawFile 直接拷贝）
-    /// -> 调用 Unity BuildPipeline.BuildAssetBundles -> 收集 BundleBuildInfo -> 写入 BuildContext。
-    /// </summary>
     public BuildTaskResult Execute(BuildContext ctx)
     {
         var cfg = ctx.Require<BuildConfig>(BuildContextKeys.BuildConfig);
@@ -24,7 +19,6 @@ public class TaskBuildBundles : IBuildTask
         string outputRoot = cfg.OutputRoot;
         var platform = cfg.TargetPlatform;
 
-        // 读取压缩配置
         var config = AssetDatabase.LoadAssetAtPath<BuildPipelineConfig>(
             FYAssetABSettings.Instance.BuildPipelineConfigPath);
         BundleCompression compression = config != null
@@ -38,7 +32,6 @@ public class TaskBuildBundles : IBuildTask
             _ => BuildAssetBundleOptions.ChunkBasedCompression
         };
 
-        // 按 BundleName 分组
         var groups = new Dictionary<string, List<CollectedAssetInfo>>(StringComparer.Ordinal);
         for (int i = 0; i < assets.Count; i++)
         {
@@ -54,7 +47,6 @@ public class TaskBuildBundles : IBuildTask
             list.Add(assets[i]);
         }
 
-        // 构建 AssetBundleBuild[] + 收集 RawFile
         var builds = new List<AssetBundleBuild>();
         var rawFileEntries = new List<(string BundleName, string assetPath)>();
 
@@ -111,11 +103,9 @@ public class TaskBuildBundles : IBuildTask
             }
         }
 
-        // 创建临时构建目录
         string tempDir = FYAssetPathUtility.JoinFilePath(outputRoot, "_temp");
         FileHelper.EnsureDirectory(tempDir);
 
-        // 调用 Unity BuildPipeline
         AssetBundleManifest unityManifest;
         if (builds.Count > 0)
         {
@@ -126,15 +116,13 @@ public class TaskBuildBundles : IBuildTask
         }
         else
         {
-            // 无 Serialized/Scene 资产，跳过 AB 构建直接处理 RawFile
+            // 无 Serialized/Scene 资产时跳过 AB 构建，直接处理 RawFile
             unityManifest = null;
         }
 
-        // 收集 BundleBuildInfo
         var results = new List<BundleBuildInfo>();
         var processedOutputs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        // 预计算每个逻辑名的资产路径分类
         var groupSerializedPaths = new Dictionary<string, List<string>>(StringComparer.Ordinal);
         var groupScenePaths = new Dictionary<string, List<string>>(StringComparer.Ordinal);
         foreach (var kv in groups)
@@ -160,7 +148,6 @@ public class TaskBuildBundles : IBuildTask
             groupScenePaths[kv.Key] = scenes;
         }
 
-        // 构建 scene 输出名 -> (logicalName, sceneIndex) 索引
         var sceneOutputIndex = new Dictionary<string, (string logicalName, int sceneIndex)>(StringComparer.OrdinalIgnoreCase);
         foreach (var kv in groupScenePaths)
         {
@@ -222,7 +209,6 @@ public class TaskBuildBundles : IBuildTask
             }
         }
 
-        // RawFile 直接文件拷贝（检测多文件冲突）
         var rawBundleFileCount = new Dictionary<string, int>(StringComparer.Ordinal);
         for (int r = 0; r < rawFileEntries.Count; r++)
         {

@@ -17,7 +17,8 @@ Non-trivial work follows `grill -> plan -> implement`.
 - The plan starts with purpose, constraints, and success criteria.
 - Do not implement until the plan is explicitly approved.
 - Split work into independently testable and reviewable tasks.
-- Keep `requirements/progress.txt` concise and current. Put detailed analysis and verification evidence in the active plan or review report.
+- Use subagents sparingly. Run at most two concurrent subagents unless the developer requests or explicitly decides otherwise.
+- Keep `requirements/progress.txt` concise and current. Append new entries only at the end of the file; never insert at the head or in the middle. Read the end of the file for the latest state. Put detailed analysis and verification evidence in the active plan or review report.
 
 ## Testing And Verification
 

@@ -8,17 +8,12 @@ using System.Reflection;
 /// </summary>
 public static class RuleDropdownHelper
 {
-    #region 缓存
 
     private static List<string> _filterRuleNames;
     private static List<string> _groupRuleNames;
 
     private static string[] _filterRuleArray;
     private static string[] _groupRuleArray;
-
-    #endregion
-
-    #region 公共弹窗方法
 
     public static string[] GetFilterRuleNames()
     {
@@ -31,10 +26,6 @@ public static class RuleDropdownHelper
         EnsureCache();
         return _groupRuleArray;
     }
-
-    #endregion
-
-    #region 私有方法 —— 缓存与扫描
 
     private static void EnsureCache()
     {
@@ -71,7 +62,6 @@ public static class RuleDropdownHelper
                     continue;
                 if (!interfaceType.IsAssignableFrom(type))
                     continue;
-                // 必须有无参构造函数
                 if (type.GetConstructor(Type.EmptyTypes) == null)
                     continue;
 
@@ -82,6 +72,4 @@ public static class RuleDropdownHelper
         names.Sort(StringComparer.Ordinal);
         return names;
     }
-
-    #endregion
 }

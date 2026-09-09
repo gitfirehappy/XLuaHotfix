@@ -9,8 +9,6 @@ using System.Reflection;
 /// </summary>
 public static class RuleResolver
 {
-    #region 私有字段
-
     private static readonly Dictionary<string, IFilterRule> FilterRuleCache = new(StringComparer.Ordinal);
     private static readonly Dictionary<string, IGroupRule> GroupRuleCache = new(StringComparer.Ordinal);
 
@@ -20,10 +18,6 @@ public static class RuleResolver
         [typeof(IFilterRule)]  = name => GetFilterRule(name),
         [typeof(IGroupRule)]   = name => GetGroupRule(name),
     };
-
-    #endregion
-
-    #region 公共方法
 
     /// <summary>根据类名获取过滤规则实例（缓存）</summary>
     public static IFilterRule GetFilterRule(string className)
@@ -38,9 +32,7 @@ public static class RuleResolver
     }
 
     /// <summary>
-    /// 泛型规则解析入口 —— 根据 Type 自动分发到对应的具体方法。
-    /// 调用方无需 if/typeof 链，直接 RuleResolver.GetRule&lt;IFilterRule&gt;(className)。
-    /// 新增 Rule 接口后只需在 TypedResolvers 字典中追加一条映射。
+    /// 泛型规则解析入口 —— 根据 Type 分发到对应的具体解析方法；未注册的 T 返回 null。
     /// </summary>
     public static T GetRule<T>(string className) where T : class
     {
@@ -48,10 +40,6 @@ public static class RuleResolver
             return resolver(className) as T;
         return null;
     }
-
-    #endregion
-
-    #region 私有方法
 
     private static T GetRule<T>(string className, Dictionary<string, T> cache) where T : class
     {
@@ -88,7 +76,7 @@ public static class RuleResolver
     {
         Assembly[] assemblies = AppDomain.CurrentDomain.GetAssemblies();
 
-        // 第一轮：按全名精确匹配（带命名空间的类名直接命中）
+        // 先按全名精确匹配
         for (int i = 0; i < assemblies.Length; i++)
         {
             Type match = assemblies[i].GetType(className, false);
@@ -96,7 +84,7 @@ public static class RuleResolver
                 return match;
         }
 
-        // 第二轮：按简单名匹配，仅检查实现了目标接口的类型，减少误匹配风险
+        // 再按简单名匹配，仅检查实现了目标接口的类型以避免同名误匹配
         for (int i = 0; i < assemblies.Length; i++)
         {
             Type[] types;
@@ -118,7 +106,6 @@ public static class RuleResolver
                 if (candidate == null)
                     continue;
 
-                // 仅匹配实现了目标接口的类型，避免同名但接口不符的类型干扰
                 if (!requiredInterface.IsAssignableFrom(candidate))
                     continue;
 
@@ -132,6 +119,4 @@ public static class RuleResolver
 
         return null;
     }
-
-    #endregion
 }

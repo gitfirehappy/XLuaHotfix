@@ -101,31 +101,4 @@ public static class ABRepositoryPreview
         return total;
     }
 }
-
-/// <summary>AB preview 数据源 adapter：供共享 Repository 面板注入。</summary>
-public sealed class ABRepositoryPreviewProvider : IRepositoryPreviewProvider
-{
-    public bool SupportsDeliveryPreview => true;
-
-    public ArtifactDelta RunChangesPreview(BuildPackageRequest request)
-    {
-        ABRepositoryPreviewResult r = ABRepositoryPreview.RunDiffPreview(request);
-        return r != null ? r.HeadDelta : new ArtifactDelta();
-    }
-
-    public RepositoryDeliveryPreview RunDeliveryPreview(BuildPackageRequest request)
-    {
-        ABRepositoryPreviewResult r = ABRepositoryPreview.RunDeliveryPreview(request);
-        if (r == null)
-            return null;
-        return new RepositoryDeliveryPreview
-        {
-            HeadDelta = r.HeadDelta,
-            DeliveryBundleCount = r.DeliveryBundles != null ? r.DeliveryBundles.Count : 0,
-            DeliverySizeBytes = r.DeliverySizeBytes,
-            DeliveryAvailable = r.DeliveryAvailable,
-            DeliveryMessage = r.DeliveryMessage
-        };
-    }
-}
 #endif

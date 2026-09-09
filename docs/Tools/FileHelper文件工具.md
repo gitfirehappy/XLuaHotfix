@@ -4,7 +4,7 @@
 
 ## 概述
 
-跨平台文件 I/O 工具类，提供同步/异步读取、原子写入、复制/替换、目录枚举、跨平台存在性检查和安全删除。定位为 FYAsset 基础设施层，与 `NetworkDownloader`、`FYAssetPathUtility`、`SerializationUtility` 同级。
+跨平台文件 I/O 工具类，提供同步/异步读取、原子写入、复制/替换、目录枚举、存在性检查和删除。代码属于 Assets/Tools，FYAsset 是消费方之一，不是 FYAsset 专属模块。
 
 异步读 API 对 Android StreamingAssets 路径自动走 `UnityWebRequest`，其他平台走 `System.IO`。`WriteAll*Atomic` 与 `ReplaceFile` 用临时/替换语义避免半截目标文件；普通复制 API 不承诺事务性。`TryDelete*` 不抛异常。
 
@@ -35,7 +35,7 @@
 
 原子写入先确保父目录存在，再在目标旁写入唯一临时文件；目标存在时通过 `File.Replace` 同卷替换，不存在时通过 `File.Move` 就位。调用方只会看到完整旧文件或完整新文件。
 
-**保证**：目标文件要么是旧版本（完整），要么是新版本（完整），不会出现写入中断导致的半截文件。可用于热更新下载完成后替换本地文件。
+**范围**：原子替换限于支持该操作的文件系统中的单个目标文件，不代表包、索引、版本等多对象事务，也不提供进程或设备断电后的持久性保证。
 
 - 参数为 null 时抛 `ArgumentNullException`
 

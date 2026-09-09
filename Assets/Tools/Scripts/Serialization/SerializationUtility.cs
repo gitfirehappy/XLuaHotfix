@@ -5,7 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 /// <summary>
-/// 统一序列化入口：编解码器注册、格式探测、文件读写。
+/// Codec 注册、二进制格式探测和文件读写。
 /// </summary>
 public static class SerializationUtility
 {
@@ -16,7 +16,6 @@ public static class SerializationUtility
     {
         RegisterCodec(new JsonCodec());
         RegisterCodec(_binaryCodec);
-        BinarySerializerInitializer.Initialize();
     }
 
     public static BinaryCodec GetBinaryCodec() => _binaryCodec;
@@ -37,7 +36,7 @@ public static class SerializationUtility
         _codecs[codec.CodecId] = codec;
     }
 
-    /// <summary>自动探测格式（当前：匹配 BinaryHeader 为 binary，否则 json）。</summary>
+    /// <summary>已注册的二进制 Magic 判为 binary，其余数据判为 JSON。</summary>
     public static string DetectFormat(byte[] data)
     {
         return BinaryHeader.HasValidMagic(data) ? "binary" : JsonCodec.JsonCodecId;

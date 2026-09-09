@@ -7,8 +7,8 @@ using UnityEditor;
 using UnityEngine;
 
 /// <summary>
-/// AA 构建后端。
-/// 只负责把 BuildPackageRequest 交给 AA Pipeline；Addressables build 与 Manifest 由 Task 列表处理，发布指针由编排层在 Repository commit 后写入。
+/// 使用 Addressables 执行 AA Task 管线。
+/// 同时提供 AA baseline 文件的暂存与安装操作；最终交付由 BuildProjectRunner 编排。
 /// </summary>
 public class AABuildBackend : IBuildBackend, IBaselinePackageHandler
 {
@@ -41,7 +41,7 @@ public class AABuildBackend : IBuildBackend, IBaselinePackageHandler
                         $"AA 管线构建失败。已完成: {result.CompletedTasks}/{result.TotalTasks}", nameof(AABuildBackend))));
             }
 
-            var artifacts = context.Get<List<ArtifactDigest>>(BuildContextKeys.RepositoryArtifacts);
+            var artifacts = context.Get<List<BuildDiffEntry>>(BuildContextKeys.RepositoryArtifacts);
             Debug.Log($"[{nameof(AABuildBackend)}] AA Pipeline 完成。Completed={result.CompletedTasks}/{result.TotalTasks}, RepositoryArtifacts={(artifacts != null ? artifacts.Count : 0)}");
             return Task.FromResult(BuildBackendResult.Ok(
                 artifacts, result, request, string.Empty,
@@ -55,13 +55,22 @@ public class AABuildBackend : IBuildBackend, IBaselinePackageHandler
         }
     }
 
-    // --- IBaselinePackageHandler ---
-
-    public IReadOnlyList<string> RequiredManifestFileNames { get; } = new[]
+    public IReadOnlyList<string> RequiredManifestFileNames
     {
-        FYAssetSettings.AA_MANIFEST_FILE_NAME,
-        FYAssetSettings.AA_MANIFEST_FILE_NAME_BIN
-    };
+        get
+        {
+            return FYAssetAASettings.Instance.ManifestOutputFormat switch
+            {
+                ManifestOutputFormat.JsonOnly => new[] { FYAssetSettings.AA_MANIFEST_FILE_NAME },
+                ManifestOutputFormat.BinaryOnly => new[] { FYAssetSettings.AA_MANIFEST_FILE_NAME_BIN },
+                _ => new[]
+                {
+                    FYAssetSettings.AA_MANIFEST_FILE_NAME,
+                    FYAssetSettings.AA_MANIFEST_FILE_NAME_BIN
+                }
+            };
+        }
+    }
 
     public void StageBaselineFiles(BuildPackageRequest request, string stageRoot)
     {
@@ -137,7 +146,7 @@ public class AABuildBackend : IBuildBackend, IBaselinePackageHandler
     }
 
     /// <summary>
-    /// 遍历 BuildResult 中所有失败 Task 并输出 Warning 日志。
+    /// 把失败 Task 结果写成 Warning。
     /// </summary>
     private static void LogBuildResultErrors(BuildResult result)
     {

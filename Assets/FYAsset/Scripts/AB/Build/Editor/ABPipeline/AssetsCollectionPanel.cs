@@ -6,7 +6,7 @@ using UnityEngine;
 using UnityEngine.UIElements;
 
 /// <summary>
-/// AssetsCollection 工作流面板。Project Scan 只读；Curate 负责候选项编辑和最终保存。
+/// Project Scan 预览 Collector；Curate 持有候选编辑，Save/Cancel 提交或丢弃。
 /// </summary>
 public class AssetsCollectionPanel : IBuildPipelinePanel
 {
@@ -28,7 +28,8 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
     private enum CuratePanelMode
     {
         Details,
-        ScanPreview
+        ScanPreview,
+        Labels
     }
 
     private static readonly ECollectorType[] ManualCollectorTypes =
@@ -74,8 +75,11 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
     private bool _suppressExternalCollectorChanged;
     private Vector2 _splitterDragStartMouse;
     private float _splitterDragStartWidth;
+    private string _batchLabels = string.Empty;
+    private string _labelScope = "Project Selection";
+    private string _labelStatus = string.Empty;
 
-    public string PanelName => "AssetsCollection";
+    public string PanelName => "Collection";
     public bool HasUnsavedChanges => _stage == WorkflowStage.Curate && _curateHasUnsavedChanges;
 
     public void OnEnable(EditorWindow window)
@@ -106,8 +110,6 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         _root?.Unbind();
         _root = null;
     }
-
-    #region Lifecycle
 
     private void LoadSetting(bool preserveExpansionState = false)
     {
@@ -166,6 +168,7 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         _curateResult = null;
         _curatePreviewDirty = false;
         _curateHasUnsavedChanges = false;
+        _labelStatus = string.Empty;
         _curatePanelMode = CuratePanelMode.Details;
         ResetCurateSidebarScroll();
         ClearSelection();
@@ -199,6 +202,7 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         _curateResult = initialResult;
         _curatePreviewDirty = initialResult == null;
         _curateHasUnsavedChanges = normalizedSceneCollectors;
+        _labelStatus = string.Empty;
         _curatePanelMode = CuratePanelMode.Details;
         if (initializeExpansionState)
         {
@@ -225,10 +229,6 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         Rebuild();
     }
 
-    #endregion
-
-    #region Toolbar
-
     private void DrawToolbar()
     {
         VisualElement toolbar = BuildPipelineUI.Toolbar();
@@ -242,7 +242,7 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
 
         if (_stage == WorkflowStage.Curate)
         {
-            Button save = BuildPipelineUI.ToolbarButton("Save Collectors", SaveCollectors, 120f);
+            Button save = BuildPipelineUI.ToolbarButton("Save", SaveCollectors, 64f);
             save.SetEnabled(CanSaveCollectors());
             toolbar.Add(save);
             toolbar.Add(BuildPipelineUI.ToolbarButton("Cancel", CancelCurate, 72f));
@@ -258,13 +258,13 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         switch (_stage)
         {
             case WorkflowStage.Preview:
-                return "Scan Preview is read-only. Confirm To Curate copies the snapshot into editable data.";
+                return "Read-only preview";
             case WorkflowStage.Curate:
                 return _curatePreviewDirty
-                    ? "Curate preview is outdated. Use the right-panel Preview button to refresh manually."
-                    : "Curate edits stay in memory until Save Collectors.";
+                    ? "Preview outdated"
+                    : _curateHasUnsavedChanges ? "Unsaved changes" : "Saved";
             default:
-                return "Edit Ignore, then Scan to preview project collectors.";
+                return "Scan";
         }
     }
 
@@ -281,12 +281,11 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         Rebuild();
     }
 
-    #endregion
-
-    #region Scan Preview
-
     private void ShowScanStage()
     {
+        if (HasUnsavedChanges && !EditorUtility.DisplayDialog("Discard Changes?",
+                "切换到 Scan 会丢弃当前 Collection candidate，包括未保存的 Labels。", "Discard", "Cancel"))
+            return;
         EnterScan();
         Rebuild();
     }
@@ -294,8 +293,6 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
     private void DrawScanStage()
     {
         ScrollView scroll = CreateScroll();
-        scroll.Add(BuildPipelineUI.Header("Project Scan"));
-        scroll.Add(BuildPipelineUI.SmallText("Edit Ignore first. Scan generates a read-only preview from Assets/* without writing Packages."));
         scroll.Add(CreatePersistentIgnoreEditor());
         scroll.Add(BuildPipelineUI.SmallText("Default package: " + GetDefaultPackageName()));
         scroll.Add(CreateScanActionRow(false));
@@ -352,7 +349,6 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         }
 
         scroll.Add(CreatePersistentIgnoreEditor());
-        scroll.Add(BuildPipelineUI.SmallText("Edit Ignore and run Project Scan again to refresh this read-only preview."));
         scroll.Add(CreateScanActionRow(true));
         RenderPreviewSummary(scroll);
         RenderPreviewTree(scroll, _projectSnapshot.PreviewSetting, _projectSnapshot.Result);
@@ -387,7 +383,6 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
 
         parent.Add(BuildPipelineUI.Header("Scan Preview: " + packageName));
         parent.Add(CreateMetricStrip(packageName, groupCount, assetCount, bundleCount, warningCount, errorCount));
-        parent.Add(BuildPipelineUI.SmallText("Preview is read-only. Confirm To Curate replaces the current Curate candidate with this snapshot."));
     }
 
     private void ConfirmPreview()
@@ -399,10 +394,6 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         _curateHasUnsavedChanges = true;
         Rebuild();
     }
-
-    #endregion
-
-    #region Curate
 
     private void DrawCurateStage()
     {
@@ -447,6 +438,8 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         DrawCurateModeToolbar(scroll);
         if (_curatePanelMode == CuratePanelMode.ScanPreview)
             DrawCuratePreview(scroll);
+        else if (_curatePanelMode == CuratePanelMode.Labels)
+            DrawBatchLabels(scroll);
         else
             DrawCurateDetails(scroll);
     }
@@ -469,17 +462,102 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         }, 112f);
         previewMode.SetEnabled(_curatePanelMode != CuratePanelMode.ScanPreview);
         toolbar.Add(previewMode);
-        parent.Add(toolbar);
-
-        if (_curatePanelMode == CuratePanelMode.Details)
+        Button labels = BuildPipelineUI.ToolbarButton("Labels", () =>
         {
-            string status = _curateResult == null
-                ? "No Curate preview yet. Use Preview when you need to inspect the collected tree."
-                : _curatePreviewDirty
-                    ? "Curate preview is outdated. Details mode does not rebuild the tree."
-                    : "Curate preview is current. Switch to Scan Preview to inspect the tree.";
-            parent.Add(BuildPipelineUI.SmallText(status));
+            _curatePanelMode = CuratePanelMode.Labels;
+            Rebuild();
+        }, 72f);
+        labels.SetEnabled(_curatePanelMode != CuratePanelMode.Labels);
+        toolbar.Add(labels);
+        parent.Add(toolbar);
+    }
+
+    private void DrawBatchLabels(VisualElement parent)
+    {
+        var scope = new PopupField<string>("Scope",
+            new List<string> { "Project Selection", "Group", "All Collected" }, _labelScope);
+        scope.RegisterValueChangedCallback(evt => _labelScope = evt.newValue);
+        parent.Add(scope);
+        var input = new TextField("Labels") { value = _batchLabels, multiline = true };
+        input.tooltip = "Comma, semicolon, or newline separated";
+        input.style.minHeight = 48f;
+        input.RegisterValueChangedCallback(evt => _batchLabels = evt.newValue);
+        parent.Add(input);
+        parent.Add(new Button(() =>
+        {
+            List<string> labels = NormalizeLabels(_batchLabels);
+            List<string> guids = GetLabelTargetGuids();
+            if (guids.Count > 0 && !EditorUtility.DisplayDialog("Replace Labels?",
+                    $"将替换 {guids.Count} 个 candidate 资产的 Labels。Group Labels 不变；只有 Save 才会写入配置。" +
+                    (labels.Count == 0 ? "\n输入为空，将清空这些资产的 Labels。" : string.Empty),
+                    "Replace", "Cancel"))
+                return;
+            _labelStatus = ApplyCandidateLabels(guids, labels);
+            Rebuild();
+        }) { text = "Replace" });
+        if (!string.IsNullOrEmpty(_labelStatus))
+            parent.Add(BuildPipelineUI.SmallText(_labelStatus));
+    }
+
+    private List<string> GetLabelTargetGuids()
+    {
+        var guids = new List<string>();
+        if (_labelScope == "Project Selection")
+        {
+            foreach (string guid in Selection.assetGUIDs ?? Array.Empty<string>())
+            {
+                string path = AssetDatabase.GUIDToAssetPath(guid);
+                if (!string.IsNullOrEmpty(path) && !AssetDatabase.IsValidFolder(path) && !guids.Contains(guid))
+                    guids.Add(guid);
+            }
+            return guids;
         }
+
+        AssetCollectionGroup group = GetActiveGroupForAssetOperation();
+        AssetCollectionPackage package = GetSelectedPackage();
+        if (_curateResult?.Assets == null || (_labelScope == "Group" && group == null))
+            return guids;
+        foreach (CollectedAssetInfo asset in _curateResult.Assets)
+        {
+            if (asset == null || string.IsNullOrEmpty(asset.AssetGUID))
+                continue;
+            if (_labelScope == "Group" &&
+                (!string.Equals(asset.PackageName, package?.PackageName, StringComparison.OrdinalIgnoreCase) ||
+                 !string.Equals(asset.SourceGroupName, group.GroupName, StringComparison.OrdinalIgnoreCase)))
+                continue;
+            if (!guids.Contains(asset.AssetGUID))
+                guids.Add(asset.AssetGUID);
+        }
+        return guids;
+    }
+
+    // 先确认整批 GUID 都属于当前 candidate，再改 Labels；中途失败不创建新条目。
+    private string ApplyCandidateLabels(IReadOnlyList<string> guids, IReadOnlyList<string> labels)
+    {
+        if (_stage != WorkflowStage.Curate || _curateSetting == null || guids == null || guids.Count == 0)
+            return "No candidate assets selected.";
+        for (int i = 0; i < guids.Count; i++)
+        {
+            if (FindPreviewAsset(guids[i]) == null)
+                return "未修改：选择中包含当前 Collection candidate 未收集的资产。";
+        }
+        for (int i = 0; i < guids.Count; i++)
+            EnsureAssetEntry(guids[i], FindPreviewAsset(guids[i])).Labels = new List<string>(labels ?? Array.Empty<string>());
+        RescanCurate(false, CuratePanelMode.Labels);
+        return $"{guids.Count} candidate assets updated. Unsaved changes.";
+    }
+
+    private static List<string> NormalizeLabels(string rawLabels)
+    {
+        var labels = new List<string>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (string part in (rawLabels ?? string.Empty).Split(new[] { ',', ';', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
+        {
+            string label = part.Trim();
+            if (label.Length > 0 && seen.Add(label))
+                labels.Add(label);
+        }
+        return labels;
     }
 
     private void OnCurateSplitterDown(PointerDownEvent evt)
@@ -705,13 +783,13 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         card.Add(header);
 
         if (_curatePreviewDirty)
-            card.Add(BuildPipelineUI.SmallText("Preview is outdated. Click Refresh Preview to update the collected tree and messages."));
+            card.Add(BuildPipelineUI.SmallText("Preview outdated"));
         else
             card.Add(BuildPipelineUI.SmallText("Preview is current."));
 
         if (_curateResult == null)
         {
-            card.Add(BuildPipelineUI.SmallText("No Curate preview yet. Click Preview to run CollectionScanner manually."));
+            card.Add(BuildPipelineUI.SmallText("No preview"));
             parent.Add(card);
             return;
         }
@@ -1059,10 +1137,6 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         Rebuild();
     }
 
-    #endregion
-
-    #region Tree Rendering
-
     private void RenderPreviewTree(VisualElement parent, AssetCollectionSetting setting, ScanResult result)
     {
         VisualElement card = BuildPipelineUI.Card();
@@ -1269,22 +1343,16 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         parent.Add(card);
     }
 
-    #endregion
-
-    #region Ignore
-
     private VisualElement CreatePersistentIgnoreEditor()
     {
         EnsureScanDefaults(_setting);
         VisualElement card = BuildPipelineUI.Card();
         card.Add(BuildPipelineUI.Header("Ignore"));
-        card.Add(BuildPipelineUI.SmallText("These patterns are editable in Scan stage and are applied before Project Scan creates candidate Collectors."));
         card.Add(CreateStringListEditor("Patterns", _setting.IgnorePatterns, () =>
         {
             SavePersistentSetting();
             CollectorReverseIndex.Instance.MarkDirty();
         }, true));
-        card.Add(BuildPipelineUI.SmallText("Saved on AssetCollectionSetting and applied before Project Scan generation."));
         card.Add(CreateExcludedAssetsEditor(_setting));
         return card;
     }
@@ -1296,7 +1364,6 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         box.style.width = Length.Percent(100f);
         box.style.minWidth = 0f;
         box.Add(BuildPipelineUI.Header("Excluded Assets"));
-        box.Add(BuildPipelineUI.SmallText("Folder-owned files removed from collection are stored here by GUID with a cached path."));
 
         setting.ExcludedAssets ??= new List<AssetExclusion>();
         if (setting.ExcludedAssets.Count == 0)
@@ -1395,10 +1462,6 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         box.Add(addField);
         return box;
     }
-
-    #endregion
-
-    #region Shared UI
 
     private static ScrollView CreateScroll()
     {
@@ -1777,10 +1840,6 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         parent.Add(card);
     }
 
-    #endregion
-
-    #region Mutations
-
     private void AddPackage()
     {
         _curateSetting.Packages ??= new List<AssetCollectionPackage>();
@@ -2030,10 +2089,6 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         return GetSelectedGroup();
     }
 
-    #endregion
-
-    #region Selection
-
     private void EnsureSelection(bool selectFirst)
     {
         if (_curateSetting?.Packages == null || _curateSetting.Packages.Count == 0)
@@ -2168,10 +2223,6 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
 
         return -1;
     }
-
-    #endregion
-
-    #region Helpers
 
     private static string GetDefaultPackageName()
     {
@@ -3010,8 +3061,6 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
         LoadSetting();
         Rebuild();
     }
-
-    #endregion
 
     private sealed class ProjectScanSnapshot
     {

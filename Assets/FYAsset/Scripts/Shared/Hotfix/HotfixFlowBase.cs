@@ -91,6 +91,9 @@ public abstract class HotfixFlowBase
             return;
         }
 
+        if (string.IsNullOrWhiteSpace(HotfixUrl))
+            ThrowFatal($"[HotfixManager] {BackendModeName} HotfixUrl 未配置，请先在对应 Settings 资产中填写热更根地址。");
+
         IHotfixPipeline pipeline = CreatePipeline();
         if (pipeline == null)
             ThrowFatal("[HotfixManager] 热更后端创建失败。");
@@ -151,7 +154,7 @@ public abstract class HotfixFlowBase
             DeleteTargetPackage(ctx, "准备前向更新");
 
         HotfixVersionInfo remoteInfo = await FetchRemoteVersionAsync(pipeline, ctx);
-        if (remoteInfo == null || remoteInfo.Version == null || remoteInfo.Version != remoteIndex.LatestVersion)
+        if (remoteInfo == null || !HotfixPackageValidator.IsVersionValid(remoteInfo.Version) || remoteInfo.Version != remoteIndex.LatestVersion)
         {
             await HandleTargetFailureAsync(
                 pipeline,
@@ -194,7 +197,9 @@ public abstract class HotfixFlowBase
         BeginStep("处理下载结果");
         HotfixStepResult metadataResult = await pipeline.PersistRemoteMetadataAsync(
             ctx,
-            MetadataOptions,
+            HotfixMetadataTimeoutSeconds,
+            HotfixMaxRetryCount,
+            HotfixRetryBaseDelaySeconds,
             refreshRequiredMetadata);
         if (!metadataResult.Success)
         {
@@ -274,7 +279,7 @@ public abstract class HotfixFlowBase
     }
 
     /// <summary>
-    /// 严格检查内置整包。Android deferred: this iteration validates Windows file paths only.
+    /// 严格检查内置整包，不完整时致命失败。
     /// </summary>
     private async Task InspectBaselinePackageAsync(IHotfixPipeline pipeline, HotfixContext ctx)
     {
@@ -345,7 +350,8 @@ public abstract class HotfixFlowBase
     private async Task<PackageIndex> DownloadRemotePackageIndexAsync()
     {
         BeginStep("下载 PackageIndex");
-        string json = await NetworkDownloader.DownloadText(PackageIndexUrl, MetadataOptions);
+        string json = await NetworkDownloader.DownloadText(
+            PackageIndexUrl, HotfixMetadataTimeoutSeconds, HotfixMaxRetryCount, HotfixRetryBaseDelaySeconds);
         if (string.IsNullOrEmpty(json))
         {
             CompleteStep();
@@ -355,7 +361,7 @@ public abstract class HotfixFlowBase
         try
         {
             PackageIndex index = SerializationUtility.DeserializeJson<PackageIndex>(json);
-            if (!IsPackageIndexTrusted(index, out string error))
+            if (!IsPackageIndexTrusted(index, json, out string error))
             {
                 Debug.LogWarning($"[HotfixManager] 远端 PackageIndex 校验未通过：{error}");
                 CompleteStep();
@@ -381,7 +387,8 @@ public abstract class HotfixFlowBase
         HotfixContext ctx)
     {
         BeginStep("获取远端版本");
-        HotfixVersionInfo info = await pipeline.FetchRemoteVersionAsync(ctx.RemoteUrlRoot, MetadataOptions);
+        HotfixVersionInfo info = await pipeline.FetchRemoteVersionAsync(
+            ctx.RemoteUrlRoot, HotfixMetadataTimeoutSeconds, HotfixMaxRetryCount, HotfixRetryBaseDelaySeconds);
         CompleteStep();
         return info;
     }
@@ -563,7 +570,6 @@ public abstract class HotfixFlowBase
             if (!HotfixStateDecider.ShouldDeleteFailedTarget(packageManagerInitialized))
                 throw;
 
-        // ponytail: 仅保留一个 phase bit；PackageManager 支持反初始化时再添加 rollback。
             await HandleTargetFailureAsync(
                 pipeline,
                 ctx,
@@ -735,11 +741,7 @@ public abstract class HotfixFlowBase
     protected abstract Task<bool> FinishHotfix();
 
     /// <summary>
-    /// 包持久化与清理成功后的绑定钩子（跨后端互斥绑定属 Compat facade 职责；默认 no-op）。
-    /// </summary>
-    /// <summary>
-    /// 后端绑定校验钩子。跨后端"仅绑定一个 backend"互斥检查属于 Compat facade 的职责；
-    /// 单后端导出集中无此语义，默认返回 null（成功）。后端有自有绑定时可覆写。
+    /// 后端绑定校验钩子；返回非 null 视为致命失败。跨后端"仅绑定一个 backend"互斥检查属 Compat facade 职责，单后端默认返回 null（成功）。
     /// </summary>
     protected virtual RuntimeMessage BindPackageManager()
     {
@@ -778,8 +780,9 @@ public abstract class HotfixFlowBase
 
         try
         {
-            PackageIndex index = SerializationUtility.ReadFromFile<PackageIndex>(path);
-            if (IsPackageIndexTrusted(index, out string error))
+            string json = FileHelper.ReadAllText(path);
+            PackageIndex index = SerializationUtility.DeserializeJson<PackageIndex>(json);
+            if (IsPackageIndexTrusted(index, json, out string error))
                 return index;
             Debug.LogWarning($"[HotfixManager] 本地 PackageIndex 校验未通过：{error}");
         }
@@ -794,13 +797,14 @@ public abstract class HotfixFlowBase
     /// <summary>
     /// 校验 PackageIndex 的必要字段与 BackendMode。
     /// </summary>
-    private bool IsPackageIndexTrusted(PackageIndex index, out string error)
+    private bool IsPackageIndexTrusted(PackageIndex index, string json, out string error)
     {
         if (index == null
+            || !VersionNumber.JsonHasObjectField(json, nameof(PackageIndex.LatestVersion))
             || !HotfixPackageValidator.IsPackageName(index.LatestPackage)
             || !HotfixPackageValidator.IsVersionValid(index.LatestVersion))
         {
-            error = "LatestPackage 或 LatestVersion 无效。";
+            error = "LatestPackage 缺失，或 LatestVersion 字段缺失/无效。";
             return false;
         }
         if (string.IsNullOrEmpty(index.BackendMode))
@@ -864,8 +868,8 @@ public abstract class HotfixFlowBase
     /// </summary>
     private static bool IsMajorMismatch(BuildIndexData buildIndex, PackageIndex remoteIndex)
     {
-        return buildIndex?.Version != null
-               && remoteIndex?.LatestVersion != null
+        return buildIndex != null
+               && remoteIndex != null
                && buildIndex.Version.Major != remoteIndex.LatestVersion.Major;
     }
 
@@ -972,12 +976,13 @@ public abstract class HotfixFlowBase
         BundleDownloadItem bundle,
         Action onDone)
     {
-        int totalAttempts = BundleOptions.MaxRetryCount + 1;
+        int totalAttempts = Mathf.Max(0, HotfixMaxRetryCount) + 1;
+        float retryBaseDelaySeconds = Mathf.Max(0f, HotfixRetryBaseDelaySeconds);
         string tempPath = savePath + ".tmp";
         for (int attempt = 1; attempt <= totalAttempts; attempt++)
         {
             FileHelper.TryDelete(tempPath);
-            bool downloaded = await NetworkDownloader.DownloadFileOnce(url, tempPath, BundleOptions);
+            bool downloaded = await NetworkDownloader.DownloadFileOnce(url, tempPath, HotfixBundleTimeoutSeconds);
             if (downloaded && VerifyBundle(tempPath, bundle))
             {
                 FileHelper.ReplaceFile(tempPath, savePath);
@@ -986,10 +991,10 @@ public abstract class HotfixFlowBase
             }
 
             FileHelper.TryDelete(tempPath);
-            if (attempt < totalAttempts && BundleOptions.RetryBaseDelaySeconds > 0f)
+            if (attempt < totalAttempts && retryBaseDelaySeconds > 0f)
             {
                 int delayMs = Mathf.RoundToInt(
-                    BundleOptions.RetryBaseDelaySeconds * 1000f * Mathf.Pow(2f, attempt - 1));
+                    retryBaseDelaySeconds * 1000f * Mathf.Pow(2f, attempt - 1));
                 await Task.Delay(delayMs);
             }
         }
@@ -1041,16 +1046,6 @@ public abstract class HotfixFlowBase
         for (int i = 0; i < tempFiles.Length; i++)
             FileHelper.TryDelete(tempFiles[i]);
     }
-
-    private HotfixDownloadOptions MetadataOptions => new(
-        HotfixMaxRetryCount,
-        HotfixRetryBaseDelaySeconds,
-        HotfixMetadataTimeoutSeconds);
-
-    private HotfixDownloadOptions BundleOptions => new(
-        HotfixMaxRetryCount,
-        HotfixRetryBaseDelaySeconds,
-        HotfixBundleTimeoutSeconds);
 
     /// <summary>
     /// 开始一个热更步骤并重置步骤进度。
@@ -1215,6 +1210,12 @@ public abstract class HotfixFlowBase
         try
         {
             string json = await FileHelper.ReadAllTextAsync(path);
+            if (!VersionNumber.JsonHasObjectField(json, nameof(BuildIndexData.Version)))
+            {
+                Debug.LogWarning("[HotfixManager] BuildIndex 缺少 Version 对象字段。");
+                return null;
+            }
+
             return SerializationUtility.DeserializeJson<BuildIndexData>(json);
         }
         catch (Exception ex)

@@ -3,14 +3,13 @@ using System.Collections.Generic;
 using System.Linq;
 
 /// <summary>
-/// 线性构建管线 runner。
-/// 配置中的 Task 列表顺序就是执行顺序。
+/// 按配置列表顺序执行 Task。
 /// </summary>
 public static class BuildPipelineRunner
 {
     #region Public API
 
-    /// <summary>按配置顺序执行全部已启用的构建 Task。</summary>
+    /// <summary>执行配置中的 Task 列表。</summary>
     public static BuildResult Execute(
         BuildPipelineConfig config,
         BuildContext context,
@@ -19,7 +18,7 @@ public static class BuildPipelineRunner
         return Execute(config, context, null, expectedBackboneTasks);
     }
 
-    /// <summary>执行全部已启用的构建 Task，并通过 options 报告每个 Task 的状态。</summary>
+    /// <summary>执行配置 Task，并通过 options 报告状态。</summary>
     public static BuildResult Execute(
         BuildPipelineConfig config,
         BuildContext context,
@@ -29,7 +28,7 @@ public static class BuildPipelineRunner
         return Execute(config, context, options, null, null, expectedBackboneTasks);
     }
 
-    /// <summary>执行已启用的构建 Task，并在指定 Task 完成后停止。</summary>
+    /// <summary>执行到指定 stop Task（含该 Task）。</summary>
     public static BuildResult Execute(
         BuildPipelineConfig config,
         BuildContext context,
@@ -41,10 +40,13 @@ public static class BuildPipelineRunner
     }
 
     /// <summary>
-    /// 执行已启用的构建 Task，可选择限制在 Task whitelist 内。
-    /// expectedBackboneTasks 为调用方所属后端的主干名单（完整构建路径必校）；
-    /// whitelist 预览路径不跑主干校验，可传 null。
+    /// 执行非空 Task 项，可选 whitelist 过滤。
     /// </summary>
+    /// <remarks>
+    /// 无 whitelist 且提供 expectedBackboneTasks 时只校验主干成员是否存在，不校验顺序；TaskEntry 没有启用开关。
+    /// 所有 Task 解析成功后才执行；Fatal 失败或命中 stopAfterTaskName 后，剩余 Task 标记为 Skipped。
+    /// 仅 Task.Execute 异常转为失败结果，状态回调与 resolver 初始化异常向调用方传播；不回滚 Task 副作用。
+    /// </remarks>
     public static BuildResult Execute(
         BuildPipelineConfig config,
         BuildContext context,

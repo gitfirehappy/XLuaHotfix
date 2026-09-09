@@ -28,7 +28,7 @@ public sealed class LocalDirectoryPushTarget : IPushTarget
         string publishRoot;
         try
         {
-            publishRoot = PushTargetUtility.ResolveBackendRoot(_config, payload.Release.BackendMode);
+            publishRoot = _config.ResolveBackendRoot(payload.Release.BackendMode);
         }
         catch (Exception ex)
         {

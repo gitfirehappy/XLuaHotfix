@@ -4,9 +4,7 @@ using UnityEditor;
 using UnityEngine;
 
 /// <summary>
-/// 依赖分析器 —— 单次 BFS 遍历完成三项工作：
-///   第一步：Bundle 依赖边构建 + 隐式依赖发现（refCount 计数）
-///   第二步：SharePolicy 决策（共享 vs 复制）
+/// 依赖分析器 —— 通过 BFS 遍历完成 Bundle 依赖边构建、隐式依赖发现与 SharePolicy 决策。
 /// 单资产 visited set 防止无限展开，并缓存 AssetDatabase 依赖查询结果。
 /// </summary>
 public static class DependencyAnalyzer
@@ -43,7 +41,6 @@ public static class DependencyAnalyzer
         var result = new List<CollectedAssetInfo>(assets);
         HashSet<string> filterExtensions = BuildFilterExtensions(extraFilterExtensions);
 
-        // 按 Package 分组
         var byPackage = new Dictionary<string, List<CollectedAssetInfo>>();
         foreach (var asset in assets)
         {
@@ -53,8 +50,8 @@ public static class DependencyAnalyzer
             byPackage[pkg].Add(asset);
         }
 
-        // B05 修正版规则：忽略路径资产成为隐式随打包内容（不产生 manifest 条目、不生成独立 Bundle）；
-        // 非忽略但未收集资产一律按自身类型独立成桶（废止复制进引用方 Bundle 的旧分支）。
+        // 忽略路径资产成为隐式随行打包内容（不产生 manifest 条目、不生成独立 Bundle）；
+        // 非忽略但未收集资产一律按自身类型独立成桶。
         HashSet<string> effectiveIgnorePatterns = ignorePatterns != null
             ? new HashSet<string>(ignorePatterns, StringComparer.OrdinalIgnoreCase)
             : null;
@@ -82,7 +79,6 @@ public static class DependencyAnalyzer
         List<BuildMessage> messages,
         List<CollectedAssetInfo> result)
     {
-        // 构建 owned 查找表（GUID → CollectedAssetInfo）
         var ownedGUIDs = new Dictionary<string, CollectedAssetInfo>();
         foreach (var asset in packageAssets)
         {
@@ -90,16 +86,13 @@ public static class DependencyAnalyzer
                 ownedGUIDs[asset.AssetGUID] = asset;
         }
 
-        // 第一阶段：BFS 遍历 — Bundle 依赖边 + 隐式依赖候选发现 + 循环检测
         var implicitCandidates = new Dictionary<string, ImplicitCandidate>();
         var cycleEntries = new List<(string fromPath, string toPath)>();
         BfsTraverseAll(packageAssets, ownedGUIDs, filterExtensions, graph, implicitCandidates, cycleEntries);
 
-        // 第二阶段：报告循环依赖诊断消息
         ReportDependencyCycles(cycleEntries, messages, packageName);
 
-        // 第三阶段之前：忽略路径隐式化。忽略语义 = 只允许随引用方物理带入，
-        // 不允许成为独立可寻址条目；因此这里不产生 manifest 条目也不建立 Bundle 边。
+        // 忽略路径隐式化：只允许随引用方物理带入，不产生 manifest 条目、不建立 Bundle 边。
         if (ignorePatterns != null && implicitCandidates.Count > 0)
         {
             var implicitOnly = new List<string>();
@@ -118,7 +111,7 @@ public static class DependencyAnalyzer
             }
         }
 
-        // 第三阶段：隐式依赖一律按自身类型独立成桶（旧复制分支已废止）。
+        // 隐式依赖一律按自身类型独立成桶。
         ApplySharePolicy(implicitCandidates, policy, packageName, graph, messages, result);
     }
 
@@ -141,10 +134,10 @@ public static class DependencyAnalyzer
                 continue;
 
             var bfsStack = new List<(string guid, string path)>();
-            var bfsGuidSet = new HashSet<string>(); // 并行 HashSet，O(1) 循环检测
+            var bfsGuidSet = new HashSet<string>();
             var queue = new Queue<string>();
             queue.Enqueue(asset.AssetGUID);
-            var localVisited = new HashSet<string>(); // 本次 BFS 已入队的 GUID
+            var localVisited = new HashSet<string>();
             localVisited.Add(asset.AssetGUID);
 
             while (queue.Count > 0)
@@ -173,7 +166,7 @@ public static class DependencyAnalyzer
                     if (string.IsNullOrEmpty(depGuid))
                         continue;
 
-                    // 循环检测：depGuid 已在当前 BFS 路径中 → 报告并跳过（O(1) 快速路径）
+                    // 循环检测：depGuid 已在当前 BFS 路径中则报告并跳过
                     if (bfsGuidSet.Contains(depGuid))
                     {
                         // 从 bfsStack 查找路径用于报告（循环依赖是极端情况，线性扫描可接受）
@@ -188,16 +181,13 @@ public static class DependencyAnalyzer
                         continue;
                     }
 
-                    // 判断归属
                     if (ownedGUIDs.TryGetValue(depGuid, out var ownedAsset))
                     {
-                        // 已归属 → 记录 Bundle 边（排除同 Bundle）
                         if (asset.BundleName != ownedAsset.BundleName)
                             graph.AddEdge(asset.BundleName, ownedAsset.BundleName, dep);
                         continue;
                     }
 
-                    // 未归属 → 隐式依赖候选
                     if (!implicitCandidates.TryGetValue(depGuid, out var candidate))
                     {
                         string primaryType = AssetDatabase.GetMainAssetTypeAtPath(dep)?.Name ?? "Unknown";
@@ -213,7 +203,6 @@ public static class DependencyAnalyzer
                     if (!candidate.ReferencingBundles.Contains(asset.BundleName))
                         candidate.ReferencingBundles.Add(asset.BundleName);
 
-                    // 展开隐式依赖的子依赖
                     if (!localVisited.Contains(depGuid))
                     {
                         localVisited.Add(depGuid);
@@ -285,7 +274,7 @@ public static class DependencyAnalyzer
         }
     }
 
-    /// <summary>SharePolicy 决策：对每个隐式依赖决定共享还是复制到引用 Bundle</summary>
+    /// <summary>SharePolicy 决策：对每个隐式依赖做规则冲突校验并分配到共享 Bundle</summary>
     private static void ApplySharePolicy(
         Dictionary<string, ImplicitCandidate> implicitCandidates,
         SharePolicyConfig policy,
@@ -302,7 +291,7 @@ public static class DependencyAnalyzer
             bool forceShare = IsGlobMatch(candidate.AssetPath, policy.ForceSharePatterns);
             bool noShare = IsGlobMatch(candidate.AssetPath, policy.NoSharePatterns);
 
-            // 规则冲突检测：同时匹配 ForceShare 和 NoShare → 配置错误（保留并生效）
+            // 同时匹配 ForceShare 和 NoShare 判为配置错误
             if (forceShare && noShare)
             {
                 messages.Add(BuildMessage.Error(BuildErrorCodes.SharePolicyConflict,
@@ -311,9 +300,7 @@ public static class DependencyAnalyzer
                 continue;
             }
 
-            // B05 修正版：隐式依赖不再“复制进引用方 Bundle”。旧的 MinReferenceCount /
-            // MinAssetSizeBytes 低引用嵌入分支在 07-05 物理 Bundle 精确类型不变量下不可能合法，故废止；
-            // 保障分桶唯一性：一律按依赖自身（payload + 精确类型）形成独立 Bundle。
+            // 一律按依赖自身（payload + 精确类型）形成独立 Bundle，保证分桶唯一性。
             string bundleName = BundleNameBuilder.BuildShared(
                 packageName,
                 candidate.PrimaryType,
@@ -323,7 +310,6 @@ public static class DependencyAnalyzer
             var sharedEntry = CreateImplicitEntry(candidate, depGuid, bundleName, isShared: true, isDuplicated: false);
             result.Add(sharedEntry);
 
-            // 引用方 Bundle 记录到该类型桶的依赖边
             foreach (var refBundle in candidate.ReferencingBundles)
                 graph.AddEdge(refBundle, bundleName, candidate.AssetPath);
         }
@@ -348,8 +334,7 @@ public static class DependencyAnalyzer
         bool isShared,
         bool isDuplicated)
     {
-        // 共享型 → GroupName = "$shared"
-        // 复制型 → GroupName = PackageName（与 "$shared" 明确区分，避免数据模型语义冲突）
+        // 共享条目 GroupName = "$shared"，否则 = PackageName，避免数据模型语义冲突
         string groupName = isShared ? SystemIdentifiers.SharedGroupName : candidate.PackageName;
 
         return new CollectedAssetInfo
@@ -406,7 +391,6 @@ public static class DependencyAnalyzer
         if (string.IsNullOrEmpty(assetPath))
             return true;
 
-        // 排除已知不可打包的扩展名
         foreach (var ext in filterExtensions)
         {
             if (assetPath.EndsWith(ext, StringComparison.OrdinalIgnoreCase))
@@ -416,14 +400,12 @@ public static class DependencyAnalyzer
         if (AssetClassifier.IsUnsupportedAssetBundleEntry(assetPath, out _))
             return true;
 
-        // 排除 Editor 目录
         foreach (var seg in FilterDirSegments)
         {
             if (assetPath.IndexOf(seg, StringComparison.OrdinalIgnoreCase) >= 0)
                 return true;
         }
 
-        // 排除不在 Assets/ 下的资源
         if (!assetPath.StartsWith("Assets/", StringComparison.OrdinalIgnoreCase))
             return true;
 

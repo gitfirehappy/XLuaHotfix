@@ -89,7 +89,7 @@ flowchart TD
 | 同 Major 且远端版本严格更高、包名不同 | 前向更新 |
 | 远端版本更低、同版本换包或同目录换版本 | 作为发布异常，不更新 |
 
-目标包只有在完整校验、激活和 `FinishHotfix()` 全部成功后才写入本地 `PackageIndex`，随后清理旧包。任一目标准备步骤失败都会删除目标目录；旧包完整才允许回退。
+目标包在完整校验、激活和 `FinishHotfix()` 成功后写入本地 `PackageIndex`，再按具体分支清理旧包。失败处置区分目标是否已激活和旧包是否完整，不能概括成任意失败都删除目标；删除与补偿也可能失败。
 
 ### 进度回调
 
@@ -106,7 +106,7 @@ flowchart TD
 - `OnError(string message)` — 致命问题；随后抛出 `HotfixFatalException` 终止启动
 - `OnClientUpdateRequired(ClientUpdateRequiredInfo)` — 远端 Major 更高时通知上层
 - 远端失败规则固定为“本地完整则启动，否则阻断”，不提供运行时策略开关
-- 目标准备失败会删除目标目录，不会写入本地 `PackageIndex`
+- 目标准备失败按状态决定清理或回退；已激活目标不能盲目删除，具体见 HandleTargetFailureAsync。
 
 ### Bundle 下载安全策略
 
@@ -125,9 +125,8 @@ Bundle 下载阶段由 `HotfixFlowBase` 统一管理重试与校验：
 
 - 远端路径统一通过 `FYAssetPathUtility.JoinUrl(...)` 生成，包括 `PackageIndex.json`、包体根、manifest、`catalog.json` 和 bundle 下载 URL；当前后端设置中的 `HotfixUrl` 带不带尾斜杠都应得到相同的单斜杠 URL。
 - 发布 Target 使用服务总根，并将 AA/AB 分别放在 `/AA/` 与 `/AB/`。因此 AA `HotfixUrl` 必须指向含 `AA/PackageIndex.json` 的 `/AA/` 根，AB 同理指向 `/AB/`，不能让两个后端共享一个根部 PackageIndex。
-- Repository 的 `Apply URL` 根据 Target `PublicBaseUrl` 显式写入当前后端设置；Push 不会自动切换客户端 URL。
-- 当前 AA 生产根为 `https://firehappy-cfy.com/AA/`，已通过清缓存的 `TestDialogue` 验证远端 PackageIndex、AAManifest、catalog、7 个 Bundle、外部 catalog 激活和 Lua 对话资源加载。
-- AB 在重新执行 Full、建立 Full 基线并发布 `/AB/PackageIndex.json` 之前仍不可用于远端热更验收；AA 的已发布内容不会作为 AB fallback。
+- Publish Target 的 `Apply URL` 根据 Target PublicBaseUrl 显式更新后端设置；Push 不自动切换客户端 URL。
+- 当前线上内容与 URL 属于部署状态，不在本文固定记录。AA 的发布内容不是 AB fallback，远端验收必须核实对应后端的 Full baseline、包及 PackageIndex。
 - 本地热更目录、目标包体目录、bundle 保存路径、manifest 写入路径和本地 `PackageIndex.json` 使用本地文件系统路径规则拼接。
 - Unity `StreamingAssets` 读取路径通过共享路径工具拼接，但 Android `jar:` URI-like 路径保持 `/` 分隔符，不会被规范化成 Windows 本地路径。
 - `bundles`、`catalog.json`、`BuildIndex.json` 等跨模块目录/文件名来自 `FYAssetSettings` 常量，不在热更主链路中重复写字符串字面量。
@@ -167,4 +166,10 @@ Bundle 下载阶段由 `HotfixFlowBase` 统一管理重试与校验：
 3. 复制到 `.tmp`，校验通过后替换目标文件；失败则回退网络下载。
 4. 目标 Hotfix 包完成激活和初始化后，上一个本地 Hotfix 包与其他历史 Hotfix 包一起删除。
 
-这个优化在"少量资源变更"的热更场景下效果显著——大部分 Bundle 根本没变。
+复用是否生效取决于相同 Hash 的候选和实际大小/CRC 校验结果，不保证任意更新的节省比例。
+
+## 数据与验证边界
+
+BuildIndexData 位于 Shared/Runtime，由构建写出，热更启动读取。VersionNumber 为 struct，旧 Binary 格式不兼容；default 版本不证明 JSON 字段原本存在。配置中的重试次数/延迟直接传给流程与下载器，没有独立 HotfixDownloadOptions 对象。
+
+本文描述源码分支，历史线上验证不作为当前状态证明。完整流程图见 [HTML 建模文档](./fyasset-modeling.html)。

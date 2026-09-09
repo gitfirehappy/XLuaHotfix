@@ -26,7 +26,6 @@ public class TaskVerifyBuildResult : IBuildTask
         string outputRoot = cfg.OutputRoot;
         string tempDir = FYAssetPathUtility.JoinFilePath(outputRoot, "_temp");
 
-        // 构建 bundleName → PayloadKind 索引
         var payloadKindByBundle = new Dictionary<string, EPayloadKind>(StringComparer.OrdinalIgnoreCase);
         foreach (var b in buildResults)
             payloadKindByBundle[b.BundleName] = b.PayloadKind;
@@ -35,16 +34,13 @@ public class TaskVerifyBuildResult : IBuildTask
         int errorCount = 0;
         int warningCount = 0;
 
-        // 收集 manifest entry 对应的文件名用于孤儿检查
         var knownFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        // ① 文件存在性 + ② 文件完整性 + ④ Hash 二次校验 + ⑤ 大小异常
         foreach (var bundle in manifest.BundleEntries)
         {
             string bundlePath = FYAssetPathUtility.JoinFilePath(tempDir, bundle.BundleName);
             knownFiles.Add(bundle.BundleName);
 
-            // ①
             if (!FileHelper.Exists(bundlePath))
             {
                 AddIssue(issues, BuildVerificationIssueCodes.FileExistence, IssueLevel.Error, bundle.BundleName,
@@ -54,7 +50,7 @@ public class TaskVerifyBuildResult : IBuildTask
 
             var fileInfo = new FileInfo(bundlePath);
 
-            // ② — 大小 > 0；对非 RawFile 检查 UnityFS header
+            // 完整性：大小 > 0；非 RawFile 检查 UnityFS header
             if (fileInfo.Length == 0)
             {
                 AddIssue(issues, BuildVerificationIssueCodes.FileIntegrity, IssueLevel.Error, bundle.BundleName,
@@ -88,7 +84,6 @@ public class TaskVerifyBuildResult : IBuildTask
                 }
             }
 
-            // ④
             string recomputedHash = HashGenerator.GenerateFileHash(bundlePath);
             if (!string.Equals(recomputedHash, bundle.FileHash, StringComparison.Ordinal))
             {
@@ -96,7 +91,6 @@ public class TaskVerifyBuildResult : IBuildTask
                     $"Hash mismatch: manifest={bundle.FileHash}, actual={recomputedHash}", ref errorCount, ref warningCount);
             }
 
-            // ⑤
             if (fileInfo.Length < MinSizeBytes)
             {
                 AddIssue(issues, BuildVerificationIssueCodes.SizeAnomaly, IssueLevel.Warning, bundle.BundleName,
@@ -109,7 +103,7 @@ public class TaskVerifyBuildResult : IBuildTask
             }
         }
 
-        // ③ ORPHAN CHECK — 扫描 temp 目录所有文件，发现不在 knownFiles 中的报 Warning
+        // 孤儿检查：temp 目录中不在 manifest 内的文件报 Warning
         if (FileHelper.DirectoryExists(tempDir))
         {
             foreach (var filePath in FileHelper.GetFiles(tempDir))
@@ -126,7 +120,7 @@ public class TaskVerifyBuildResult : IBuildTask
             }
         }
 
-        // ⑥ COUNT CROSS-CHECK — 以 manifest 文件数为基准与实际文件数比对
+        // 数量交叉：以 manifest 文件数为基准与实际文件数比对
         int manifestCount = manifest.BundleEntries.Count;
         int actualCount = FileHelper.DirectoryExists(tempDir)
             ? CountDeployableFiles(tempDir)
@@ -162,10 +156,9 @@ public class TaskVerifyBuildResult : IBuildTask
     private static bool NeedsUnityHeaderCheck(string bundleName, Dictionary<string, EPayloadKind> payloadKindByBundle)
     {
         if (bundleName == null) return true;
-        // 精确匹配或按 bundleName 查找
         if (payloadKindByBundle.TryGetValue(bundleName, out var pk))
             return pk != EPayloadKind.RawFile;
-        return true; // 未知 → 默认检查
+        return true; // 未知名称默认检查
     }
 
     private static int CountDeployableFiles(string tempDir)

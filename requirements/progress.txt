@@ -5,6 +5,8 @@ Historical entries are retained as evidence. New entries use `[type] YYYY-MM-DD 
 output in the plan or review report. Historical content may be normalized for formatting and repetition, but meaningful
 decisions, actions, blockers, and verification results must remain.
 
+Append new entries only at the end of this file; never insert at the head or in the middle. Read the end of the file for the latest state.
+
 [done] 2026-05-25 docs-audit - Cross-referenced code vs docs, fixed 8+ discrepancies, created 2 new docs, added JSON/Binary serialization field tables
   - Fixed: 资源管理架构文档.md (BundleType int->string, AssetLoadError->RuntimeMessage, ResolveResult.Ambiguous->Conflict, directory paths)
   - Fixed: build-pipeline-构建管线.md (BackendMode enum, removed DefaultBackendMode, Task list 7->17, Key table expanded)
@@ -1725,3 +1727,34 @@ decisions, actions, blockers, and verification results must remain.
 [done] 2026-09-06 ab-delivery-ownership-20260906 T5 补充: RunStandaloneE2E 补上缺失的 WriteRecovery/MarkRecoveryCompleted 生命周期（新 manifest 契约下首轮失败曾在恢复拒绝保护下安全中止）.
 [verified] 2026-09-06 ab-delivery-ownership-20260906 T6 全量矩阵: ab build full / hotfix / chain / e2e standalone / e2e full 全 PASS(exit 0, RestorationSucceeded=true)；四套 scenario(S2 5/5, S3 6/6, runtime-resource 10/10, Hotfix state) 全 PASS; dotnet 0 errors; git diff --check 干净. link.xml 残留已清；FYAssetBackendSettings.asset 仅 YAML 字段规范化重排（Backend=ABManifest 内容不变）；Shared/Helpers/Editor.meta 悬空删除保留.
 [next] 2026-09-06 ab-delivery-ownership-20260906: 计划规定手动全量审查 + AA 对齐（与 Android 同级搁置）及 review 中 B03/B04/R01 等后续项; 交付补偿链的 Unity 级 fault-injection 未做（promoter 级与 BuildTest 实联已覆盖）.
+
+[start] 2026-09-07 fyasset-ab-structure-comment-cleanup-20260906: Approved workflow started. Scope: AB 主路线结构简化 + FYAsset 全量注释治理；AA 仅保持可编译/可构建/可发布，不做额外投入。
+[done] 2026-09-07 fyasset-ab-structure-comment-cleanup-20260906: PlayMode 归位 FYAssetABSettings（一次性 YAML 迁移 + Editor 启动迁移守卫）；AA/AB HotfixUrl 硬编码默认值清空，热更启动失败前报明确错误；AB/Runtime/Backends 平铺；Editor Shared→Common；SettingsPanel 移入 UI；Tests 统一目录；删除 PushTargetUtility 与 HotfixDownloadOptions；拆分 ABBuildDiffPanel/PublishTargetPanel/ABTestMaintenancePanel 并删除旧 RepositoryStatusPanel 与全部 IRepository* 契约；4 代理完成 FYAsset 全量注释治理并新增 context/conventions/csharp-comments.md。验证：dotnet build（补漏 Release/Editor 5 文件注释后仍 0 errors） XLuaHotfix.sln --no-restore 0 errors、无新增 C# 警告（中途/完成各一次）；删除对象无仓内引用；git diff --check 无冲突；无孤儿 meta；资产 YAML 迁移到位。详情见 requirements/plan/plan-fyasset-ab-structure-comment-cleanup-20260906.md。未执行（批准排除项）：Unity Editor 有头交互、远端发布/热更、全量 E2E。
+[done] 2026-09-07 fyasset-ab-structure-comment-cleanup-20260906: HotfixFlowBase 内部重复检查审查结论：现存检查均为序列化/网络/文件边界，无可证明冗余；状态机核心（FatalException 改结果对象等）确认留待后续审查。
+
+[start] 2026-09-07 fyasset-editor-tools-modeling: 执行中，未完成/未进入验收。停止新增子代理和review，必要证据集中在活动计划。
+[done] 2026-09-07 fyasset-editor-tools-modeling: Labels页面删除与Collection批量编辑、序列化工具解耦（业务组合归Compat/Serialization）、struct及移动改名已落盘；集成编译0错误，隔离序列化3组通过，HTML索引覆盖217个C#。
+[decision] 2026-09-07 fyasset-editor-tools-modeling: JSON 缺少 Version 对象字段仍拒绝，显式 0.0.0 合法。删除本轮 6 份多余 review 文件，保留 INDEX、archive 与 20260905 活动审查。
+[done] 2026-09-07 fyasset-editor-tools-modeling: 读取边界补 Version 字段存在性检查；PackageIndex.LatestVersion、BuildIndex/AAManifest.Version、ABManifest.PackageVersion、baseline Latest/LatestFull.Version。
+[done] 2026-09-07 fyasset-editor-tools-modeling: 偏移复核第二轮：PublishTargetPanel/SettingsPanel 去掉后端类型引用，S3 6/6 含 ExportBoundary；README/snapshots 当前类型名已改。
+[done] 2026-09-07 fyasset-editor-tools-modeling: 纠偏收口：旧计划已归档；Editor 共享区块恢复分割线；HTML 改为流程主导并将 217 文件索引移入按需 dialog；桌面/移动/交互自测通过。
+[done] 2026-09-07 fyasset-editor-tools-modeling: 全部 4 个 scenario 工程、Serialization、solution build、diff-check exit 0；Unity scripts refresh 无 Console error，EditMode/PlayMode suite 成功但实际 0 tests。
+[done] 2026-09-07 fyasset-editor-tools-modeling: Unity 2022.3 batchmode EditMode/PlayMode 均生成 Passed XML，但 total=0；仅证明编译与测试发现完成。208 个手写 C# 注释旧术语/阶段叙述门禁通过。
+[blocked] 2026-09-07 fyasset-editor-tools-modeling: 真实 EditorWindow 截图需主动打开/聚焦本机 GUI；AA/AB 构建发布、Player/E2E 与远端未执行。snapshots 文档删除仍未获单独批准。等待开发者验收。
+[decision] 2026-09-07 fyasset-editor-tools-modeling: AB Labels 统一 Collection，AA 原生 Addressables；统一编辑器与注释；序列化解耦、VersionNumber struct（不兼容旧数据）、BuildIndexData 移 Shared/Runtime、BuildDiffEntry 改名；输出/发布职责保留；离线 HTML 以核心流程和全部 C# 职责索引为主。
+[next] 2026-09-07 fyasset-editor-tools-modeling: 完成后等待开发者验收；文档删除、合并、归档需具体清单单独批准；已有历史验收缺口不自动关闭。
+[decision] 2026-09-07 fyasset-editor-tools-modeling: 最新验收取消 GUI 检查，要求 AA/AB 实际构建与热更核心 Chain；仅使用 Local target，不触发外网、Player E2E 或清空既有输出。
+[device-failure] 2026-09-07 fyasset-editor-tools-modeling: 首轮 AB Chain 在 Player 脚本编译发现 PushTargetConfig 运行时方法引用 Editor-only BuildPathManager；首轮 AA Chain 在 BinaryOnly 下发布错误要求缺失的 AAManifest.json，两轮测试均未遗留未恢复状态。
+[done] 2026-09-07 fyasset-editor-tools-modeling: PushTargetConfig 路径/URL 操作收进 UNITY_EDITOR；AA/AB RequiredManifestFileNames 按 ManifestOutputFormat 返回实际输出文件。
+[verified] 2026-09-07 fyasset-editor-tools-modeling: AB Chain 20260907_133441_fdb8abbd 与 AA Chain 20260907_133947_2098494b 均 PASS；Full/Hotfix、Local publish/probe、项目和目标恢复成功。4 scenario、Serialization、solution build、diff-check 随后全通过。
+[next] 2026-09-07 fyasset-editor-tools-modeling: 自动化执行与验收清单已完成，等待开发者签收；当前计划归档需另行确认。
+
+[sign-off] 2026-09-09 fyasset-editor-tools-modeling: 开发者批准并要求提交当前全部已完成改动；计划标记签收并归档。此前 AA/AB Chain、scenario、serialization、solution build 与 diff-check 证据保持为本次提交的已有验收边界。
+[start] 2026-09-09 fyasset-resource-pipeline-realignment: 完成现状阅读、Git 历史回溯、逐项 grill 与 PRS design；本轮只形成详细执行计划，不实施资源管线代码重构。
+[decision] 2026-09-09 fyasset-resource-pipeline-realignment: 资源生命周期固定为构建导出、无状态 Diff、本地交付发布、运行时热更四段；框架不引入 Git，不维护 Repository/baseline/提交回滚；构建、发布、下载优化分别使用独立摘要来源。
+[decision] 2026-09-09 fyasset-resource-pipeline-realignment: 真实项目严格单后端并直接使用 AA 或 AB；Shared 不含后端字段。AA 5 段、AB 6 段固定主干，每个插入位置允许 0..N 自定义 Task，Runner 统一执行并管理 attempt。
+[decision] 2026-09-09 fyasset-resource-pipeline-realignment: AB 配置压平为 Group/Collector，人工仅覆盖 Address/Labels；删除 Package 当前假能力、Role/Payload 用户配置、通用 Rule 反射和 Group Labels。RawFile 按项目级白名单及 Unity 是否可有效序列化自动分类。
+[decision] 2026-09-09 fyasset-resource-pipeline-realignment: ABManifest 收敛为 AssetEntries + ContentEntries；Public Address 唯一且大小写不敏感，隐式依赖内部化，RawFile 不伪装 Bundle；AssetHandle 独立 token，SceneHandle 遵循 Unity 2022.3 Scene API 生命周期。
+[decision] 2026-09-09 fyasset-resource-pipeline-realignment: Full 必定导出仅含完整元数据的初始 Hotfix 目录；Hotfix 由上次成功构建 Manifest 到本次 Manifest 持续更新累计目录；发布最后写 PackageIndex；运行时只整包切换或告警退化内置包，禁止逐文件 StreamingAssets 回退。
+[next] 2026-09-09 fyasset-resource-pipeline-realignment: 下次从计划 T0 开始，以 RED 门禁锁定旧行为，再按 T1-T9 分批实现、验证和同步 docs；当前提交不包含该计划的代码执行。
+[verified] 2026-09-09 fyasset-resource-pipeline-realignment-plan: 提交前四个 scenario 独立 `--no-incremental` 构建并直接执行对应 DLL：S2 5/5、Hotfix state、S3 6/6、Runtime Resource 10/10 全部 exit 0；serialization exit 0；`dotnet build XLuaHotfix.sln --no-restore -v:q` exit 0，仅既有 System.Net.Http 警告；活动 Markdown 51 文件/70 本地链接 0 broken；`git diff --check` exit 0。

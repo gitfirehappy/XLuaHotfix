@@ -2,17 +2,17 @@
 using System.Collections.Generic;
 
 /// <summary>
-/// 纯 Diff 计算器，只按 ArtifactDigest.Name 配对并比较 Hash，不访问 Unity API，也不产生副作用。
+/// 纯 Diff 计算器，只按 BuildDiffEntry.Name 配对并比较 Hash，不访问 Unity API，也不产生副作用。
 /// </summary>
 public static class ArtifactDiffer
 {
     /// <summary>
-    /// 对比 from -> to 的变化。from 通常是 Head，to 通常是当前扫描结果。
+    /// 按区分大小写的 Name 配对，只比较 Hash。返回条目引用输入对象；Size/CRC 不影响结果。
     /// </summary>
-    public static ArtifactDelta Diff(IReadOnlyList<ArtifactDigest> from, IReadOnlyList<ArtifactDigest> to)
+    public static ArtifactDelta Diff(IReadOnlyList<BuildDiffEntry> from, IReadOnlyList<BuildDiffEntry> to)
     {
         var delta = new ArtifactDelta();
-        var fromByName = new Dictionary<string, ArtifactDigest>();
+        var fromByName = new Dictionary<string, BuildDiffEntry>();
         var toNames = new HashSet<string>();
 
         if (from != null)

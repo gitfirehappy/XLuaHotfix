@@ -29,8 +29,8 @@ public static class BuildRepositoryCLI
         }
 
         WriteLine($"Channel: {channelKey}");
-        WriteLine($"Latest: {(state.Latest?.Version != null ? state.Latest.Version.GetReleaseVersionString() + " | " + state.Latest.PackageName : "(none)")}");
-        WriteLine($"LatestFull: {(state.LatestFull?.Version != null ? state.LatestFull.Version.GetReleaseVersionString() : "(none)")}");
+        WriteLine($"Latest: {(state.Latest != null ? state.Latest.Version.GetReleaseVersionString() + " | " + state.Latest.PackageName : "(none)")}");
+        WriteLine($"LatestFull: {(state.LatestFull != null ? state.LatestFull.Version.GetReleaseVersionString() : "(none)")}");
         WriteLine($"Artifacts: {(state.Latest?.Artifacts != null ? state.Latest.Artifacts.Count : 0)}");
         WriteLine($"History: git log -- BuildData/Baselines/{channelKey}/baseline.json");
         EditorApplication.Exit(0);
@@ -95,7 +95,7 @@ public static class BuildRepositoryCLI
     {
         // -target 缺省时取配置首项（与面板默认选择一致）。
         PushTargetConfig config = !string.IsNullOrEmpty(targetId)
-            ? PushTargetUtility.FindConfig(targetId)
+            ? PushTargetConfig.FindById(targetId)
             : (FYAssetSettings.Instance.PushTargets != null && FYAssetSettings.Instance.PushTargets.Count > 0
                 ? FYAssetSettings.Instance.PushTargets[0]
                 : null);

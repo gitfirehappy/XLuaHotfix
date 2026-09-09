@@ -8,8 +8,6 @@ using UnityEditor;
 /// </summary>
 public static class CollectionScanner
 {
-    #region 公共方法
-
     /// <summary>
     /// 扫描 AssetCollectionSetting 中配置的所有 Package/Group/Collector，返回采集结果。
     /// </summary>
@@ -38,11 +36,9 @@ public static class CollectionScanner
             return result;
         }
 
-        // 跨 Package 路径重叠检测
         if (!CheckCrossPackageOverlaps(setting, result))
             return result;
 
-        // 逐 Package 扫描
         for (int pkgIdx = 0; pkgIdx < setting.Packages.Count; pkgIdx++)
         {
             AssetCollectionPackage package = setting.Packages[pkgIdx];
@@ -67,10 +63,6 @@ public static class CollectionScanner
 
         return result;
     }
-
-    #endregion
-
-    #region 私有方法 —— 跨 Package 路径重叠检测
 
     private static bool CheckCrossPackageOverlaps(AssetCollectionSetting setting, ScanResult result)
     {
@@ -110,14 +102,12 @@ public static class CollectionScanner
                 if (string.Equals(pkgI, pkgJ, StringComparison.Ordinal))
                     continue;
 
-                // 跨 Package 相同路径
                 if (string.Equals(pathI, pathJ, StringComparison.OrdinalIgnoreCase))
                 {
                     result.Messages.Add(BuildMessage.CrossPackageOverlap(pathI, pkgI, pkgJ, pathI));
                     return false;
                 }
 
-                // 跨 Package 路径包含
                 if (CollectorPathUtility.IsPathContained(pathI, pathJ))
                 {
                     result.Messages.Add(BuildMessage.CrossPackageContainment(pathI, pkgI, pathJ, pkgJ, pathI));
@@ -135,28 +125,21 @@ public static class CollectionScanner
         return true;
     }
 
-    #endregion
-
-    #region 私有方法 —— 逐 Package 扫描
-
     private static bool ScanPackage(AssetCollectionSetting setting, AssetCollectionPackage package, CollectionScanOptions options, ScanResult result)
     {
         string packageName = package.PackageName;
 
-        // 扁平化所有 Collectors，构建归属映射
         List<CollectorContext> contexts = FlattenCollectors(package);
         if (contexts.Count == 0)
             return true;
 
-        // 第一步：构建归属映射 —— 最深路径优先
+        // 归属规则：更深路径的 Collector 优先，因此按路径深度降序排序
         contexts.Sort((a, b) => CollectorPathUtility.PathDepth(b.Collector.CollectPath).CompareTo(CollectorPathUtility.PathDepth(a.Collector.CollectPath)));
 
-        // 检查同深度同路径冲突
         if (!CheckSameDepthConflicts(contexts, packageName, result))
             return false;
 
-        // 第二步：构建排除路径
-        // 每个 Collector 都需要排除更浅的路径（更浅的路径被更深的路径包含）
+        // 每个浅路径 Collector 需排除被其包含的更深路径，避免重复归属
         List<string> currentPaths = new List<string>();
         for (int i = 0; i < contexts.Count; i++)
             currentPaths.Add(CollectorPathUtility.NormalizePath(contexts[i].Collector.CollectPath));
@@ -166,8 +149,7 @@ public static class CollectionScanner
             List<string> excluded = new List<string>();
             for (int j = 0; j < i; j++)
             {
-                // i 是更浅的路径（后排序），j 是更深的路径（先排序）
-                // 检查更浅路径 i 是否包含更深路径 j —— 若是，j 应从 i 的扫描范围中排除
+                // 排序后 j 深于 i；浅路径 i 包含更深路径 j 时，j 从 i 的扫描范围中排除
                 if (CollectorPathUtility.IsPathContained(currentPaths[i], currentPaths[j]))
                     excluded.Add(currentPaths[j]);
             }
@@ -175,7 +157,6 @@ public static class CollectionScanner
             contexts[i].ExcludedPaths = excluded;
         }
 
-        // 第三步：构建 Group 名称 → Group 映射，用于 Tags 合并
         Dictionary<string, AssetCollectionGroup> groupLookup = new Dictionary<string, AssetCollectionGroup>(
             StringComparer.OrdinalIgnoreCase);
         for (int gi = 0; gi < package.Groups.Count; gi++)
@@ -185,7 +166,6 @@ public static class CollectionScanner
                 groupLookup[grp.GroupName] = grp;
         }
 
-        // 逐 Collector 扫描
         List<CollectedAssetInfo> packageAssets = new List<CollectedAssetInfo>();
 
         List<string> effectiveIgnorePatterns = setting.GetEffectiveIgnorePatterns();
@@ -199,7 +179,6 @@ public static class CollectionScanner
                 break;
         }
 
-        // GUID 唯一性校验
         if (!CheckGuidUniqueness(packageAssets, result))
         {
             result.Assets.AddRange(packageAssets);
@@ -226,7 +205,6 @@ public static class CollectionScanner
             return false;
         }
 
-        // 校验采集路径
         if (string.IsNullOrEmpty(collectPath))
         {
             result.Messages.Add(BuildMessage.EmptyCollectPath(string.Empty));
@@ -239,7 +217,6 @@ public static class CollectionScanner
             return true; // 仅 Warning —— Package 内其他 Collector 可能仍有效
         }
 
-        // 解析规则
         IFilterRule filterRule = ResolveRuleSafe<IFilterRule>(collector.FilterRuleName, "FilterRule", collectPath, result);
         IGroupRule groupRule = ResolveRuleSafe<IGroupRule>(collector.GroupRuleName, "GroupRule", collectPath, result);
 
@@ -271,10 +248,6 @@ public static class CollectionScanner
 
         return true;
     }
-
-    #endregion
-
-    #region 私有方法 —— 归属与去重
 
     private static bool IsExcludedByOwnership(string assetPath, List<string> excludedPaths)
     {
@@ -324,10 +297,6 @@ public static class CollectionScanner
 
         return true;
     }
-
-    #endregion
-
-    #region 私有方法 —— 辅助函数
 
     private static List<CollectorContext> FlattenCollectors(AssetCollectionPackage package)
     {
@@ -743,10 +712,6 @@ public static class CollectionScanner
         return true;
     }
 
-    #endregion
-
-    #region 私有类型 —— Collector 上下文
-
     private class CollectorContext
     {
         public AssetCollectionSetting Setting;
@@ -757,8 +722,6 @@ public static class CollectionScanner
         public List<string> IgnorePatterns;
         public List<string> ExcludedPaths = new();
     }
-
-    #endregion
 }
 
 /// <summary>

@@ -3,13 +3,10 @@ using System;
 using System.IO;
 
 /// <summary>
-/// attempt → 交付目录的原子 promote 工具（依赖同卷 Directory.Move）。
-/// 唯一允许把任务产物移入 live 出口的机制；归 BuildProjectRunner 在交付 commit 阶段调用。
-/// 两种用法：
-/// - 新包目录（HotfixOutput/Packages/Build_*）：目标必须不存在，move 后仅需在失败时删除；
-/// - 共享目录（StreamingAssets/Standalone）：先原子换出旧目录再换入新目录，Rollback 恢复旧目录。
-/// 只负责目录交换本身；PackageIndex / baseline / VersionRecord 的补偿由调用方负责。
+/// 保存目录交付后的备份位置，供调用方 Commit 或 Rollback。
+/// 只负责目录补偿，不负责 PackageIndex、baseline 或 VersionRecord。
 /// </summary>
+/// <remarks>结算开始即标记 token 失效；删除或移动失败会抛异常，不能使用同一 token 重试。</remarks>
 public sealed class BuildDeliveryPromoteToken
 {
     private readonly string _deliveryDir;
@@ -78,8 +75,8 @@ public sealed class BuildDeliveryPromoteToken
 public static class BuildDeliveryPromoter
 {
     /// <summary>
-    /// 把 attempt 目录原子移动到交付目录。attempt 必须位于 attempt 根之下，
-    /// 避免把 live 目录误当 attempt 移走；两者必须同卷（项目目录约束下成立）。
+    /// 将 attempt 目录移至交付目录；目标已存在时先移至备份位置。
+    /// attempt 必须位于指定根下；Directory.Move 要求路径可移动，配置不能保证同卷。
     /// </summary>
     public static BuildDeliveryPromoteToken Promote(string attemptDir, string deliveryDir, string attemptRootOverride = null)
     {

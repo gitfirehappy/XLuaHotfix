@@ -27,23 +27,19 @@ public static class RuntimePathManager
         if(string.IsNullOrEmpty(platform)) platform = "Unknown";
 
         string envDir = buildIndex.IsDebug ? "Debug" : "Release";
-        string guidDir = buildIndex.BuildGUID; // 现在 GUID 目录直接位于 Hotfix 下，名字由 manifest/buildIndex 决定，通常是 Build_xxxx
+        string guidDir = buildIndex.BuildGUID;
 
-        // 组装路径结构
         // .../ProjectName/[Platform]/Release
         EnvRoot = FYAssetPathUtility.JoinFilePath(PersistentRoot, platform, envDir);
         
         // .../ProjectName/[Platform]/Release/Hotfix
         HotfixRoot = FYAssetPathUtility.JoinFilePath(EnvRoot, "Hotfix");
         
-        // .../ProjectName/[Platform]/Release/Hotfix/Build_abc-123-guid (当前生效目录)
-        // 注意：这里假设 buildIndex.BuildGUID 已经是完整的目录名 (如 Build_2023...) 或者只是 GUID 部分
-        // BuildProjectManager 生成的是完整包目录名，例如 Build_20260209123045_2.0.0
-        // 这里的 guidDir 需要与热更流程中记录的一致
+        // .../ProjectName/[Platform]/Release/Hotfix/Build_xxx (当前生效目录)
+        // buildIndex.BuildGUID 可能是完整目录名或仅 GUID 段，统一补 Build_ 前缀
         if (!guidDir.StartsWith("Build_")) guidDir = "Build_" + guidDir;
         CurrentGUIDRoot = FYAssetPathUtility.JoinFilePath(HotfixRoot, guidDir);
         
-        // Save, Logs, Cache 在 EnvRoot 下
         CacheRoot = FYAssetPathUtility.JoinFilePath(EnvRoot, "Cache");
         SaveRoot = FYAssetPathUtility.JoinFilePath(EnvRoot, "Saves");
         LogRoot = FYAssetPathUtility.JoinFilePath(EnvRoot, "Logs");
@@ -75,7 +71,7 @@ public static class RuntimePathManager
         FileHelper.EnsureDirectory(PersistentRoot);
         FileHelper.EnsureDirectory(HotfixRoot);
         FileHelper.EnsureDirectory(CurrentGUIDRoot);
-        // Bundles 目录由下载逻辑创建，或者是 Build 流程生成
+        // Bundles 目录由热更下载或构建流程创建，这里不创建
         
         FileHelper.EnsureDirectory(CacheRoot);
         FileHelper.EnsureDirectory(SaveRoot);

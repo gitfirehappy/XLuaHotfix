@@ -35,7 +35,7 @@ public sealed class CloudflarePagesPushTarget : IPushTarget
         if (string.IsNullOrWhiteSpace(projectName))
             return Fail("FYAssetSettings.ProjectName is required for Cloudflare Pages.", string.Empty);
 
-        string wranglerPath = PushTargetUtility.FindExecutableOnPath("wrangler");
+        string wranglerPath = FindExecutableOnPath("wrangler");
         if (string.IsNullOrEmpty(wranglerPath))
             return Fail("Wrangler was not found on PATH. Install and authenticate it before Cloudflare Push.", string.Empty);
 
@@ -43,8 +43,8 @@ public sealed class CloudflarePagesPushTarget : IPushTarget
         if (!versionResult.Success)
             return Fail($"Wrangler preflight failed: {versionResult.Message}", string.Empty);
 
-        string serviceRoot = PushTargetUtility.ResolveServiceRoot(_config);
-        string backendRoot = PushTargetUtility.ResolveBackendRoot(_config, payload.Release.BackendMode);
+        string serviceRoot = _config.ResolveServiceRoot();
+        string backendRoot = _config.ResolveBackendRoot(payload.Release.BackendMode);
         string headersPath = FYAssetPathUtility.JoinFilePath(serviceRoot, HeadersFileName);
         bool headersExisted = FileHelper.Exists(headersPath);
         string oldHeaders = headersExisted ? FileHelper.ReadAllText(headersPath) : string.Empty;
@@ -58,7 +58,7 @@ public sealed class CloudflarePagesPushTarget : IPushTarget
             transaction.Apply();
             WriteHeaders(headersPath);
 
-            string arguments = PushTargetUtility.BuildWranglerDeployArguments(serviceRoot, projectName);
+            string arguments = BuildDeployArguments(serviceRoot, projectName);
             ProcessResult deployResult = RunWrangler(wranglerPath, arguments, WranglerTimeoutMilliseconds);
             if (!deployResult.Success)
             {
@@ -73,9 +73,7 @@ public sealed class CloudflarePagesPushTarget : IPushTarget
             {
                 Success = true,
                 TargetId = Id,
-                TargetLocation = PushTargetUtility.GetBackendHotfixUrl(
-                    _config,
-                    payload.Release.BackendMode),
+                TargetLocation = _config.GetHotfixUrl(payload.Release.BackendMode),
                 PushedAtUtc = DateTime.UtcNow.ToString("o")
             };
         }
@@ -177,6 +175,66 @@ public sealed class CloudflarePagesPushTarget : IPushTarget
         };
     }
 
+    /// <summary>
+    /// Wrangler 部署命令参数。供 HotfixPublishSelfCheck / BuildTestState 验证或复用。
+    /// </summary>
+    internal static string BuildDeployArguments(string serviceRoot, string projectName)
+    {
+        if (string.IsNullOrWhiteSpace(serviceRoot))
+            throw new ArgumentException("Cloudflare service root is empty.", nameof(serviceRoot));
+        if (string.IsNullOrWhiteSpace(projectName))
+            throw new ArgumentException("FYAssetSettings.ProjectName is empty.", nameof(projectName));
+
+        return $"pages deploy {QuoteArgument(serviceRoot)} --project-name {QuoteArgument(projectName)} --branch main";
+    }
+
+    /// <summary>
+    /// 在 PATH 上查找可执行文件；找不到返回空串，由调用方决定报错。
+    /// </summary>
+    internal static string FindExecutableOnPath(string command)
+    {
+        if (string.IsNullOrWhiteSpace(command))
+            return string.Empty;
+
+        if (Path.IsPathRooted(command) && File.Exists(command))
+            return FYAssetPathUtility.NormalizePath(command);
+
+        string pathValue = Environment.GetEnvironmentVariable("PATH") ?? string.Empty;
+        string[] pathEntries = pathValue.Split(Path.PathSeparator);
+        string[] extensions = Path.DirectorySeparatorChar == '\\'
+            ? (Environment.GetEnvironmentVariable("PATHEXT") ?? ".COM;.EXE;.BAT;.CMD").Split(';')
+            : new[] { string.Empty };
+
+        for (int i = 0; i < pathEntries.Length; i++)
+        {
+            string directory = pathEntries[i].Trim().Trim('"');
+            if (string.IsNullOrEmpty(directory))
+                continue;
+
+            if (Path.HasExtension(command))
+            {
+                string exactPath = Path.Combine(directory, command);
+                if (File.Exists(exactPath))
+                    return FYAssetPathUtility.NormalizePath(exactPath);
+                continue;
+            }
+
+            for (int j = 0; j < extensions.Length; j++)
+            {
+                string candidate = Path.Combine(directory, command + extensions[j].ToLowerInvariant());
+                if (File.Exists(candidate))
+                    return FYAssetPathUtility.NormalizePath(candidate);
+            }
+        }
+
+        return string.Empty;
+    }
+
+    private static string QuoteArgument(string value)
+    {
+        return "\"" + (value ?? string.Empty).Replace("\"", "\\\"") + "\"";
+    }
+
     private readonly struct ProcessResult
     {
         public bool Success { get; }
@@ -194,14 +252,22 @@ public sealed class CloudflarePagesPushTarget : IPushTarget
 }
 
 /// <summary>
-/// Compat 侧的 target 创建器：在原厂 LocalDirectory 之外补充 CloudflarePages 等部署胶水 target。
+/// 为 CLI 与测试创建发布目标：包含 LocalDirectory 与 Compat 侧 Cloudflare Pages 部署胶水。
+/// 构建窗口的发布面板仅支持 LocalDirectory，与该入口保持分离。
 /// </summary>
 public static class CompatPushTargetFactory
 {
     public static IPushTarget CreateFull(PushTargetConfig config)
     {
-        return PushTargetUtility.Create(config, cfg =>
-            cfg.Type == PushTargetType.CloudflarePages ? new CloudflarePagesPushTarget(cfg) : null);
+        if (config == null)
+            throw new ArgumentNullException(nameof(config));
+
+        return config.Type switch
+        {
+            PushTargetType.LocalDirectory => new LocalDirectoryPushTarget(config),
+            PushTargetType.CloudflarePages => new CloudflarePagesPushTarget(config),
+            _ => throw new ArgumentOutOfRangeException(nameof(config.Type), config.Type, "Unsupported push target type."),
+        };
     }
 }
 #endif

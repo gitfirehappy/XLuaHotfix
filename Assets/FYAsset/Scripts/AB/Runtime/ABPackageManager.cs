@@ -38,8 +38,6 @@ public sealed class ABPackageManager
         }
     }
 
-    #region Initialization
-
 #if UNITY_EDITOR
     public static void RegisterEditorManifestBuilder(Func<ABManifest> builder)
     {
@@ -62,7 +60,7 @@ public sealed class ABPackageManager
 
 #if UNITY_EDITOR
         // ABPackageManager 只能由 Compat facade 在选择 AB 后调用；PlayMode 只描述 AB 的加载方式。
-        if (FYAssetSettings.Instance.PlayMode == EPlayMode.Editor)
+        if (FYAssetABSettings.Instance.PlayMode == EPlayMode.Editor)
         {
             return InitializeEditorPlayMode();
         }
@@ -110,10 +108,6 @@ public sealed class ABPackageManager
     }
 #endif
 
-    #endregion
-
-    #region Queries
-
     public IReadOnlyList<string> GetKeysByType(string type)
     {
         if (!_isInitialized) return Array.Empty<string>();
@@ -152,10 +146,6 @@ public sealed class ABPackageManager
 
     public bool ContainsKey(string key) => _isInitialized && _addressSet.Contains(key);
 
-    #endregion
-
-    #region Common Typed Address API
-
     public async Task<(T asset, RuntimeMessage error)> LoadAssetAsync<T>(string address)
         where T : UnityEngine.Object
     {
@@ -182,10 +172,6 @@ public sealed class ABPackageManager
 
         _backend.UnloadByEntryId(entry.EntryId);
     }
-
-    #endregion
-
-    #region RawFile API
 
     public async Task<byte[]> LoadRawBytesAsync(
         string address,
@@ -234,10 +220,6 @@ public sealed class ABPackageManager
         byte[] data = LoadRawBytesSync(address, labels);
         return data == null ? null : (encoding ?? Encoding.UTF8).GetString(data);
     }
-
-    #endregion
-
-    #region Handle API
 
     public async Task<AssetHandle<T>> LoadByAddress<T>(string address)
         where T : UnityEngine.Object
@@ -325,10 +307,6 @@ public sealed class ABPackageManager
             entry.PayloadKind.ToString()));
     }
 
-    #endregion
-
-    #region Resolve Helpers
-
     private bool TryResolve<T>(
         string address,
         out RuntimeAssetEntry entry,
@@ -403,6 +381,4 @@ public sealed class ABPackageManager
         else
             Debug.LogError(message.ToString());
     }
-
-    #endregion
 }

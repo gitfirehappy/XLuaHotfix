@@ -15,7 +15,7 @@ MonoBehaviour:
   m_DefaultGroup: dbf2c5c7a80d7d34695132ac3bdde14b
   m_currentHash:
     serializedVersion: 2
-    Hash: 1e441e627d019e308b40d87094c6423d
+    Hash: 00000000000000000000000000000000
   m_OptimizeCatalogSize: 0
   m_BuildRemoteCatalog: 1
   m_BundleLocalCatalog: 1
@@ -71,11 +71,11 @@ MonoBehaviour:
       - m_Id: e698ae0aca8e7e94b88c6b9af4e69f50
         m_Value: '{UnityEngine.AddressableAssets.Addressables.RuntimePath}/[BuildTarget]'
       - m_Id: d804801bdd94a2b4789837703847e983
-        m_Value: E:\unity\project\XLuaHotfix\HotfixOutput\Packages\Build_20260723155716_2.0.0\bundles
+        m_Value: E:\unity\project\XLuaHotfix\HotfixOutput\Packages\Build_20260907133951_2.0.1\bundles
       - m_Id: fd920ade5637d244bb40330ca5b2f2be
         m_Value: http://[PrivateIpAddress]:[HostingServicePort]
       - m_Id: b9eea80cfede45243ad79c7a379fb7b1
-        m_Value: E:\unity\project\XLuaHotfix\HotfixOutput\Packages\Build_20260723155716_2.0.0
+        m_Value: E:\unity\project\XLuaHotfix\HotfixOutput\Packages\Build_20260907133951_2.0.1
     m_ProfileEntryNames:
     - m_Id: ecc1a2c87e643dc4cb3602ca08e19cba
       m_Name: BuildTarget

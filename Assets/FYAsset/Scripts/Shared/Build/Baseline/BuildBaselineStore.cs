@@ -13,11 +13,11 @@ public static class BuildBaselineStore
     private const string RootDirName = "BuildData/Baselines";
     private const string FileName = "baseline.json";
 
-    /// <summary>channel key 与原 Repository 布局一致：同时隔离 BuildTarget、业务 channel 和 backend。</summary>
+    /// <summary>channel key 的构成：同时隔离 BuildTarget、业务 channel 和 backend。</summary>
     public static string GetChannelKey(VersionNumber version, string backendKey)
     {
         string buildTarget = EditorUserBuildSettings.activeBuildTarget.ToString();
-        string channelRoot = string.IsNullOrEmpty(version?.Channel)
+        string channelRoot = string.IsNullOrEmpty(version.Channel)
             ? buildTarget
             : $"{buildTarget}-{version.Channel}";
         return $"{channelRoot}/{backendKey}";
@@ -37,7 +37,7 @@ public static class BuildBaselineStore
 
     public static BuildBaseline LoadLatestFull(string channelKey) => Load(channelKey).LatestFull;
 
-    /// <summary>加载双槽状态。文件缺失=无历史（无迁移：旧机制数据已在 aa-ab-decoupling R6 删除）；损坏=致命 BuildBaselineException。</summary>
+    /// <summary>加载双槽状态。文件缺失按无历史处理；文件损坏抛出 BuildBaselineException。</summary>
     public static BuildBaselineState Load(string channelKey)
     {
         string path = GetPath(channelKey);
@@ -47,7 +47,12 @@ public static class BuildBaselineStore
         try
         {
             string json = FileHelper.ReadAllText(path);
-            return JsonUtility.FromJson<BuildBaselineState>(json) ?? new BuildBaselineState();
+            BuildBaselineState state = JsonUtility.FromJson<BuildBaselineState>(json) ?? new BuildBaselineState();
+            if (state.Latest != null && !VersionNumber.JsonHasNestedObjectField(json, "Latest", nameof(BuildBaseline.Version)))
+                throw new BuildBaselineException($"baseline Latest 缺少 Version 对象: {path}");
+            if (state.LatestFull != null && !VersionNumber.JsonHasNestedObjectField(json, "LatestFull", nameof(BuildBaseline.Version)))
+                throw new BuildBaselineException($"baseline LatestFull 缺少 Version 对象: {path}");
+            return state;
         }
         catch (Exception ex)
         {
@@ -79,7 +84,7 @@ public static class BuildBaselineStore
         if (!string.Equals(delivered.BuildType, fullBuildType, StringComparison.Ordinal)
             && string.IsNullOrEmpty(delivered.ParentVersion))
         {
-            delivered.ParentVersion = state.LatestFull?.Version != null
+            delivered.ParentVersion = state.LatestFull != null
                 ? state.LatestFull.Version.GetReleaseVersionString()
                 : string.Empty;
         }
@@ -91,7 +96,7 @@ public static class BuildBaselineStore
         string path = GetPath(channelKey);
         string json = JsonUtility.ToJson(state, true);
         FileHelper.WriteAllTextAtomic(path, json);
-        Debug.Log($"[BuildBaselineStore] baseline 已更新: Channel={channelKey}, Version={delivered.Version?.GetReleaseVersionString()}, Type={delivered.BuildType}");
+        Debug.Log($"[BuildBaselineStore] baseline 已更新: Channel={channelKey}, Version={delivered.Version.GetReleaseVersionString()}, Type={delivered.BuildType}");
     }
 
     /// <summary>交付事务补偿：读取当前 baseline 文件原始字节；文件不存在时返回 null。</summary>

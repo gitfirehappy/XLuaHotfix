@@ -7,8 +7,6 @@ using UnityEngine;
 /// </summary>
 public static class AssetCollectionSettingValidator
 {
-    #region 公共接口
-
     public static List<BuildMessage> Validate(AssetCollectionSetting setting)
     {
         var messages = new List<BuildMessage>();
@@ -45,10 +43,6 @@ public static class AssetCollectionSettingValidator
         CheckCrossPackageOverlaps(setting, messages);
         return messages;
     }
-
-    #endregion
-
-    #region 私有方法
 
     private static void ValidatePackage(AssetCollectionPackage pkg, int pkgIdx, List<BuildMessage> messages)
     {
@@ -254,6 +248,4 @@ public static class AssetCollectionSettingValidator
 
         return UnityEditor.AssetDatabase.IsValidFolder(collector.CollectPath);
     }
-
-    #endregion
 }

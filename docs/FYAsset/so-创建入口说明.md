@@ -6,9 +6,8 @@
 > `Assets/Build/FYAssetBackendSettings.asset`
 > `Assets/FYAsset/Scripts/AA/Settings/FYAssetAASettings.cs`
 > `Assets/FYAsset/Scripts/AB/Settings/FYAssetABSettings.cs`
-> `Assets/FYAsset/Scripts/Shared/Build/Editor/Settings/SettingsPanel.cs`
-> `Assets/FYAsset/Scripts/Shared/Build/Repository/Editor/RepositoryStatusPanel.cs`
-> `Assets/FYAsset/Scripts/Shared/Helpers/Editor/SOAddressableTagger.cs`
+> `Assets/FYAsset/Scripts/Shared/Build/Editor/UI/SettingsPanel.cs`
+> `Assets/FYAsset/Scripts/Shared/Build/Editor/UI/PublishTargetPanel.cs`
 > `Assets/FYAsset/Scripts/AB/Build/Editor/ABPipeline/AssetsCollectionPanel.cs`
 > `Assets/FYAsset/Scripts/Shared/Build/Editor/UI/PipelinePanel.cs`
 > `Assets/XLuaFramework/Scripts/Editor/LuaFileCreatorWithName.cs`
@@ -36,8 +35,8 @@
 | `FYAssetBackendSettings` | 使用项目已提交资产 | 默认路径为 `Assets/Build/FYAssetBackendSettings.asset`，保存 Compat 宿主后端选择；`GameLauncher` 通过 Prefab 序列化引用读取 |
 | `FYAssetAASettings` | `AAConfigPanel` 自动创建/编辑 | 默认路径为 `Assets/Resources/FYAssetAASettings.asset`，保存 AA 热更与构建参数 |
 | `FYAssetABSettings` | `ABConfigPanel` 自动创建/编辑 | 默认路径为 `Assets/Resources/FYAssetABSettings.asset`，保存 AB 热更、构建参数与 AssetCollection 配置 |
-| `VersionRecord` | 使用项目已提交资产 | 路径由 `FYAssetSettings.VersionRecordPath` 决定；当前没有独立创建 UI，Repository 只提供测试重置 |
-| `ScriptObjectDataBase` | `SOAddressableTagger` 中的“创建新数据库” | 用于 SO 标签管理，不建议从菜单重复创建 |
+| `VersionRecord` | 使用项目已提交资产 | 路径由 FYAssetSettings.VersionRecordPath 决定；缺失时构建失败，AB 维护面板提供测试重置 |
+| `ScriptObjectDataBase` | 核对当前 SO 工具入口 | 旧 SOAddressableTagger 已不存在，不再将其列为可用创建入口 |
 | `ScriptObjectContainer` | `LuaFileCreatorWindow` / `LuaDirectoryScanner` / `LuaAddressableTagger` 的创建流程 | 由工具根据数据库和目录自动创建 |
 | `AssetCollectionSetting` | `AssetsCollectionPanel` 中的创建按钮 | 资产收集配置资产，走 AB Pipeline 的 AssetsCollection 面板入口 |
 | `BuildPipelineConfig` | `PipelinePanel` 中的创建按钮 | 由构建管线窗口创建并立即加载 |

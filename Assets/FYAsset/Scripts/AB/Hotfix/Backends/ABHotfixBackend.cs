@@ -44,12 +44,15 @@ public sealed class ABHotfixBackend : IHotfixPipeline
 
     public async Task<HotfixVersionInfo> FetchRemoteVersionAsync(
         string remoteUrlRoot,
-        HotfixDownloadOptions metadataOptions)
+        int timeoutSeconds,
+        int maxRetryCount,
+        float retryBaseDelaySeconds)
     {
         string binaryUrl = FYAssetPathUtility.JoinUrl(
             remoteUrlRoot,
             FYAssetSettings.MANIFEST_FILE_NAME_BIN);
-        _remoteManifestData = await NetworkDownloader.DownloadBytes(binaryUrl, metadataOptions);
+        _remoteManifestData = await NetworkDownloader.DownloadBytes(
+            binaryUrl, timeoutSeconds, maxRetryCount, retryBaseDelaySeconds);
         _remoteManifestIsBinary = _remoteManifestData != null && _remoteManifestData.Length > 0;
 
         if (!_remoteManifestIsBinary)
@@ -57,7 +60,8 @@ public sealed class ABHotfixBackend : IHotfixPipeline
             string jsonUrl = FYAssetPathUtility.JoinUrl(
                 remoteUrlRoot,
                 FYAssetSettings.MANIFEST_FILE_NAME);
-            string json = await NetworkDownloader.DownloadText(jsonUrl, metadataOptions);
+            string json = await NetworkDownloader.DownloadText(
+                jsonUrl, timeoutSeconds, maxRetryCount, retryBaseDelaySeconds);
             if (string.IsNullOrEmpty(json))
                 return null;
             _remoteManifestData = Encoding.UTF8.GetBytes(json);
@@ -88,7 +92,9 @@ public sealed class ABHotfixBackend : IHotfixPipeline
 
     public Task<HotfixStepResult> PersistRemoteMetadataAsync(
         HotfixContext ctx,
-        HotfixDownloadOptions metadataOptions,
+        int timeoutSeconds,
+        int maxRetryCount,
+        float retryBaseDelaySeconds,
         bool refreshRequiredMetadata)
     {
         if (_remoteManifestData == null || _remoteManifestData.Length == 0 || _remoteManifest == null)

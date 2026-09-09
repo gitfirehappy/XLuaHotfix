@@ -16,13 +16,15 @@ public sealed class BuildBaseline
     public string PackageRootDir;
     public string ParentVersion;
     public ArtifactDelta CommitDelta;
+
     /// <summary>
     /// 后端 manifest 文件名清单（由交付时的 IBaselinePackageHandler.RequiredManifestFileNames 落进基线，随基线走）。
     /// 发布事务据此校验包完整性，不需要理解后端类型。
     /// </summary>
     public List<string> ManifestFileNames;
+
     public string CreatedAtUtc;
-    public List<ArtifactDigest> Artifacts = new();
+    public List<BuildDiffEntry> Artifacts = new();
 }
 
 /// <summary>
@@ -40,6 +42,8 @@ public sealed class BuildBaselineState
 /// </summary>
 public sealed class BuildBaselineException : Exception
 {
-    public BuildBaselineException(string message) : base(message) { }
+    public BuildBaselineException(string message) : base(message)
+    {
+    }
 }
 #endif

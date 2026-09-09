@@ -4,52 +4,41 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
-using UnityEditor;
 using UnityEngine;
 
 /// <summary>
-/// 二进制序列化器代码生成器。
-/// 扫描 [BinarySerializable] 类型并生成 {TypeName}_BinarySerializer.cs。
+/// 为给定类型和输出目录生成基于反射的 serializer。
 /// </summary>
 public static class BinarySerializerGenerator
 {
-    public const string GeneratedDir = FYAssetSettings.BINARY_SERIALIZER_GENERATE_PATH;
     public const string HashPrefix = "// Hash:";
-    private const string SerializationTestPathSegment = "/Serialization/Test/";
 
-    [MenuItem("FYAsset/Tools/Serialization/Generate Binary Serializers", false, 30)]
-    public static void GenerateMenu()
+    // 输出文件名沿用类型名；写入前拒绝重名。
+    public static void GenerateAll(IEnumerable<Type> serializableTypes, string outputDirectory)
     {
-        GenerateAll();
-        AssetDatabase.Refresh();
-        Debug.Log("[BinarySerializerGenerator] 生成完成。\n");
-    }
-
-    public static void GenerateAll()
-    {
-        var fieldIssues = GetFieldIssues();
+        if (serializableTypes == null) throw new ArgumentNullException(nameof(serializableTypes));
+        if (string.IsNullOrWhiteSpace(outputDirectory)) throw new ArgumentException("Output directory is required.", nameof(outputDirectory));
+        var types = serializableTypes.Distinct().ToList();
+        if (types.Any(t => t == null || t.ContainsGenericParameters || !BinaryReflectionSerializer.IsBinarySerializableType(t)))
+            throw new ArgumentException("Types must be closed BinarySerializable types.", nameof(serializableTypes));
+        if (types.GroupBy(t => t.Name, StringComparer.OrdinalIgnoreCase).Any(g => g.Count() > 1))
+            throw new ArgumentException("Serializer file names must be unique.", nameof(serializableTypes));
+        var fieldIssues = GetFieldIssues(types);
         if (fieldIssues.Count > 0)
         {
             throw new InvalidOperationException(BuildFieldIssueMessage(fieldIssues));
         }
 
-        if (!Directory.Exists(GeneratedDir))
-        {
-            Directory.CreateDirectory(GeneratedDir);
-        }
-
-        CleanupGeneratedFiles();
-
-        var types = GetSerializableTypes();
+        Directory.CreateDirectory(outputDirectory);
         for (int i = 0; i < types.Count; i++)
         {
-            GenerateForType(types[i]);
+            GenerateForType(types[i], outputDirectory);
         }
     }
 
-    public static bool IsStale(Type type)
+    public static bool IsStale(Type type, string outputDirectory)
     {
-        string path = GetGeneratedFilePath(type);
+        string path = GetGeneratedFilePath(type, outputDirectory);
         if (!File.Exists(path))
         {
             return true;
@@ -67,13 +56,13 @@ public static class BinarySerializerGenerator
         return !string.Equals(currentHash, fileHash, StringComparison.OrdinalIgnoreCase);
     }
 
-    public static List<Type> GetStaleTypes()
+    public static List<Type> GetStaleTypes(IEnumerable<Type> serializableTypes, string outputDirectory)
     {
-        var types = GetSerializableTypes();
+        var types = serializableTypes.ToList();
         var stale = new List<Type>();
         for (int i = 0; i < types.Count; i++)
         {
-            if (IsStale(types[i]))
+            if (IsStale(types[i], outputDirectory))
             {
                 stale.Add(types[i]);
             }
@@ -82,9 +71,9 @@ public static class BinarySerializerGenerator
         return stale;
     }
 
-    public static List<BinarySerializableFieldIssue> GetFieldIssues()
+    public static List<BinarySerializableFieldIssue> GetFieldIssues(IEnumerable<Type> serializableTypes)
     {
-        var types = GetSerializableTypes();
+        var types = serializableTypes.ToList();
         var issues = new List<BinarySerializableFieldIssue>();
         for (int i = 0; i < types.Count; i++)
         {
@@ -122,7 +111,7 @@ public static class BinarySerializerGenerator
         return sb.ToString();
     }
 
-    private static List<Type> GetSerializableTypes()
+    public static List<Type> GetSerializableTypes()
     {
         var result = new List<Type>();
         var assemblies = AppDomain.CurrentDomain.GetAssemblies();
@@ -148,7 +137,7 @@ public static class BinarySerializerGenerator
             for (int j = 0; j < types.Length; j++)
             {
                 var t = types[j];
-                if (t.GetCustomAttribute<BinarySerializableAttribute>() != null && !IsSerializationTestType(t))
+                if (t.GetCustomAttribute<BinarySerializableAttribute>() != null)
                 {
                     result.Add(t);
                 }
@@ -158,37 +147,12 @@ public static class BinarySerializerGenerator
         return result.OrderBy(t => t.FullName).ToList();
     }
 
-    private static bool IsSerializationTestType(Type type)
-    {
-        if (type == null)
-        {
-            return false;
-        }
-
-        var guids = AssetDatabase.FindAssets($"{type.Name} t:MonoScript");
-        for (int i = 0; i < guids.Length; i++)
-        {
-            string path = AssetDatabase.GUIDToAssetPath(guids[i]).Replace('\\', '/');
-            if (path.IndexOf(SerializationTestPathSegment, StringComparison.OrdinalIgnoreCase) < 0)
-            {
-                continue;
-            }
-
-            var monoScript = AssetDatabase.LoadAssetAtPath<MonoScript>(path);
-            if (monoScript != null && monoScript.GetClass() == type)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private static void GenerateForType(Type type)
+    private static void GenerateForType(Type type, string outputDirectory)
     {
         string hash = SerializationHashUtility.ComputeTypeHash(type);
         string code = BuildCode(type, hash);
-        File.WriteAllText(GetGeneratedFilePath(type), code, Encoding.UTF8);
+        // 只改当前生成源文件，保留 .meta GUID 与无关输出。
+        File.WriteAllText(GetGeneratedFilePath(type, outputDirectory), code, Encoding.UTF8);
     }
 
     private static string BuildCode(Type type, string hash)
@@ -250,28 +214,9 @@ public static class BinarySerializerGenerator
         return sb.ToString();
     }
 
-    private static string GetGeneratedFilePath(Type type)
+    private static string GetGeneratedFilePath(Type type, string outputDirectory)
     {
-        return Path.Combine(GeneratedDir, $"{type.Name}_BinarySerializer.cs");
-    }
-
-    private static void CleanupGeneratedFiles()
-    {
-        if (!Directory.Exists(GeneratedDir))
-        {
-            return;
-        }
-
-        string[] files = Directory.GetFiles(GeneratedDir, "*_BinarySerializer.cs", SearchOption.TopDirectoryOnly);
-        for (int i = 0; i < files.Length; i++)
-        {
-            File.Delete(files[i]);
-            string meta = files[i] + ".meta";
-            if (File.Exists(meta))
-            {
-                File.Delete(meta);
-            }
-        }
+        return Path.Combine(outputDirectory, $"{type.Name}_BinarySerializer.cs");
     }
 
     private static string GetCodeTypeName(Type type)

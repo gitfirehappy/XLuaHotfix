@@ -4,7 +4,7 @@
 
 > **关联代码**
 >
-> `Assets/FYAsset/Scripts/Shared/Build/Snapshots/ArtifactDigest.cs` · `Assets/FYAsset/Scripts/Shared/Build/Snapshots/ArtifactDelta.cs` · `Assets/FYAsset/Scripts/Shared/Build/Snapshots/Editor/ArtifactDiffer.cs` · `Assets/FYAsset/Scripts/Shared/Build/Repository/`
+> `Assets/FYAsset/Scripts/Shared/Build/Snapshots/BuildDiffEntry.cs` · `Assets/FYAsset/Scripts/Shared/Build/Snapshots/ArtifactDelta.cs` · `Assets/FYAsset/Scripts/Shared/Build/Snapshots/Editor/ArtifactDiffer.cs` · `Assets/FYAsset/Scripts/Shared/Build/Baseline/`
 
 ---
 
@@ -14,7 +14,7 @@
 
 请到该文档查看：
 
-- `ArtifactDigest` / `ArtifactDelta` 数据模型（仍位于 `Shared/Build/Snapshots/`）
+- `BuildDiffEntry` / `ArtifactDelta` 数据模型（位于 `Shared/Build/Snapshots/`）
 - Changes 与 AB Hotfix Delivery 两类差异
 - 基线（`BuildData/Baselines/`）与 diff 预览的边界
 - Push、正式打包与基线写入的先后约束

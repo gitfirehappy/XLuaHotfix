@@ -13,7 +13,6 @@ MonoBehaviour:
   m_Name: FYAssetSettings
   m_EditorClassIdentifier: 
   ProjectName: fyasset
-  PlayMode: 2
   BuildOutputRoot: HotfixOutput
   BuildPackagesFolderName: Packages
   StandaloneBuild: 1

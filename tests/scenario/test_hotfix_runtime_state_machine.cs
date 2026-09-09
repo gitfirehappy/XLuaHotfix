@@ -1,6 +1,6 @@
 using System;
 
-[AttributeUsage(AttributeTargets.Class)]
+[AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct)]
 internal sealed class BinarySerializableAttribute : Attribute { }
 
 [AttributeUsage(AttributeTargets.Field)]

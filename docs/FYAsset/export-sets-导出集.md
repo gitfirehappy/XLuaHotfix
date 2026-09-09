@@ -1,27 +1,32 @@
-# 三套独立导出集
+# 导出与依赖边界
 
-> 返回总览：[FYAsset 资源管理总览](./资源管理架构文档.md)
+> **关联代码** | [FYAsset](../../Assets/FYAsset/Scripts/) · [边界场景](../../tests/scenario/s3_resource_boundary/)
 
-本项目按"文选即集"组织三套可独立导出的运行时包。边界由 `tests/scenario/s3_resource_boundary` 的 `ExportBoundary` / `XLuaFrameworkBoundary` 文本门禁守护。
+AA、AB 与 Shared 的目录划分表达职责目标，不等于将目录复制到空工程后即可编译。当前没有完成独立空工程导出验证；源码词法门禁也不能替代依赖闭包、程序集和资源 GUID 验证。
 
-## 导出集与前置依赖
+## 需要携带的依赖
 
-| 导出集 | 包含 | 前置依赖 | 明确不包含 |
-|---|---|---|---|
-| **AA 套装** | `Assets/FYAsset/Scripts/AA` + `Assets/FYAsset/Scripts/Shared` | `com.unity.addressables` | Compat、AB 树、AB Collector 资产、XLuaFramework |
-| **AB 套装** | `Assets/FYAsset/Scripts/AB` + `Assets/FYAsset/Scripts/Shared` | 无 XLuaFramework / Addressables | Compat、AA 树、AA 相关资产、XLuaFramework |
-| **XLuaFramework** | `Assets/XLuaFramework` | XLua | FYAsset 全树、项目壳层（UI/Game/Global 代码）、Compat |
+| 部分 | 依赖 |
+|---|---|
+| AA | Shared、Addressables、通用文件/Hash/Serialization 工具及实际引用的公共基础类 |
+| AB | Shared、通用文件/Hash/Serialization 工具及实际引用的公共基础类；Editor 采集配置另行携带 |
+| Compat | 宿主后端选择、门面、Lua 接入、Cloudflare 接入，以及当前项目的双后端序列化注册/生成清单 |
+| Tests | 专门的构建/E2E测试入口，不是 Compat 正式运行代码 |
+| XLuaFramework | XLua 与其自身依赖；运行时资源由 ILuaAssetLoader 注入 |
 
-## 规则
+`Compat/Serialization` 当前组合注册 AA 与 AB 根类型，适合本项目双后端集成。单后端导出不能直接照搬双后端注册入口，需要保留对应类型的注册与生成结果。通用 Serialization 工具本身不反向引用 FYAsset。
 
-1. **三套严格独立编译**：`AA∪Shared`、`AB∪Shared`、`XLuaFramework` 分别导入空工程即可编译。彼此不得互引类型。
-2. **Compat 永不进入三套基础导出**：它是宿主集成层（facade、CLI、测试矩阵、Cloudflare 目标、运维面层、Lua 索引构建 Task）。需要 lua 热更时，宿主额外导入 `Compat + XLuaFramework`，再通过 `BuildPipelineConfig.Tasks` 插入 `LuaScriptsIndexBuildTask`。
-3. **管线骨架与自定义 Task 分槽**：AA/AB backbone 只校验骨架名单（查漏不拒外）。`config.Tasks` 中超出骨架的条目即自定义 Task，按列表顺序执行；类型由 `BuildTaskResolver` 按名解析。装配违约（空名/重名/找不到实现）明确 Fail，不静默跳过。
-4. **Collector 资产分家**：`Assets/FYAsset/CollectorData/CollectorSetting.asset` 引用 AB 树脚本 guid——AA 套装打包时必须排除该资产（或将来拆 per-backend）。
-5. **序列化无损**：三树资产 GUID 互引为零；移动资产必须 `git mv` + 同级 .meta 随迁；目录 meta 属父目录兄弟文件，**手动移动目录时必须手动搬它**。
-6. **运行时资源接缝**：XLuaFramework 对运行期资源只露 `LuaAssetRuntime` 注入口（`ILuaAssetLoader`），宿主在启动壳 `SetLoader`（本项目：`GameLauncher.BootPhase` + `Compat/FYAssetLuaAssetLoaderAdapter`）。
+## 已知边界限制
 
-## 验证
+Shared 的 PublishTargetPanel 当前直接更新 AA/AB Settings，现存 ExportBoundary 场景会报告此引用。不能在文档宣称 Shared 已完全无后端依赖；本轮不通过放宽测试来掩盖它。
 
-- `tests/scenario/s3_resource_boundary`：ExportBoundary（AA/AB/Shared 三方向互引 + →Compat 反引 + 三树零 LuaIndex 词表 + Compat Task 注入）+ XLuaFrameworkBoundary（XLF 对 FYAsset 类型零引用）+ UpperPackageBoundary（上层壳薄面规则）。
-- 导出验证不可省略项：空工程分别仅导三集编译；AA 集 manifest 勾选 Addressables。Lua 集成能力不在三套基础导出的自足范围内。
+Collector 配置资产引用 AB 脚本 GUID；AA 导出不应无条件携带。移动文件必须保留对应 .meta，目录 .meta 也需随归属调整。仅确认文件存在不证明资源引用全部正确。
+
+## 验证顺序
+
+1. 源码互引门禁、缺失路径和重复 GUID 检查。
+2. 在独立空工程验证各自依赖闭包及 Unity 编译。
+3. 分别生成与读取 Manifest，验证初始化注册顺序。
+4. 再验证真实资源加载、构建和发布。
+
+历史场景结果、未完成验收与本轮命令记录保留在 requirements；本说明不把任何未执行步骤标为通过。

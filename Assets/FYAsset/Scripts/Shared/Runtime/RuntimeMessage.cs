@@ -52,8 +52,7 @@ public static class RuntimeErrorCodes
 }
 
 /// <summary>
-/// 运行时诊断消息 —— 替代旧的 AssetLoadError。
-/// 通过静态工厂方法构造，禁止裸 new。
+/// 运行时诊断消息。只能通过静态工厂方法构造。
 /// </summary>
 /// <remarks>
 /// [Serializable] 用于支持 Unity 序列化（Inspector 调试面板 / 热重载异常跨域传递）。
@@ -86,17 +85,11 @@ public class RuntimeMessage
 
     #region 通用工厂方法
 
-    /// <summary>创建 Error 级别的运行时消息</summary>
-    /// <param name="code">错误码，使用 RuntimeErrorCodes 常量</param>
-    /// <param name="message">人类可读的描述信息</param>
     public static RuntimeMessage Error(string code, string message)
     {
         return new RuntimeMessage(RuntimeSeverity.Error, code, message);
     }
 
-    /// <summary>创建 Warning 级别的运行时消息（当前无消费者，为降级加载/重试恢复预留）</summary>
-    /// <param name="code">错误码，使用 RuntimeErrorCodes 常量</param>
-    /// <param name="message">人类可读的描述信息</param>
     public static RuntimeMessage Warning(string code, string message)
     {
         return new RuntimeMessage(RuntimeSeverity.Warning, code, message);
@@ -106,69 +99,43 @@ public class RuntimeMessage
 
     #region 语义化工厂方法
 
-    /// <summary>未找到匹配条目</summary>
-    /// <param name="query">查询键（Address / TypeKey）</param>
     public static RuntimeMessage NotFound(string query)
         => Error(RuntimeErrorCodes.NotFound, string.Concat("未找到匹配条目: ", query));
 
-    /// <summary>多条条目匹配，需通过 Labels 消歧</summary>
-    /// <param name="query">查询键</param>
-    /// <param name="candidateCount">匹配的候选条目数量</param>
     public static RuntimeMessage Ambiguous(string query, int candidateCount)
         => Error(RuntimeErrorCodes.AmbiguousMatch,
             string.Concat("多条条目匹配: ", query, " (", candidateCount.ToString(), " 个候选)"));
 
-    /// <summary>找到条目但 PrimaryType 与请求类型不兼容</summary>
-    /// <param name="query">查询键</param>
-    /// <param name="expectedType">期望的类型</param>
-    /// <param name="actualType">实际的 PrimaryType</param>
     public static RuntimeMessage TypeMismatch(string query, string expectedType, string actualType)
         => Error(RuntimeErrorCodes.TypeMismatch,
             string.Concat("类型不匹配: ", query, ", 期望可赋值给 ", expectedType, ", 实际 ", actualType));
 
-    /// <summary>Resolve 成功但底层加载操作失败</summary>
-    /// <param name="entryId">资源 EntryId</param>
-    /// <param name="reason">失败原因</param>
     public static RuntimeMessage LoadFailed(string entryId, string reason)
         => Error(RuntimeErrorCodes.LoadFailed,
             string.Concat("加载失败, EntryId=[", entryId, "]: ", reason));
 
-    /// <summary>Bundle 文件在磁盘上不存在</summary>
-    /// <param name="bundleName">Bundle 文件名</param>
     public static RuntimeMessage BundleNotFound(string bundleName)
         => Error(RuntimeErrorCodes.BundleNotFound,
             string.Concat("Bundle 文件未找到: ", bundleName, "（热更目录 + StreamingAssets 均不存在）"));
 
-    /// <summary>AssetBundle.LoadFromFile 返回 null（文件损坏、加密异常等）</summary>
-    /// <param name="bundleName">Bundle 文件名</param>
-    /// <param name="path">尝试的物理路径</param>
     public static RuntimeMessage BundleLoadFailed(string bundleName, string path)
         => Error(RuntimeErrorCodes.BundleLoadFailed,
             string.Concat("AssetBundle.LoadFromFile 失败: ", bundleName, ", 路径=", path));
 
-    /// <summary>依赖 Bundle 加载失败（级联失败）</summary>
-    /// <param name="bundleName">主 Bundle 文件名</param>
-    /// <param name="depBundleName">加载失败的依赖 Bundle 文件名</param>
     public static RuntimeMessage DependencyFailed(string bundleName, string depBundleName)
         => Error(RuntimeErrorCodes.DependencyFailed,
             string.Concat("依赖 Bundle 加载失败: ", depBundleName, " (被 ", bundleName, " 依赖)"));
 
-    /// <summary>从 Bundle 中提取 Asset 失败（SourcePath 不正确或类型不匹配）</summary>
-    /// <param name="entryId">资源 EntryId</param>
-    /// <param name="sourcePath">Bundle 内的资源路径</param>
-    /// <param name="bundleName">Bundle 文件名</param>
     public static RuntimeMessage AssetExtractionFailed(string entryId, string sourcePath, string bundleName)
         => Error(RuntimeErrorCodes.AssetExtractionFailed,
             string.Concat("从 Bundle 提取 Asset 失败: SourcePath=", sourcePath,
                 ", Bundle=", bundleName, ", EntryId=", entryId));
 
-    /// <summary>加载 API 与 PayloadKind 不匹配</summary>
     public static RuntimeMessage InvalidPayloadKind(string entryId, string expected, string actual)
         => Error(RuntimeErrorCodes.InvalidPayloadKind,
             string.Concat("PayloadKind 不匹配, EntryId=[", entryId, "], 期望 ",
                 expected, ", 实际 ", actual));
 
-    /// <summary>当前后端或平台不支持该操作</summary>
     public static RuntimeMessage UnsupportedOperation(string operation, string reason)
         => Error(RuntimeErrorCodes.UnsupportedOperation,
             string.Concat(operation, " 不支持: ", reason));

@@ -218,7 +218,7 @@ public class TaskMoveAAHotfixGroups : IBuildTask
         return result;
     }
 
-    private static void MoveArtifacts(List<ArtifactDigest> artifacts, AddressableAssetSettings settings, AddressableAssetGroup hotfixGroup, HotfixGroupUndoLog undoLog)
+    private static void MoveArtifacts(List<BuildDiffEntry> artifacts, AddressableAssetSettings settings, AddressableAssetGroup hotfixGroup, HotfixGroupUndoLog undoLog)
     {
         for (int i = 0; i < artifacts.Count; i++)
         {

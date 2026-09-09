@@ -23,3 +23,17 @@ fields.
 **Root cause:** Broad-scope staging (`git add -A Assets`) was used for speed instead of explicit path lists; the exclusion of `StreamingAssets/**` lived only in conversation memory, not in `.gitignore`, so nothing mechanical blocked the sweep.
 **Fix:** Commits rebuilt with `git restore --staged Assets/StreamingAssets` before landing. Durable rule: never `git add -A` over `Assets/` in this repo — stage explicit paths, and audit `git status` grouped by change type before every commit.
 **Prevention:** Add `Assets/StreamingAssets/Standalone/` and `Assets/StreamingAssets/BuildIndex.json*` to `.gitignore` so generated local build state cannot be swept even by blanket staging. (Proposed to developer; not yet applied.) Audit staged file-type counts (`awk '{print $1}' | sort | uniq -c`) as a pre-commit habit.
+
+## IP-68: Cleanup Round Drifted From Grilled Decisions
+
+**Symptom:** Approved FYAsset cleanup produced extra review files, all-English comments, HTML/docs still naming deleted types, and Shared editor panels writing AA/AB Settings, while S3 ExportBoundary failed.
+**Root cause:** Sub-agents optimized for coverage and English XML instead of the grilled constraints (comment language, no extra reviews, Shared has no backend types, current-docs must match code).
+**Fix:** Delete the extra 20260907 reviews; keep JSON missing-Version rejection; inject Apply URL from AA/AB windows; move AB PlayMode to ABConfigPanel; update current docs to BuildDiffEntry/BuildIndexData/TaskScanAAHotfixDiff.
+**Prevention:** After a grilled cleanup, re-read the 12 decisions against working tree before claiming progress. Do not add review files unless asked. Shared source must compile against the ExportBoundary test, not just the solution.
+
+## IP-69: Unity Test Command Reported Success Without Running Tests
+
+**Symptom:** MCP auto-failed initialization after 30ms, and Unity batchmode exited 0 without a result XML when `-quit` was supplied. Both could be mistaken for a completed test run.
+**Root cause:** MCP `init_timeout` is milliseconds, while `-runTests` owns the batchmode process lifetime and conflicts with an explicit `-quit` during script reload.
+**Fix:** Use `init_timeout: 30000`; run Unity with `-batchmode -nographics -runTests` and no `-quit`; require the result XML before interpreting the process exit code.
+**Prevention:** Record `testcasecount` and `total` from `<test-run>`. `result=Passed` with `total=0` proves discovery completed but provides no business test coverage.

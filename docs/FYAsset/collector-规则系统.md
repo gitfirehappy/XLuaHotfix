@@ -87,7 +87,11 @@ Address 是运行期逻辑名，允许重复，不是资产唯一身份。资产
 FinalLabels = Group.Labels + AssetEntry.Labels
 ```
 
-Group Labels 是强制继承标签，资产级不能删除或覆盖。AssetEntry Labels 只做手动追加。
+Group Labels 在扫描结果中强制合并，资产级不能删除或覆盖 Group 提供的 Label。AssetEntry.Labels 是资产自己的附加集合，可以在 Collection 内编辑。
+
+AB 的单项与批量 Labels 修改都写入 Curate 候选配置，只有 Save 才持久化；Cancel 丢弃未保存候选。未收集资产不会因为修改 Labels 自动创建 AssetEntry。独立 Project Labels 页面已删除。
+
+AA 不使用 AB Collection；其 Labels 在 Addressables 原生编辑器维护。AA 目前仍从 Label 推导 Type，本轮未改变该规则。
 
 ---
 
@@ -95,14 +99,16 @@ Group Labels 是强制继承标签，资产级不能删除或覆盖。AssetEntry
 
 Group 使用 `BundlePackingMode` 控制打包：
 
-| 模式 | BundleName |
-|---|---|
-| `PackTogether` | `{package}_{group}_all` |
-| `PackSeparately` | `{package}_{group}_asset_{normalizedAddress}~{shortGuid8}` |
-| `PackTogetherByLabel` | `{package}_{group}_labels_{labelA}~{labelB}` |
-| 无 Labels | `{package}_{group}_labels_$unlabeled` |
+下表描述打包粒度，不是最终文件名的完整模板。`BundleNameBuilder` 还按 PayloadKind 和精确类型分桶，输出文件名由 Pipeline 的 FileNameStyle 决定。
 
-Scene 资产强制按 `PackSeparately` 处理，只影响打包粒度，其余命名规则一致。
+| 模式 | 打包粒度 |
+|---|---|
+| `PackTogether` | 同 Group、Payload、类型的资产合并 |
+| `PackSeparately` | 每资产独立，使用规范化 Address 与 GUID 区分 |
+| `PackTogetherByLabel` | 按最终 Labels 分组，再按 Payload、类型分桶 |
+| 无 Labels | 使用系统 `$unlabeled` 标识 |
+
+Scene 资产强制按 `PackSeparately` 处理。具体 BundleName 应查看扫描预览与 BundleNameBuilder，不依赖简化示例自行拼接。
 
 `BundleKey` 只是构建期中间分桶键，不是业务 Label，也不是运行时查询字段。
 
@@ -123,7 +129,7 @@ flowchart TD
     I --> J["输出 CollectedAssetInfo"]
 ```
 
-Collector 仍保留 RawFile/Scene/Serialized 的分析能力。`ForcePayloadKind.Auto` 会把 `.unity` 识别为 Scene，已知 Unity 资产扩展识别为 Serialized，其余文件识别为 RawFile。
+Collector 仍保留 RawFile/Scene/Serialized 的分析能力。`ForcePayloadKind.Auto` 的实际分类由 AssetClassifier 的 importer、资源类型及支持规则决定，不能仅按扩展名判断所有资产。
 
 ---
 

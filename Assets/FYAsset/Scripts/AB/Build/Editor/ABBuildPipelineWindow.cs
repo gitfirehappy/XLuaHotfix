@@ -23,7 +23,6 @@ public sealed class ABBuildPipelineWindow : BuildPipelineWindowBase
             new SettingsPanel(),
             new ABConfigPanel(),
             assetsCollectionPanel,
-            new ABProjectSelectionLabelPanel(assetsCollectionPanel),
             new PipelinePanel(
                 "AB Build",
                 () => FYAssetABSettings.Instance.BuildPipelineConfigPath,
@@ -39,30 +38,17 @@ public sealed class ABBuildPipelineWindow : BuildPipelineWindowBase
                     LastBuildSuccess = () => ABBuildProjectManager.LastBuildSuccess,
                 }),
             new ABReportPanel(),
-            new RepositoryStatusPanel("AB", "AB Repository", null, new ABRepositorySettingsSink(), new ABRepositoryPreviewProvider(), null, new ABRepositoryDataCleaner())
+            new ABBuildDiffPanel(),
+            new PublishTargetPanel(BackendModeNames.AB, ApplyHotfixUrl),
+            new ABTestMaintenancePanel()
         };
     }
-}
 
-/// <summary>AB 侧启动数据清理：供共享 Repository 面板注入。</summary>
-public sealed class ABRepositoryDataCleaner : IRepositoryDataCleaner
-{
-    public void ClearStartupData()
+    private static void ApplyHotfixUrl(string url)
     {
-        FileHelper.TryDelete(FYAssetPathUtility.JoinFilePath(UnityEngine.Application.streamingAssetsPath, FYAssetSettings.MANIFEST_FILE_NAME));
-        FileHelper.TryDelete(FYAssetPathUtility.JoinFilePath(UnityEngine.Application.streamingAssetsPath, FYAssetSettings.MANIFEST_FILE_NAME_BIN));
-    }
-}
-
-/// <summary>AB 侧 settings 落盘实现：供共享 Repository 面板注入。</summary>
-public sealed class ABRepositorySettingsSink : IRepositorySettingsSink
-{
-    public void ApplyHotfixUrl(string url)
-    {
-        FYAssetABSettings settings = FYAssetABSettings.Instance;
-        Undo.RecordObject(settings, "Apply Hotfix URL");
-        settings.HotfixUrl = url;
-        EditorUtility.SetDirty(settings);
+        Undo.RecordObject(FYAssetABSettings.Instance, "Apply Hotfix URL");
+        FYAssetABSettings.Instance.HotfixUrl = url;
+        EditorUtility.SetDirty(FYAssetABSettings.Instance);
         AssetDatabase.SaveAssets();
     }
 }

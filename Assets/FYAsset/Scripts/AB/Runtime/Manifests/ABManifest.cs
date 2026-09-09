@@ -11,10 +11,9 @@ using UnityEngine;
 /// 3. 通过 TryGetAssets* / GetBundle* 方法查询资源和 Bundle 信息
 /// </summary>
 [Serializable]
-[BinarySerializable(Magic = 0x41424D46, SchemaVersion = 4)]
+[BinarySerializable(Magic = 0x41424D46, SchemaVersion = 5)]
 public class ABManifest
 {
-    #region 序列化字段
 
     /// <summary>包裹标识（如 "MainPackage"）</summary>
     [BinaryField(0)]
@@ -48,9 +47,6 @@ public class ABManifest
     [BinaryField(6)]
     public List<ManifestBundleEntry> DeliveryBundles = new();
 
-    #endregion
-
-    #region 运行时索引（不序列化，由 Initialize 构建）
     /// <summary>Address -> AssetEntry 索引列表（支持重复 Address）</summary>
     [NonSerialized] private Dictionary<string, List<int>> _addressIndex;
 
@@ -63,13 +59,8 @@ public class ABManifest
     /// <summary>标记是否已初始化</summary>
     [NonSerialized] private bool _initialized;
 
-    #endregion
-
-    #region 初始化
-
     /// <summary>
     /// 构建运行时索引。反序列化后必须调用。
-    /// 全部使用 for 循环，不使用 LINQ，避免运行时 GC 压力。
     /// </summary>
     public void Initialize()
     {
@@ -78,7 +69,6 @@ public class ABManifest
         int assetCount = AssetEntries != null ? AssetEntries.Count : 0;
         int bundleCount = BundleEntries != null ? BundleEntries.Count : 0;
 
-        // 1. EntryId -> 索引（唯一映射）
         _entryIdIndex = new Dictionary<string, int>(assetCount);
         for (int i = 0; i < assetCount; i++)
         {
@@ -87,7 +77,6 @@ public class ABManifest
                 _entryIdIndex[entry.EntryId] = i;
         }
 
-        // 2. Address -> 索引列表（允许重复）
         _addressIndex = new Dictionary<string, List<int>>(assetCount);
         for (int i = 0; i < assetCount; i++)
         {
@@ -102,7 +91,6 @@ public class ABManifest
             list.Add(i);
         }
 
-        // 3. BundleName -> 索引
         _bundleNameIndex = new Dictionary<string, int>(bundleCount);
         for (int i = 0; i < bundleCount; i++)
         {
@@ -114,7 +102,6 @@ public class ABManifest
             _bundleNameIndex[bundle.BundleName] = i;
         }
 
-        // 6. 填充 IncludeAssets 反向映射
         for (int i = 0; i < bundleCount; i++)
         {
             BundleEntries[i].IncludeAssets = new List<ManifestAssetEntry>();
@@ -128,8 +115,7 @@ public class ABManifest
                 BundleEntries[bundleIdx].IncludeAssets.Add(AssetEntries[i]);
         }
 
-        // 7. 构建反向依赖索引：遍历每个 Bundle 的 DependBundleIndices，
-        //    将当前 Bundle 索引添加到被依赖 Bundle 的 ReferencedByBundleIndices 中
+        // 反向依赖索引：将当前 Bundle 索引加入被依赖 Bundle 的 ReferencedByBundleIndices
         for (int i = 0; i < bundleCount; i++)
         {
             var deps = BundleEntries[i].DependBundleIndices;
@@ -144,10 +130,6 @@ public class ABManifest
 
         _initialized = true;
     }
-
-    #endregion
-
-    #region 资源查询
 
     /// <summary>
     /// 按 Address 查找资源条目（Address 允许重复，返回所有匹配项）。
@@ -189,10 +171,6 @@ public class ABManifest
     /// 获取所有 Bundle 条目数量。
     /// </summary>
     public int BundleCount => BundleEntries != null ? BundleEntries.Count : 0;
-
-    #endregion
-
-    #region Bundle 查询
 
     /// <summary>
     /// 获取资源条目所属的 Bundle 条目。
@@ -240,15 +218,14 @@ public class ABManifest
         return true;
     }
 
-    #endregion
-
-    #region 序列化
-
     /// <summary>
     /// 从 JSON 反序列化并自动初始化运行时索引。
     /// </summary>
     public static ABManifest DeserializeFromJson(string json)
     {
+        if (!VersionNumber.JsonHasObjectField(json, nameof(PackageVersion)))
+            throw new System.IO.InvalidDataException("ABManifest JSON 缺少 PackageVersion 对象。");
+
         var manifest = SerializationUtility.DeserializeJson<ABManifest>(json);
         manifest.Initialize();
         return manifest;
@@ -268,10 +245,12 @@ public class ABManifest
     /// </summary>
     public static ABManifest DeserializeFromFile(string path)
     {
-        var manifest = SerializationUtility.ReadFromFile<ABManifest>(path);
+        byte[] data = FileHelper.ReadAllBytes(path);
+        if (!BinaryHeader.HasValidMagic(data) && !VersionNumber.JsonHasObjectField(data, nameof(PackageVersion)))
+            throw new System.IO.InvalidDataException("ABManifest JSON 缺少 PackageVersion 对象。");
+
+        var manifest = SerializationUtility.Deserialize<ABManifest>(data);
         manifest.Initialize();
         return manifest;
     }
-
-    #endregion
 }

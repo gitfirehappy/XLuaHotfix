@@ -7,8 +7,6 @@ using System.Collections.Generic;
 /// </summary>
 public class CollectedAssetInfo
 {
-    #region 字段
-
     /// <summary>资产在项目中的相对路径（如 Assets/Textures/icon.png）</summary>
     public string AssetPath;
 
@@ -63,6 +61,4 @@ public class CollectedAssetInfo
     public bool HasError;
 
     public bool HasWarning;
-
-    #endregion
 }

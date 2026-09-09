@@ -18,7 +18,6 @@ public class VersionRecord : ScriptableObject
 
     public VersionNumber BuildNextVersion(bool isMajor = false, bool isMinor = false, string channel = "")
     {
-        // 日期处理
         string today = DateTime.Now.ToString("yyyy-MM-dd");
         int nextDailyBuildCount;
         if (!string.IsNullOrEmpty(LastBuildTime) && LastBuildTime.StartsWith(today))
@@ -30,13 +29,12 @@ public class VersionRecord : ScriptableObject
             nextDailyBuildCount = 1;
         }
 
-        // 版本号处理
         var next = new VersionNumber
         {
-            Major = CurrentVersion != null ? CurrentVersion.Major : 1,
-            Minor = CurrentVersion != null ? CurrentVersion.Minor : 0,
-            Patch = CurrentVersion != null ? CurrentVersion.Patch : 0,
-            Channel = CurrentVersion != null ? CurrentVersion.Channel : string.Empty
+            Major = CurrentVersion.Major,
+            Minor = CurrentVersion.Minor,
+            Patch = CurrentVersion.Patch,
+            Channel = CurrentVersion.Channel
         };
         if (isMajor)
         {
@@ -67,9 +65,6 @@ public class VersionRecord : ScriptableObject
 
     public void ApplyVersion(VersionNumber version)
     {
-        if (version == null)
-            throw new ArgumentNullException(nameof(version));
-
         LastBuildTime = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
         DailyBuildCount = version.Build;
         CurrentVersion = version;

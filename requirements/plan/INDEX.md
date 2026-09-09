@@ -5,7 +5,7 @@ current status table. Plan bodies contain their own specifications, decisions, t
 
 ## Current Queue
 
-- `plan-ab-delivery-ownership-20260906.md` - Executed / Verified；待开发者手动全量审查 + AA 对齐后续。
+- `plan-fyasset-resource-pipeline-realignment-20260909.md` - Approved / awaiting execution：四段资源管线、AA/AB 严格单后端、AB Collection/Manifest/Runtime、Runner、Diff、发布与热更状态机整体纠偏。
 
 ## Drafts
 
@@ -15,6 +15,10 @@ current status table. Plan bodies contain their own specifications, decisions, t
 - `draft-debug-panel-20260512.md` - debug panel draft.
 
 ## Archive
+
+- `archive/plan-fyasset-editor-tools-modeling-20260907.md` - Executed / verified / developer signed off 2026-09-09；后续资源管线纠偏由当前计划接续。
+- `archive/plan-ab-delivery-ownership-20260906.md` - Executed / Verified；历史验收边界已转入后续计划与审查记录。
+- `archive/plan-fyasset-ab-structure-comment-cleanup-20260906.md` - Executed / archived 2026-09-07；后续统一工作由 FYAsset editor-tools-modeling 计划接续。
 
 Executed, signed-off, superseded, cancelled, and deprecated plans remain in `archive/`. Do not duplicate their content
 here. Use the file name and the plan body when historical detail is needed.

@@ -2,7 +2,7 @@ using System;
 using System.Threading.Tasks;
 
 /// <summary>
-/// AA 热更入口。
+/// 用 AA 设置、catalog 激活和包初始化跑共享热更流程。
 /// </summary>
 public static class AAHotfixManager
 {

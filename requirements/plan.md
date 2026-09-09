@@ -1,10 +1,10 @@
 # Refactor Plan: XLuaHotfix Full Resource Management System Overhaul — Master Plan
 
-> **Status**: In progress. Two September implementation plans archived as executed on 2026-09-05; ACCEPT-01/02/03 remain open. The current-tree multi-dimensional audit is delivered with open findings; the 66-commit regrouping proposal awaits exact approval. No history rewrite has occurred.
+> **Status**: In progress. `plan-fyasset-resource-pipeline-realignment-20260909.md` is the approved authoritative execution plan. Historical phase tables below describe prior implementation and are not the target architecture.
 
-> **Ultimate Goal**: Keep Addressables AA and custom AB as independent concrete frameworks, with upper layers depending on one thin stable facade
+> **Ultimate Goal**: Keep AA and custom AB as independent concrete frameworks; a real project directly selects exactly one backend, while Shared contains no backend-specific fields or compatibility routing.
 > **Created**: 2026-03-16
-> **Updated**: 2026-09-05 - executed-plan archival, explicit acceptance carryover, and audit/history-cleanup tracking. The phase tables below contain historical implementation descriptions; they are not the current architecture specification.
+> **Updated**: 2026-09-09 - resource pipeline realignment approved after grill and PRS design; detailed T0-T9 execution deferred to the next session.
 
 
 ---
@@ -17,7 +17,7 @@
 4. **No paradigm shifts** — XLua bridge system / SO configuration approach preserved; hotfix build pipeline replaced incrementally
 5. **Incremental replacement** — Addressable API migrated step by step, no big-bang switch
 6. **Explain first** — Code comments must explain rationale when refactoring complex logic
-7. **/// comments + #region** — All new files include XML doc comments and region separators, consistent with existing code
+7. **Comments** — Follow `context/conventions/csharp-comments.md`; XML comments and region separators are not mandatory for every file.
 
 ---
 
@@ -206,12 +206,14 @@ later superseded by the active strict `AA/AB/Shared` split. They are no longer a
 
 ### Active Shared Plans
 
-No active implementation plan remains in the executable queue. This does not close the roadmap, deferred work, acceptance, or review findings.
+- [plan-fyasset-resource-pipeline-realignment-20260909.md](plan/plan-fyasset-resource-pipeline-realignment-20260909.md): Approved / awaiting execution。四段资源管线、构建/发布/下载三类优化、AA/AB 严格单后端、AB Collection/Content/Manifest/Handle/Scene、Runner、自定义 Task、发布与热更状态机整体纠偏。
 
 ### September Executed Plans
 
 | File | Content | Status |
 |------|---------|--------|
+| [plan-fyasset-editor-tools-modeling-20260907.md](plan/archive/plan-fyasset-editor-tools-modeling-20260907.md) | Editor、serialization、value models、comments、docs、HTML 与 AA/AB Local Chain 收口 | Executed / verified / developer signed off 2026-09-09 |
+| [plan-fyasset-ab-structure-comment-cleanup-20260906.md](plan/archive/plan-fyasset-ab-structure-comment-cleanup-20260906.md) | AB 主路线结构简化、配置归位与注释治理 | Executed / archived 2026-09-07；后续由 editor-tools-modeling 计划接续 |
 | [2026-09-04-pipeline-custom-tasks.md](plan/archive/2026-09-04-pipeline-custom-tasks.md) | Existing ordered task list reused; LuaScriptsIndex moved to Compat glue task | Executed / archived 2026-09-05; ACCEPT-01 pending |
 | [2026-09-04-backend-selection-decoupling.md](plan/archive/2026-09-04-backend-selection-decoupling.md) | Backend selection moved from FYAssetSettings into Compat host settings | Executed / archived 2026-09-05; ACCEPT-02 pending |
 

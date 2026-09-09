@@ -28,7 +28,7 @@ public static class BuildProjectRunner
         VersionNumber nextVersion = versionData.BuildNextVersion(true);
 
         bool success = RunBuild(nextVersion, BuildType.Standalone, backendKey, backendFactory, options, attemptDelivery);
-        // attempt 交付在 Runner 事务内部提交版本；非 attempt 路径保持原版外部提交。
+        // attempt 布局的版本由 Runner 交付事务提交；非 attempt 路径在这里提交。
         if (success && !attemptDelivery)
             success = ApplyBuiltVersion(nextVersion);
 
@@ -130,7 +130,7 @@ public static class BuildProjectRunner
                 return true;
             }
 
-            // 非 attempt（AA 现存行为，待 AA 对齐轮收统）
+            // 非 attempt 布局：构建成功后直接发布到最终目录（AA 路径）。
             if (buildType == BuildType.Standalone)
             {
                 PublishBuildArtifacts(request, backend);
@@ -188,8 +188,8 @@ public static class BuildProjectRunner
     {
         string channelKey = BuildBaselineStore.GetChannelKey(request.Version, request.BackendKey);
         var artifacts = buildResult?.Artifacts != null
-            ? new System.Collections.Generic.List<ArtifactDigest>(buildResult.Artifacts)
-            : new System.Collections.Generic.List<ArtifactDigest>();
+            ? new System.Collections.Generic.List<BuildDiffEntry>(buildResult.Artifacts)
+            : new System.Collections.Generic.List<BuildDiffEntry>();
         BuildBaselineStore.Save(channelKey, new BuildBaseline
         {
             Version = request.Version,
@@ -444,8 +444,8 @@ public static class BuildProjectRunner
             var marker = new FailedBuildMarker
             {
                 PackageName = request.PackageName,
-                Version = request.Version != null ? request.Version.GetReleaseVersionString() : string.Empty,
-                Build = request.Version != null ? request.Version.Build : 0,
+                Version = request.Version.GetReleaseVersionString(),
+                Build = request.Version.Build,
                 BuildType = request.BuildType.ToString(),
                 BackendMode = request.BackendKey,
                 FailedAtUtc = DateTime.UtcNow.ToString("o"),

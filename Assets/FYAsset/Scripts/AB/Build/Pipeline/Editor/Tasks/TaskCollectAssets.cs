@@ -30,14 +30,11 @@ public class TaskCollectAssets : IBuildTask
             return result;
         }
 
-        // 执行全量扫描
         ScanResult scanResult = CollectionScanner.Scan(setting, CollectionScanOptions.FromSetting(setting));
         bool hasError = false;
 
-        // 扫描消息分类归档
         hasError = AppendMessages(scanResult.Messages, warnings);
 
-        // Error 级别 -> 阻断管线，携带 Warning 列表
         if (hasError)
         {
             BuildTaskResult result = BuildTaskResult.Fail(
@@ -47,7 +44,6 @@ public class TaskCollectAssets : IBuildTask
             return result;
         }
 
-        // 写入 BuildContext 供下游 Task 消费
         ctx.Set(ABBuildContextKeys.CollectedAssets, scanResult.Assets);
         ctx.Set(ABBuildContextKeys.SharePolicies, CollectSharePolicies(setting));
 

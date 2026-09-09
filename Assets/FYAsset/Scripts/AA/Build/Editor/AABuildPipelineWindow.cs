@@ -22,43 +22,38 @@ public sealed class AABuildPipelineWindow : BuildPipelineWindowBase
         {
             new SettingsPanel(),
             new AAConfigPanel(),
-            new AAProjectSelectionLabelPanel(),
             new AABuildPanel(),
             new AAReportPanel(),
-            new RepositoryStatusPanel("AA", "AA Repository", new AAHotfixGroupMaintenancePanel(), new AARepositorySettingsSink(), new AARepositoryPreviewProvider(), new AARepositoryArtifactPresenter(), new AARespositoryDataCleaner())
+            new PublishTargetPanel(BackendModeNames.AA, ApplyHotfixUrl),
+            new AAHotfixGroupMaintenancePanel()
         };
     }
-}
 
-/// <summary>AA 侧启动数据清理：供共享 Repository 面板注入。</summary>
-public sealed class AARespositoryDataCleaner : IRepositoryDataCleaner
-{
-    public void ClearStartupData()
+    private static void ApplyHotfixUrl(string url)
     {
-        FileHelper.TryDelete(FYAssetPathUtility.JoinFilePath(UnityEngine.Application.streamingAssetsPath, FYAssetSettings.ADDRESSABLES_CATALOG_FILE_NAME));
-        FileHelper.TryDelete(FYAssetPathUtility.JoinFilePath(UnityEngine.Application.streamingAssetsPath, FYAssetSettings.AA_MANIFEST_FILE_NAME));
-        FileHelper.TryDelete(FYAssetPathUtility.JoinFilePath(UnityEngine.Application.streamingAssetsPath, FYAssetSettings.AA_MANIFEST_FILE_NAME_BIN));
-    }
-}
-
-/// <summary>AA 侧 settings 落盘实现：供共享 Repository 面板注入。</summary>
-public sealed class AARepositorySettingsSink : IRepositorySettingsSink
-{
-    public void ApplyHotfixUrl(string url)
-    {
-        FYAssetAASettings settings = FYAssetAASettings.Instance;
-        Undo.RecordObject(settings, "Apply Hotfix URL");
-        settings.HotfixUrl = url;
-        EditorUtility.SetDirty(settings);
+        Undo.RecordObject(FYAssetAASettings.Instance, "Apply Hotfix URL");
+        FYAssetAASettings.Instance.HotfixUrl = url;
+        EditorUtility.SetDirty(FYAssetAASettings.Instance);
         AssetDatabase.SaveAssets();
     }
 }
 
 /// <summary>
-    /// 由共享 Repository UI 承载的 AA 专用 Hotfix Group 恢复控件。
+/// 恢复被移动的 AA Hotfix Group 记录；只调用 AABuildProjectManager 中的既有命令。
 /// </summary>
-public sealed class AAHotfixGroupMaintenancePanel : IRepositoryMaintenancePanel
+public sealed class AAHotfixGroupMaintenancePanel : IBuildPipelinePanel
 {
+    public string PanelName => "Hotfix Groups";
+
+    public void OnEnable(EditorWindow window)
+    {
+    }
+
+    public void OnDisable()
+    {
+        _root = null;
+    }
+
     private VisualElement _root;
     private Label _statusLabel;
     private Label _messageLabel;
@@ -69,14 +64,6 @@ public sealed class AAHotfixGroupMaintenancePanel : IRepositoryMaintenancePanel
     {
         _root = BuildPipelineUI.Card();
         _root.style.flexShrink = 0f;
-
-        var header = new VisualElement();
-        header.style.flexDirection = FlexDirection.Row;
-        header.style.alignItems = Align.Center;
-        var title = BuildPipelineUI.Header("Hotfix Groups");
-        title.style.flexGrow = 1f;
-        header.Add(title);
-        _root.Add(header);
 
         _statusLabel = BuildPipelineUI.SmallText(string.Empty);
         _statusLabel.style.marginBottom = 4f;

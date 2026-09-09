@@ -27,7 +27,7 @@ public class TaskOrganizeOutput : IBuildTask
         string outputDir = request.OutputDir;
         string bundleOutputDir = request.BundlesDir;
 
-        // ① 重建任务产物目录。attempt 布局下只允许写 attempt 根，禁止触碰 live 出口。
+        // attempt 布局下只允许写 attempt 根，禁止触碰 live 出口
         if (request.IsAttemptLayout)
         {
             var comparison = Path.DirectorySeparatorChar == '\\'
@@ -46,7 +46,7 @@ public class TaskOrganizeOutput : IBuildTask
         FileHelper.EnsureDirectory(outputDir);
         FileHelper.EnsureDirectory(bundleOutputDir);
 
-        // ② Full 拷贝全量 Bundle；Hotfix 只拷贝 Full-baseline delivery 列表。
+        // Full 拷贝全量 Bundle；Hotfix 只拷贝 Full-baseline 交付列表
         var bundlesToCopy = buildType == BuildType.Hotfix
             ? ctx.Require<List<ManifestBundleEntry>>(ABBuildContextKeys.ABDeliveryBundles)
             : manifest.BundleEntries;
@@ -63,7 +63,6 @@ public class TaskOrganizeOutput : IBuildTask
             copiedFiles.Add(bundle.BundleName);
         }
 
-        // ③ 生成构建摘要
         long totalSize = 0;
         foreach (var b in buildResults)
             totalSize += b.Size;
@@ -98,14 +97,13 @@ public class TaskOrganizeOutput : IBuildTask
         string summaryPath = FYAssetPathUtility.JoinFilePath(outputDir, "build_summary.txt");
         FileHelper.WriteAllTextAtomic(summaryPath, summary.ToString(), Encoding.UTF8);
 
-        // ④ 清理临时构建产物
         if (FileHelper.DirectoryExists(tempDir))
         {
             try { FileHelper.TryDeleteDirectory(tempDir, true); }
-            catch (IOException) { /* best-effort */ }
+            catch (IOException) { /* 尽力清理，失败忽略 */ }
         }
 
-        // ⑤ 写入 OutputPath。attempt 布局下该目录仍是 attempt 路径；最终出口由 Runner finalize 推导。
+        // attempt 布局下 OutputPath 仍是 attempt 路径，最终出口由 Runner finalize 推导
         ctx.Set(BuildContextKeys.OutputPath, outputDir);
 
         return BuildTaskResult.Ok(new List<string>

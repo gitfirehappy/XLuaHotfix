@@ -48,9 +48,6 @@ public class TaskBuildAAContent : IBuildTask
         }
     }
 
-    /// <summary>
-    /// 配置 AddressableAssetSettings 基本参数。
-    /// </summary>
     private static void ConfigureBasicSettings(AddressableAssetSettings settings, BuildPackageRequest request)
     {
         settings.BuildRemoteCatalog = true;
@@ -97,9 +94,6 @@ public class TaskBuildAAContent : IBuildTask
         Debug.Log($"[TaskBuildAAContent] Addressables BuildPath 已注入并保存: Catalog={catalogBuildPath}, Remote={remoteBuildPath}");
     }
 
-    /// <summary>
-    /// 将 BundledAssetGroupSchema 路径修正为 Remote。
-    /// </summary>
     private static void SetSchemaPathToRemote(AddressableAssetSettings settings, BundledAssetGroupSchema schema)
     {
         bool changed = false;

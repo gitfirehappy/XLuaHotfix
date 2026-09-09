@@ -8,8 +8,8 @@ using UnityEngine;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
 /// <summary>
-/// ABManifest 新管线构建后端。
-/// 只负责把 BuildPackageRequest 交给 AB Pipeline；最终包目录与 Manifest 由 Task 列表写入，发布指针由编排层在 Repository commit 后写入。
+/// 执行 AB Task 管线并产出构建报告。
+/// 同时提供 AB baseline 文件的暂存与安装操作；最终交付由 BuildProjectRunner 编排。
 /// </summary>
 public class ABBuildBackend : IBuildBackend, IBaselinePackageHandler
 {
@@ -49,7 +49,7 @@ public class ABBuildBackend : IBuildBackend, IBaselinePackageHandler
                 return Task.FromResult(BuildBackendResult.Fail(error, result, request, reportPath));
             }
 
-            var artifacts = context.Get<List<ArtifactDigest>>(BuildContextKeys.RepositoryArtifacts);
+            var artifacts = context.Get<List<BuildDiffEntry>>(BuildContextKeys.RepositoryArtifacts);
             Debug.Log($"[{nameof(ABBuildBackend)}] AB Pipeline 完成。Completed={result.CompletedTasks}/{result.TotalTasks}, RepositoryArtifacts={(artifacts != null ? artifacts.Count : 0)}");
             string successReportPath = TryWriteReport(request, result, context, stopwatch, null);
             return Task.FromResult(BuildBackendResult.Ok(
@@ -66,7 +66,7 @@ public class ABBuildBackend : IBuildBackend, IBaselinePackageHandler
     }
 
     /// <summary>
-    /// 遍历 BuildResult 中所有失败 Task 并输出 Error 日志。
+    /// 把失败 Task 结果写成 Warning。
     /// </summary>
     private static void LogBuildResultErrors(BuildResult result)
     {
@@ -111,13 +111,22 @@ public class ABBuildBackend : IBuildBackend, IBaselinePackageHandler
         }
     }
 
-    // --- IBaselinePackageHandler ---
-
-    public IReadOnlyList<string> RequiredManifestFileNames { get; } = new[]
+    public IReadOnlyList<string> RequiredManifestFileNames
     {
-        FYAssetSettings.MANIFEST_FILE_NAME,
-        FYAssetSettings.MANIFEST_FILE_NAME_BIN
-    };
+        get
+        {
+            return FYAssetABSettings.Instance.ManifestOutputFormat switch
+            {
+                ManifestOutputFormat.JsonOnly => new[] { FYAssetSettings.MANIFEST_FILE_NAME },
+                ManifestOutputFormat.BinaryOnly => new[] { FYAssetSettings.MANIFEST_FILE_NAME_BIN },
+                _ => new[]
+                {
+                    FYAssetSettings.MANIFEST_FILE_NAME,
+                    FYAssetSettings.MANIFEST_FILE_NAME_BIN
+                }
+            };
+        }
+    }
 
     public void StageBaselineFiles(BuildPackageRequest request, string stageRoot)
     {

@@ -4,13 +4,7 @@
 /// </summary>
 public static class BundleNameBuilder
 {
-    #region 常量
-
     private const int ShortGuidLength = 8;
-
-    #endregion
-
-    #region 公共方法
 
     /// <summary>
     /// 校验 PackageName / GroupName / Label 字符；合法时返回 null。
@@ -108,10 +102,6 @@ public static class BundleNameBuilder
                 return SystemIdentifiers.DefaultBundleKey;
         }
     }
-
-    #endregion
-
-    #region 私有方法
 
     private static string ValidateAgainst(string value, char[] blacklist)
     {
@@ -248,6 +238,4 @@ public static class BundleNameBuilder
             ? guid.ToLowerInvariant()
             : guid.Substring(0, ShortGuidLength).ToLowerInvariant();
     }
-
-    #endregion
 }

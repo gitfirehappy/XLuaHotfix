@@ -311,7 +311,7 @@ internal static class ABBundleSingleFlightTests
     private static void AssertSyncJoinDoesNotBlockOnTask()
     {
         string source = ScenarioSource.Read(
-            "Assets/FYAsset/Scripts/AB/Runtime/Backends/ABBundleLoader.cs");
+            "Assets/FYAsset/Scripts/AB/Runtime/ABBundleLoader.cs");
         ScenarioAssert.Contains(source, "AssetBundle.LoadFromFileAsync",
             "the async local Bundle path must preserve LoadFromFileAsync");
         ScenarioAssert.NotContains(source, ".Wait(",
