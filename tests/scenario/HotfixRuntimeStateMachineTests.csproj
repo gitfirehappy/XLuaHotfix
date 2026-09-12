@@ -8,10 +8,13 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="test_hotfix_runtime_state_machine.cs" />
+    <Compile Include="test_hotfix_failure_matrix.cs" />
     <Compile Include="test_hotfix_review_hardening.cs" />
     <Compile Include="../../Assets/FYAsset/Scripts/Shared/Hotfix/HotfixStateDecider.cs" Link="HotfixStateDecider.cs" />
+    <Compile Include="../../Assets/FYAsset/Scripts/Shared/Hotfix/HotfixContentState.cs" Link="HotfixContentState.cs" />
     <Compile Include="../../Assets/FYAsset/Scripts/Shared/Hotfix/HotfixPackageValidator.cs" Link="HotfixPackageValidator.cs" />
     <Compile Include="../../Assets/FYAsset/Scripts/Shared/Hotfix/BundleDownloadItem.cs" Link="BundleDownloadItem.cs" />
+    <Compile Include="../../Assets/FYAsset/Scripts/Shared/Runtime/RuntimeMode.cs" Link="RuntimeMode.cs" />
     <Compile Include="../../Assets/FYAsset/Scripts/Shared/Build/Versioning/VersionNumber.cs" Link="VersionNumber.cs" />
     <Compile Include="../../Assets/Tools/Scripts/HashGenerator.cs" Link="HashGenerator.cs" />
   </ItemGroup>

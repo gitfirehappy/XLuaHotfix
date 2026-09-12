@@ -20,8 +20,6 @@ public static class BuildPathManager
     /// </summary>
     public static string AttemptPackagesRoot => FYAssetPathUtility.JoinFilePath(OutputRoot, "_attempt");
 
-    public static string PackageIndexPath => FYAssetPathUtility.JoinFilePath(OutputRoot, FYAssetSettings.PACKAGE_INDEX_FILE_NAME);
-
     public static string StandalonePackageDir => FYAssetPathUtility.JoinFilePath(
         Application.streamingAssetsPath,
         FYAssetSettings.STANDALONE_DIRECTORY_NAME);

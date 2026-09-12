@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-
 /// <summary>
 /// 解析状态、选中条目和可选诊断。
 /// </summary>
@@ -14,10 +12,7 @@ public class ResolveResult
         /// <summary>No matching entry.</summary>
         NotFound,
 
-        /// <summary>Multiple candidates remain.</summary>
-        Conflict,
-
-        /// <summary>类型或 Payload 与请求的 API 不匹配。</summary>
+        /// <summary>类型或内容类型与请求的 API 不匹配。</summary>
         TypeMismatch,
     }
 
@@ -37,13 +32,7 @@ public class ResolveResult
     public static ResolveResult NotFound(string query)
         => new() { Status = ResolveStatus.NotFound, Error = RuntimeMessage.NotFound(query) };
 
-    public static ResolveResult Conflict(string query, IReadOnlyList<RuntimeAssetEntry> candidates)
-        => new() { Status = ResolveStatus.Conflict, Error = RuntimeMessage.Ambiguous(query, candidates.Count) };
-
-    public static ResolveResult TypeMismatch(string query, string expectedType, string actualType)
-        => new() { Status = ResolveStatus.TypeMismatch, Error = RuntimeMessage.TypeMismatch(query, expectedType, actualType) };
-
-    public static ResolveResult InvalidPayloadKind(string query, EPayloadKind expected, EPayloadKind actual)
+    public static ResolveResult InvalidPayloadKind(string query, AssetContentType expected, AssetContentType actual)
         => new()
         {
             Status = ResolveStatus.TypeMismatch,

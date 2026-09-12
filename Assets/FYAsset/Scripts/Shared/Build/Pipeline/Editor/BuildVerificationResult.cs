@@ -1,8 +1,8 @@
 using System.Collections.Generic;
 
 /// <summary>
-/// TaskVerifyBuildResult 的 6 项输出完整性校验结果。
-/// TaskOrganizeOutput 消费此结果生成构建摘要。
+/// 后端校验阶段（VerifyAAContent / VerifyABContent）的输出完整性校验结果。
+/// 导出阶段消费此结果生成构建摘要。
 /// </summary>
 public class BuildVerificationResult
 {

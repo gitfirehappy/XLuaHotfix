@@ -7,6 +7,8 @@ internal static class ConcretePackageOwnershipTests
     {
         string aa = RepoSource.Read("Assets/FYAsset/Scripts/AA/Runtime/AAPackageManager.cs");
         string ab = RepoSource.Read("Assets/FYAsset/Scripts/AB/Runtime/ABPackageManager.cs");
+        string index = RepoSource.Read("Assets/FYAsset/Scripts/AB/Runtime/ABAssetIndex.cs");
+        string bundleLoader = RepoSource.Read("Assets/FYAsset/Scripts/AB/Runtime/ABBundleLoader.cs");
         string runtimeMessage = RepoSource.Read("Assets/FYAsset/Scripts/Shared/Runtime/RuntimeMessage.cs");
 
         RepoAssert.NotContains(aa, ": PackageManagerBase", "AA manager must not inherit shared implementation");
@@ -15,12 +17,54 @@ internal static class ConcretePackageOwnershipTests
 
         RepoAssert.NotContains(ab, ": PackageManagerBase", "AB manager must not inherit shared implementation");
         RepoAssert.Contains(ab, "LoadRawBytesAsync", "AB manager retains RawFile API");
-        RepoAssert.Contains(ab, "LoadByTypeKey", "AB manager retains TypeKey API");
+        RepoAssert.Contains(ab, "Task<AssetHandle<T>> LoadByAddress<T>",
+            "AB manager loads assets through handle-returning address entry points");
         RepoAssert.Contains(ab, "HandleRegistry.Alloc", "AB manager retains handle lifetime ownership");
-        RepoAssert.Contains(ab, "void UnloadAsset<T>", "AB common unload remains typed");
-        RepoAssert.Contains(ab, "AssetResolver.ResolveByAddress<T>",
-            "AB typed unload reuses the same resolver as load");
-        RepoAssert.Contains(ab, "UnloadByEntryId", "AB typed unload releases only the resolved entry");
+        RepoAssert.Contains(ab, "HandleKind.Asset", "AB manager allocates asset-kind handle tokens");
+        RepoAssert.Contains(ab, "RuntimeMessage Shutdown()",
+            "AB manager exposes a guarded shutdown for runtime hotfix apply");
+        RepoAssert.Contains(ab, "Task<SceneHandle> LoadSceneAsync(",
+            "AB manager owns scene loading through SceneHandle");
+        RepoAssert.Contains(ab, "AssetResolver.ResolveByAddress(",
+            "AB manager resolves addresses through the shared resolver");
+        RepoAssert.Contains(ab, "_backend.UnloadByEntryId",
+            "handle release delegates content unload to the backend by EntryId");
+        RepoAssert.Contains(ab, "new ABPackageBackend(manifest, bundleLoader)",
+            "each initialization must build a fresh backend so no stale asset cache survives Shutdown");
+        RepoAssert.Contains(ab, "_isInitialized = false",
+            "Shutdown must clear the initialization latch so a later Initialize really reloads");
+
+        RepoAssert.NotContains(ab, "LoadByTypeKey", "TypeKey disambiguation must be removed");
+        RepoAssert.NotContains(ab, "LoadAssetAsync<T>", "handle-less asset load entry point must be removed");
+        RepoAssert.NotContains(ab, "LoadAssetSync<T>", "handle-less sync asset load entry point must be removed");
+        RepoAssert.NotContains(ab, "void UnloadAsset<T>", "address-forced unload entry point must be removed");
+        RepoAssert.Contains(ab, "Task<byte[]> LoadRawBytesAsync(string address)",
+            "RawFile byte loading must take only the address");
+        RepoAssert.Contains(ab, "Task<string> LoadRawTextAsync(string address, Encoding encoding = null)",
+            "RawFile text loading must take only the address and encoding");
+        RepoAssert.NotContains(ab, "LoadRawBytesSync",
+            "RawFile loading must not keep a label-carrying sync entry point");
+        RepoAssert.NotContains(ab, "LoadRawTextSync",
+            "RawFile text loading must not keep a label-carrying sync entry point");
+        RepoAssert.NotContains(ab, "_typeToKeys", "duplicate type query cache must move into ABAssetIndex");
+        RepoAssert.NotContains(ab, "_labelToKeys", "duplicate label query cache must move into ABAssetIndex");
+        RepoAssert.NotContains(ab, "_addressSet", "duplicate address set must move into ABAssetIndex");
+        RepoAssert.NotContains(ab, "BuildQueryCaches", "AB manager must not rebuild index query caches");
+
+        RepoAssert.Contains(index, "entry.IsPublic",
+            "only public entries may enter the address/type/label indexes");
+        RepoAssert.Contains(index, "StringComparer.OrdinalIgnoreCase",
+            "public address lookup must be case insensitive");
+        RepoAssert.Contains(index, "RuntimeMessage.DuplicateAddress",
+            "duplicate public addresses must fail index construction with a structured error");
+        RepoAssert.NotContains(index, "GetEntriesByAddressAndType",
+            "address+type disambiguation index must be removed");
+        RepoAssert.Contains(index, "GetEntryById", "EntryId lookup must remain available for load and dependencies");
+
+        RepoAssert.Contains(bundleLoader, "RuntimePathManager.ActivePackageRoot",
+            "Bundle loading must read the single active package root");
+        RepoAssert.NotContains(bundleLoader, "CurrentGUIDRoot",
+            "Bundle loading must not derive its own package root");
 
         RepoAssert.False(RepoSource.Exists("Assets/FYAsset/Scripts/Shared/Runtime/PackageManagerBase.cs"),
             "shared package manager base must be deleted");

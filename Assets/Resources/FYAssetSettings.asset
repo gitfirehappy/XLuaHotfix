@@ -15,8 +15,6 @@ MonoBehaviour:
   ProjectName: fyasset
   BuildOutputRoot: HotfixOutput
   BuildPackagesFolderName: Packages
-  StandaloneBuild: 1
-  VersionRecordPath: Assets/Build/VersionRecord.asset
   BuildIndexJsonPath: Assets/Build/Bootstrap/BuildIndex.json
   PushTargets:
   - Id: local

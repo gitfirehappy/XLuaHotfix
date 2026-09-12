@@ -3,167 +3,98 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// 将 AB 查询参数解析为唯一 RuntimeAssetEntry（Address / Type / Label）。
+/// 将 AB 公共 Address 解析为唯一条目，并按内容类型校验请求形态。
 /// </summary>
+/// <remarks>
+/// 公共 Address 在单包内唯一且大小写不敏感，因此这里不做 Type 消歧，也没有 Object 回退分支；
+/// 请求类型与条目 PrimaryType 的匹配在加载阶段由 Bundle 提取结果体现。
+/// </remarks>
 public static class AssetResolver
 {
-    public static ResolveResult ResolveByAddress<T>(ABAssetIndex index, string address)
-        where T : UnityEngine.Object
+
+    /// <summary>
+    /// 解析公共 Address 指向的唯一 SerializedObject 条目。
+    /// </summary>
+    public static ResolveResult ResolveByAddress(ABAssetIndex index, string address)
     {
-        IReadOnlyList<RuntimeAssetEntry> entries = index.GetEntriesByAddress(address);
-        if (entries == null || entries.Count == 0)
-            return ResolveResult.NotFound(string.Concat("Address='", address, "'"));
+        ResolveResult result = ResolveEntry(index, address, "Address");
+        if (!result.IsSuccess) return result;
 
-        string requestedType = typeof(T).Name;
-        var exactMatches = new List<RuntimeAssetEntry>();
-        for (int i = 0; i < entries.Count; i++)
-        {
-            if (string.Equals(entries[i].PrimaryType, requestedType, StringComparison.OrdinalIgnoreCase))
-                exactMatches.Add(entries[i]);
-        }
+        RuntimeAssetEntry entry = result.Entry;
+        if (entry.ContentType == AssetContentType.SerializedObject)
+            return result;
 
-        if (exactMatches.Count == 1)
-            return ResolveResult.Hit(exactMatches[0]);
-        if (exactMatches.Count > 1)
-            return ResolveResult.Conflict(
-                string.Concat("Address='", address, "', Type='", requestedType, "'"), exactMatches);
-
-        if (entries.Count > 1)
-            return ResolveResult.Conflict(
-                string.Concat("Address='", address, "', Type='", requestedType, "'"), entries);
-
-        if (typeof(T) == typeof(UnityEngine.Object) || typeof(T) == typeof(ScriptableObject))
-            return ResolveResult.Hit(entries[0]);
-
-        return ResolveResult.TypeMismatch(
-            string.Concat("Address='", address, "'"), requestedType, entries[0].PrimaryType);
+        return ResolveResult.InvalidPayloadKind(
+            string.Concat("Address='", address, "'"),
+            AssetContentType.SerializedObject,
+            entry.ContentType);
     }
 
-    public static ResolveResult ResolveByTypeKey<T>(
-        ABAssetIndex index,
-        string key,
-        IReadOnlyList<string> labels = null) where T : UnityEngine.Object
+    /// <summary>
+    /// 解析公共 Address 指向的唯一 RawFile 条目；内容类型不是 RawFile 时返回结构化错误。
+    /// </summary>
+    public static ResolveResult ResolveRawByAddress(ABAssetIndex index, string address)
     {
-        string requestedType = typeof(T).Name;
-        IReadOnlyList<RuntimeAssetEntry> entries = index.GetEntriesByAddressAndType(key, requestedType);
+        ResolveResult result = ResolveEntry(index, address, "RawFile Address");
+        if (!result.IsSuccess) return result;
 
-        if (entries == null || entries.Count == 0)
-            return ResolveResult.NotFound(
-                string.Concat("TypeKey: Type='", requestedType, "', Key='", key, "'"));
+        RuntimeAssetEntry entry = result.Entry;
+        if (entry.ContentType == AssetContentType.RawFile)
+            return result;
 
-        if (entries.Count == 1)
-            return ResolveResult.Hit(entries[0]);
-
-        if (labels == null || labels.Count == 0)
-            return ResolveResult.Conflict(
-                string.Concat("TypeKey: Type='", requestedType, "', Key='", key, "' (未提供 Labels)"),
-                entries);
-
-        var filtered = new List<RuntimeAssetEntry>();
-        for (int i = 0; i < entries.Count; i++)
-        {
-            if (entries[i].HasAllLabels(labels))
-                filtered.Add(entries[i]);
-        }
-
-        if (filtered.Count == 0)
-            return ResolveResult.NotFound(
-                string.Concat("TypeKey: Type='", requestedType, "', Key='", key,
-                    "', Labels=[", JoinStrings(labels), "]"));
-
-        if (filtered.Count == 1)
-            return ResolveResult.Hit(filtered[0]);
-
-        return ResolveResult.Conflict(
-            string.Concat("TypeKey: Type='", requestedType, "', Key='", key,
-                "', Labels=[", JoinStrings(labels), "]"),
-            filtered);
+        return ResolveResult.InvalidPayloadKind(
+            string.Concat("RawFile Address='", address, "'"),
+            AssetContentType.RawFile,
+            entry.ContentType);
     }
 
-    public static ResolveResult ResolveRawByAddress(
-        ABAssetIndex index,
-        string address,
-        IReadOnlyList<string> labels = null)
+    /// <summary>
+    /// 解析公共 Address 指向的唯一 Scene 条目；内容类型不是 Scene 时返回结构化错误。
+    /// </summary>
+    public static ResolveResult ResolveSceneByAddress(ABAssetIndex index, string address)
     {
-        IReadOnlyList<RuntimeAssetEntry> entries = index.GetEntriesByAddress(address);
-        if (entries == null || entries.Count == 0)
-            return ResolveResult.NotFound(string.Concat("RawFile Address='", address, "'"));
+        ResolveResult result = ResolveEntry(index, address, "Scene Address");
+        if (!result.IsSuccess) return result;
 
-        var labelMatched = new List<RuntimeAssetEntry>();
-        for (int i = 0; i < entries.Count; i++)
-        {
-            if (entries[i].HasAllLabels(labels))
-                labelMatched.Add(entries[i]);
-        }
+        RuntimeAssetEntry entry = result.Entry;
+        if (entry.ContentType == AssetContentType.Scene)
+            return result;
 
-        if (labelMatched.Count == 0)
-            return ResolveResult.NotFound(
-                string.Concat("RawFile Address='", address, "', Labels=[", JoinStrings(labels), "]"));
-
-        var rawMatched = new List<RuntimeAssetEntry>();
-        for (int i = 0; i < labelMatched.Count; i++)
-        {
-            if (labelMatched[i].PayloadKind == EPayloadKind.RawFile)
-                rawMatched.Add(labelMatched[i]);
-        }
-
-        if (rawMatched.Count == 0)
-            return ResolveResult.InvalidPayloadKind(
-                string.Concat("RawFile Address='", address, "'"),
-                EPayloadKind.RawFile,
-                labelMatched[0].PayloadKind);
-
-        if (rawMatched.Count == 1)
-            return ResolveResult.Hit(rawMatched[0]);
-
-        return ResolveResult.Conflict(
-            string.Concat("RawFile Address='", address, "', Labels=[", JoinStrings(labels), "]"),
-            rawMatched);
+        return ResolveResult.InvalidPayloadKind(
+            string.Concat("Scene Address='", address, "'"),
+            AssetContentType.Scene,
+            entry.ContentType);
     }
 
-    public static List<ResolveResult> ResolveMany<T>(
-        ABAssetIndex index,
-        IReadOnlyList<string> addresses) where T : UnityEngine.Object
+    /// <summary>
+    /// 批量解析公共 Address，逐项返回成功或失败，不做整体失败。
+    /// </summary>
+    public static List<ResolveResult> ResolveMany(ABAssetIndex index, IReadOnlyList<string> addresses)
     {
+        if (addresses == null) return new List<ResolveResult>(0);
+
         var results = new List<ResolveResult>(addresses.Count);
         for (int i = 0; i < addresses.Count; i++)
-            results.Add(ResolveByAddress<T>(index, addresses[i]));
+            results.Add(ResolveByAddress(index, addresses[i]));
         return results;
     }
 
-    public static List<RuntimeAssetEntry> ResolveByLabels<T>(
-        ABAssetIndex index,
-        IReadOnlyList<string> labels) where T : UnityEngine.Object
+    /// <summary>
+    /// 解析公共 Address。索引不可用、Address 为空或未命中都返回结构化失败。
+    /// </summary>
+    private static ResolveResult ResolveEntry(ABAssetIndex index, string address, string queryLabel)
     {
-        string requestedType = typeof(T).Name;
-        IReadOnlyList<RuntimeAssetEntry> allEntries = index.GetAllEntries();
-        var matched = new List<RuntimeAssetEntry>();
-        for (int i = 0; i < allEntries.Count; i++)
-        {
-            var entry = allEntries[i];
-            if (!string.Equals(entry.PrimaryType, requestedType, StringComparison.OrdinalIgnoreCase))
-                continue;
-            if (!entry.HasAllLabels(labels))
-                continue;
-            matched.Add(entry);
-        }
+        if (index == null)
+            return ResolveResult.NotFound(string.Concat(queryLabel, "='", address ?? "", "' (索引缺失)"));
 
-        return matched;
-    }
+        if (index.BuildError != null)
+            return ResolveResult.NotFound(string.Concat(
+                queryLabel, "='", address ?? "", "' (索引不可用: ", index.BuildError.Message, ")"));
 
-    private static string JoinStrings(IReadOnlyList<string> items)
-    {
-        if (items == null || items.Count == 0) return "";
-        if (items.Count == 1) return items[0] ?? "";
+        RuntimeAssetEntry entry = index.GetEntryByAddress(address);
+        if (entry == null)
+            return ResolveResult.NotFound(string.Concat(queryLabel, "='", address ?? "", "'"));
 
-        var sb = new System.Text.StringBuilder();
-        sb.Append(items[0] ?? "");
-        for (int i = 1; i < items.Count; i++)
-        {
-            sb.Append(',');
-            sb.Append(items[i] ?? "");
-        }
-
-        return sb.ToString();
+        return ResolveResult.Hit(entry);
     }
 }

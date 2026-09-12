@@ -1,7 +1,13 @@
 # Build And Publish Pitfalls
 
-Verified build, artifact, repository, and publication mistakes. Each entry keeps its original IP number and standard
-fields.
+Verified build, artifact, and publication mistakes (older entries also record the removed build-repository mechanism). Each
+entry keeps its original IP number and standard fields.
+
+> Historical scope: entries below are records of what happened at the time they were written. Mechanisms they name as
+> the then-current design - build repository, `HEAD`/commit/repair, `PushHistory`, `baseline`/`LatestFull`,
+> `ArtifactDelta`/`ArtifactDiffer`, `TaskWritePackageIndex` inside the build graph - were removed by the FYAsset
+> pipeline realignment. Do not read them as current architecture; see `docs/FYAsset/publish-本地交付与发布.md` and
+> `docs/FYAsset/diff-无状态差异.md` for the current model.
 
 ## IP-37: Pointer File Reused Manifest Naming
 
@@ -114,3 +120,24 @@ fields.
 **Root cause:** Introduced full DAG abstraction when the actual requirement was simpler: tasks run in configured list order with optional dependency validation guardrails. The scheduler paid upfront cost for topological ordering, cycle detection, and batch parallelism that were never used. BuildGraph UI required GraphView, layout computation, and three edge types (Code/SO/Data) when a simple ordered task list sufficed.
 **Fix:** Replaced `DAGScheduler` with `BuildPipelineRunner` that executes tasks in `BuildPipelineConfig.Tasks` linear order; `IBuildTask.DependsOn` remains as validation-only guardrails (dependency must exist and appear before current task); removed all DAG validation (cycle detection, scheduler deadlock), graph visualization code (BuildGraphView, BuildGraphLayoutEngine, BuildTaskNode, EdgeStyle), and SO-level `TaskEntry.DependsOn` field. Review found four minor efficiency regressions (TryCreateTask waste, new string[0] allocations, LINQ Count, stopAfterTaskName Skipped reporting) that were fixed immediately.
 **Prevention:** Start with the simplest model that satisfies current requirements. Do not introduce graph abstractions, topological ordering, or complex visualization until actual parallelism, dynamic ordering, or graph-editing requirements are proven. When "future flexibility" is the only justification for complexity, defer it. Linear list + validation guardrails covers 90% of pipeline use cases; reserve DAG for proven concurrent or dynamic-order needs.
+
+## IP-65: Player Build Failed On Editor-Only Declared Config Type
+
+**Symptom:** `dotnet build` reported 0 errors and the Unity Editor compiled, but the player build failed with `CS0246: The type or namespace name 'PushTargetConfig' could not be found`.
+**Root cause:** A type serialized by a runtime ScriptableObject (`FYAssetSettings.PushTargets`) was declared inside an editor-only file. Generated project files and the Editor compile both define `UNITY_EDITOR`, so only the player compilation saw the missing type.
+**Fix:** Keep the serialized data type and its fields runtime-visible; guard only the members that depend on editor-only helpers. Added a static gate asserting that player-visible files never reference types declared only in editor-only files.
+**Prevention:** Any type reachable from a runtime ScriptableObject must be runtime-visible. After moving or guarding a type, verify with a player-side compile, not only with the Editor compile.
+
+## IP-66: Overlong Content File Name Exceeded Windows MAX_PATH
+
+**Symptom:** The player failed with `Could not find a part of the path ...\StreamingAssets\Standalone\bundles\<name>` although the content file had been delivered.
+**Root cause:** The physical content file name was the logical content name (group + payload + type + mode + address key), 92 characters. Under the deep end-to-end run directory the full path reached 262 characters, beyond the Windows `MAX_PATH` limit of 260, so runtime file probes failed.
+**Fix:** Derive the physical file name from a deterministic 16-hex hash of the logical content name, for both Unity-built contents and copied raw files. The logical name and the manifest file-name mapping stay unchanged. Raised the build-cache fingerprint format version so cached long-named artifacts are rejected.
+**Prevention:** Keep physical artifact names short and independent of the logical name; check the longest expected deployment path, not only the project-relative one. A naming change is part of the cache identity: bump the cache version in the same change.
+
+## IP-67: Directory Asset Copied As A Single Raw File
+
+**Symptom:** Content build failed with `RAWFILE_COPY_FAILED ... Access to the path 'Assets/Plugins/xlua.bundle' is denied`.
+**Root cause:** `Assets/Plugins/xlua.bundle` is a directory that Unity imports as a `DefaultAsset`. Once classification stopped forcing serialized payloads, it was classified as a raw file and the copy step treated the directory as a single file.
+**Fix:** Skip directory-typed paths during collection; raw-file handling only accepts real files.
+**Prevention:** Raw file handling must validate "is a file" before copying. Directory-shaped Unity assets are not packable content units.

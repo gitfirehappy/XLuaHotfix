@@ -1,135 +1,155 @@
 using System;
 using System.Collections.Generic;
-using UnityEngine;
+using UnityEditor;
 
 /// <summary>
 /// AssetCollectionSetting 保存时校验器。
 /// </summary>
+/// <remarks>
+/// 配置层级只有 Setting -> Group -> Collector，资产级人工覆盖按 GUID 独立存储；
+/// 校验只做配置自身的完整性检查，不读取构建产物。
+/// </remarks>
 public static class AssetCollectionSettingValidator
 {
+    /// <summary>
+    /// 校验整个 Setting，返回全部诊断消息。存在 Error 级别消息时调用方应阻断保存。
+    /// </summary>
     public static List<BuildMessage> Validate(AssetCollectionSetting setting)
     {
         var messages = new List<BuildMessage>();
 
-        if (setting == null || setting.Packages == null || setting.Packages.Count == 0)
+        if (setting == null)
         {
-            messages.Add(BuildMessage.NoPackages("Setting"));
+            messages.Add(BuildMessage.SettingNull("Setting"));
             return messages;
         }
 
-        HashSet<string> seenPkg = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        for (int pi = 0; pi < setting.Packages.Count; pi++)
+        if (setting.Groups == null || setting.Groups.Count == 0)
         {
-            var pkg = setting.Packages[pi];
-            if (pkg == null)
-                continue;
-
-            string pkgSrc = string.Concat("Package[", pi, "]");
-            if (string.IsNullOrEmpty(pkg.PackageName))
-                messages.Add(BuildMessage.EmptyPackageName(pkgSrc));
-            else
-            {
-                string segmentError = BundleNameBuilder.ValidateSegment(pkg.PackageName);
-                if (segmentError != null)
-                    messages.Add(BuildMessage.InvalidBundleNameSegment(segmentError, pkgSrc));
-                if (!seenPkg.Add(pkg.PackageName))
-                    messages.Add(BuildMessage.DuplicatePackageName(pkg.PackageName, pkgSrc));
-            }
-
-            ValidatePackage(pkg, pi, messages);
+            messages.Add(BuildMessage.NoGroups("Setting"));
+            return messages;
         }
 
-        ValidateAssetEntries(setting, messages);
-        CheckCrossPackageOverlaps(setting, messages);
+        ValidateGroups(setting, messages);
+        ValidateAssetOverrides(setting, messages);
+        ValidateStringList(setting.IgnorePatterns, "Setting.IgnorePatterns", messages);
+        ValidateRawFileRules(setting.RawFileRules, messages);
+        ValidateSharePolicy(setting.SharePolicy, messages);
+
         return messages;
     }
 
-    private static void ValidatePackage(AssetCollectionPackage pkg, int pkgIdx, List<BuildMessage> messages)
+    private static void ValidateGroups(AssetCollectionSetting setting, List<BuildMessage> messages)
     {
-        if (pkg.Groups == null || pkg.Groups.Count == 0)
-        {
-            string src = string.Concat("Package[", pkgIdx, "]");
-            messages.Add(BuildMessage.EmptyPackage(pkg.PackageName ?? "(unnamed)", src));
-            return;
-        }
+        HashSet<string> seenGroupNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        List<(string path, string src)> collectPaths = new List<(string, string)>();
 
-        HashSet<string> seenGrp = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        List<(string path, string src)> allCollectPaths = new List<(string, string)>();
-
-        for (int gi = 0; gi < pkg.Groups.Count; gi++)
+        for (int gi = 0; gi < setting.Groups.Count; gi++)
         {
-            var grp = pkg.Groups[gi];
-            if (grp == null)
+            AssetCollectionGroup group = setting.Groups[gi];
+            if (group == null)
                 continue;
 
-            string grpSrc = string.Concat("Package[", pkgIdx, "].Group[", gi, "]");
-            if (string.IsNullOrEmpty(grp.GroupName))
-                messages.Add(BuildMessage.EmptyGroupName(grpSrc));
+            string groupSrc = string.Concat("Group[", gi, "]");
+            if (string.IsNullOrEmpty(group.GroupName))
+            {
+                messages.Add(BuildMessage.EmptyGroupName(groupSrc));
+            }
             else
             {
-                string segmentError = BundleNameBuilder.ValidateSegment(grp.GroupName);
+                string segmentError = BundleNameBuilder.ValidateSegment(group.GroupName);
                 if (segmentError != null)
-                    messages.Add(BuildMessage.InvalidBundleNameSegment(segmentError, grpSrc));
-                if (!seenGrp.Add(grp.GroupName))
-                    messages.Add(BuildMessage.DuplicateGroupName(grp.GroupName, pkg.PackageName, grpSrc));
+                    messages.Add(BuildMessage.InvalidBundleNameSegment(segmentError, groupSrc));
+
+                if (!seenGroupNames.Add(group.GroupName))
+                    messages.Add(BuildMessage.DuplicateGroupName(group.GroupName, groupSrc));
             }
 
-            ValidateLabels(grp.Labels, grpSrc, messages);
-
-            if (grp.Collectors == null)
+            if (group.Collectors == null)
                 continue;
 
-            for (int ci = 0; ci < grp.Collectors.Count; ci++)
+            for (int ci = 0; ci < group.Collectors.Count; ci++)
             {
-                var col = grp.Collectors[ci];
-                if (col == null)
+                Collector collector = group.Collectors[ci];
+                if (collector == null)
                     continue;
 
-                string colSrc = string.Concat("Package[", pkgIdx, "].Group[", gi, "].Collector[", ci, "]");
-
-                if (col.CollectorType == ECollectorType.Implicit)
-                    messages.Add(BuildMessage.InvalidCollectorType(col.CollectorType.ToString(), colSrc));
-
-                if (string.IsNullOrEmpty(col.CollectPath))
+                string collectorSrc = string.Concat(groupSrc, ".Collector[", ci, "]");
+                if (string.IsNullOrEmpty(collector.CollectPath))
                 {
-                    messages.Add(BuildMessage.EmptyCollectPath(colSrc));
-                }
-                else
-                {
-                    string normalized = CollectorPathUtility.NormalizePath(col.CollectPath);
-                    allCollectPaths.Add((normalized, colSrc));
-                    if (!CollectPathExists(col))
-                        messages.Add(BuildMessage.PathNotFound(col.CollectPath, colSrc));
+                    messages.Add(BuildMessage.EmptyCollectPath(collectorSrc));
+                    continue;
                 }
 
-                ValidateRule(col.FilterRuleName, "FilterRule", colSrc, messages);
-                ValidateRule(col.GroupRuleName, "GroupRule", colSrc, messages);
+                string normalized = CollectorPathUtility.NormalizePath(collector.CollectPath);
+                collectPaths.Add((normalized, collectorSrc));
+
+                if (!CollectPathExists(collector))
+                    messages.Add(BuildMessage.PathNotFound(collector.CollectPath, collectorSrc));
             }
         }
 
-        CheckSameDepthConflicts(allCollectPaths, messages);
+        CheckSamePathConflicts(collectPaths, messages);
     }
 
-    private static void ValidateAssetEntries(AssetCollectionSetting setting, List<BuildMessage> messages)
+    private static void ValidateAssetOverrides(AssetCollectionSetting setting, List<BuildMessage> messages)
     {
-        if (setting.AssetEntries == null)
+        if (setting.AssetOverrides == null)
             return;
 
-        HashSet<string> seen = new HashSet<string>(StringComparer.Ordinal);
-        for (int i = 0; i < setting.AssetEntries.Count; i++)
+        HashSet<string> seenGuids = new HashSet<string>(StringComparer.Ordinal);
+        for (int i = 0; i < setting.AssetOverrides.Count; i++)
         {
-            AssetEntry entry = setting.AssetEntries[i];
+            AssetOverride entry = setting.AssetOverrides[i];
             if (entry == null)
                 continue;
 
-            string src = string.Concat("AssetEntries[", i, "]");
-            if (string.IsNullOrEmpty(entry.AssetGUID))
-                continue;
+            string src = string.Concat("AssetOverrides[", i, "]");
 
-            if (!seen.Add(entry.AssetGUID))
+            // GUID 是覆盖条目的唯一权威键：为空或指向已失效资产都必须阻断，否则覆盖不会被任何资产命中。
+            if (string.IsNullOrEmpty(entry.AssetGUID)
+                || string.IsNullOrEmpty(AssetDatabase.GUIDToAssetPath(entry.AssetGUID)))
+            {
+                messages.Add(BuildMessage.InvalidAssetOverrideGuid(entry.AssetGUID, src));
+                continue;
+            }
+
+            if (!seenGuids.Add(entry.AssetGUID))
                 messages.Add(BuildMessage.DuplicateGuid(entry.AssetGUID, src));
 
             ValidateLabels(entry.Labels, src, messages);
+        }
+    }
+
+    private static void ValidateRawFileRules(RawFileRules rules, List<BuildMessage> messages)
+    {
+        if (rules == null)
+            return;
+
+        ValidateStringList(rules.Extensions, "Setting.RawFileRules.Extensions", messages);
+        ValidateStringList(rules.FileNames, "Setting.RawFileRules.FileNames", messages);
+        ValidateStringList(rules.Folders, "Setting.RawFileRules.Folders", messages);
+    }
+
+    private static void ValidateSharePolicy(SharePolicyConfig policy, List<BuildMessage> messages)
+    {
+        if (policy == null)
+            return;
+
+        ValidateStringList(policy.ForceSharePatterns, "Setting.SharePolicy.ForceSharePatterns", messages);
+        ValidateStringList(policy.NoSharePatterns, "Setting.SharePolicy.NoSharePatterns", messages);
+    }
+
+    private static void ValidateStringList(List<string> values, string fieldPath, List<BuildMessage> messages)
+    {
+        if (values == null)
+            return;
+
+        for (int i = 0; i < values.Count; i++)
+        {
+            string value = values[i];
+            if (string.IsNullOrEmpty(value) || !string.Equals(value, value.Trim(), StringComparison.Ordinal))
+                messages.Add(BuildMessage.BlankConfigEntry(fieldPath, value, string.Concat(fieldPath, "[", i, "]")));
         }
     }
 
@@ -141,62 +161,19 @@ public static class AssetCollectionSettingValidator
         for (int i = 0; i < labels.Count; i++)
         {
             string label = labels[i];
+            if (string.IsNullOrEmpty(label) || !string.Equals(label, label.Trim(), StringComparison.Ordinal))
+            {
+                messages.Add(BuildMessage.BlankConfigEntry("Labels", label, source));
+                continue;
+            }
+
             string error = BundleNameBuilder.ValidateSegment(label);
             if (error != null)
                 messages.Add(BuildMessage.InvalidLabel(error, source));
         }
     }
 
-    private static void CheckCrossPackageOverlaps(AssetCollectionSetting setting, List<BuildMessage> messages)
-    {
-        List<(string path, string pkgName, string src)> all = new List<(string, string, string)>();
-
-        for (int pi = 0; pi < setting.Packages.Count; pi++)
-        {
-            var pkg = setting.Packages[pi];
-            if (pkg?.Groups == null)
-                continue;
-
-            for (int gi = 0; gi < pkg.Groups.Count; gi++)
-            {
-                var grp = pkg.Groups[gi];
-                if (grp?.Collectors == null)
-                    continue;
-
-                for (int ci = 0; ci < grp.Collectors.Count; ci++)
-                {
-                    var col = grp.Collectors[ci];
-                    if (col == null || string.IsNullOrEmpty(col.CollectPath))
-                        continue;
-
-                    string src = string.Concat("Package[", pi, "].Group[", gi, "].Collector[", ci, "]");
-                    all.Add((CollectorPathUtility.NormalizePath(col.CollectPath), pkg.PackageName, src));
-                }
-            }
-        }
-
-        for (int i = 0; i < all.Count; i++)
-        {
-            for (int j = i + 1; j < all.Count; j++)
-            {
-                var (pathI, pkgI, srcI) = all[i];
-                var (pathJ, pkgJ, srcJ) = all[j];
-                if (string.Equals(pkgI, pkgJ, StringComparison.OrdinalIgnoreCase))
-                    continue;
-
-                if (string.Equals(pathI, pathJ, StringComparison.OrdinalIgnoreCase))
-                    messages.Add(BuildMessage.CrossPackageOverlap(pathI, pkgI, pkgJ, srcI));
-
-                if (CollectorPathUtility.IsPathContained(pathI, pathJ))
-                    messages.Add(BuildMessage.CrossPackageContainment(pathI, pkgI, pathJ, pkgJ, srcI));
-
-                if (CollectorPathUtility.IsPathContained(pathJ, pathI))
-                    messages.Add(BuildMessage.CrossPackageContainment(pathJ, pkgJ, pathI, pkgI, srcJ));
-            }
-        }
-    }
-
-    private static void CheckSameDepthConflicts(List<(string path, string src)> paths, List<BuildMessage> messages)
+    private static void CheckSamePathConflicts(List<(string path, string src)> paths, List<BuildMessage> messages)
     {
         for (int i = 0; i < paths.Count; i++)
         {
@@ -208,33 +185,6 @@ public static class AssetCollectionSettingValidator
         }
     }
 
-    private static void ValidateRule(string className, string ruleType, string source, List<BuildMessage> messages)
-    {
-        if (string.IsNullOrEmpty(className))
-        {
-            messages.Add(BuildMessage.EmptyRuleName(ruleType, source));
-            return;
-        }
-
-        try
-        {
-            object rule = ruleType switch
-            {
-                "FilterRule" => RuleResolver.GetFilterRule(className),
-                "GroupRule" => RuleResolver.GetGroupRule(className),
-                _ => null
-            };
-
-            if (rule == null)
-                messages.Add(BuildMessage.RuleNotFound(className, source));
-        }
-        catch (Exception ex)
-        {
-            Debug.LogWarning($"[AssetCollectionSettingValidator] 规则解析失败: {ruleType}={className}, Source={source}, Error={ex.Message}");
-            messages.Add(BuildMessage.RuleNotFound(className, source));
-        }
-    }
-
     private static bool CollectPathExists(Collector collector)
     {
         if (collector == null || string.IsNullOrEmpty(collector.CollectPath))
@@ -242,10 +192,10 @@ public static class AssetCollectionSettingValidator
 
         if (collector.CollectPathType == ECollectPathType.File)
         {
-            return !UnityEditor.AssetDatabase.IsValidFolder(collector.CollectPath) &&
-                   !string.IsNullOrEmpty(UnityEditor.AssetDatabase.AssetPathToGUID(collector.CollectPath));
+            return !AssetDatabase.IsValidFolder(collector.CollectPath) &&
+                   !string.IsNullOrEmpty(AssetDatabase.AssetPathToGUID(collector.CollectPath));
         }
 
-        return UnityEditor.AssetDatabase.IsValidFolder(collector.CollectPath);
+        return AssetDatabase.IsValidFolder(collector.CollectPath);
     }
 }

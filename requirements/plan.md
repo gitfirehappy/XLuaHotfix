@@ -1,10 +1,10 @@
 # Refactor Plan: XLuaHotfix Full Resource Management System Overhaul — Master Plan
 
-> **Status**: In progress. `plan-fyasset-resource-pipeline-realignment-20260909.md` is the approved authoritative execution plan. Historical phase tables below describe prior implementation and are not the target architecture.
+> **Status**: Implemented, awaiting developer sign-off. `plan-fyasset-windows-ab-remediation-20260911.md` (T0–T11) is complete: fresh pure-.NET matrix green, Windows Unity/Player matrix (`ab build full` / `ab build hotfix` / `ab e2e standalone` / `ab e2e full`) all exit 0, docs aligned and findings dispositioned. Residual items are recorded in `review/disposition-fyasset-windows-ab-remediation-20260911.md`. The superseded T0–T9 plan remains archived as acceptance-failure evidence. The follow-up AB publish/Target cleanup is recorded separately in `plan/plan-fyasset-ab-publish-target-cleanup-20260912.md` and is not approved for implementation.
 
 > **Ultimate Goal**: Keep AA and custom AB as independent concrete frameworks; a real project directly selects exactly one backend, while Shared contains no backend-specific fields or compatibility routing.
 > **Created**: 2026-03-16
-> **Updated**: 2026-09-09 - resource pipeline realignment approved after grill and PRS design; detailed T0-T9 execution deferred to the next session.
+> **Updated**: 2026-09-11 - T0–T9 resource-pipeline realignment failed acceptance and was archived; Windows AB remediation (T0–T11) is implemented with fresh gate and Unity/Player evidence, awaiting developer sign-off.
 
 
 ---
@@ -206,7 +206,14 @@ later superseded by the active strict `AA/AB/Shared` split. They are no longer a
 
 ### Active Shared Plans
 
-- [plan-fyasset-resource-pipeline-realignment-20260909.md](plan/plan-fyasset-resource-pipeline-realignment-20260909.md): Approved / awaiting execution。四段资源管线、构建/发布/下载三类优化、AA/AB 严格单后端、AB Collection/Content/Manifest/Handle/Scene、Runner、自定义 Task、发布与热更状态机整体纠偏。
+- [plan-fyasset-windows-ab-remediation-20260911.md](plan/plan-fyasset-windows-ab-remediation-20260911.md): Implemented / awaiting developer sign-off 2026-09-11。T0–T11 全部落地，纯 .NET 全矩阵绿、Windows Unity/Player 四项 exit 0、F01–F16 逐条处置（disposition）。执行效果复查见 [review-execution-audit-20260911.md](review/review-fyasset-windows-ab-remediation-execution-audit-20260911.md)。遗留项已转入下方 AB follow-up plan 或保持独立延期：F08 Android、AA 完整矩阵。
+- [plan-fyasset-ab-publish-target-cleanup-20260912.md](plan/plan-fyasset-ab-publish-target-cleanup-20260912.md): Draft / implementation not approved。汇总本轮 34 条收敛决策：AB-only Target/URL ownership、Summary-driven Publish、配置预转换、测试和文档整理。执行前需单独批准。
+
+### September Superseded Plans
+
+| File | Content | Status |
+|------|---------|--------|
+| [plan-fyasset-resource-pipeline-realignment-20260909.md](plan/archive/plan-fyasset-resource-pipeline-realignment-20260909.md) | 四段资源管线 T0–T9 整体重构 | Superseded / acceptance failed 2026-09-11；由 Windows AB remediation 接管 |
 
 ### September Executed Plans
 

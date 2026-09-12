@@ -127,6 +127,31 @@ public static class HotfixManager
         ? ABHotfixManager.CurrentProgressValue
         : AAHotfixManager.CurrentProgressValue;
 
+    /// <summary>当前使用的内容归属：内置包或本地热更包。</summary>
+    public static HotfixContentState CurrentContent => _selectedMode == BackendMode.ABManifest
+        ? ABHotfixManager.CurrentContent
+        : AAHotfixManager.CurrentContent;
+
+    /// <summary>已准备且校验通过、等待 Apply 的目标包名；没有待应用目标时为空字符串。</summary>
+    public static string PreparedTargetName => _selectedMode == BackendMode.ABManifest
+        ? ABHotfixManager.PreparedTargetName
+        : AAHotfixManager.PreparedTargetName;
+
+    /// <summary>运行中检查是否存在可接受更新；不下载内容、不切换包根。</summary>
+    public static Task<HotfixCheckResult> CheckAsync() => _selectedMode == BackendMode.ABManifest
+        ? ABHotfixManager.CheckAsync()
+        : AAHotfixManager.CheckAsync();
+
+    /// <summary>运行中准备目标包；当前包继续运行，只在隔离目录内写入。</summary>
+    public static Task<HotfixStepResult> PrepareAsync() => _selectedMode == BackendMode.ABManifest
+        ? ABHotfixManager.PrepareAsync()
+        : AAHotfixManager.PrepareAsync();
+
+    /// <summary>运行中应用已准备的目标包；由业务在安全入口调用，句柄未释放时拒绝。</summary>
+    public static Task<HotfixStepResult> ApplyAsync() => _selectedMode == BackendMode.ABManifest
+        ? ABHotfixManager.ApplyAsync()
+        : AAHotfixManager.ApplyAsync();
+
     public static Task InitializeAsync(BackendMode mode)
     {
         if (mode != BackendMode.AA && mode != BackendMode.ABManifest)

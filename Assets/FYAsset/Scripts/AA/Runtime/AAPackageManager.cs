@@ -10,7 +10,7 @@ using UnityEngine.ResourceManagement.AsyncOperations;
 /// </summary>
 /// <remarks>
 /// 每次成功加载保留一个 Addressables handle，调用方须按相同 address 和 T 配对调用 UnloadAsset。
-/// 初始化只读取索引，不激活 catalog；catalog 由 AA 热更流程先行准备。
+/// 初始化只读取当前激活包根下的索引，不激活 catalog；catalog 由 AA 热更流程先行准备。
 /// </remarks>
 public sealed class AAPackageManager
 {
@@ -102,6 +102,50 @@ public sealed class AAPackageManager
                && manifest.AssetEntries.Count > 0
                && manifest.KeysByType != null
                && manifest.KeysByLabel != null;
+    }
+
+    /// <summary>
+    /// 仍然持有的 Addressables handle 数量，按加载时登记的租约计数；热更 Apply 门禁使用。
+    /// </summary>
+    public int ActiveHandleCount
+    {
+        get
+        {
+            int count = 0;
+            foreach (Stack<AsyncOperationHandle> tickets in _handleTickets.Values)
+                count += tickets.Count;
+            return count;
+        }
+    }
+
+    /// <summary>
+    /// 关闭资源管理器：清空索引与句柄租约，使后续 InitializePackageAsync 重新读取当前激活包根。
+    /// </summary>
+    /// <remarks>
+    /// 仍有未释放租约时返回结构化错误并保持现状（不释放、不清计数），因为此时卸载内容会让调用方手里的引用失效。
+    /// catalog 由热更流程负责切换，本方法既不加载也不卸载 catalog。
+    /// </remarks>
+    public RuntimeMessage Shutdown()
+    {
+        if (!_isInitialized)
+            return null;
+
+        int activeCount = ActiveHandleCount;
+        if (activeCount > 0)
+        {
+            RuntimeMessage error = RuntimeMessage.ActiveHandlesBlockShutdown(
+                activeCount, "AA 仍有未释放的 Addressables handle");
+            Debug.LogWarning(error.ToString());
+            return error;
+        }
+
+        _handleTickets.Clear();
+        _labelToKeys.Clear();
+        _typeToKeys.Clear();
+        _addressSet.Clear();
+        _isInitialized = false;
+        Debug.Log("[AAPackageManager] 已关闭，索引与句柄租约全部清空。");
+        return null;
     }
 
     #endregion

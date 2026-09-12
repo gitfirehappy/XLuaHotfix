@@ -4,7 +4,7 @@ using UnityEditor;
 using UnityEngine;
 
 /// <summary>
-/// Collector 反向索引：将资产路径映射回 Package / Group / Collector。
+/// Collector 反向索引：将资产路径映射回 Group / Collector。
 ///
 /// 单例 + 惰性重建模式：首次访问时通过 RebuildIfDirty 构建全量字典，
 /// Undo.undoRedoPerformed 触发 MarkDirty 失效标记，下次访问自动重建。
@@ -15,19 +15,16 @@ public sealed class CollectorReverseIndex
 
     public struct CollectorRef : IEquatable<CollectorRef>
     {
-        public int PackageIndex;
         public int GroupIndex;
         public int CollectorIndex;
 
-        public CollectorRef(int packageIndex, int groupIndex, int collectorIndex)
+        public CollectorRef(int groupIndex, int collectorIndex)
         {
-            PackageIndex = packageIndex;
             GroupIndex = groupIndex;
             CollectorIndex = collectorIndex;
         }
 
         public bool Equals(CollectorRef other) =>
-            PackageIndex == other.PackageIndex &&
             GroupIndex == other.GroupIndex &&
             CollectorIndex == other.CollectorIndex;
 
@@ -35,10 +32,10 @@ public sealed class CollectorReverseIndex
             obj is CollectorRef other && Equals(other);
 
         public override int GetHashCode() =>
-            HashCode.Combine(PackageIndex, GroupIndex, CollectorIndex);
+            HashCode.Combine(GroupIndex, CollectorIndex);
 
         public override string ToString() =>
-            $"[{PackageIndex}][{GroupIndex}][{CollectorIndex}]";
+            $"[{GroupIndex}][{CollectorIndex}]";
     }
 
     private struct CollectorBuildEntry
@@ -69,7 +66,7 @@ public sealed class CollectorReverseIndex
     }
 
     /// <summary>
-    /// 如索引脏则重建。遍历 AssetCollectionSetting 所有 Package->Group->Collector，
+    /// 如索引脏则重建。遍历 AssetCollectionSetting 的 Group->Collector，
     /// 按深度降序排序后构建资产路径->CollectorRef 映射。
     /// </summary>
     public void RebuildIfDirty(AssetCollectionSetting setting)
@@ -116,33 +113,26 @@ public sealed class CollectorReverseIndex
     private List<CollectorBuildEntry> BuildEntries(AssetCollectionSetting setting)
     {
         List<CollectorBuildEntry> entries = new List<CollectorBuildEntry>();
-        if (setting.Packages == null)
+        if (setting.Groups == null)
             return entries;
 
-        for (int pi = 0; pi < setting.Packages.Count; pi++)
+        for (int gi = 0; gi < setting.Groups.Count; gi++)
         {
-            AssetCollectionPackage package = setting.Packages[pi];
-            if (package == null || package.Groups == null)
+            AssetCollectionGroup group = setting.Groups[gi];
+            if (group == null || !group.Enabled || group.Collectors == null)
                 continue;
 
-            for (int gi = 0; gi < package.Groups.Count; gi++)
+            for (int ci = 0; ci < group.Collectors.Count; ci++)
             {
-                AssetCollectionGroup group = package.Groups[gi];
-                if (group == null || !group.Enabled || group.Collectors == null)
+                Collector collector = group.Collectors[ci];
+                if (collector == null || string.IsNullOrEmpty(collector.CollectPath))
                     continue;
 
-                for (int ci = 0; ci < group.Collectors.Count; ci++)
+                entries.Add(new CollectorBuildEntry
                 {
-                    Collector collector = group.Collectors[ci];
-                    if (collector == null || string.IsNullOrEmpty(collector.CollectPath))
-                        continue;
-
-                    entries.Add(new CollectorBuildEntry
-                    {
-                        Collector = collector,
-                        Reference = new CollectorRef(pi, gi, ci)
-                    });
-                }
+                    Collector = collector,
+                    Reference = new CollectorRef(gi, ci)
+                });
             }
         }
 
@@ -169,9 +159,6 @@ public sealed class CollectorReverseIndex
             return;
 
         if (IsExcludedAsset(setting, collectPath))
-            return;
-
-        if (ShouldSkipAsset(collector, collectPath))
             return;
 
         AddIfMissing(collectPath, collectorRef);
@@ -202,44 +189,12 @@ public sealed class CollectorReverseIndex
                 continue;
             }
 
+            // 采集范围之外的资产由 CollectionScanner 在扫描时过滤，此处不再重复规则判断。
             if (IsExcludedAsset(setting, assetPath))
-                continue;
-
-            if (ShouldSkipAsset(collector, assetPath))
                 continue;
 
             AddIfMissing(assetPath, collectorRef);
         }
-    }
-
-    private bool ShouldSkipAsset(Collector collector, string assetPath)
-    {
-        string extension = System.IO.Path.GetExtension(assetPath);
-        IFilterRule filterRule;
-        try
-        {
-            filterRule = RuleResolver.GetFilterRule(collector.FilterRuleName);
-        }
-        catch (Exception ex)
-        {
-            Debug.LogWarning($"[CollectorReverseIndex] 过滤规则解析失败，跳过资源: {assetPath}, Rule={collector.FilterRuleName}, Error={ex.Message}");
-            return true;
-        }
-
-        if (filterRule == null)
-            return true;
-
-        FilterRuleContext context = new FilterRuleContext
-        {
-            AssetPath = assetPath,
-            Extension = extension,
-            CollectPath = collector.CollectPath
-        };
-
-        if (!filterRule.IsCollectable(context))
-            return true;
-
-        return false;
     }
 
     private static AssetCollectionSetting LoadSetting()

@@ -9,7 +9,7 @@ using UnityEngine;
 /// 通过 Unity -batchmode -executeMethod BuildCommandLine.Build -buildType full|hotfix|standalone 调用。
 /// </summary>
 /// <remarks>
-/// 附加参数 -backend / -channel 供 BuildRepositoryCLI 的 status / diff 使用，-target / -from / -to 供 push 使用。
+/// 附加参数 -platform / -version / -output 供构建环境解析平台、版本串与工作根。
 /// </remarks>
 public static class BuildCommandLine
 {

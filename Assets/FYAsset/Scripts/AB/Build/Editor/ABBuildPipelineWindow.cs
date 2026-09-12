@@ -26,7 +26,7 @@ public sealed class ABBuildPipelineWindow : BuildPipelineWindowBase
             new PipelinePanel(
                 "AB Build",
                 () => FYAssetABSettings.Instance.BuildPipelineConfigPath,
-                ABPipelineBackbone.CreateDefaultTasks,
+                ABPipelineBackbone.CreateCoreSlots,
                 "PipelinePanel",
                 true,
                 true,
@@ -36,10 +36,11 @@ public sealed class ABBuildPipelineWindow : BuildPipelineWindowBase
                     BuildHotfix = ABBuildProjectManager.BuildHotfix,
                     BuildStandalone = ABBuildProjectManager.BuildStandalonePackage,
                     LastBuildSuccess = () => ABBuildProjectManager.LastBuildSuccess,
-                }),
+                },
+                ABPipelineConfigUpgrade.TryUpgrade,
+                () => BuildProjectRunner.LastSummary),
             new ABReportPanel(),
-            new ABBuildDiffPanel(),
-            new PublishTargetPanel(BackendModeNames.AB, ApplyHotfixUrl),
+            new PublishTargetPanel(BackendModeNames.AB, ApplyHotfixUrl, ABPackageManifestReader.Instance),
             new ABTestMaintenancePanel()
         };
     }

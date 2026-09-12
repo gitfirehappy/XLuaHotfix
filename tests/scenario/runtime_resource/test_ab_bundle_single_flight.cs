@@ -147,8 +147,77 @@ internal static class ABBundleSingleFlightTests
             ScenarioAssert.Equal(2, FakeAssetBundleIO.UnloadCount("dependency"),
                 "the retry dependency reference must release independently of the failed attempt");
 
-            await UwrAsyncFollowersShareOnePhysicalRequest();
-            await UwrSyncFollowerIsUnsupportedAndRollsBackDependency();
+            await MissingContentFailsAndRollsBackDependency();
+            await ActivePackageRootDecidesPhysicalPath();
+        });
+    }
+
+    /// <summary>
+    /// 激活包根下不存在的内容只能结构性失败：不再逐文件回退 StreamingAssets，也不再走 UWR 通道。
+    /// 同时验证加载失败时已经获取的依赖引用被回滚。
+    /// </summary>
+    public static Task MissingContentFailsAndRollsBackDependency()
+    {
+        return RunOnUnityThread(async () =>
+        {
+            FakeAssetBundleIO.Reset();
+            FakeAssetBundleIO.Register("missing-dependency");
+            FakeAssetBundleIO.Register("missing-root", missing: true);
+
+            var manifest = new ABManifest()
+                .Add("missing-dependency")
+                .Add("missing-root", "missing-dependency");
+            var loader = new ABBundleLoader(manifest);
+
+            var syncResult = loader.LoadBundle("missing-root");
+            ScenarioAssert.True(syncResult.bundle == null && syncResult.error != null,
+                "a content file absent from the active package root must fail explicitly");
+            ScenarioAssert.Equal(RuntimeErrorCodes.BundleNotFound, syncResult.error.Code,
+                "sync loading of absent content must report BundleNotFound");
+            ScenarioAssert.Equal(0, FakeAssetBundleIO.SyncOpenCount("missing-root"),
+                "absent content must not be opened from the file system");
+            ScenarioAssert.Equal(1, FakeAssetBundleIO.UnloadCount("missing-dependency"),
+                "sync failure must roll back the dependency acquisition");
+
+            var asyncResult = await ScenarioTask.WithTimeout(loader.LoadBundleAsync("missing-root"));
+            ScenarioAssert.True(asyncResult.bundle == null && asyncResult.error != null,
+                "async loading of absent content must fail explicitly");
+            ScenarioAssert.Equal(RuntimeErrorCodes.BundleNotFound, asyncResult.error.Code,
+                "async loading of absent content must report BundleNotFound");
+            ScenarioAssert.Equal(0, FakeAssetBundleIO.AsyncOpenCount("missing-root"),
+                "absent content must not start a local async open");
+            ScenarioAssert.True(FakeAssetBundleIO.LastOpenPath("missing-root") == null,
+                "absent content must not be opened from any other directory");
+            ScenarioAssert.Equal(2, FakeAssetBundleIO.UnloadCount("missing-dependency"),
+                "async failure must roll back the dependency acquisition as well");
+        });
+    }
+
+    /// <summary>物理读取路径只由当前激活包根决定；激活内置包根后同一个 Bundle 从新根解析。</summary>
+    public static Task ActivePackageRootDecidesPhysicalPath()
+    {
+        return RunOnUnityThread(async () =>
+        {
+            FakeAssetBundleIO.Reset();
+            FakeAssetBundleIO.Register("switchable");
+
+            var loader = new ABBundleLoader(new ABManifest().Add("switchable"));
+
+            RuntimePathManager.ActivePackageRoot = "hotfix";
+            var fromHotfix = loader.LoadBundle("switchable");
+            ScenarioAssert.True(fromHotfix.error == null && fromHotfix.bundle != null,
+                "the Bundle must load from the active hotfix package root");
+            ScenarioAssert.Contains(FakeAssetBundleIO.LastOpenPath("switchable"), "hotfix/bundles/switchable",
+                "the physical path must be derived from the active package root");
+            loader.UnloadBundle("switchable");
+
+            RuntimePathManager.ActivePackageRoot = "streaming";
+            var fromBuiltIn = await ScenarioTask.WithTimeout(loader.LoadBundleAsync("switchable"));
+            ScenarioAssert.True(fromBuiltIn.error == null && fromBuiltIn.bundle != null,
+                "the same Bundle must load from the newly activated package root");
+            ScenarioAssert.Contains(FakeAssetBundleIO.LastOpenPath("switchable"), "streaming/bundles/switchable",
+                "switching the active package root must switch the physical read root");
+            loader.UnloadBundle("switchable");
         });
     }
 
@@ -236,76 +305,6 @@ internal static class ABBundleSingleFlightTests
         loader.UnloadBundle("same-target");
         ScenarioAssert.Equal(1, FakeAssetBundleIO.UnloadCount("same-target"),
             "same-target Bundle must unload after both async acquisitions release");
-    }
-
-    private static async Task UwrAsyncFollowersShareOnePhysicalRequest()
-    {
-        FakeAssetBundleIO.Reset();
-        FakeAssetBundleIO.Register("remote", autoComplete: false, useUwr: true);
-
-        var loader = new ABBundleLoader(new ABManifest().Add("remote"));
-        Task<(AssetBundle bundle, RuntimeMessage error)> first = loader.LoadBundleAsync("remote");
-        Task<(AssetBundle bundle, RuntimeMessage error)> second = loader.LoadBundleAsync("remote");
-
-        ScenarioAssert.Equal(1, FakeAssetBundleIO.UwrOpenCount("remote"),
-            "async UWR followers must share one physical request");
-        ScenarioAssert.Equal(0, FakeAssetBundleIO.DuplicateOpenCount("remote"),
-            "UWR single-flight must avoid duplicate physical opens");
-
-        FakeAssetBundleIO.CompleteAll("remote");
-        var results = await ScenarioTask.WithTimeout(Task.WhenAll(first, second));
-
-        ScenarioAssert.True(results[0].error == null && results[1].error == null,
-            "both async UWR followers must succeed");
-        ScenarioAssert.Same(results[0].bundle, results[1].bundle,
-            "both async UWR followers must receive the same Bundle instance");
-
-        loader.UnloadBundle("remote");
-        ScenarioAssert.Equal(0, FakeAssetBundleIO.UnloadCount("remote"),
-            "one UWR acquisition must remain after the first release");
-        loader.UnloadBundle("remote");
-        ScenarioAssert.Equal(1, FakeAssetBundleIO.UnloadCount("remote"),
-            "the UWR Bundle must unload after both acquisitions release");
-    }
-
-    private static async Task UwrSyncFollowerIsUnsupportedAndRollsBackDependency()
-    {
-        FakeAssetBundleIO.Reset();
-        FakeAssetBundleIO.Register("remote-dependency");
-        FakeAssetBundleIO.Register("remote-root", autoComplete: false, useUwr: true);
-
-        var manifest = new ABManifest()
-            .Add("remote-dependency")
-            .Add("remote-root", "remote-dependency");
-        var loader = new ABBundleLoader(manifest);
-
-        Task<(AssetBundle bundle, RuntimeMessage error)> leader =
-            loader.LoadBundleAsync("remote-root");
-        ScenarioAssert.Equal(1, FakeAssetBundleIO.UwrOpenCount("remote-root"),
-            "the async leader must start one pending UWR request");
-
-        var syncFollower = loader.LoadBundle("remote-root");
-
-        ScenarioAssert.True(syncFollower.bundle == null && syncFollower.error != null,
-            "a sync caller must fail explicitly instead of blocking on an inflight UWR request");
-        ScenarioAssert.Equal(RuntimeErrorCodes.UnsupportedOperation, syncFollower.error.Code,
-            "sync joining an inflight UWR request must report UnsupportedOperation");
-        ScenarioAssert.Equal(1, FakeAssetBundleIO.UwrOpenCount("remote-root"),
-            "the unsupported sync follower must not start a second UWR request");
-        ScenarioAssert.Equal(0, FakeAssetBundleIO.DuplicateOpenCount("remote-root"),
-            "the unsupported sync follower must not trigger a duplicate physical open");
-
-        FakeAssetBundleIO.CompleteAll("remote-root");
-        var leaderResult = await ScenarioTask.WithTimeout(leader);
-
-        ScenarioAssert.True(leaderResult.error == null && leaderResult.bundle != null,
-            "the original async UWR leader must remain valid after the sync follower is rejected");
-
-        loader.UnloadBundle("remote-root");
-        ScenarioAssert.Equal(1, FakeAssetBundleIO.UnloadCount("remote-root"),
-            "the completed UWR leader must release its Bundle normally");
-        ScenarioAssert.Equal(1, FakeAssetBundleIO.UnloadCount("remote-dependency"),
-            "sync follower dependency acquisition must roll back so the leader release reaches zero");
     }
 
     private static void AssertSyncJoinDoesNotBlockOnTask()

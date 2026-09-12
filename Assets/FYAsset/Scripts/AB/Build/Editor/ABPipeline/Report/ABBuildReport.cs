@@ -9,12 +9,12 @@ using System.Collections.Generic;
 [Serializable]
 public class ABBuildReport
 {
-    public int SchemaVersion = 2;
+    public int SchemaVersion = 3;
     public ABBuildReportHeader Header = new();
     public ABBuildReportSummary Summary = new();
     public List<ABBuildReportBundle> Bundles = new();
     public List<ABBuildReportAsset> Assets = new();
-    public List<ABBuildReportGroup> Groups = new();
+    public List<ABBuildReportContentType> ContentTypes = new();
     public List<ABBuildReportLabel> Labels = new();
     public List<ABBuildReportIssue> Issues = new();
 }
@@ -53,7 +53,7 @@ public class ABBuildReportSummary
     public int WarningCount;
     public int BundleCount;
     public int AssetCount;
-    public int GroupCount;
+    public int ContentTypeCount;
     public int LabelCount;
     public long TotalBundleSize;
     public int DeliveryBundleCount;
@@ -63,7 +63,7 @@ public class ABBuildReportSummary
 }
 
 /// <summary>
-/// 单个 AB Bundle 报告行。
+/// 单个 AB 内容报告行（AssetBundle 或 RawFile）。
 /// </summary>
 [Serializable]
 public class ABBuildReportBundle
@@ -72,9 +72,7 @@ public class ABBuildReportBundle
     public string FileHash;
     public uint FileCRC;
     public long FileSize;
-    public string BundleType;
-    public string Tags;
-    public string Group;
+    public string ContentType;
     public int AssetCount;
     public int DependencyCount;
     public bool Delivered;
@@ -93,19 +91,20 @@ public class ABBuildReportAsset
     public string SourcePath;
     public string Address;
     public string PrimaryType;
-    public string Group;
+    public bool IsPublic;
+    public string ContentType;
     public string Labels;
     public string BundleName;
     public bool Delivered;
 }
 
 /// <summary>
-/// 按 Group 聚合的报告行。
+/// 按 ContentType 聚合的报告行。
 /// </summary>
 [Serializable]
-public class ABBuildReportGroup
+public class ABBuildReportContentType
 {
-    public string Group;
+    public string ContentType;
     public int AssetCount;
     public int BundleCount;
     public long TotalSize;

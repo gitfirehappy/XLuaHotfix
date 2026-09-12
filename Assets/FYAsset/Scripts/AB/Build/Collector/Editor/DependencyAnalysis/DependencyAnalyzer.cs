@@ -4,7 +4,7 @@ using UnityEditor;
 using UnityEngine;
 
 /// <summary>
-/// 依赖分析器 —— 通过 BFS 遍历完成 Bundle 依赖边构建、隐式依赖发现与 SharePolicy 决策。
+/// 依赖分析器 —— 通过 BFS 遍历完成内容依赖边构建、隐式依赖发现与 SharePolicy 决策。
 /// 单资产 visited set 防止无限展开，并缓存 AssetDatabase 依赖查询结果。
 /// </summary>
 public static class DependencyAnalyzer
@@ -20,17 +20,19 @@ public static class DependencyAnalyzer
     private static readonly string[] FilterDirSegments = { "/Editor/", "\\Editor\\" };
 
     /// <summary>
-    /// 对指定 Package 的已收集资产执行依赖分析。
+    /// 对已收集资产执行依赖分析。
     /// </summary>
-    /// <param name="assets">CollectionScanner 产出的资产列表（可包含多个 Package）</param>
-    /// <param name="sharePolicies">Package 级共享策略（PackageName → SharePolicyConfig）</param>
+    /// <param name="assets">CollectionScanner 产出的资产列表</param>
+    /// <param name="sharePolicy">项目级共享策略；null 时按默认策略处理</param>
+    /// <param name="rawFileRules">项目级 RawFile 白名单；隐式依赖的分类必须与显式采集使用同一份规则</param>
     /// <param name="extraFilterExtensions">BFS 展开时追加过滤的项目级扩展名</param>
-    /// <param name="graph">输出：Bundle 依赖图</param>
+    /// <param name="graph">输出：内容依赖图</param>
     /// <param name="messages">输出：错误/警告/信息消息列表</param>
-    /// <returns>增强后的资产列表（含隐式依赖条目）</returns>
+    /// <returns>增强后的资产列表（含提取为共享内容的隐式依赖条目；单引用隐式依赖随行打包，不产生条目）</returns>
     public static List<CollectedAssetInfo> Analyze(
         List<CollectedAssetInfo> assets,
-        Dictionary<string, SharePolicyConfig> sharePolicies,
+        SharePolicyConfig sharePolicy,
+        RawFileRules rawFileRules,
         IEnumerable<string> extraFilterExtensions,
         out BundleDependencyGraph graph,
         out List<BuildMessage> messages,
@@ -41,38 +43,29 @@ public static class DependencyAnalyzer
         var result = new List<CollectedAssetInfo>(assets);
         HashSet<string> filterExtensions = BuildFilterExtensions(extraFilterExtensions);
 
-        var byPackage = new Dictionary<string, List<CollectedAssetInfo>>();
-        foreach (var asset in assets)
-        {
-            string pkg = asset.PackageName ?? string.Empty;
-            if (!byPackage.ContainsKey(pkg))
-                byPackage[pkg] = new List<CollectedAssetInfo>();
-            byPackage[pkg].Add(asset);
-        }
-
-        // 忽略路径资产成为隐式随行打包内容（不产生 manifest 条目、不生成独立 Bundle）；
-        // 非忽略但未收集资产一律按自身类型独立成桶。
+        // 忽略路径资产不进入共享决策：单引用时随引用方物理带入，多引用时由 Unity 各自带入引用方内容，
+        // 两种情况都不产生 manifest 条目。
         HashSet<string> effectiveIgnorePatterns = ignorePatterns != null
             ? new HashSet<string>(ignorePatterns, StringComparer.OrdinalIgnoreCase)
             : null;
 
-        foreach (var kvp in byPackage)
-        {
-            string packageName = kvp.Key;
-            var packageAssets = kvp.Value;
-            var policy = sharePolicies != null && sharePolicies.TryGetValue(packageName, out var p)
-                ? p : new SharePolicyConfig();
-
-            AnalyzePackage(packageAssets, policy, packageName, filterExtensions, effectiveIgnorePatterns, graph, messages, result);
-        }
+        AnalyzeAssets(
+            assets,
+            sharePolicy ?? new SharePolicyConfig(),
+            rawFileRules,
+            filterExtensions,
+            effectiveIgnorePatterns,
+            graph,
+            messages,
+            result);
 
         return result;
     }
 
-    private static void AnalyzePackage(
-        List<CollectedAssetInfo> packageAssets,
+    private static void AnalyzeAssets(
+        List<CollectedAssetInfo> assets,
         SharePolicyConfig policy,
-        string packageName,
+        RawFileRules rawFileRules,
         HashSet<string> filterExtensions,
         HashSet<string> ignorePatterns,
         BundleDependencyGraph graph,
@@ -80,7 +73,7 @@ public static class DependencyAnalyzer
         List<CollectedAssetInfo> result)
     {
         var ownedGUIDs = new Dictionary<string, CollectedAssetInfo>();
-        foreach (var asset in packageAssets)
+        foreach (var asset in assets)
         {
             if (!string.IsNullOrEmpty(asset.AssetGUID))
                 ownedGUIDs[asset.AssetGUID] = asset;
@@ -88,9 +81,9 @@ public static class DependencyAnalyzer
 
         var implicitCandidates = new Dictionary<string, ImplicitCandidate>();
         var cycleEntries = new List<(string fromPath, string toPath)>();
-        BfsTraverseAll(packageAssets, ownedGUIDs, filterExtensions, graph, implicitCandidates, cycleEntries);
+        BfsTraverseAll(assets, ownedGUIDs, filterExtensions, graph, implicitCandidates, cycleEntries);
 
-        ReportDependencyCycles(cycleEntries, messages, packageName);
+        ReportDependencyCycles(cycleEntries, messages);
 
         // 忽略路径隐式化：只允许随引用方物理带入，不产生 manifest 条目、不建立 Bundle 边。
         if (ignorePatterns != null && implicitCandidates.Count > 0)
@@ -105,14 +98,14 @@ public static class DependencyAnalyzer
             {
                 messages.Add(BuildMessage.Warning(
                     "IMPLICIT_IGNORED_PATH_DEP",
-                    $"Asset '{implicitCandidates[guid].AssetPath}' 位于忽略路径，作为引用方物理随行内容打包（不生成 manifest 条目 / 独立 Bundle）。",
+                    $"Asset '{implicitCandidates[guid].AssetPath}' 位于忽略路径，作为引用方物理随行内容打包（不生成 manifest 条目 / 独立内容）。",
                     implicitCandidates[guid].AssetPath));
                 implicitCandidates.Remove(guid);
             }
         }
 
-        // 隐式依赖一律按自身类型独立成桶。
-        ApplySharePolicy(implicitCandidates, policy, packageName, graph, messages, result);
+        // 共享决策：单引用随引用方打包，多引用提取共享内容，Force/NoShare 覆盖默认判定。
+        ApplySharePolicy(implicitCandidates, policy, rawFileRules, graph, messages, result);
     }
 
     /// <summary>
@@ -183,8 +176,8 @@ public static class DependencyAnalyzer
 
                     if (ownedGUIDs.TryGetValue(depGuid, out var ownedAsset))
                     {
-                        if (asset.BundleName != ownedAsset.BundleName)
-                            graph.AddEdge(asset.BundleName, ownedAsset.BundleName, dep);
+                        if (asset.ContentName != ownedAsset.ContentName)
+                            graph.AddEdge(asset.ContentName, ownedAsset.ContentName, dep);
                         continue;
                     }
 
@@ -194,14 +187,13 @@ public static class DependencyAnalyzer
                         candidate = new ImplicitCandidate
                         {
                             AssetPath = dep,
-                            PrimaryType = primaryType,
-                            PackageName = asset.PackageName ?? string.Empty
+                            PrimaryType = primaryType
                         };
                         implicitCandidates[depGuid] = candidate;
                     }
 
-                    if (!candidate.ReferencingBundles.Contains(asset.BundleName))
-                        candidate.ReferencingBundles.Add(asset.BundleName);
+                    if (!candidate.ReferencingContents.Contains(asset.ContentName))
+                        candidate.ReferencingContents.Add(asset.ContentName);
 
                     if (!localVisited.Contains(depGuid))
                     {
@@ -248,8 +240,7 @@ public static class DependencyAnalyzer
     /// <summary>报告 BFS 阶段发现的循环依赖（限制前 20 条，避免日志爆炸）</summary>
     private static void ReportDependencyCycles(
         List<(string fromPath, string toPath)> cycleEntries,
-        List<BuildMessage> messages,
-        string packageName)
+        List<BuildMessage> messages)
     {
         int cycleCount = 0;
         foreach (var (fromPath, toPath) in cycleEntries)
@@ -266,19 +257,27 @@ public static class DependencyAnalyzer
         if (cycleCount > 0)
         {
             messages.Add(BuildMessage.Warning(BuildErrorCodes.CycleCount,
-                $"Package '{packageName}' 中发现 {cycleCount} 个循环依赖，已上报前 20 个。",
-                packageName));
+                $"依赖分析中发现 {cycleCount} 个循环依赖，已上报前 20 个。",
+                string.Empty));
             if (cycleCount > 20)
                 messages.Add(BuildMessage.Warning(BuildErrorCodes.CycleTruncated,
-                    $"另有 {cycleCount - 20} 个循环依赖未显示。", packageName));
+                    $"另有 {cycleCount - 20} 个循环依赖未显示。", string.Empty));
         }
     }
 
-    /// <summary>SharePolicy 决策：对每个隐式依赖做规则冲突校验并分配到共享 Bundle</summary>
+    /// <summary>
+    /// SharePolicy 决策：按引用方数量决定隐式依赖是随引用方打包还是提取共享内容。
+    /// </summary>
+    /// <remarks>
+    /// 单引用随引用方打包：该依赖不生成独立内容条目，由 Unity 在构建引用方内容时一并写入，
+    /// 也不进入公共索引（隐式条目一律 IsPublic=false）。多引用提取共享内容，ContentName 由
+    /// BundleNameBuilder.BuildShared 生成。ForceShare 强制提取，NoShare 禁止提取；
+    /// 多引用同时命中 NoShare 属于无法同时满足的配置矛盾，必须阻断构建。
+    /// </remarks>
     private static void ApplySharePolicy(
         Dictionary<string, ImplicitCandidate> implicitCandidates,
         SharePolicyConfig policy,
-        string packageName,
+        RawFileRules rawFileRules,
         BundleDependencyGraph graph,
         List<BuildMessage> messages,
         List<CollectedAssetInfo> result)
@@ -295,23 +294,39 @@ public static class DependencyAnalyzer
             if (forceShare && noShare)
             {
                 messages.Add(BuildMessage.Error(BuildErrorCodes.SharePolicyConflict,
-                    $"Asset '{candidate.AssetPath}' 同时匹配 ForceShare 和 NoShare 规则。请修正 Package '{packageName}' 的 SharePolicyConfig。",
+                    $"Asset '{candidate.AssetPath}' 同时匹配 ForceShare 和 NoShare 规则。请修正 AssetCollectionSetting.SharePolicy。",
                     candidate.AssetPath));
                 continue;
             }
 
-            // 一律按依赖自身（payload + 精确类型）形成独立 Bundle，保证分桶唯一性。
-            string bundleName = BundleNameBuilder.BuildShared(
-                packageName,
+            int referencingCount = candidate.ReferencingContents.Count;
+
+            // NoShare 只允许“随引用方打包”。被多个内容引用时，同一份资产无法既保持唯一物理归属
+            // 又被禁止共享，属于配置矛盾：静默选择任一侧都会产出错误内容集合，因此阻断构建。
+            if (noShare && referencingCount > 1)
+            {
+                messages.Add(BuildMessage.Error(BuildErrorCodes.SharePolicyConflict,
+                    $"Asset '{candidate.AssetPath}' 被多个内容引用但被 NoShare 命中，请改为 ForceShare 或收敛引用方。" +
+                    $"引用方内容: {string.Join(", ", candidate.ReferencingContents)}。",
+                    candidate.AssetPath));
+                continue;
+            }
+
+            // 单引用且未强制共享：随引用方打包。该依赖由 Unity 在构建引用方内容时一并写入，
+            // 因此不生成独立内容条目，也不建立 Bundle 依赖边。
+            if (referencingCount == 1 && !forceShare)
+                continue;
+
+            AssetContentType contentType = AssetClassifier.ClassifyContentType(candidate.AssetPath, rawFileRules);
+            string contentName = BundleNameBuilder.BuildShared(
                 candidate.PrimaryType,
-                EPayloadKind.Serialized,
+                contentType,
                 candidate.PrimaryType);
 
-            var sharedEntry = CreateImplicitEntry(candidate, depGuid, bundleName, isShared: true, isDuplicated: false);
-            result.Add(sharedEntry);
+            result.Add(CreateImplicitEntry(candidate, depGuid, contentName, contentType));
 
-            foreach (var refBundle in candidate.ReferencingBundles)
-                graph.AddEdge(refBundle, bundleName, candidate.AssetPath);
+            foreach (var refContent in candidate.ReferencingContents)
+                graph.AddEdge(refContent, contentName, candidate.AssetPath);
         }
     }
 
@@ -330,13 +345,9 @@ public static class DependencyAnalyzer
     private static CollectedAssetInfo CreateImplicitEntry(
         ImplicitCandidate candidate,
         string guid,
-        string bundleName,
-        bool isShared,
-        bool isDuplicated)
+        string contentName,
+        AssetContentType contentType)
     {
-        // 共享条目 GroupName = "$shared"，否则 = PackageName，避免数据模型语义冲突
-        string groupName = isShared ? SystemIdentifiers.SharedGroupName : candidate.PackageName;
-
         return new CollectedAssetInfo
         {
             AssetPath = candidate.AssetPath,
@@ -344,20 +355,13 @@ public static class DependencyAnalyzer
             Address = AssetAddressGenerator.GenerateAddress(candidate.AssetPath, candidate.PrimaryType, AssetAddressStyle.ShortName),
             PrimaryType = candidate.PrimaryType,
             Labels = new List<string>(),
-            GroupLabels = new List<string>(),
-            AssetLabels = new List<string>(),
-            GroupName = groupName,
-            PackageName = candidate.PackageName,
-            BundleName = bundleName,
+            // 提取为共享内容时归入系统保留 Group；隐式依赖不是公共资源，只作为内容依赖存在。
+            GroupName = SystemIdentifiers.SharedGroupName,
+            ContentName = contentName,
             BundlePackingMode = BundlePackingMode.PackSeparately,
-            Classification = new AssetClassification
-            {
-                Role = EAssetRole.ImplicitDependency,
-                PayloadKind = EPayloadKind.Serialized
-            },
-            CollectorType = ECollectorType.Implicit,
-            IsInSharedBundle = isShared,
-            IsDuplicated = isDuplicated
+            ContentType = contentType,
+            DependencyOrigin = AssetDependencyOrigin.Implicit,
+            IsPublic = false
         };
     }
 
@@ -429,7 +433,8 @@ public static class DependencyAnalyzer
     {
         public string AssetPath;
         public string PrimaryType;
-        public string PackageName;
-        public readonly List<string> ReferencingBundles = new();
+
+        /// <summary>引用该隐式依赖的显式内容名称集合，决定随行打包还是提取共享内容。</summary>
+        public readonly List<string> ReferencingContents = new();
     }
 }

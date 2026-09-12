@@ -176,18 +176,17 @@ YooAsset uses **version-based manifest switching** rather than field-level diffi
 
 | Aspect | YooAsset PackageManifest | Our ABManifest |
 |--------|------------------------|----------------|
-| Format | Binary primary, JSON debug | JSON-first, binary-capable later |
+| Format | Binary primary, JSON debug | JSON + Binary, fixed names |
 | Version | String ('1.0.5') | VersionNumber (Major.Minor.Patch) |
 | Asset ID | AssetPath (string) | EntryId (Unity GUID string) |
-| Asset Address | Optional field | Always present |
-| Bundle Deps | int[] indices into BundleList | int[] indices into BundleEntries[] |
-| Asset Deps | Asset-level DependBundleIDs[] | Bundle-level only (D3 decision) |
+| Asset Address | Optional field | Only on public entries (`IsPublic=true`); implicit entries have none |
+| Content Deps | int[] indices into BundleList | int[] indices into ContentEntries[] |
+| Asset Deps | Asset-level DependBundleIDs[] | Content-level only; facts come from Unity AssetBundleManifest |
 | Feature Flags | Multiple (addressable, extensionless, etc.) | Minimal |
-| Encryption field | Per-bundle boolean | Per-bundle boolean |
-| Tags | Both asset and bundle level | Labels (asset) + Tags (bundle) |
-| Update comparison | Per-bundle hash check | Explicit CompareManifests() method |
-| File naming | {PackageName}_{Version}.json/bytes | ABManifest_{Version}.json |
-| Runtime fixed name | N/A (uses version in name) | ABManifest.json (fixed local name) |
+| Encryption field | Per-bundle boolean | (none) |
+| Tags | Both asset and bundle level | Labels are asset-level query metadata; no bundle tags |
+| Update comparison | Per-bundle hash check | FileDigest + FileDiff (stateless), plus per-file hash/CRC at download |
+| File naming | {PackageName}_{Version}.json/bytes | ABManifest.json / ABManifest.bin (fixed names) |
 
 ### Key Differences to Note:
 1. **Our manifest is simpler** - fewer feature flags, no dual-format initially

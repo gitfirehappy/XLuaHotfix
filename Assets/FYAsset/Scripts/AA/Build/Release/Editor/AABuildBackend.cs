@@ -8,11 +8,11 @@ using UnityEngine;
 
 /// <summary>
 /// 使用 Addressables 执行 AA Task 管线。
-/// 同时提供 AA baseline 文件的暂存与安装操作；最终交付由 BuildProjectRunner 编排。
+/// 同时提供 AA 内置包（StreamingAssets 启动数据）文件的暂存与安装操作；最终交付由 BuildProjectRunner 编排。
 /// </summary>
-public class AABuildBackend : IBuildBackend, IBaselinePackageHandler
+public class AABuildBackend : IBuildBackend, IBuiltInPackageHandler
 {
-    public IBaselinePackageHandler BaselineHandler => this;
+    public IBuiltInPackageHandler BuiltInPackageHandler => this;
 
     public Task<BuildBackendResult> BuildAsync(BuildPackageRequest request, BuildExecutionOptions options)
     {
@@ -26,26 +26,28 @@ public class AABuildBackend : IBuildBackend, IBaselinePackageHandler
         {
             request = request ?? throw new ArgumentNullException(nameof(request));
 
-            var context = new BuildContext();
-            context.Set(BuildContextKeys.BuildPackageRequest, request);
-            context.Set(BuildContextKeys.BuildType, request.BuildType);
-            context.Set(BuildContextKeys.DeferPackagePublication, true);
-            context.Set(BuildContextKeys.BaselinePackageHandler, this);
-            Debug.Log($"[{nameof(AABuildBackend)}] 启动 AA Pipeline。BuildType={request.BuildType}, Package={request.PackageName}");
-            BuildResult result = BuildPipelineRunner.Execute(config, context, options, AAPipelineBackbone.BackboneTaskNames);
+            // 一次性把旧的“主干顺序列表”升级成“自定义 Task + 槽位”；已升级配置保持原样。
+            AAPipelineConfigUpgrade.TryUpgrade(config);
+
+            // 主干固定 5 段，自定义 Task 只能插入到合法槽位；组装失败一律致命。
+            IReadOnlyList<IBuildTask> tasks = AAPipelineBackbone.ComposeTasks(config);
+
+            var runRequest = new BuildRequest(request, options, new EditorBuildRunEnvironment());
+            Debug.Log($"[{nameof(AABuildBackend)}] 启动 AA Pipeline。BuildType={request.BuildType}, Package={request.PackageName}, Tasks={tasks.Count}");
+            BuildRunResult result = BuildPipelineRunner.Run(runRequest, tasks);
             if (!result.Success)
             {
                 LogBuildResultErrors(result);
                 return Task.FromResult(BuildBackendResult.Fail(
                     BuildMessage.Error(BuildErrorCodes.BuildFailed,
-                        $"AA 管线构建失败。已完成: {result.CompletedTasks}/{result.TotalTasks}", nameof(AABuildBackend))));
+                        FirstFailureMessage(result), nameof(AABuildBackend)),
+                    result, request, string.Empty));
             }
 
-            var artifacts = context.Get<List<BuildDiffEntry>>(BuildContextKeys.RepositoryArtifacts);
-            Debug.Log($"[{nameof(AABuildBackend)}] AA Pipeline 完成。Completed={result.CompletedTasks}/{result.TotalTasks}, RepositoryArtifacts={(artifacts != null ? artifacts.Count : 0)}");
+            Debug.Log($"[{nameof(AABuildBackend)}] AA Pipeline 完成。Completed={result.CompletedTasks}/{result.TotalTasks}");
             return Task.FromResult(BuildBackendResult.Ok(
-                artifacts, result, request, string.Empty,
-                context.Get<ArtifactDelta>(BuildContextKeys.ArtifactDelta)));
+                result, request, string.Empty,
+                result.Context.Get<CompleteBuildSummary>(BuildContextKeys.BuildSummary)));
         }
         catch (Exception ex)
         {
@@ -55,32 +57,18 @@ public class AABuildBackend : IBuildBackend, IBaselinePackageHandler
         }
     }
 
-    public IReadOnlyList<string> RequiredManifestFileNames
-    {
-        get
-        {
-            return FYAssetAASettings.Instance.ManifestOutputFormat switch
-            {
-                ManifestOutputFormat.JsonOnly => new[] { FYAssetSettings.AA_MANIFEST_FILE_NAME },
-                ManifestOutputFormat.BinaryOnly => new[] { FYAssetSettings.AA_MANIFEST_FILE_NAME_BIN },
-                _ => new[]
-                {
-                    FYAssetSettings.AA_MANIFEST_FILE_NAME,
-                    FYAssetSettings.AA_MANIFEST_FILE_NAME_BIN
-                }
-            };
-        }
-    }
+    /// <summary>包根必须存在的 AA 清单与 catalog 文件；解析规则由 AAPackageManifestReader 统一持有。</summary>
+    public IReadOnlyList<string> RequiredManifestFileNames => AAPackageManifestReader.ResolveRequiredFileNames();
 
-    public void StageBaselineFiles(BuildPackageRequest request, string stageRoot)
+    public void StageBuiltInFiles(BuildPackageRequest request, string stageRoot)
     {
-        Debug.Log("[AABuildBackend] 正在暂存 AA baseline package...");
+        Debug.Log("[AABuildBackend] 正在暂存 AA 内置包清单...");
         StageFileIfExists(request.OutputDir, stageRoot, FYAssetSettings.AA_MANIFEST_FILE_NAME);
         StageFileIfExists(request.OutputDir, stageRoot, FYAssetSettings.AA_MANIFEST_FILE_NAME_BIN);
         StageFileIfExists(request.OutputDir, stageRoot, FYAssetSettings.ADDRESSABLES_CATALOG_FILE_NAME);
     }
 
-    public IReadOnlyList<BundleDownloadItem> LoadStagedBaselineBundles(string stageRoot)
+    public IReadOnlyList<BundleDownloadItem> LoadStagedBundles(string stageRoot)
     {
         string aaJson = FYAssetPathUtility.JoinFilePath(stageRoot, FYAssetSettings.AA_MANIFEST_FILE_NAME);
         string aaBin = FYAssetPathUtility.JoinFilePath(stageRoot, FYAssetSettings.AA_MANIFEST_FILE_NAME_BIN);
@@ -94,7 +82,7 @@ public class AABuildBackend : IBuildBackend, IBaselinePackageHandler
         return ToBundleItems(manifest?.Bundles);
     }
 
-    public void ApplyStagedBaseline(string stageRoot)
+    public void ApplyStagedBuiltIn(string stageRoot)
     {
         ApplyFileOrDelete(stageRoot, Application.streamingAssetsPath, FYAssetSettings.AA_MANIFEST_FILE_NAME);
         ApplyFileOrDelete(stageRoot, Application.streamingAssetsPath, FYAssetSettings.AA_MANIFEST_FILE_NAME_BIN);
@@ -148,7 +136,7 @@ public class AABuildBackend : IBuildBackend, IBaselinePackageHandler
     /// <summary>
     /// 把失败 Task 结果写成 Warning。
     /// </summary>
-    private static void LogBuildResultErrors(BuildResult result)
+    private static void LogBuildResultErrors(BuildRunResult result)
     {
         if (result?.TaskResults == null)
             return;
@@ -160,6 +148,28 @@ public class AABuildBackend : IBuildBackend, IBaselinePackageHandler
 
             Debug.LogWarning($"[{nameof(AABuildBackend)}] Pipeline Task 失败: Code={taskResult.ErrorCode}, Message={taskResult.ErrorMessage}");
         }
+    }
+
+    /// <summary>
+    /// 首个失败 Task 的错误码与消息。Runner 首个失败即停，因此它就是本次构建的根因；
+    /// 后端只做展示，不做裁剪或重试。
+    /// </summary>
+    private static string FirstFailureMessage(BuildRunResult result)
+    {
+        if (result?.TaskResults != null)
+        {
+            for (int i = 0; i < result.TaskResults.Count; i++)
+            {
+                var taskResult = result.TaskResults[i];
+                if (taskResult == null || taskResult.Success)
+                    continue;
+
+                return $"AA 管线构建失败于 {taskResult.TaskName}: [{taskResult.ErrorCode}] {taskResult.ErrorMessage}"
+                    + $"（已完成 {result.CompletedTasks}/{result.TotalTasks}）";
+            }
+        }
+
+        return $"AA 管线构建失败。已完成: {result?.CompletedTasks ?? 0}/{result?.TotalTasks ?? 0}";
     }
 }
 #endif

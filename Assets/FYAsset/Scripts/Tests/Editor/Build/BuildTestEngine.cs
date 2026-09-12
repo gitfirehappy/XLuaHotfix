@@ -146,7 +146,7 @@ public static class BuildTestEngine
         {
             Backend = request.Backend,
             IsHotfix = false,
-            ExpectedVersion = "2.0.0"
+            ExpectedVersion = BuildTestAcceptance.FirstFullVersionAfterReset
         };
         BuildTestAcceptance.AcceptFull(ctx, result);
 
@@ -161,9 +161,8 @@ public static class BuildTestEngine
         ref BuildTestStage stage,
         ref bool mutatedFixture)
     {
-        Stage(request, result, ref stage, BuildTestStage.Preflight, "require local + target Full");
-        BuildBaseline fullHead;
-        if (!TryRequireHotfixBaseline(request, targets, out fullHead))
+        Stage(request, result, ref stage, BuildTestStage.Preflight, "require local Full delivery + cumulative base");
+        if (!TryRequireHotfixBaseline(request, targets, out PackageBuildIdentity fullIdentity))
         {
             // clean-slate：事务内 seed Full（非产品静默 Full）；与 Chain 前半一致，结束统一 Restore
             Stage(request, result, ref stage, BuildTestStage.PrepareProject, "seed Full for Hotfix baseline");
@@ -176,7 +175,7 @@ public static class BuildTestEngine
             var seedCtx = new BuildTestAcceptance.AcceptanceContext
             {
                 Backend = request.Backend,
-                ExpectedVersion = "2.0.0"
+                ExpectedVersion = BuildTestAcceptance.FirstFullVersionAfterReset
             };
             BuildTestAcceptance.AcceptFull(seedCtx, result);
 
@@ -188,12 +187,12 @@ public static class BuildTestEngine
                 throw new InvalidOperationException("Hotfix seed Full target phase failed.");
             }
 
-            BuildTestAcceptance.RequireLocalFullIdentity(request.Backend, out fullHead);
+            BuildTestAcceptance.RequireLocalFullIdentity(request.Backend, out fullIdentity);
             for (int i = 0; i < targets.Count; i++)
-                BuildTestAcceptance.RequireTargetFullIdentity(targets[i], request.Backend, fullHead);
+                BuildTestAcceptance.RequireTargetFullIdentity(targets[i], request.Backend, fullIdentity);
         }
 
-        string fullVersion = fullHead.Version.GetReleaseVersionString();
+        string fullVersion = fullIdentity.Version.GetReleaseVersionString();
         result.StreamingAssetsBaselineHash = HashGenerator.GenerateFileHash(
             FYAssetPathUtility.JoinFilePath(Application.streamingAssetsPath, FYAssetSettings.BUILD_INDEX_FILENAME));
 
@@ -201,12 +200,14 @@ public static class BuildTestEngine
         BuildTestFixtures.MutateHotfixFixture(request.Backend);
         mutatedFixture = true;
 
+        // 基准事实必须在构建前读取：构建成功后 Summary 作用域已指向本次交付。
+        BuildTestAcceptance.HotfixBaselineFacts cumulativeBase =
+            BuildTestAcceptance.HotfixBaselineFacts.Capture(request.Backend);
+
         Stage(request, result, ref stage, BuildTestStage.BuildHotfix, "build Hotfix");
         InvokeBuild(request.Backend, true, result);
 
-        VersionRecord versionData = AssetDatabase.LoadAssetAtPath<VersionRecord>(
-            FYAssetSettings.Instance.VersionRecordPath);
-        string expectedHotfix = versionData.CurrentVersion.GetReleaseVersionString();
+        string expectedHotfix = BuildSummaryStore.CreateDefault().ReadCurrentVersionText();
 
         Stage(request, result, ref stage, BuildTestStage.AcceptHotfix, "accept Hotfix disk");
         var ctx = new BuildTestAcceptance.AcceptanceContext
@@ -214,33 +215,34 @@ public static class BuildTestEngine
             Backend = request.Backend,
             IsHotfix = true,
             ExpectedVersion = expectedHotfix,
-            ExpectedParentVersion = fullVersion
+            ExpectedCumulativeBaseVersion = fullVersion,
+            CumulativeBase = cumulativeBase
         };
         BuildTestAcceptance.AcceptHotfix(ctx, result);
 
-        PublishAndProbeAll(request, result, runRoot, targets, isHotfix: true, ref stage, fullHead);
+        PublishAndProbeAll(request, result, runRoot, targets, isHotfix: true, ref stage);
     }
 
     /// <summary>
-    /// 若本地 + 全部 Target 已具备同一 Full 身份则成功；否则返回 false 供 seed。
+    /// 若本地 + 全部 Target 已具备同一 Full 交付身份则成功；否则返回 false 供 seed。
     /// </summary>
     private static bool TryRequireHotfixBaseline(
         BuildTestRequest request,
         List<BuildTestTargetSnapshot> targets,
-        out BuildBaseline fullHead)
+        out PackageBuildIdentity fullIdentity)
     {
-        fullHead = null;
+        fullIdentity = null;
         try
         {
-            BuildTestAcceptance.RequireLocalFullIdentity(request.Backend, out fullHead);
+            BuildTestAcceptance.RequireLocalFullIdentity(request.Backend, out fullIdentity);
             for (int i = 0; i < targets.Count; i++)
-                BuildTestAcceptance.RequireTargetFullIdentity(targets[i], request.Backend, fullHead);
+                BuildTestAcceptance.RequireTargetFullIdentity(targets[i], request.Backend, fullIdentity);
             return true;
         }
         catch (Exception ex)
         {
-            Debug.Log($"[BuildTestEngine] Hotfix baseline 不可用，将 seed Full: {ex.Message}");
-            fullHead = null;
+            Debug.Log($"[BuildTestEngine] Hotfix 基准 Full 不可用，将 seed Full: {ex.Message}");
+            fullIdentity = null;
             return false;
         }
     }
@@ -263,7 +265,7 @@ public static class BuildTestEngine
         var fullCtx = new BuildTestAcceptance.AcceptanceContext
         {
             Backend = request.Backend,
-            ExpectedVersion = "2.0.0"
+            ExpectedVersion = BuildTestAcceptance.FirstFullVersionAfterReset
         };
         BuildTestAcceptance.AcceptFull(fullCtx, result);
 
@@ -274,18 +276,21 @@ public static class BuildTestEngine
             throw new InvalidOperationException("Chain Full target phase failed; Hotfix skipped.");
         }
 
-        BuildTestAcceptance.RequireLocalFullIdentity(request.Backend, out BuildBaseline fullHead);
+        BuildTestAcceptance.RequireLocalFullIdentity(request.Backend, out PackageBuildIdentity fullIdentity);
+        string fullVersion = fullIdentity.Version.GetReleaseVersionString();
 
         Stage(request, result, ref stage, BuildTestStage.MutateFixture, "mutate fixture");
         BuildTestFixtures.MutateHotfixFixture(request.Backend);
         mutatedFixture = true;
 
+        // 基准事实必须在构建前读取：构建成功后 Summary 作用域已指向本次交付。
+        BuildTestAcceptance.HotfixBaselineFacts cumulativeBase =
+            BuildTestAcceptance.HotfixBaselineFacts.Capture(request.Backend);
+
         Stage(request, result, ref stage, BuildTestStage.BuildHotfix, "build Hotfix");
         InvokeBuild(request.Backend, true, result);
 
-        VersionRecord versionData = AssetDatabase.LoadAssetAtPath<VersionRecord>(
-            FYAssetSettings.Instance.VersionRecordPath);
-        string expectedHotfix = versionData.CurrentVersion.GetReleaseVersionString();
+        string expectedHotfix = BuildSummaryStore.CreateDefault().ReadCurrentVersionText();
 
         Stage(request, result, ref stage, BuildTestStage.AcceptHotfix, "accept Hotfix disk");
         var hotfixCtx = new BuildTestAcceptance.AcceptanceContext
@@ -293,11 +298,12 @@ public static class BuildTestEngine
             Backend = request.Backend,
             IsHotfix = true,
             ExpectedVersion = expectedHotfix,
-            ExpectedParentVersion = "2.0.0"
+            ExpectedCumulativeBaseVersion = fullVersion,
+            CumulativeBase = cumulativeBase
         };
         BuildTestAcceptance.AcceptHotfix(hotfixCtx, result);
 
-        PublishAndProbeAll(request, result, runRoot, targets, isHotfix: true, ref stage, fullHead);
+        PublishAndProbeAll(request, result, runRoot, targets, isHotfix: true, ref stage);
     }
 
     private static bool PublishAndProbeAll(
@@ -307,18 +313,20 @@ public static class BuildTestEngine
         List<BuildTestTargetSnapshot> targets,
         bool isHotfix,
         ref BuildTestStage stage,
-        BuildBaseline fullHead = null,
         bool keepTargets = false)
     {
         stage = isHotfix ? BuildTestStage.PublishHotfix : BuildTestStage.PublishFull;
         bool allOk = true;
         string firstFailure = null;
 
-        BackendMode mode = BuildTestState.ToBackendMode(request.Backend);
-        string channelKey = BuildBaselineStore.GetChannelKey(string.Empty, BackendModeNames.FromBackendMode(mode));
-        BuildBaseline head = BuildBaselineStore.LoadLatest(channelKey);
-        string version = head.Version.GetReleaseVersionString();
-        string backendName = BuildTestPaths.BackendSegment(request.Backend);
+        string backendKey = BuildTestPaths.BackendSegment(request.Backend);
+        // 交付身份与发布源目录都来自正式 Summary 事实：Full 用当前完整包，Hotfix 用最近成功交付。
+        BuildTestAcceptance.RequireLocalFullIdentity(request.Backend, out PackageBuildIdentity fullIdentity);
+        PackageBuildIdentity delivery = isHotfix
+            ? BuildTestAcceptance.RequireLatestSuccessfulDelivery(request.Backend, out _)
+            : fullIdentity;
+        string sourceDir = BuildTestState.ResolveDeliverySourceDir(request.Backend, isHotfix, delivery.PackageName);
+        string version = delivery.Version.GetReleaseVersionString();
 
         for (int i = 0; i < targets.Count; i++)
         {
@@ -333,42 +341,44 @@ public static class BuildTestEngine
                 string publishPath = FYAssetPathUtility.JoinFilePath(
                     targetDir,
                     isHotfix ? "publish-hotfix.json" : "publish.json");
-                BuildTestState.PublishHeadToTarget(request.Backend, target, publishPath);
+                PushReceipt receipt = BuildTestState.PublishDeliveryToTarget(
+                    request.Backend, target, sourceDir, publishPath);
+                // Full 首次发布允许退化；Hotfix 发布时目标已有可读的 Full 事实，退化说明服务器事实不可用。
+                if (isHotfix && receipt.DegradedToFullUpload)
+                    throw new InvalidOperationException(
+                        "Hotfix 发布退化为完整上传，目标缺少可用的服务器事实: " + target.TargetId);
                 outcome.PublishSuccess = true;
-                outcome.PublishedPackage = head.PackageName;
+                outcome.PublishedPackage = delivery.PackageName;
                 outcome.PublishedVersion = version;
 
                 Stage(request, result, ref stage, isHotfix ? BuildTestStage.ProbeHotfix : BuildTestStage.ProbeFull, "probe " + target.TargetId);
-                string probePath = FYAssetPathUtility.JoinFilePath(
-                    targetDir,
-                    isHotfix ? "probe-after-publish.json" : "probe-after-publish.json");
-                BuildTestState.ProbeTargetIdentity(
+                string probePath = FYAssetPathUtility.JoinFilePath(targetDir, "probe-after-publish.json");
+                PackageIndex index = BuildTestState.ProbeTargetIdentity(
                     target,
-                    backendName,
-                    head.PackageName,
+                    backendKey,
+                    delivery.PackageName,
                     version,
                     true,
                     probePath);
+                result.PackageIndexIdentity =
+                    $"{index.BackendMode}/{index.LatestPackage}/{index.LatestVersion.GetReleaseVersionString()}";
 
-                if (isHotfix && fullHead != null)
+                if (isHotfix)
                 {
+                    // Hotfix 发布不得删除目标上的 Full 包目录。
                     string fullPackageDir = FYAssetPathUtility.JoinFilePath(
                         target.BackendPublishRoot,
                         FYAssetSettings.Instance.BuildPackagesFolderName,
-                        fullHead.PackageName);
+                        fullIdentity.PackageName);
                     if (!FileHelper.DirectoryExists(fullPackageDir))
                         throw new InvalidOperationException("Full package missing after Hotfix publish: " + fullPackageDir);
                 }
 
                 outcome.ProbeSuccess = true;
 
-                if (!keepTargets && !isHotfix)
+                if (!keepTargets || isHotfix)
                 {
-                    // Focused Full 模式下每个 target 在 probe 后立即恢复。
-                    RestoreOneTarget(request, result, runRoot, target, outcome);
-                }
-                else if (isHotfix)
-                {
+                    // Focused Full 模式下每个 target 在 probe 后立即恢复；Hotfix 结束后一律恢复。
                     RestoreOneTarget(request, result, runRoot, target, outcome);
                 }
             }

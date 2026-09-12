@@ -181,7 +181,7 @@ public static class FYAssetPathUtility
         if (string.IsNullOrEmpty(normalizedLeft) || string.IsNullOrEmpty(normalizedRight))
             return false;
 
-        return string.Equals(normalizedLeft, normalizedRight, StringComparison.OrdinalIgnoreCase);
+        return string.Equals(normalizedLeft, normalizedRight, FilePathComparison);
     }
 
     private static string NormalizeUrlPart(string value, bool trimBoth)

@@ -2,6 +2,11 @@
 /// <summary>
 /// AA 具体构建入口。
 /// </summary>
+/// <remarks>
+/// AA 与 AB 一样使用 attempt 布局：任务链只写 attempt 目录，成功后由 Runner 提升到正式出口。
+/// 正式出口是 Packages 下按包名隔离的独立包目录；Hotfix 构建不得改写既有包目录，
+/// 否则本次基准解析读到的是被本次构建覆盖过的构建事实。
+/// </remarks>
 public static class AABuildProjectManager
 {
     public static bool LastBuildSuccess { get; private set; } = true;
@@ -11,7 +16,8 @@ public static class AABuildProjectManager
         LastBuildSuccess = BuildProjectRunner.BuildFullPackage(
             "AA",
             () => new AABuildBackend(),
-            options);
+            options,
+            attemptDelivery: true);
     }
 
     public static void BuildHotfix(BuildExecutionOptions options = null)
@@ -19,7 +25,8 @@ public static class AABuildProjectManager
         LastBuildSuccess = BuildProjectRunner.BuildHotfix(
             "AA",
             () => new AABuildBackend(),
-            options);
+            options,
+            attemptDelivery: true);
     }
 
     public static void ResetGroupsToOriginal()
@@ -29,12 +36,12 @@ public static class AABuildProjectManager
 
     public static HotfixGroupRestoreStatus GetHotfixGroupRestoreStatus()
     {
-        return TaskMoveAAHotfixGroups.GetRestoreStatus();
+        return AAHotfixGroupMover.GetRestoreStatus();
     }
 
     public static HotfixGroupRestoreResult RestoreGroupsToOriginal()
     {
-        HotfixGroupRestoreStatus status = TaskMoveAAHotfixGroups.GetRestoreStatus();
+        HotfixGroupRestoreStatus status = AAHotfixGroupMover.GetRestoreStatus();
         if (status.PendingCount == 0)
         {
             UnityEngine.Debug.Log("[AABuildProjectManager] 没有待恢复的 AA Hotfix Group 移动记录。");
@@ -60,12 +67,12 @@ public static class AABuildProjectManager
                 Message = "Restore was cancelled."
             };
 
-        return TaskMoveAAHotfixGroups.Restore();
+        return AAHotfixGroupMover.Restore();
     }
 
     public static HotfixGroupRestoreResult DiscardUnrestorableGroupRecords()
     {
-        return TaskMoveAAHotfixGroups.DiscardUnrestorableRecords();
+        return AAHotfixGroupMover.DiscardUnrestorableRecords();
     }
 }
 #endif

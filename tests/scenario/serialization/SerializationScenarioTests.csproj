@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="scenarios.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Versioning/VersionNumber.cs" Link="Production/VersionNumber.cs" />
+    <Compile Include="../../../Assets/Tools/Scripts/Serialization/BinarySerializableAttribute.cs" Link="Production/BinarySerializableAttribute.cs" />
+    <Compile Include="../../../Assets/Tools/Scripts/Serialization/BinaryReflectionSerializer.cs" Link="Production/BinaryReflectionSerializer.cs" />
+    <Compile Include="../../../Assets/Tools/Scripts/Serialization/BinaryReaderExt.cs" Link="Production/BinaryReaderExt.cs" />
+    <Compile Include="../../../Assets/Tools/Scripts/Serialization/BinaryWriterExt.cs" Link="Production/BinaryWriterExt.cs" />
+  </ItemGroup>
+</Project>

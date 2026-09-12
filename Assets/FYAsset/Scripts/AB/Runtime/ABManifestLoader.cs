@@ -1,75 +1,52 @@
-using System.IO;
 using System.Threading.Tasks;
 using UnityEngine;
 
 /// <summary>
-/// AB Manifest 加载器 — 负责从磁盘读取 ABManifest.bin/.json 并反序列化。
-///
-/// 路径策略：
-/// 1. Primary: RuntimePathManager.CurrentGUIDRoot/（热更目录）
-/// 2. Fallback: Application.streamingAssetsPath/（包内初始资源）
-///
-/// 文件搜索顺序（每个目录）：
-/// 1. ABManifest.bin（二进制格式，优先）
-/// 2. ABManifest.json（JSON 格式，fallback）
+/// AB Manifest 加载器 — 从当前激活包根读取 ABManifest.bin/.json 并反序列化。
 /// </summary>
+/// <remarks>
+/// 只读取 RuntimePathManager.ActivePackageRoot 一个包根，不做跨目录回退。
+/// 同一目录内优先 .bin，其次 .json；两者都不可用时返回 null 并输出错误。
+/// </remarks>
 public static class ABManifestLoader
 {
     private const string ManifestFileNameBin = FYAssetSettings.MANIFEST_FILE_NAME_BIN;
     private const string ManifestFileNameJson = FYAssetSettings.MANIFEST_FILE_NAME;
 
     /// <summary>
-    /// 异步加载 ABManifest。
-    /// 优先从热更目录加载，失败后回退到 StreamingAssets。
-    /// 每个目录内优先加载 .bin，失败后回退到 .json。
-    /// 全部失败返回 null 并输出错误日志。
+    /// 异步加载 ABManifest；全部候选文件都不可用时返回 null。
     /// </summary>
     public static async Task<ABManifest> LoadAsync()
     {
-        string primaryDir = RuntimePathManager.CurrentGUIDRoot;
-        string fallbackDir = FYAssetSettings.Instance.StandaloneBuild
-            ? FYAssetPathUtility.JoinFilePath(Application.streamingAssetsPath, FYAssetSettings.STANDALONE_DIRECTORY_NAME)
-            : Application.streamingAssetsPath;
+        string root = RuntimePathManager.ActivePackageRoot;
+        if (string.IsNullOrEmpty(root))
+        {
+            Debug.LogError("[ABManifestLoader] 当前没有激活包根，无法加载 ABManifest。请先激活内置包或本地热更包。");
+            return null;
+        }
 
-        string primaryBinPath = FYAssetPathUtility.JoinFilePath(primaryDir, ManifestFileNameBin);
-        string primaryJsonPath = FYAssetPathUtility.JoinFilePath(primaryDir, ManifestFileNameJson);
-        string fallbackBinPath = FYAssetPathUtility.JoinFilePath(fallbackDir, ManifestFileNameBin);
-        string fallbackJsonPath = FYAssetPathUtility.JoinFilePath(fallbackDir, ManifestFileNameJson);
+        string binPath = FYAssetPathUtility.JoinFilePath(root, ManifestFileNameBin);
+        string jsonPath = FYAssetPathUtility.JoinFilePath(root, ManifestFileNameJson);
 
-        var manifest = await TryLoadFromFile(primaryBinPath);
+        var manifest = await TryLoadFromFile(binPath);
         if (manifest != null)
         {
-            Debug.Log($"[ABManifestLoader] 从热更目录加载二进制清单成功: {primaryBinPath}");
+            Debug.Log($"[ABManifestLoader] 从激活包根加载二进制清单成功: {binPath}");
             return manifest;
         }
 
-        manifest = await TryLoadFromFile(primaryJsonPath);
+        manifest = await TryLoadFromFile(jsonPath);
         if (manifest != null)
         {
-            Debug.Log($"[ABManifestLoader] 从热更目录加载 JSON 清单成功: {primaryJsonPath}");
-            return manifest;
-        }
-
-        manifest = await TryLoadFromFile(fallbackBinPath);
-        if (manifest != null)
-        {
-            Debug.Log($"[ABManifestLoader] 从 StreamingAssets 加载二进制清单成功: {fallbackBinPath}");
-            return manifest;
-        }
-
-        manifest = await TryLoadFromFile(fallbackJsonPath);
-        if (manifest != null)
-        {
-            Debug.Log($"[ABManifestLoader] 从 StreamingAssets 加载 JSON 清单成功: {fallbackJsonPath}");
+            Debug.Log($"[ABManifestLoader] 从激活包根加载 JSON 清单成功: {jsonPath}");
             return manifest;
         }
 
         Debug.LogError(
             $"[ABManifestLoader] ABManifest 加载失败。\n" +
-            $"  Primary (.bin): {primaryBinPath}\n" +
-            $"  Primary (.json): {primaryJsonPath}\n" +
-            $"  Fallback (.bin): {fallbackBinPath}\n" +
-            $"  Fallback (.json): {fallbackJsonPath}");
+            $"  激活包根: {root}\n" +
+            $"  候选 (.bin): {binPath}\n" +
+            $"  候选 (.json): {jsonPath}");
         return null;
     }
 

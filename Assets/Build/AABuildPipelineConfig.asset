@@ -12,15 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 232fb182b50132e4cab181aeeaa40389, type: 3}
   m_Name: AABuildPipelineConfig
   m_EditorClassIdentifier:
-  FileNameStyle: 2
   BundleCompression: 0
-  HotfixDiffTaskName: TaskScanAAHotfixDiff
   Tasks:
   - TaskName: LuaScriptsIndexBuildTask
-  - TaskName: TaskScanAAHotfixDiff
-  - TaskName: TaskMoveAAHotfixGroups
-  - TaskName: TaskBuildAAContent
-  - TaskName: TaskOrganizeAAOutput
-  - TaskName: TaskWriteAAPackageManifest
-  - TaskName: TaskWritePackageIndex
-  - TaskName: TaskExportLocalBuildData
+    Slot: Input

@@ -67,6 +67,13 @@ namespace UnityEngine
         }
     }
 
+    public sealed class AssetBundleRequest : AsyncOperation
+    {
+        internal Object RequestedAsset;
+
+        public Object asset => RequestedAsset;
+    }
+
     public sealed class AssetBundle : Object
     {
         internal string Path;
@@ -80,6 +87,20 @@ namespace UnityEngine
         public static AssetBundleCreateRequest LoadFromFileAsync(string path)
         {
             return FakeAssetBundleIO.LoadFromFileAsync(path);
+        }
+
+        /// <summary>资产提取替身：返回一个新的 Object，调用方按类型断言所属 Bundle。</summary>
+        public T LoadAsset<T>(string name) where T : Object
+        {
+            return (T)(object)new Object { name = name };
+        }
+
+        /// <summary>异步提取替身：请求立即完成，行为与同步兼容。</summary>
+        public AssetBundleRequest LoadAssetAsync<T>(string name) where T : Object
+        {
+            var request = new AssetBundleRequest { RequestedAsset = new Object { name = name } };
+            request.CompleteOperation();
+            return request;
         }
 
         public void Unload(bool unloadAllLoadedObjects)

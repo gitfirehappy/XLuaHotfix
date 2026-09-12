@@ -5,56 +5,37 @@ using UnityEditor;
 using UnityEngine;
 
 /// <summary>
-/// 共享构建编排 runner。
-/// 具体的 AA/AB build manager 提供 backend mode 和 backend factory。
+/// 共享构建编排 runner：版本候选来自 Summary Index，构建事实（Summary/Index）由交付事务提交。
 /// </summary>
+/// <remarks>
+/// 版本与构建事实的提交顺序（最后一个可见身份提交点是 Summary Index）：
+/// 提升产物 → 应用本地启动数据 → 写正式 Summary → 写 Index → 提交补偿 token；
+/// 任一步失败按逆序恢复，构建失败不推进项目版本。
+/// </remarks>
 public static class BuildProjectRunner
 {
-    private static string versionDataBasePath => FYAssetSettings.Instance.VersionRecordPath;
-    
     /// <summary>
-    /// 构建单机离线包，产物直接写入 StreamingAssets/Standalone/，不推送 Repository。
+    /// 最近一次构建的完整摘要（CompleteBuildSummary），构建结果面板的唯一数据源。
+    /// 构建在 Export 阶段之前失败时为 null；每次构建开始时先清空，避免读到上一次的结果。
     /// </summary>
+    public static CompleteBuildSummary LastSummary { get; private set; }
+
+    /// <summary>构建单机离线包，产物直接写入 StreamingAssets/Standalone/。</summary>
     public static bool BuildStandalone(
         string backendKey,
         Func<IBuildBackend> backendFactory,
         BuildExecutionOptions options = null,
         bool attemptDelivery = false)
-    {
-        VersionRecord versionData = LoadVersionRecord();
-        if (versionData == null)
-            return false;
+        => RunPlannedBuild(BuildType.Standalone, backendKey, backendFactory, options, attemptDelivery);
 
-        VersionNumber nextVersion = versionData.BuildNextVersion(true);
-
-        bool success = RunBuild(nextVersion, BuildType.Standalone, backendKey, backendFactory, options, attemptDelivery);
-        // attempt 布局的版本由 Runner 交付事务提交；非 attempt 路径在这里提交。
-        if (success && !attemptDelivery)
-            success = ApplyBuiltVersion(nextVersion);
-
-        return success;
-    }
-
-    /// <summary>
-    /// 构建完整包，用于大版本更新
-    /// </summary>
+    /// <summary>构建完整包，用于大版本更新。</summary>
     public static bool BuildFullPackage(
         string backendKey,
         Func<IBuildBackend> backendFactory,
         BuildExecutionOptions options = null,
         bool attemptDelivery = false)
     {
-        VersionRecord versionData = LoadVersionRecord();
-        if (versionData == null)
-            return false;
-        
-        // 大版本更新，先暂存版本号，构建和 Repository commit 成功后才写回 VersionRecord。
-        VersionNumber nextVersion = versionData.BuildNextVersion(true);
-
-        bool success = RunBuild(nextVersion, BuildType.Full, backendKey, backendFactory, options, attemptDelivery);
-        if (success && !attemptDelivery)
-            success = ApplyBuiltVersion(nextVersion);
-
+        bool success = RunPlannedBuild(BuildType.Full, backendKey, backendFactory, options, attemptDelivery);
         if (success && !Application.isBatchMode)
         {
             EditorApplication.ExecuteMenuItem("File/Build Settings...");
@@ -63,30 +44,84 @@ public static class BuildProjectRunner
 
         return success;
     }
-    
-    /// <summary>
-    /// 构建热更包，用于小版本更新
-    /// </summary>
+
+    /// <summary>构建热更包，用于小版本更新。</summary>
     public static bool BuildHotfix(
         string backendKey,
         Func<IBuildBackend> backendFactory,
         BuildExecutionOptions options = null,
         bool attemptDelivery = false)
+        => RunPlannedBuild(BuildType.Hotfix, backendKey, backendFactory, options, attemptDelivery);
+
+    /// <summary>
+    /// 读取或重建构建事实索引；索引缺失或损坏只损失定位加速，不阻断本可完成的构建。
+    /// </summary>
+    private static BuildSummaryIndex LoadOrRebuildIndex(BuildSummaryStore store)
     {
-        VersionRecord versionData = LoadVersionRecord();
-        if (versionData == null)
-            return false;
-        
-        // 小版本更新，先暂存版本号，构建和 Repository commit 成功后才写回 VersionRecord。
-        VersionNumber nextVersion = versionData.BuildNextVersion();
+        if (store.TryReadIndex(out BuildSummaryIndex index, out string error))
+            return index;
 
-        bool success = RunBuild(nextVersion, BuildType.Hotfix, backendKey, backendFactory, options, attemptDelivery);
-        if (success && !attemptDelivery)
-            success = ApplyBuiltVersion(nextVersion);
-
-        return success;
+        Debug.LogWarning($"[{nameof(BuildProjectRunner)}] Summary Index 不可用，从正式摘要重建: {error}");
+        return store.RebuildIndex();
     }
-    
+
+    /// <summary>按索引的 LastBuildDate 计算当日构建序号。</summary>
+    private static int ResolveTodayBuildCount(BuildSummaryIndex index)
+    {
+        string today = DateTime.Now.ToString("yyyy-MM-dd");
+        BuildSummaryProjectVersion projectVersion = index.ProjectVersion ?? new BuildSummaryProjectVersion();
+        return string.Equals(projectVersion.LastBuildDate, today, StringComparison.Ordinal)
+            ? projectVersion.DailyBuildCount + 1
+            : 1;
+    }
+
+    /// <summary>Hotfix 的粗校验：该后端至少存在一个成功 Full 事实。</summary>
+    private static bool HasFullBaseline(BuildSummaryIndex index, string backendKey)
+    {
+        if (index.Scopes == null)
+            return false;
+
+        for (int i = 0; i < index.Scopes.Count; i++)
+        {
+            BuildSummaryScope scope = index.Scopes[i];
+            if (scope == null || string.IsNullOrEmpty(scope.LatestFullSummaryId))
+                continue;
+            if (string.Equals(scope.Backend, backendKey, StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool RunPlannedBuild(
+        BuildType buildType,
+        string backendKey,
+        Func<IBuildBackend> backendFactory,
+        BuildExecutionOptions options,
+        bool attemptDelivery)
+    {
+        BuildSummaryStore store = BuildSummaryStore.CreateDefault();
+        BuildSummaryIndex index = LoadOrRebuildIndex(store);
+
+        BuildVersionPlan plan = BuildVersionPlanner.Plan(
+            index.ProjectVersion?.CurrentSuccessfulVersion,
+            buildType,
+            options?.RequestedChannel,
+            ResolveTodayBuildCount(index));
+        if (!plan.Success)
+        {
+            Debug.LogError($"[{nameof(BuildProjectRunner)}] 无法确定构建版本: {plan.Error}");
+            return false;
+        }
+
+        if (buildType == BuildType.Hotfix && !HasFullBaseline(index, backendKey))
+        {
+            Debug.LogError($"[{nameof(BuildProjectRunner)}] Hotfix 缺少同作用域的成功 Full 基准，拒绝构建。");
+            return false;
+        }
+
+        return RunBuild(plan.Version, buildType, backendKey, backendFactory, options, attemptDelivery, store, index);
+    }
 
     private static bool RunBuild(
         VersionNumber version,
@@ -94,11 +129,15 @@ public static class BuildProjectRunner
         string backendKey,
         Func<IBuildBackend> backendFactory,
         BuildExecutionOptions options,
-        bool attemptDelivery = false)
+        bool attemptDelivery,
+        BuildSummaryStore store,
+        BuildSummaryIndex index)
     {
         Debug.Log($"[{nameof(BuildProjectRunner)}] 开始 {buildType} build。Backend={backendKey}, Version={version.GetReleaseVersionString()}, Build={version.Build}");
 
+        LastSummary = null;
         BuildPackageRequest request = null;
+        BuildBackendResult buildResult = null;
 
         try
         {
@@ -108,7 +147,8 @@ public static class BuildProjectRunner
             IBuildBackend backend = backendFactory != null
                 ? backendFactory()
                 : throw new InvalidOperationException("Build backend factory 为 null。");
-            var buildResult = backend.BuildAsync(request, options).GetAwaiter().GetResult();
+            buildResult = backend.BuildAsync(request, options).GetAwaiter().GetResult();
+            LastSummary = buildResult.Summary;
             if (!buildResult.Success)
             {
                 var err = buildResult.Error;
@@ -120,8 +160,8 @@ public static class BuildProjectRunner
 
             if (request.IsAttemptLayout)
             {
-                // attempt 交付：Runner 独占提交点，包/本地数据/PackageIndex/baseline/VersionRecord 要么全部完成、要么全部回滚。
-                if (!DeliverAttemptBuild(request, backend, buildResult))
+                // attempt 交付：Runner 独占提交点，产物 / 本地启动数据 / 构建事实 要么全部完成、要么全部回滚。
+                if (!DeliverAttemptBuild(request, backend, buildResult, store, index))
                     return false;
 
                 Debug.Log($"[{nameof(BuildProjectRunner)}] Package build 完成，已交付: {request.DeliveryOutputDir}");
@@ -130,10 +170,11 @@ public static class BuildProjectRunner
                 return true;
             }
 
-            // 非 attempt 布局：构建成功后直接发布到最终目录（AA 路径）。
+            // 非 attempt 布局：构建成功后直接发布到最终目录。
             if (buildType == BuildType.Standalone)
             {
                 PublishBuildArtifacts(request, backend);
+                CommitBuildFactsOrFail(request, buildResult, store, index);
                 Debug.Log($"[{nameof(BuildProjectRunner)}] Standalone build 完成: {request.OutputDir}");
                 if (!Application.isBatchMode)
                     TryRevealPackage(request.OutputDir);
@@ -141,10 +182,9 @@ public static class BuildProjectRunner
             }
 
             PublishBuildArtifacts(request, backend);
-            // baseline 只在构建+发布全部成功后写入，自然免除回滚。
-            RecordDeliveredBaseline(request, buildResult, backend);
+            CommitBuildFactsOrFail(request, buildResult, store, index);
 
-            Debug.Log($"[{nameof(BuildProjectRunner)}] Package build 完成，已写入交付基线并发布本地启动数据: {request.OutputDir}");
+            Debug.Log($"[{nameof(BuildProjectRunner)}] Package build 完成，已发布本地启动数据: {request.OutputDir}");
             if (!Application.isBatchMode)
                 TryRevealPackage(request.OutputDir);
 
@@ -157,84 +197,47 @@ public static class BuildProjectRunner
             return false;
         }
     }
-    
-    private static VersionRecord LoadVersionRecord()
-    {
-        VersionRecord versionData = AssetDatabase.LoadAssetAtPath<VersionRecord>(versionDataBasePath);
-        if (versionData == null)
-        {
-            Debug.LogError($"[{nameof(BuildProjectRunner)}] 未找到 VersionRecord: {versionDataBasePath}");
-            return null;
-        }
-        return versionData;
-    }
 
-    private static bool ApplyBuiltVersion(VersionNumber version)
-    {
-        VersionRecord versionData = LoadVersionRecord();
-        if (versionData == null)
-            return false;
-
-        versionData.ApplyVersion(version);
-        AssetDatabase.SaveAssets();
-        AssetDatabase.Refresh();
-        return true;
-    }
-    
     /// <summary>
-    /// 交付成功（构建+发布）后记录双槽 baseline，作为后续 hotfix diff 的历史基准。
+    /// 非 attempt 布局的构建事实提交：写正式 Summary 与 Index；失败时删除本次 Summary 并恢复旧 Index。
     /// </summary>
-    private static void RecordDeliveredBaseline(BuildPackageRequest request, BuildBackendResult buildResult, IBuildBackend backend)
+    private static void CommitBuildFactsOrFail(
+        BuildPackageRequest request,
+        BuildBackendResult buildResult,
+        BuildSummaryStore store,
+        BuildSummaryIndex index)
     {
-        string channelKey = BuildBaselineStore.GetChannelKey(request.Version, request.BackendKey);
-        var artifacts = buildResult?.Artifacts != null
-            ? new System.Collections.Generic.List<BuildDiffEntry>(buildResult.Artifacts)
-            : new System.Collections.Generic.List<BuildDiffEntry>();
-        BuildBaselineStore.Save(channelKey, new BuildBaseline
-        {
-            Version = request.Version,
-            BuildType = request.BuildType.ToString(),
-            PackageName = request.PackageName,
-            BackendMode = request.BackendKey,
-            PackageRootDir = request.OutputDir,
-            CommitDelta = buildResult?.Delta,
-            ManifestFileNames = backend?.BaselineHandler?.RequiredManifestFileNames != null
-                ? new System.Collections.Generic.List<string>(backend.BaselineHandler.RequiredManifestFileNames)
-                : null,
-            CreatedAtUtc = DateTime.UtcNow.ToString("o"),
-            Artifacts = artifacts
-        });
+        BuildFactsCommit facts = CommitBuildFacts(store, index, request, buildResult.Summary);
+        if (facts == null)
+            throw new InvalidOperationException("构建事实提交失败（正式 Summary 或 Summary Index 未能写入）。");
+        facts.Commit();
     }
 
     /// <summary>
-    /// attempt 交付事务：validate → promote → 本地数据 → PackageIndex → baseline → VersionRecord。
-    /// 任一步骤失败按逆序补偿，live 状态回到事务开始前的值；补偿本身失败则记录错误但尽力继续其余补偿。
+    /// attempt 交付事务：Runner 已提升 → 本地启动数据 → 累计 Hotfix 重置 → Summary → Index。
+    /// 产物提升由 BuildPipelineRunner 在运行成功时完成，本事务只消费它返回的交付 token；
+    /// 任一步骤失败按逆序补偿，live 状态回到事务开始前的值。
     /// </summary>
-    private static bool DeliverAttemptBuild(BuildPackageRequest request, IBuildBackend backend, BuildBackendResult buildResult)
+    private static bool DeliverAttemptBuild(
+        BuildPackageRequest request,
+        IBuildBackend backend,
+        BuildBackendResult buildResult,
+        BuildSummaryStore store,
+        BuildSummaryIndex index)
     {
         var compensation = new BuildDeliveryCompensation();
         try
         {
-            ValidateAttemptPackage(request);
+            compensation.PromoteToken = buildResult.PipelineResult?.DeliveryToken;
+            if (request.IsAttemptLayout && compensation.PromoteToken == null)
+                throw new InvalidOperationException("attempt 布局下 Runner 未返回交付 token，产物提升状态未知。");
 
-            compensation.PromoteToken = BuildDeliveryPromoter.Promote(request.OutputDir, request.DeliveryOutputDir);
             BuildPackageRequest delivered = request.WithPromotedOutput();
 
-            compensation.LocalData = TaskExportLocalBuildData.BeginDelivery(delivered, backend?.BaselineHandler);
-
-            if (delivered.BuildType != BuildType.Standalone)
-            {
-                compensation.CapturePackageIndex(delivered.PackageIndexPath);
-                TaskWritePackageIndex.Publish(delivered);
-
-                string channelKey = BuildBaselineStore.GetChannelKey(delivered.Version, delivered.BackendKey);
-                compensation.CaptureBaseline(channelKey);
-                RecordDeliveredBaseline(delivered, buildResult, backend);
-            }
-
-            compensation.CaptureVersionRecord();
-            if (!ApplyBuiltVersion(delivered.Version))
-                throw new InvalidOperationException($"VersionRecord 应用失败: {versionDataBasePath}");
+            compensation.LocalData = LocalBuildDataExporter.BeginDelivery(delivered, backend?.BuiltInPackageHandler);
+            compensation.Facts = CommitBuildFacts(store, index, delivered, buildResult.Summary);
+            if (compensation.Facts == null)
+                throw new InvalidOperationException("构建事实提交失败（正式 Summary 或 Summary Index 未能写入）。");
 
             compensation.Commit();
             return true;
@@ -247,13 +250,119 @@ public static class BuildProjectRunner
         }
     }
 
-    private static void ValidateAttemptPackage(BuildPackageRequest request)
+    /// <summary>
+    /// 写正式 Summary 并更新 Index（Index 最后写）。失败时删除本次 Summary 并恢复旧 Index。
+    /// </summary>
+    /// <remarks>Hotfix 交付前做精确基准校验：同后端、同平台、同通道、同 Major 的成功 Full。</remarks>
+    private static BuildFactsCommit CommitBuildFacts(
+        BuildSummaryStore store,
+        BuildSummaryIndex index,
+        BuildPackageRequest request,
+        CompleteBuildSummary summary)
     {
-        if (!FileHelper.DirectoryExists(request.OutputDir))
-            throw new DirectoryNotFoundException($"attempt 包目录不存在: {request.OutputDir}");
-        if (!FileHelper.DirectoryExists(request.BundlesDir)
-            || FileHelper.GetFiles(request.BundlesDir, "*", SearchOption.AllDirectories).Length == 0)
-            throw new InvalidOperationException($"attempt 包 dirs 为空(bundle 缺失): {request.BundlesDir}");
+        if (summary == null || string.IsNullOrEmpty(summary.BuildId))
+            return null;
+
+        var commit = new BuildFactsCommit(store, summary);
+        try
+        {
+            summary.ArtifactRelativePath = ToProjectRelativePath(request.DeliveryOutputDir);
+            summary.FinishedAtUtc = DateTime.UtcNow;
+
+            string channel = summary.Version.Channel ?? string.Empty;
+            BuildSummaryScope scope = index.GetOrAddScope(summary.BackendId, summary.Platform, channel);
+
+            if (request.BuildType == BuildType.Hotfix)
+            {
+                if (!ValidateHotfixBaseline(store, scope, summary.Version, out string baselineError))
+                {
+                    Debug.LogError($"[{nameof(BuildProjectRunner)}] Hotfix 基准校验失败: {baselineError}");
+                    commit.Rollback();
+                    return null;
+                }
+
+                summary.BaseFullSummaryId = scope.LatestFullSummaryId;
+            }
+
+            if (!store.TryWriteSummary(summary, out string summaryError))
+            {
+                Debug.LogError($"[{nameof(BuildProjectRunner)}] 正式 Summary 写入失败: {summaryError}");
+                commit.Rollback();
+                return null;
+            }
+
+            index.ProjectVersion ??= new BuildSummaryProjectVersion();
+            index.ProjectVersion.CurrentSuccessfulVersion = summary.Version.GetReleaseVersionString();
+            index.ProjectVersion.LastBuildDate = DateTime.Now.ToString("yyyy-MM-dd");
+            index.ProjectVersion.DailyBuildCount = summary.Version.Build;
+
+            scope.LatestSuccessfulSummaryId = summary.BuildId;
+            if (request.BuildType == BuildType.Full)
+                scope.LatestFullSummaryId = summary.BuildId;
+
+            if (!store.TryWriteIndex(index, out string indexError))
+            {
+                Debug.LogError($"[{nameof(BuildProjectRunner)}] Summary Index 写入失败: {indexError}");
+                commit.Rollback();
+                return null;
+            }
+
+            return commit;
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"[{nameof(BuildProjectRunner)}] 构建事实提交异常: {ex}");
+            commit.Rollback();
+            return null;
+        }
+    }
+
+    /// <summary>Hotfix 基准必须是同后端、同平台、同通道、同 Major 的可读成功 Full。</summary>
+    private static bool ValidateHotfixBaseline(
+        BuildSummaryStore store,
+        BuildSummaryScope scope,
+        VersionNumber hotfixVersion,
+        out string error)
+    {
+        error = string.Empty;
+        if (scope == null || string.IsNullOrEmpty(scope.LatestFullSummaryId))
+        {
+            error = $"作用域 {scope?.Backend}/{scope?.Platform}/{BuildVersionPlanner.DisplayChannel(scope?.Channel)} 没有成功 Full 基准。";
+            return false;
+        }
+
+        if (!store.TryReadSummaryDocument(scope.Backend, scope.LatestFullSummaryId,
+                out CompleteBuildSummary.SummaryDocument full, out string readError))
+        {
+            error = $"基准 Full 摘要不可读: {readError}";
+            return false;
+        }
+
+        if (!VersionNumber.TryParse(full.Version, out VersionNumber fullVersion))
+        {
+            error = $"基准 Full 版本无法解析: '{full.Version}'";
+            return false;
+        }
+
+        if (fullVersion.Major != hotfixVersion.Major)
+        {
+            error = $"基准 Full 与 Hotfix 不是同 Major: Full={full.Version}, Hotfix={hotfixVersion.GetReleaseVersionString()}";
+            return false;
+        }
+
+        return true;
+    }
+
+    private static string ToProjectRelativePath(string absolutePath)
+    {
+        if (string.IsNullOrEmpty(absolutePath))
+            return string.Empty;
+
+        string root = FYAssetPathUtility.NormalizePath(BuildPathManager.ProjectRoot);
+        string path = FYAssetPathUtility.NormalizePath(absolutePath);
+        if (path.StartsWith(root, StringComparison.OrdinalIgnoreCase))
+            path = path.Substring(root.Length).TrimStart('/', '\\');
+        return path;
     }
 
     /// <summary>
@@ -261,75 +370,22 @@ public static class BuildProjectRunner
     /// </summary>
     private sealed class BuildDeliveryCompensation
     {
-        public BuildDeliveryPromoteToken PromoteToken;
-        public TaskExportLocalBuildData.LocalBuildDataDelivery LocalData;
-        private string _packageIndexPath;
-        private byte[] _packageIndexBytes;
-        private string _baselineChannelKey;
-        private byte[] _baselineBytes;
-        private byte[] _versionRecordBytes;
-        private bool _versionRecordExisted;
-
-        public void CapturePackageIndex(string packageIndexPath)
-        {
-            _packageIndexPath = packageIndexPath;
-            _packageIndexBytes = FileHelper.Exists(packageIndexPath) ? FileHelper.ReadAllBytes(packageIndexPath) : null;
-        }
-
-        public void CaptureBaseline(string channelKey)
-        {
-            _baselineChannelKey = channelKey;
-            _baselineBytes = BuildBaselineStore.CaptureRawForRollback(channelKey);
-        }
-
-        public void CaptureVersionRecord()
-        {
-            _versionRecordExisted = FileHelper.Exists(versionDataBasePath);
-            _versionRecordBytes = _versionRecordExisted ? FileHelper.ReadAllBytes(versionDataBasePath) : null;
-        }
+        public IBuildDeliveryToken PromoteToken;
+        public LocalBuildDataExporter.LocalBuildDataDelivery LocalData;
+        public BuildFactsCommit Facts;
 
         public void Commit()
         {
+            Facts?.Commit();
             LocalData?.Commit();
             PromoteToken?.Commit();
         }
 
         public void Rollback()
         {
-            RollbackSafely(RestoreVersionRecord);
-            RollbackSafely(RestoreBaseline);
-            RollbackSafely(RestorePackageIndex);
+            RollbackSafely(() => Facts?.Rollback());
             RollbackSafely(() => LocalData?.Rollback());
             RollbackSafely(() => PromoteToken?.Rollback());
-        }
-
-        private void RestoreVersionRecord()
-        {
-            if (!_versionRecordExisted && _versionRecordBytes == null)
-                return;
-            if (_versionRecordBytes != null)
-                File.WriteAllBytes(versionDataBasePath, _versionRecordBytes);
-            else
-                FileHelper.TryDelete(versionDataBasePath);
-            AssetDatabase.ImportAsset(versionDataBasePath, ImportAssetOptions.ForceUpdate);
-            AssetDatabase.Refresh();
-        }
-
-        private void RestoreBaseline()
-        {
-            if (_baselineChannelKey == null)
-                return;
-            BuildBaselineStore.RestoreRawForRollback(_baselineChannelKey, _baselineBytes);
-        }
-
-        private void RestorePackageIndex()
-        {
-            if (_packageIndexPath == null)
-                return;
-            if (_packageIndexBytes != null)
-                File.WriteAllBytes(_packageIndexPath, _packageIndexBytes);
-            else
-                FileHelper.TryDelete(_packageIndexPath);
         }
 
         private static void RollbackSafely(Action action)
@@ -345,11 +401,52 @@ public static class BuildProjectRunner
         }
     }
 
+    /// <summary>
+    /// 构建事实提交的补偿记录：事务前索引字节与本次新建摘要标识。
+    /// </summary>
+    private sealed class BuildFactsCommit
+    {
+        private readonly BuildSummaryStore _store;
+        private readonly CompleteBuildSummary _summary;
+        private byte[] _indexBytesBefore;
+
+        public BuildFactsCommit(BuildSummaryStore store, CompleteBuildSummary summary)
+        {
+            _store = store;
+            _summary = summary;
+            _indexBytesBefore = store.ReadIndexBytesOrNull();
+        }
+
+        public void Commit()
+        {
+            _indexBytesBefore = null;
+        }
+
+        public void Rollback()
+        {
+            try
+            {
+                _store.TryDeleteSummary(_summary.BackendId, _summary.BuildId, out _);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[{nameof(BuildProjectRunner)}] 回滚摘要失败: {ex.Message}");
+            }
+
+            if (_store.TryRestoreIndex(_indexBytesBefore, out string error))
+                _indexBytesBefore = null;
+            else
+                Debug.LogError($"[{nameof(BuildProjectRunner)}] 回滚 Summary Index 失败: {error}");
+        }
+    }
+
+    /// <summary>
+    /// 非 attempt 布局的交付后处理：只导出本地启动数据。
+    /// PackageIndex 是发布事务的产物，由 BuildPublisher 在内容就位并校验后最后生成上传，构建不写它。
+    /// </summary>
     private static void PublishBuildArtifacts(BuildPackageRequest request, IBuildBackend backend)
     {
-        TaskExportLocalBuildData.Publish(request, backend?.BaselineHandler);
-        if (request.BuildType != BuildType.Standalone)
-            TaskWritePackageIndex.Publish(request);
+        LocalBuildDataExporter.Publish(request, backend?.BuiltInPackageHandler);
     }
 
     private static void HandleFailedPackage(BuildPackageRequest request, string reason)

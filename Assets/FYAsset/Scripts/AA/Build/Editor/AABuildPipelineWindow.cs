@@ -24,7 +24,7 @@ public sealed class AABuildPipelineWindow : BuildPipelineWindowBase
             new AAConfigPanel(),
             new AABuildPanel(),
             new AAReportPanel(),
-            new PublishTargetPanel(BackendModeNames.AA, ApplyHotfixUrl),
+            new PublishTargetPanel(BackendModeNames.AA, ApplyHotfixUrl, AAPackageManifestReader.Instance),
             new AAHotfixGroupMaintenancePanel()
         };
     }
@@ -139,7 +139,7 @@ public sealed class AAHotfixGroupMaintenancePanel : IBuildPipelinePanel
         bool confirmed = EditorUtility.DisplayDialog(
             "Discard Unrestorable Records",
             $"Discard {status.UnrestorableCount} unrestorable hotfix group record(s)?\n\n" +
-            "This only removes undo-log records. It does not move resources, delete HotfixGroup, or change Repository state.",
+            "This only removes undo-log records. It does not move resources, delete HotfixGroup, or change build outputs.",
             "Discard Records",
             "Cancel");
         if (!confirmed)

@@ -1,36 +1,44 @@
 #if UNITY_EDITOR
 using System;
 using System.Collections.Generic;
-using System.Globalization;
+using System.IO;
 using UnityEditor;
 using UnityEditor.UIElements;
 using UnityEngine;
 using UnityEngine.UIElements;
 
 /// <summary>
-/// 发布目标面板：维护 FYAssetSettings.PushTargets、Push Latest 到基线包、把目标 URL 写入本后端 HotfixUrl。
-/// 仅支持 LocalDirectory；CloudflarePages 等扩展类型走 BuildRepositoryCLI 的 push 命令。
+/// 发布目标面板：维护 FYAssetSettings.PushTargets、把本地包发布到所选目标、把目标 URL 写入本后端 HotfixUrl。
 /// </summary>
+/// <remarks>
+/// 计划 T7 的发布事实：
+/// 1. 待发布目录由面板显式选择某个已构建的正式包目录（来自 Summary 的成功交付列表）；
+/// 2. 发布由 BuildPublisher 执行：读取服务器 PackageIndex + Manifest，复用已有 Hash 内容，最后写 PackageIndex；
+/// 3. 旧包清理是独立维护动作，永远不删除当前 PackageIndex 指向的包目录。
+/// </remarks>
 public sealed class PublishTargetPanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
 {
     private readonly string _backendKey;
     private readonly Action<string> _applyHotfixUrl;
+    private readonly IPackageManifestReader _manifestReader;
 
     private VisualElement _root;
     private Label _statusBadge;
     private Label _messageLabel;
-    private Label _channelLabel;
-    private Label _headLabel;
-    private Label _versionLabel;
-    private Label _packageLabel;
+    private Label _sourceLabel;
+    private Label _identityLabel;
+    private Label _cacheLabel;
     private DropdownField _targetDropdown;
+    private DropdownField _sourceDropdown;
+    private readonly List<string> _sourcePaths = new List<string>();
 
-    public PublishTargetPanel(string backendKey, Action<string> applyHotfixUrl)
+    public PublishTargetPanel(string backendKey, Action<string> applyHotfixUrl, IPackageManifestReader manifestReader)
     {
         if (string.IsNullOrEmpty(backendKey))
             throw new ArgumentNullException(nameof(backendKey));
         _backendKey = backendKey;
         _applyHotfixUrl = applyHotfixUrl ?? throw new ArgumentNullException(nameof(applyHotfixUrl));
+        _manifestReader = manifestReader ?? throw new ArgumentNullException(nameof(manifestReader));
     }
 
     public string PanelName => "Publish";
@@ -56,7 +64,7 @@ public sealed class PublishTargetPanel : IBuildPipelinePanel, IBuildPipelinePane
     public void SetVisible(bool visible)
     {
         if (visible)
-            RefreshBaseline();
+            Refresh();
     }
 
     private void Rebuild()
@@ -68,12 +76,13 @@ public sealed class PublishTargetPanel : IBuildPipelinePanel, IBuildPipelinePane
         _root.Add(CreateHeader());
         var scroll = new ScrollView();
         scroll.style.flexGrow = 1f;
-        scroll.Add(CreateBaselineCard());
+        scroll.Add(CreateSourceCard());
         scroll.Add(CreatePushCard());
+        scroll.Add(CreateMaintenanceCard());
         scroll.Add(CreateTargetEditor());
         _root.Add(scroll);
 
-        RefreshBaseline();
+        Refresh();
     }
 
     private VisualElement CreateHeader()
@@ -89,36 +98,43 @@ public sealed class PublishTargetPanel : IBuildPipelinePanel, IBuildPipelinePane
         var title = BuildPipelineUI.Header(_backendKey);
         title.style.fontSize = 14f;
         titleBox.Add(title);
-        _channelLabel = BuildPipelineUI.SmallText("Channel: -");
-        titleBox.Add(_channelLabel);
+        titleBox.Add(BuildPipelineUI.SmallText($"Backend: {_backendKey}"));
         top.Add(titleBox);
         top.Add(BuildPipelineUI.ToolbarButton("Refresh", Rebuild, 70f));
-        top.Add(BuildPipelineUI.ToolbarButton("Push Latest", RunPush, 84f));
+        top.Add(BuildPipelineUI.ToolbarButton("Push", RunPush, 60f));
         header.Add(top);
 
         var statusRow = new VisualElement();
         statusRow.style.flexDirection = FlexDirection.Row;
         statusRow.style.alignItems = Align.Center;
         statusRow.style.marginTop = 6f;
-        _statusBadge = CreateBadge("No Baseline", new Color(0.42f, 0.42f, 0.42f));
+        _statusBadge = CreateBadge("Idle", new Color(0.42f, 0.42f, 0.42f));
         statusRow.Add(_statusBadge);
         _messageLabel = BuildPipelineUI.SmallText(string.Empty);
         _messageLabel.style.marginLeft = 8f;
         _messageLabel.style.flexGrow = 1f;
+        _messageLabel.style.whiteSpace = WhiteSpace.Normal;
         statusRow.Add(_messageLabel);
         header.Add(statusRow);
         return header;
     }
 
-    private VisualElement CreateBaselineCard()
+    private VisualElement CreateSourceCard()
     {
         var card = BuildPipelineUI.Card();
-        card.Add(BuildPipelineUI.Header("Baseline"));
+        card.Add(BuildPipelineUI.Header("Publish Source"));
+
+        _sourceDropdown = new DropdownField("Source", new List<string> { "(none)" }, 0);
+        _sourceDropdown.style.flexGrow = 1f;
+        SetCompactFieldLabel(_sourceDropdown, 52f);
+        _sourceDropdown.RegisterValueChangedCallback(_ => RefreshSourceFacts());
+        card.Add(_sourceDropdown);
+
         var stats = new VisualElement();
         stats.style.flexDirection = FlexDirection.Row;
-        _headLabel = AddStat(stats, "Latest", "-");
-        _versionLabel = AddStat(stats, "Version", "-");
-        _packageLabel = AddStat(stats, "Package", "-");
+        _identityLabel = AddStat(stats, "Package", "-");
+        _sourceLabel = AddStat(stats, "Path", "-");
+        _cacheLabel = AddStat(stats, "Publish Cache", "-");
         card.Add(stats);
         return card;
     }
@@ -140,7 +156,24 @@ public sealed class PublishTargetPanel : IBuildPipelinePanel, IBuildPipelinePane
         card.Add(row);
 
         card.Add(BuildPipelineUI.SmallText(
-            "Push Latest 把基线包发布到所选 Target；Apply URL 把该目标的公开地址写入本后端 HotfixUrl（Push 本身不改 URL）。"));
+            "Push 读取服务器 PackageIndex 与 Manifest，复用已有 Hash 内容，最后写入 PackageIndex；"
+            + "服务器事实不可用时退化为完整上传。Apply URL 只写入本后端 HotfixUrl。"));
+        return card;
+    }
+
+    private VisualElement CreateMaintenanceCard()
+    {
+        var card = BuildPipelineUI.Card();
+        var header = new VisualElement();
+        header.style.flexDirection = FlexDirection.Row;
+        header.style.alignItems = Align.Center;
+        var title = BuildPipelineUI.Header("Maintenance");
+        title.style.flexGrow = 1f;
+        header.Add(title);
+        header.Add(BuildPipelineUI.ToolbarButton("Delete Old Packages", RunDeleteOldPackages, 150f));
+        card.Add(header);
+        card.Add(BuildPipelineUI.SmallText(
+            "只删除目标服务器上不被当前 PackageIndex 指向的包目录；索引不可读时拒绝清理。"));
         return card;
     }
 
@@ -245,7 +278,7 @@ public sealed class PublishTargetPanel : IBuildPipelinePanel, IBuildPipelinePane
         if (config != null)
         {
             string note = config.Type == PushTargetType.CloudflarePages
-                ? "Cloudflare Pages 部署走 CLI push；项目名取 FYAssetSettings.ProjectName。"
+                ? "Cloudflare Pages 由 Compat 部署胶水处理；面板 Push 只支持目录型目标。"
                 : $"发布目录：(所选 Path，空为 OutputRoot)/{_backendKey}";
             container.Add(BuildPipelineUI.SmallText(note));
         }
@@ -253,45 +286,85 @@ public sealed class PublishTargetPanel : IBuildPipelinePanel, IBuildPipelinePane
         return container;
     }
 
-    private void RefreshBaseline()
+    /// <summary>刷新源目录候选与目标下拉，并展示当前源目录的包身份与发布缓存状态。</summary>
+    private void Refresh()
     {
         if (_root == null)
             return;
 
-        BuildPackageRequest request = CreatePreviewRequest();
-        string channelKey = BuildBaselineStore.GetChannelKey(
-            request != null ? request.Version : default,
-            _backendKey);
-        _channelLabel.text = $"Channel: {channelKey}    Backend: {_backendKey}";
-        _versionLabel.text = request != null ? request.Version.GetReleaseVersionString() : "-";
+        RefreshSourceCandidates();
+        RefreshSourceFacts();
+    }
 
-        BuildBaselineState state;
-        try
-        {
-            state = BuildBaselineStore.Load(channelKey);
-        }
-        catch (BuildBaselineException ex)
-        {
-            SetBadge("Baseline Error", new Color(0.65f, 0.20f, 0.16f));
-            _messageLabel.text = ex.Message;
-            _headLabel.text = "-";
-            _packageLabel.text = "-";
+    private void RefreshSourceCandidates()
+    {
+        if (_sourceDropdown == null)
             return;
-        }
 
-        BuildBaseline latest = state?.Latest;
-        _headLabel.text = latest != null ? latest.Version.GetReleaseVersionString() : "-";
-        _packageLabel.text = latest?.PackageName ?? "-";
-        if (latest == null)
+        string previous = ResolveSelectedSource();
+        _sourcePaths.Clear();
+        var labels = new List<string>();
+
+        string[] packageDirs = FileHelper.GetDirectories(BuildPathManager.PackagesDir, "Build_*");
+        Array.Sort(packageDirs, StringComparer.Ordinal);
+        for (int i = 0; i < packageDirs.Length; i++)
         {
-            SetBadge("No Baseline", new Color(0.42f, 0.42f, 0.42f));
-            _messageLabel.text = "完成一次成功交付（构建+发布）后生成 baseline。";
-            return;
+            _sourcePaths.Add(packageDirs[i]);
+            labels.Add(Path.GetFileName(packageDirs[i]));
         }
 
-        SetBadge("Baseline OK", new Color(0.18f, 0.48f, 0.28f));
-        string latestFull = state.LatestFull != null ? state.LatestFull.Version.GetReleaseVersionString() : "-";
-        _messageLabel.text = $"Latest={latest.Version.GetReleaseVersionString()} | LatestFull={latestFull} | {latest.PackageName}";
+        if (labels.Count == 0)
+            labels.Add("(none)");
+
+        _sourceDropdown.choices = labels;
+        int index = previous != null ? _sourcePaths.IndexOf(previous) : -1;
+        _sourceDropdown.SetValueWithoutNotify(labels[index >= 0 ? index : 0]);
+    }
+
+    /// <summary>发布源身份只来自正式 Summary：包目录不承载构建事实。</summary>
+    private string DescribeSelectedIdentity(string sourceDir)
+    {
+        string packageName = string.IsNullOrEmpty(sourceDir) ? null : Path.GetFileName(sourceDir);
+        if (string.IsNullOrEmpty(packageName))
+            return "未选择发布源。";
+
+        BuildSummaryStore store = BuildSummaryStore.CreateDefault();
+        if (!store.TryReadSummaryDocument(_backendKey, packageName,
+                out CompleteBuildSummary.SummaryDocument document, out string error))
+            return $"正式 Summary 中缺少包身份: {error}";
+
+        return string.IsNullOrEmpty(document.BuildType)
+            ? $"{document.BuildId} | {document.Version}"
+            : $"{document.BuildId} | {document.Version} | {document.BuildType}";
+    }
+
+    private void RefreshSourceFacts()
+    {
+        string sourceDir = ResolveSelectedSource();
+        if (_sourceLabel != null)
+            _sourceLabel.text = string.IsNullOrEmpty(sourceDir) ? "-" : sourceDir;
+
+        if (_identityLabel != null)
+        {
+            _identityLabel.text = DescribeSelectedIdentity(sourceDir);
+        }
+
+        if (_cacheLabel != null)
+        {
+            string cachePath = ResolvePublishCachePath();
+            _cacheLabel.text = string.IsNullOrEmpty(cachePath)
+                ? "-"
+                : (PublishCacheStore.Exists(cachePath) ? cachePath : "无（不影响发布正确性）");
+        }
+    }
+
+    private string ResolveSelectedSource()
+    {
+        if (_sourceDropdown == null || _sourcePaths.Count == 0)
+            return null;
+
+        int index = _sourceDropdown.index;
+        return index >= 0 && index < _sourcePaths.Count ? _sourcePaths[index] : null;
     }
 
     private void RunPush()
@@ -301,17 +374,51 @@ public sealed class PublishTargetPanel : IBuildPipelinePanel, IBuildPipelinePane
             PushTargetConfig config = GetSelectedTargetConfig();
             if (config.Type != PushTargetType.LocalDirectory)
                 throw new InvalidOperationException(
-                    $"Target type '{config.Type}' is supported by BuildRepositoryCLI push only.");
+                    $"面板 Push 只支持目录型目标；'{config.Type}' 请使用 Compat 部署入口。");
 
-            BuildPackageRequest request = CreatePreviewRequest();
-            string channelKey = BuildBaselineStore.GetChannelKey(request?.Version ?? default, _backendKey);
-            PushReceipt receipt = BuildPublisher.PushLatest(channelKey, new LocalDirectoryPushTarget(config));
-            RefreshBaseline();
+            string sourceDir = ResolveSelectedSource();
+            if (string.IsNullOrEmpty(sourceDir))
+                throw new InvalidOperationException("没有可发布的本地包目录。请先完成一次构建。");
+
+            // 发布身份只来自正式 Summary：包目录不承载身份，面板不得从目录名或包内文件推断。
+            string packageName = Path.GetFileName(
+                sourceDir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+            if (!BuildSummaryStore.CreateDefault().TryReadSummaryDocument(
+                    _backendKey, packageName, out CompleteBuildSummary.SummaryDocument document, out string identityError))
+            {
+                throw new InvalidOperationException("正式 Summary 中缺少包身份: " + identityError);
+            }
+
+            if (!VersionNumber.TryParse(document.Version, out VersionNumber version))
+                throw new InvalidOperationException("正式 Summary 版本无法解析: " + document.Version);
+
+            var request = new PublishRequest
+            {
+                BackendKey = _backendKey,
+                SourcePackageDir = sourceDir,
+                TargetId = config.Id,
+                ManifestReader = _manifestReader,
+                PublishCachePath = ResolvePublishCachePath(),
+                PackagesFolderName = FYAssetSettings.Instance.BuildPackagesFolderName,
+                Identity = new PackageBuildIdentity
+                {
+                    PackageName = document.BuildId,
+                    Version = version,
+                    BackendId = document.BackendId,
+                    BuildType = document.BuildType
+                },
+                BaseFullSummaryId = document.BaseFullSummaryId
+            };
+
+            PushReceipt receipt = BuildPublisher.Push(request, new LocalDirectoryPushTarget(config));
+            Refresh();
 
             if (receipt != null && receipt.Success)
             {
-                SetBadge("Push OK", new Color(0.18f, 0.48f, 0.28f));
-                _messageLabel.text = $"Push succeeded: {receipt.TargetId} -> {receipt.TargetLocation}";
+                SetBadge(receipt.DegradedToFullUpload ? "Push OK (Full)" : "Push OK",
+                    receipt.DegradedToFullUpload ? new Color(0.60f, 0.45f, 0.12f) : new Color(0.18f, 0.48f, 0.28f));
+                _messageLabel.text =
+                    $"Package={receipt.TargetLocation} 上传={receipt.UploadedCount} 复用={receipt.ReusedCount}";
             }
             else
             {
@@ -323,6 +430,46 @@ public sealed class PublishTargetPanel : IBuildPipelinePanel, IBuildPipelinePane
         {
             Debug.LogError($"[{nameof(PublishTargetPanel)}] Push 失败：{ex}");
             SetBadge("Push Failed", new Color(0.65f, 0.20f, 0.16f));
+            _messageLabel.text = ex.Message;
+        }
+    }
+
+    private void RunDeleteOldPackages()
+    {
+        try
+        {
+            PushTargetConfig config = GetSelectedTargetConfig();
+            if (config.Type != PushTargetType.LocalDirectory)
+                throw new InvalidOperationException("旧包清理只对目录型目标生效。");
+
+            string backendRoot = config.ResolveBackendRoot(_backendKey);
+            if (!EditorUtility.DisplayDialog(
+                    "Delete Old Packages",
+                    $"删除 {backendRoot} 下不被 PackageIndex 指向的包目录？\n\n当前 PackageIndex 指向的包不会被删除。",
+                    "Delete",
+                    "Cancel"))
+            {
+                return;
+            }
+
+            PublishMaintenance.CleanupResult result = PublishMaintenance.DeleteUnreferencedPackages(
+                backendRoot,
+                FYAssetSettings.Instance.BuildPackagesFolderName);
+
+            if (!result.Success)
+            {
+                SetBadge("Cleanup Refused", new Color(0.65f, 0.20f, 0.16f));
+                _messageLabel.text = result.FailureReason;
+                return;
+            }
+
+            SetBadge("Cleanup OK", new Color(0.18f, 0.48f, 0.28f));
+            _messageLabel.text =
+                $"保留={result.KeptPackage}, 删除={result.DeletedPackages.Count}, 跳过={result.SkippedEntries.Count}";
+        }
+        catch (Exception ex)
+        {
+            SetBadge("Cleanup Failed", new Color(0.65f, 0.20f, 0.16f));
             _messageLabel.text = ex.Message;
         }
     }
@@ -380,25 +527,30 @@ public sealed class PublishTargetPanel : IBuildPipelinePanel, IBuildPipelinePane
         AssetDatabase.SaveAssets();
     }
 
-    private BuildPackageRequest CreatePreviewRequest()
+    /// <summary>发布缓存的独立存储路径（后端 + 目标隔离）；目标缺失时返回 null。</summary>
+    private string ResolvePublishCachePath()
     {
-        VersionRecord versionDB = AssetDatabase.LoadAssetAtPath<VersionRecord>(FYAssetSettings.Instance.VersionRecordPath);
-        VersionNumber version = versionDB != null
-            ? versionDB.CurrentVersion
-            : new VersionNumber { Major = 0, Minor = 0, Patch = 0 };
-        return BuildPackageRequest.Create(version, BuildType.Full, _backendKey);
+        PushTargetConfig config = GetSelectedTargetConfigOrNull();
+        return config == null
+            ? null
+            : PublishRequest.ResolvePublishCachePath(BuildPathManager.ProjectRoot, _backendKey, config.Id);
     }
 
     private PushTargetConfig GetSelectedTargetConfig()
+    {
+        PushTargetConfig config = GetSelectedTargetConfigOrNull();
+        if (config == null)
+            throw new InvalidOperationException("未配置 Push Target。");
+        return config;
+    }
+
+    private PushTargetConfig GetSelectedTargetConfigOrNull()
     {
         FYAssetSettings settings = FYAssetSettings.Instance;
         string targetId = _targetDropdown != null && !string.IsNullOrEmpty(_targetDropdown.value)
             ? _targetDropdown.value
             : (settings.PushTargets != null && settings.PushTargets.Count > 0 ? settings.PushTargets[0].Id : string.Empty);
-        PushTargetConfig config = PushTargetConfig.FindById(targetId);
-        if (config == null)
-            throw new InvalidOperationException("未配置 Push Target。");
-        return config;
+        return PushTargetConfig.FindById(targetId);
     }
 
     private static List<string> GetPushTargetLabels()

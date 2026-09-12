@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <!-- 生产构建端代码带 UNITY_EDITOR 条件编译；场景按同一定义链接。 -->
+    <DefineConstants>UNITY_EDITOR</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="scenario_support.cs" />
+    <Compile Include="test_summary_ownership.cs" />
+    <Compile Include="test_summary_transaction.cs" />
+    <Compile Include="test_package_purity.cs" />
+    <Compile Include="test_physical_naming.cs" />
+    <Compile Include="test_hotfix_candidate_contract.cs" />
+    <Compile Include="test_hotfix_delivery.cs" />
+    <!-- 生产源码：命名规则与热更决策均为纯逻辑，不含 UnityEngine/UnityEditor 依赖 -->
+    <Compile Include="../../../Assets/FYAsset/Scripts/AB/Build/Collector/CollectorEnums.cs" Link="Production/CollectorEnums.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/AB/Build/Collector/Editor/SystemIdentifiers.cs" Link="Production/SystemIdentifiers.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/AB/Build/Collector/Editor/BundleNameBuilder.cs" Link="Production/BundleNameBuilder.cs" />
+    <Compile Include="../../../Assets/Tools/Scripts/HashGenerator.cs" Link="Production/HashGenerator.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Hotfix/HotfixStateDecider.cs" Link="Production/HotfixStateDecider.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Hotfix/HotfixContentState.cs" Link="Production/HotfixContentState.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Runtime/RuntimeMode.cs" Link="Production/RuntimeMode.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Versioning/VersionNumber.cs" Link="Production/VersionNumber.cs" />
+    <Compile Include="../../../Assets/Tools/Scripts/Serialization/BinarySerializableAttribute.cs" Link="Production/BinarySerializableAttribute.cs" />
+    <!-- T1 生产源码：版本规划与 Summary 存储不依赖 UnityEngine/UnityEditor 具体实现 -->
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Editor/Summary/BuildSummaryIndex.cs" Link="Production/BuildSummaryIndex.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Editor/Summary/BuildVersionPlanner.cs" Link="Production/BuildVersionPlanner.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Editor/Summary/BuildSummaryStore.cs" Link="Production/BuildSummaryStore.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Editor/CompleteBuildSummary.cs" Link="Production/CompleteBuildSummary.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Editor/Common/BuildMessage.cs" Link="Production/BuildMessage.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/FileDigest.cs" Link="Production/FileDigest.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/FileDiff.cs" Link="Production/FileDiff.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Helpers/FYAssetPathUtility.cs" Link="Production/FYAssetPathUtility.cs" />
+    <Compile Include="../../../Assets/Tools/Scripts/FileHelper.cs" Link="Production/FileHelper.cs" />
+    <Compile Include="stubs/summary_stubs.cs" />
+  </ItemGroup>
+</Project>

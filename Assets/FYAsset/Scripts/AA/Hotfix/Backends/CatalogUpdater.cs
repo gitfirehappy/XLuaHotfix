@@ -62,8 +62,12 @@ public static class CatalogUpdater
     }
     
     /// <summary>
-    /// 安装 InternalId 重定向：remote URL 优先映射到 CurrentGUIDRoot/bundles 下的热更文件，其次映射到 StreamingAssets baseline。
+    /// 安装 InternalId 重定向：remote URL 映射到当前激活包根 bundles 目录下的内容文件。
     /// </summary>
+    /// <remarks>
+    /// 只映射一个包根 RuntimePathManager.ActivePackageRoot；激活包根下不存在该文件时保留原 InternalId，
+    /// 由 Addressables 自己报错，不做逐文件回退到其他目录。
+    /// </remarks>
     public static void InstallInternalIdRedirect()
     {
         if (_transformInstalled) return;
@@ -75,20 +79,16 @@ public static class CatalogUpdater
             if (FYAssetPathUtility.IsHttpUrl(id))
             {
                 string fileName = Path.GetFileName(id);
-                string localPath = FYAssetPathUtility.JoinFilePath(RuntimePathManager.CurrentGUIDRoot, FYAssetSettings.BUNDLES_DIRECTORY_NAME, fileName);
+                string localPath = FYAssetPathUtility.JoinFilePath(
+                    RuntimePathManager.ActivePackageRoot,
+                    FYAssetSettings.BUNDLES_DIRECTORY_NAME,
+                    fileName);
 
                 if (FileHelper.Exists(localPath))
                 {
                     // 使用 file URI，避免 Windows 盘符被 Provider 当作 URI 端口解析。
                     return new System.Uri(localPath).AbsoluteUri;
                 }
-
-                string baselinePath = FYAssetPathUtility.JoinFilePath(
-                    Application.streamingAssetsPath,
-                    FYAssetSettings.BUNDLES_DIRECTORY_NAME,
-                    fileName);
-                if (FileHelper.Exists(baselinePath))
-                    return new System.Uri(baselinePath).AbsoluteUri;
             }
             return id;
         };

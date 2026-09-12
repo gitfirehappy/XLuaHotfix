@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="test_ab_dependency_active_path.cs" />
+    <Compile Include="test_ab_typed_address_resolution.cs" />
+    <Compile Include="test_concrete_package_ownership.cs" />
+    <Compile Include="test_asset_facade_binding.cs" />
+    <Compile Include="test_startup_load_errors.cs" />
+    <Compile Include="../../Assets/FYAsset/Scripts/**/AssetResolver.cs" Link="AssetResolver.cs" />
+    <Compile Include="../../Assets/FYAsset/Scripts/AB/Runtime/AssetHandle.cs" Link="AssetHandle.cs" />
+    <Compile Include="../../Assets/FYAsset/Scripts/AB/Runtime/HandleRegistry.cs" Link="HandleRegistry.cs" />
+    <Compile Include="../../Assets/FYAsset/Scripts/Compat/AssetPackageManager.cs" Link="AssetPackageManager.cs" />
+    <Compile Include="../../Assets/FYAsset/Scripts/Compat/Runtime/BackendMode.cs" Link="BackendMode.cs" />
+    <Compile Include="../../Assets/FYAsset/Scripts/AB/Runtime/RuntimeAssetEntry.cs" Link="RuntimeAssetEntry.cs" />
+    <Compile Include="../../Assets/FYAsset/Scripts/AB/Runtime/ResolveResult.cs" Link="ResolveResult.cs" />
+    <Compile Include="../../Assets/FYAsset/Scripts/Shared/Runtime/RuntimeMessage.cs" Link="RuntimeMessage.cs" />
+    <Compile Include="../../Assets/FYAsset/Scripts/AB/Build/Collector/CollectorEnums.cs" Link="CollectorEnums.cs" />
+  </ItemGroup>
+</Project>

@@ -4,10 +4,10 @@ using System.IO;
 
 /// <summary>
 /// 保存目录交付后的备份位置，供调用方 Commit 或 Rollback。
-/// 只负责目录补偿，不负责 PackageIndex、baseline 或 VersionRecord。
+/// 只负责目录补偿，不负责 PackageIndex、Summary 或 Index 提交。
 /// </summary>
 /// <remarks>结算开始即标记 token 失效；删除或移动失败会抛异常，不能使用同一 token 重试。</remarks>
-public sealed class BuildDeliveryPromoteToken
+public sealed class BuildDeliveryPromoteToken : IBuildDeliveryToken
 {
     private readonly string _deliveryDir;
     private readonly string _recoveryDir;

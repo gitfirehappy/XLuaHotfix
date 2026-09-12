@@ -7,13 +7,20 @@ using UnityEngine.UIElements;
 
 /// <summary>
 /// BuildPipeline 面板。
-/// 负责构建触发、Build Options 编辑以及只读 Task 顺序列表展示。
+/// 负责构建触发、Build Options 编辑，以及用 Composer 结果渲染本次将执行的 Task 顺序。
 /// </summary>
+/// <remarks>
+/// 面板不再编辑 Task 顺序：主干阶段由后端 PipelineBackbone 固定定义，
+/// 配置只能声明自定义 Task 的插入槽位。展示时使用与后端完全相同的 Compose，
+/// 组装失败直接把异常显示为红字，避免面板与真实执行顺序不一致。
+/// </remarks>
 public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
 {
     private readonly string _panelName;
     private readonly Func<string> _configPathGetter;
-    private readonly Func<System.Collections.Generic.List<TaskEntry>> _defaultTasksFactory;
+    private readonly Func<IReadOnlyList<CoreTaskSlot>> _coreSlotsFactory;
+    private readonly Func<BuildPipelineConfig, bool> _configUpgrader;
+    private readonly Func<CompleteBuildSummary> _lastSummaryProvider;
     private readonly string _logPrefix;
     private readonly bool _showBuildOptions;
     private readonly bool _showBuildControls;
@@ -33,18 +40,26 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
     private BuildType _buildMode = BuildType.Hotfix;
     private bool _isBuildRunning;
 
+    /// <summary>构建确认行的通道选择：0 = 继承当前全局通道，其余为显式选择。</summary>
+    private static readonly string[] ChannelSelections = { "inherit", "alpha", "beta", "rc", "release" };
+    private int _channelSelectionIndex;
+
     public PipelinePanel(
         string panelName,
         Func<string> configPathGetter,
-        Func<System.Collections.Generic.List<TaskEntry>> defaultTasksFactory,
+        Func<IReadOnlyList<CoreTaskSlot>> coreSlotsFactory,
         string logPrefix,
         bool showBuildOptions,
         bool showBuildControls,
-        BuildPanelActions actions)
+        BuildPanelActions actions,
+        Func<BuildPipelineConfig, bool> configUpgrader = null,
+        Func<CompleteBuildSummary> lastSummaryProvider = null)
     {
         _panelName = panelName;
         _configPathGetter = configPathGetter;
-        _defaultTasksFactory = defaultTasksFactory;
+        _coreSlotsFactory = coreSlotsFactory;
+        _configUpgrader = configUpgrader;
+        _lastSummaryProvider = lastSummaryProvider;
         _logPrefix = logPrefix;
         _showBuildOptions = showBuildOptions;
         _showBuildControls = showBuildControls;
@@ -79,9 +94,7 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
     {
     }
 
-    /// <summary>
-    /// 按当前 BuildPipelineConfig 重建面板内容。
-    /// </summary>
+    /// <summary>按当前 BuildPipelineConfig 重建面板内容。</summary>
     private void Rebuild()
     {
         if (_root == null)
@@ -105,12 +118,11 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
             DrawBuildOptionsBar();
 
         DrawTaskList();
+        DrawSummary();
         RefreshStatus();
     }
 
-    /// <summary>
-    /// 绘制顶部工具栏：重载、Build Mode、构建按钮和状态文本。
-    /// </summary>
+    /// <summary>绘制顶部工具栏：重载、Build Mode、构建按钮和状态文本。</summary>
     private void DrawTopBar()
     {
         VisualElement toolbar = BuildPipelineUI.Toolbar();
@@ -156,9 +168,7 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
         _root.Add(toolbar);
     }
 
-    /// <summary>
-    /// 绘制 Build Options 行，并绑定到 BuildPipelineConfig。
-    /// </summary>
+    /// <summary>绘制 Build Options 行，并绑定到 BuildPipelineConfig。</summary>
     private void DrawBuildOptionsBar()
     {
         if (_serializedConfig == null)
@@ -175,15 +185,20 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
         label.style.marginBottom = 0f;
         _optionsRow.Add(label);
 
-        PropertyField fileNameStyle = new PropertyField(_serializedConfig.FindProperty(nameof(BuildPipelineConfig.FileNameStyle)));
-        fileNameStyle.label = string.Empty;
-        fileNameStyle.style.minWidth = 180f;
-        _optionsRow.Add(fileNameStyle);
-
         PropertyField compression = new PropertyField(_serializedConfig.FindProperty(nameof(BuildPipelineConfig.BundleCompression)));
         compression.label = string.Empty;
         compression.style.width = 130f;
         _optionsRow.Add(compression);
+
+        var channel = new PopupField<string>("Channel", new List<string>(ChannelSelections), _channelSelectionIndex);
+        channel.label = string.Empty;
+        channel.style.width = 120f;
+        channel.tooltip = "继承当前全局通道，或显式选择 alpha/beta/rc/release；禁止通道降级。";
+        channel.RegisterValueChangedCallback(evt =>
+        {
+            _channelSelectionIndex = Mathf.Max(0, Array.IndexOf(ChannelSelections, evt.newValue));
+        });
+        _optionsRow.Add(channel);
 
         _optionsRow.Add(BuildPipelineUI.Spacer());
         _optionsRow.Bind(_serializedConfig);
@@ -191,7 +206,8 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
     }
 
     /// <summary>
-    /// 绘制当前配置中的 Task 顺序列表；从上到下即执行顺序。
+    /// 用 Composer 渲染本次将要执行的 Task 顺序：主干阶段 + 各槽位自定义 Task。
+    /// 组装失败时显示红字错误，并退化为“主干 + 原始配置条目”的只读展示。
     /// </summary>
     private void DrawTaskList()
     {
@@ -207,25 +223,64 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
         _taskListScroll.style.flexGrow = 1f;
         _taskListHost.Add(_taskListScroll);
 
-        List<TaskEntry> tasks = _config.Tasks;
-        if (tasks == null || tasks.Count == 0)
-        {
-            _taskListScroll.Add(BuildPipelineUI.SmallText("No tasks configured."));
-            _root.Add(_taskListHost);
-            return;
-        }
+        IReadOnlyList<CoreTaskSlot> coreSlots = _coreSlotsFactory != null
+            ? _coreSlotsFactory()
+            : Array.Empty<CoreTaskSlot>();
 
-        for (int i = 0; i < tasks.Count; i++)
-            AddTaskRow(i, tasks[i]);
+        try
+        {
+            IReadOnlyList<IBuildTask> composed = BuildPipelineComposer.Compose(coreSlots, _config.Tasks);
+            var coreNames = new HashSet<string>(StringComparer.Ordinal);
+            for (int i = 0; i < coreSlots.Count; i++)
+                coreNames.Add(coreSlots[i].Slot);
+
+            for (int i = 0; i < composed.Count; i++)
+            {
+                string taskName = composed[i].TaskName;
+                AddTaskRow(i, taskName, coreNames.Contains(taskName) ? "Core" : "Custom");
+            }
+        }
+        catch (Exception ex)
+        {
+            AddComposeError(ex);
+            AddFallbackRows(coreSlots);
+        }
 
         _root.Add(_taskListHost);
     }
 
-    private void AddTaskRow(int index, TaskEntry entry)
+    /// <summary>组装失败：红字显示错误码与原因，不做任何静默降级。</summary>
+    private void AddComposeError(Exception ex)
     {
-        string taskName = entry?.TaskName ?? string.Empty;
-        bool resolved = !string.IsNullOrWhiteSpace(taskName)
-            && BuildTaskResolver.Exists(taskName);
+        var error = BuildPipelineUI.SmallText("Compose failed: " + ex.Message);
+        error.style.color = Color.red;
+        error.style.whiteSpace = WhiteSpace.Normal;
+        error.style.paddingBottom = 6f;
+        _taskListScroll.Add(error);
+    }
+
+    /// <summary>组装失败时的兜底展示：先列主干阶段，再列配置里的原始自定义条目。</summary>
+    private void AddFallbackRows(IReadOnlyList<CoreTaskSlot> coreSlots)
+    {
+        int index = 0;
+        for (int i = 0; i < coreSlots.Count; i++)
+            AddTaskRow(index++, coreSlots[i].Slot, "Core");
+
+        List<CustomTaskEntry> configured = _config.Tasks;
+        if (configured == null)
+            return;
+
+        for (int i = 0; i < configured.Count; i++)
+        {
+            string name = string.IsNullOrWhiteSpace(configured[i].TaskName) ? "<empty>" : configured[i].TaskName;
+            AddTaskRow(index++, name, "Custom@" + (configured[i].Slot ?? "<empty>"));
+        }
+    }
+
+    private void AddTaskRow(int index, string taskName, string tag)
+    {
+        bool resolved = !string.IsNullOrWhiteSpace(taskName) && BuildTaskResolver.Exists(taskName);
+        bool isCore = string.Equals(tag, "Core", StringComparison.Ordinal);
 
         var row = new VisualElement();
         row.style.flexDirection = FlexDirection.Row;
@@ -251,24 +306,57 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
         statusDot.style.borderBottomRightRadius = 5f;
         row.Add(statusDot);
 
-        Label nameLabel = new Label(string.IsNullOrEmpty(taskName) ? "<empty>" : taskName);
+        Label nameLabel = new Label(taskName);
         nameLabel.style.flexGrow = 1f;
         nameLabel.style.unityTextAlign = TextAnchor.MiddleLeft;
         row.Add(nameLabel);
+
+        Label tagLabel = BuildPipelineUI.SmallText(tag);
+        tagLabel.style.width = 110f;
+        tagLabel.style.flexShrink = 0f;
+        tagLabel.style.unityTextAlign = TextAnchor.MiddleRight;
+        tagLabel.style.color = BuildPipelineUI.SecondaryTextColor;
+        row.Add(tagLabel);
 
         Label stateLabel = BuildPipelineUI.SmallText(resolved ? "Resolved" : "Unresolved");
         stateLabel.style.width = 90f;
         stateLabel.style.flexShrink = 0f;
         stateLabel.style.unityTextAlign = TextAnchor.MiddleRight;
-        stateLabel.style.color = resolved ? BuildPipelineUI.SecondaryTextColor : Color.red;
+        // 主干 Task 由后端直接实例化，因此未在 resolver 注册属正常；自定义 Task 必须可解析。
+        stateLabel.style.color = resolved || isCore ? BuildPipelineUI.SecondaryTextColor : Color.red;
+        if (isCore && !resolved)
+            stateLabel.text = "Core";
         row.Add(stateLabel);
 
         _taskListScroll.Add(row);
 
         var rowState = new TaskRowState(statusDot);
         SetTaskRowStatus(rowState, null);
-        if (!string.IsNullOrEmpty(taskName))
+        if (!string.IsNullOrEmpty(taskName) && !_taskRows.ContainsKey(taskName))
             _taskRows[taskName] = rowState;
+    }
+
+    /// <summary>
+    /// 构建结果摘要区：CompleteBuildSummary 是构建结果面板的唯一数据源。
+    /// </summary>
+    private void DrawSummary()
+    {
+        CompleteBuildSummary summary = _lastSummaryProvider?.Invoke();
+        if (summary == null)
+            return;
+
+        VisualElement card = BuildPipelineUI.Card();
+        card.style.flexShrink = 0f;
+        card.Add(BuildPipelineUI.SmallText(
+            $"{summary.BuildId} | {summary.BackendId} | {summary.BuildType}/{summary.RuntimeMode} | "
+            + $"v{summary.Version.GetReleaseVersionString()} | {summary.Platform} | {summary.Duration.TotalSeconds:F1}s | "
+            + $"Files {summary.Statistics.FileCount} | Contents {summary.Statistics.ContentCount} | "
+            + $"Messages {summary.Messages.Count} | Success {summary.Success}"));
+
+        Label status = BuildPipelineUI.SmallText(summary.Success ? "Last build succeeded." : "Last build failed.");
+        status.style.color = summary.Success ? new Color(0.3f, 1f, 0.3f) : Color.red;
+        card.Add(status);
+        _root.Add(card);
     }
 
     private void LoadConfig()
@@ -276,6 +364,7 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
         _config = AssetDatabase.LoadAssetAtPath<BuildPipelineConfig>(GetConfigPath());
         if (_config != null)
         {
+            _configUpgrader?.Invoke(_config);
             _serializedConfig = new SerializedObject(_config);
         }
         else
@@ -296,7 +385,9 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
 
         var options = new BuildExecutionOptions
         {
-            TaskStatusChanged = OnTaskStatusChanged
+            TaskStatusChanged = OnTaskStatusChanged,
+            // 未选择时保持 null，由版本规划器继承当前全局通道，不被默认参数清空。
+            RequestedChannel = _channelSelectionIndex <= 0 ? null : ChannelSelections[_channelSelectionIndex]
         };
 
         try
@@ -329,6 +420,7 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
         {
             _isBuildRunning = false;
             SetRunningEnabled(true);
+            Rebuild();
         }
     }
 
@@ -338,9 +430,7 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
 
     private bool LastBuildSuccess() => _actions.LastBuildSuccess();
 
-    /// <summary>
-    /// 将构建过程中的单任务执行状态同步到顺序列表行。
-    /// </summary>
+    /// <summary>将构建过程中的单任务执行状态同步到顺序列表行。</summary>
     private void OnTaskStatusChanged(BuildTaskExecutionEvent evt)
     {
         if (!string.IsNullOrEmpty(evt.TaskName) && _taskRows.TryGetValue(evt.TaskName, out TaskRowState row))
@@ -351,7 +441,19 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
 
     private void RefreshStatus()
     {
-        int taskCount = _config?.Tasks?.Count ?? 0;
+        int taskCount = 0;
+        try
+        {
+            IReadOnlyList<CoreTaskSlot> coreSlots = _coreSlotsFactory != null
+                ? _coreSlotsFactory()
+                : Array.Empty<CoreTaskSlot>();
+            taskCount = BuildPipelineComposer.Compose(coreSlots, _config?.Tasks).Count;
+        }
+        catch (Exception)
+        {
+            // 组装失败的具体原因已经在列表区显示，这里只退化为 0。
+        }
+
         if (_taskStatusLabel != null)
             _taskStatusLabel.text = $"{taskCount} tasks";
     }
@@ -365,9 +467,7 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
         _buildStatusLabel.style.color = color;
     }
 
-    /// <summary>
-    /// 构建运行时统一禁用可编辑控件，避免并发修改配置。
-    /// </summary>
+    /// <summary>构建运行时统一禁用可编辑控件，避免并发修改配置。</summary>
     private void SetRunningEnabled(bool enabled)
     {
         _buildModeField?.SetEnabled(enabled);
@@ -399,9 +499,7 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
         row.StatusDot.tooltip = status?.ToString() ?? "Idle";
     }
 
-    /// <summary>
-    /// BuildPipelineConfig 缺失时显示创建入口。
-    /// </summary>
+    /// <summary>BuildPipelineConfig 缺失时显示创建入口。</summary>
     private void DrawNoConfig()
     {
         VisualElement panel = BuildPipelineUIToolkitPanel.CreateCenteredPanel(_root, 460f);
@@ -414,13 +512,14 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
 
     /// <summary>
     /// 创建新的 BuildPipelineConfig 资产并立即加载。
+    /// 主干阶段不由配置声明，因此新配置的自定义 Task 列表为空。
     /// </summary>
     private void CreateConfig()
     {
         BuildPipelineUI.EnsureAssetParentFolder(GetConfigPath());
 
         var config = ScriptableObject.CreateInstance<BuildPipelineConfig>();
-        config.Tasks = _defaultTasksFactory();
+        config.Tasks = new List<CustomTaskEntry>();
         AssetDatabase.CreateAsset(config, GetConfigPath());
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();

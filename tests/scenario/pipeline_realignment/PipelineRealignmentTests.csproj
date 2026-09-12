@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="scenario_support.cs" />
+    <Compile Include="test_handle_token_behavior.cs" />
+    <Compile Include="test_t1_collection_contract.cs" />
+    <Compile Include="test_t2_rawfile_share_contract.cs" />
+    <Compile Include="test_t4_manifest_contract.cs" />
+    <Compile Include="test_t6_runner_contract.cs" />
+    <Compile Include="test_t7_baseline_exit_contract.cs" />
+    <Compile Include="test_t8_hotfix_switch_contract.cs" />
+    <Compile Include="stubs/unity_runtime_stubs.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/AB/Runtime/AssetHandle.cs" Link="Production/AssetHandle.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/AB/Runtime/HandleRegistry.cs" Link="Production/HandleRegistry.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Runtime/RuntimeMessage.cs" Link="Production/RuntimeMessage.cs" />
+  </ItemGroup>
+</Project>

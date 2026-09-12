@@ -33,6 +33,24 @@ internal static class RuntimeResourceScenarioRunner
             DialogueFacadeLoadingTests.ParseFailureReleasesFacadeAsset);
         await RunAsync(nameof(DialogueFacadeLoadingTests.SourceBoundaryUsesOnlyFacade),
             DialogueFacadeLoadingTests.SourceBoundaryUsesOnlyFacade);
+        await RunAsync(nameof(ABPublicIndexAndHandleTests.PublicIndexFiltersImplicitEntries),
+            () => { ABPublicIndexAndHandleTests.PublicIndexFiltersImplicitEntries(); return Task.CompletedTask; });
+        await RunAsync(nameof(ABPublicIndexAndHandleTests.AddressLookupIsCaseInsensitive),
+            () => { ABPublicIndexAndHandleTests.AddressLookupIsCaseInsensitive(); return Task.CompletedTask; });
+        await RunAsync(nameof(ABPublicIndexAndHandleTests.DuplicatePublicAddressFailsConstruction),
+            () => { ABPublicIndexAndHandleTests.DuplicatePublicAddressFailsConstruction(); return Task.CompletedTask; });
+        await RunAsync(nameof(ABPublicIndexAndHandleTests.SceneTokensCountTowardShutdownGate),
+            () => { ABPublicIndexAndHandleTests.SceneTokensCountTowardShutdownGate(); return Task.CompletedTask; });
+        await RunAsync(nameof(ABPublicIndexAndHandleTests.DefaultSceneHandleIsInvalid),
+            () => { ABPublicIndexAndHandleTests.DefaultSceneHandleIsInvalid(); return Task.CompletedTask; });
+        await RunAsync(nameof(ABPublicIndexAndHandleTests.SceneLoaderReleasesContentAfterUnload),
+            () => { ABPublicIndexAndHandleTests.SceneLoaderReleasesContentAfterUnload(); return Task.CompletedTask; });
+        await RunAsync(nameof(SceneOwnershipTests.FailedUnloadKeepsRetryableToken),
+            SceneOwnershipTests.FailedUnloadKeepsRetryableToken);
+        await RunAsync(nameof(SceneOwnershipTests.OtherOwnersKeepSceneAlive),
+            SceneOwnershipTests.OtherOwnersKeepSceneAlive);
+        await RunAsync(nameof(EntrySingleFlightTests.SyncFollowerDuringAsyncInflightDoesNotDoubleAcquire),
+            EntrySingleFlightTests.SyncFollowerDuringAsyncInflightDoesNotDoubleAcquire);
 
         Console.WriteLine(_failures == 0
             ? "PASS - runtime resource scenarios."

@@ -206,18 +206,18 @@ Time Slicing:
 | YooAsset Concept | XLuaHotfix Equivalent | Status |
 |-----------------|----------------------|--------|
 | ResourcePackage | AssetPackageManager | Existing |
-| PackageManifest | ABManifest | Implemented (B6-manifest) |
-| PackageAsset | RuntimeAssetEntry / ManifestAssetEntry | Implemented (B5-1) |
-| PackageBundle | ManifestBundleEntry | Implemented (B6-manifest) |
-| AssetHandle | AssetHandle<T> | Implemented (B5-2) |
-| ProviderOperation | (not yet) | Future: B7/B8 |
-| LoadBundleFileOperation | ABBundleLoader (stub) | Future: B7 |
-| IFileSystem | (not yet) | Future: consider for B7 |
-| ResourceManager.ProviderDic | AssetPackageManager._pool | Existing (ref-count pool) |
-| PlayModeImpl / IBundleQuery | IPackageBackend | Implemented (B2) |
+| PackageManifest | ABManifest | Implemented |
+| PackageAsset | RuntimeAssetEntry / ManifestAssetEntry | Implemented |
+| PackageBundle | ManifestContentEntry | Implemented |
+| AssetHandle | AssetHandle<T> / SceneHandle | Implemented |
+| ProviderOperation | (not yet) | Future: no equivalent owner |
+| LoadBundleFileOperation | ABBundleLoader (single-flight) | Implemented |
+| IFileSystem | (not yet) | Future: consider for a later runtime revision |
+| ResourceManager.ProviderDic | ABPackageBackend 的 EntryId 资产缓存 | Implemented |
+| PlayModeImpl / IBundleQuery | IABLoadBackend（EditorPackageBackend / ABPackageBackend） | Implemented |
 | OperationSystem | (not yet) | Future: future runtime scheduler exploration |
-| ManifestTools | AssetResolver | Implemented (B5-2) |
-| EPlayMode | (not direct) | AddressablesBackend / ABPackageBackend switch |
+| ManifestTools | AssetResolver | Implemented |
+| EPlayMode | (not direct) | FYAssetABSettings.PlayMode 选择 Editor / 运行时加载方式 |
 
 ### Key Architectural Differences
 

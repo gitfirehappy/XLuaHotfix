@@ -31,6 +31,13 @@ MonoBehaviour:
     - LuaScriptContainer
     - FYAssetPipelineTest
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 3353353d4df825c4a955f60fbd15e64e
+    m_Address: FYAssetPipelineSync
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - TextAsset
+    - FYAssetPipelineTest
+    FlaggedDuringContentUpdateRestriction: 0
   m_ReadOnly: 0
   m_Settings: {fileID: 11400000, guid: 170f3ccdb3bee544095a2f2b92d47c18, type: 2}
   m_SchemaSet:

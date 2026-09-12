@@ -4,8 +4,12 @@ using UnityEditor;
 using UnityEngine;
 
 /// <summary>
-/// 资产分类器 —— 根据采集器配置和资源路径推导资产角色与载荷类型。
+/// 资产分类器 —— 按分类顺序推断内容类型（序列化资产 / 场景 / 原始文件）。
 /// </summary>
+/// <remarks>
+/// 分类不依赖 Importer 名称，只判断 Unity 能否有效识别并进入 SerializedObject 构建路线；
+/// 项目级 RawFile 白名单优先于该判断，命中白名单的文件即使 Unity 可识别也按 RawFile 构建与加载。
+/// </remarks>
 public static class AssetClassifier
 {
     private static readonly string[] UnsupportedBundleEntryExtensions =
@@ -16,15 +20,63 @@ public static class AssetClassifier
     };
 
     /// <summary>
-    /// 根据路径和采集器配置生成分类结果。
+    /// 扫描阶段的默认排除扩展名：脚本、程序集定义、元数据与版本控制文件都不是可打包内容。
+    /// 这套排除原先由 CollectAll 过滤规则承担，规则反射体系移除后必须由扫描层保留同等行为。
     /// </summary>
-    public static AssetClassification Classify(string assetPath, ECollectorType collectorType, EForcePayloadKind forcePayloadKind)
+    private static readonly string[] DefaultExcludedExtensions =
     {
-        return new AssetClassification
+        ".meta",
+        ".cs",
+        ".dll",
+        ".asmdef",
+        ".asmref",
+        ".gitignore"
+    };
+
+    /// <summary>
+    /// 扫描阶段是否按默认规则排除该资产：扩展名命中默认排除列表，或路径位于任意 Editor 目录下。
+    /// </summary>
+    public static bool IsExcludedByDefault(string assetPath)
+    {
+        if (string.IsNullOrEmpty(assetPath))
+            return true;
+
+        string extension = Path.GetExtension(assetPath);
+        for (int i = 0; i < DefaultExcludedExtensions.Length; i++)
         {
-            Role = MapRole(collectorType),
-            PayloadKind = ResolvePayloadKind(assetPath, forcePayloadKind)
-        };
+            if (string.Equals(extension, DefaultExcludedExtensions[i], StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+
+        return ContainsEditorDirectory(assetPath);
+    }
+
+    /// <summary>路径中任意一段为 Editor 即视为编辑器专用内容，不参与运行时打包。</summary>
+    private static bool ContainsEditorDirectory(string assetPath)
+    {
+        string normalizedPath = "/" + assetPath.Replace('\\', '/').Trim('/') + "/";
+        return normalizedPath.IndexOf("/Editor/", StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+
+    /// <summary>
+    /// 按分类顺序推断资产内容类型：RawFile 白名单 → Scene（.unity）→ Unity 可有效识别为序列化资产 → 其余 RawFile。
+    /// </summary>
+    /// <param name="assetPath">项目相对资产路径</param>
+    /// <param name="rawFileRules">项目级 RawFile 白名单；为 null 时跳过白名单维度</param>
+    public static AssetContentType ClassifyContentType(string assetPath, RawFileRules rawFileRules)
+    {
+        // 白名单优先：命中即按物理文件构建与加载，即使 Unity 能把它识别为序列化资产。
+        if (rawFileRules != null && rawFileRules.Matches(assetPath))
+            return AssetContentType.RawFile;
+
+        if (IsScene(assetPath))
+            return AssetContentType.Scene;
+
+        if (CanUseAsSerializedBundleEntry(assetPath, out _))
+            return AssetContentType.SerializedObject;
+
+        // 兜底：Unity 无法有效识别的文件一律按原始文件处理，不再作为 Bundle 入口。
+        return AssetContentType.RawFile;
     }
 
     /// <summary>
@@ -62,6 +114,7 @@ public static class AssetClassifier
         return false;
     }
 
+    /// <summary>判断 Unity 能否把该资产作为序列化主资产加载；不能则必须走 RawFile 路线。</summary>
     public static bool CanUseAsSerializedBundleEntry(string assetPath, out string reason)
     {
         if (IsUnsupportedAssetBundleEntry(assetPath, out reason))
@@ -84,62 +137,12 @@ public static class AssetClassifier
         return true;
     }
 
-    private static EAssetRole MapRole(ECollectorType collectorType)
-    {
-        switch (collectorType)
-        {
-            case ECollectorType.Main:
-                return EAssetRole.Main;
-            case ECollectorType.Static:
-                return EAssetRole.Static;
-            case ECollectorType.Depend:
-                return EAssetRole.Depend;
-            default:
-                throw new ArgumentOutOfRangeException(nameof(collectorType), collectorType, "不支持的采集器类型。");
-        }
-    }
-
-    private static EPayloadKind ResolvePayloadKind(string assetPath, EForcePayloadKind forcePayloadKind)
-    {
-        switch (forcePayloadKind)
-        {
-            case EForcePayloadKind.Serialized:
-                return EPayloadKind.Serialized;
-            case EForcePayloadKind.RawFile:
-                return EPayloadKind.RawFile;
-            case EForcePayloadKind.Scene:
-                return EPayloadKind.Scene;
-            case EForcePayloadKind.Auto:
-                if (IsScene(assetPath))
-                    return EPayloadKind.Scene;
-                return HasUsableImportedAsset(assetPath) ? EPayloadKind.Serialized : EPayloadKind.RawFile;
-            default:
-                throw new ArgumentOutOfRangeException(nameof(forcePayloadKind), forcePayloadKind, "不支持的载荷类型覆盖值。");
-        }
-    }
-
     private static bool IsScene(string assetPath)
     {
         if (string.IsNullOrEmpty(assetPath))
             return false;
 
         return string.Equals(Path.GetExtension(assetPath), ".unity", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static bool HasUsableImportedAsset(string assetPath)
-    {
-        if (string.IsNullOrEmpty(assetPath))
-            return false;
-
-        Type mainType = AssetDatabase.GetMainAssetTypeAtPath(assetPath);
-        if (mainType == null || mainType == typeof(DefaultAsset))
-            return false;
-
-        UnityEngine.Object mainAsset = AssetDatabase.LoadMainAssetAtPath(assetPath);
-        if (mainAsset == null || mainAsset is DefaultAsset)
-            return false;
-
-        return true;
     }
 
     private static bool IsUnsupportedBundleEntryExtension(string extension)

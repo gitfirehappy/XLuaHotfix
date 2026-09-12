@@ -35,21 +35,20 @@ public static class EditorVirtualManifestBuilder
 
         var manifest = new ABManifest
         {
-            PackageName = "EditorPlayMode",
             PackageVersion = new VersionNumber { Major = 0, Minor = 0, Patch = 0, Build = 0 },
-            BuildTimestamp = DateTime.UtcNow.ToString("o"),
-            FileHash = string.Empty,
             AssetEntries = new List<ManifestAssetEntry>(),
-            BundleEntries = new List<ManifestBundleEntry>(),
-            DeliveryBundles = new List<ManifestBundleEntry>()
+            ContentEntries = new List<ManifestContentEntry>()
         };
 
-        manifest.BundleEntries.Add(new ManifestBundleEntry
+        // Editor 预览不产出物理文件，用一个占位内容承载全部条目，文件事实留空
+        manifest.ContentEntries.Add(new ManifestContentEntry
         {
-            BundleName = "editor_virtual.bundle",
+            FileName = "editor_virtual.bundle",
             FileHash = string.Empty,
-            FileCRC = 1,
-            FileSize = 1
+            FileCRC = 0,
+            FileSize = 0,
+            ContentType = AssetContentType.SerializedObject,
+            DependencyIndices = new int[0]
         });
 
         for (int i = 0; i < scan.Assets.Count; i++)
@@ -65,10 +64,9 @@ public static class EditorVirtualManifestBuilder
                 PrimaryType = string.IsNullOrEmpty(info.PrimaryType) ? "Object" : info.PrimaryType,
                 Labels = info.Labels != null ? new List<string>(info.Labels) : new List<string>(),
                 SourcePath = info.AssetPath,
-                Group = info.GroupName ?? string.Empty,
-                AutoAddress = true,
-                BundleIndex = 0,
-                PayloadKind = info.Classification.PayloadKind
+                IsPublic = true,
+                ContentType = info.ContentType,
+                ContentIndex = 0
             };
             manifest.AssetEntries.Add(entry);
         }

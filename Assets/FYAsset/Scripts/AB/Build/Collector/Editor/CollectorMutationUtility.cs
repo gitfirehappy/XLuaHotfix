@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using UnityEditor;
-using UnityEngine;
 
 /// <summary>
 /// Collector 归属关系和配置级资源排除的共享 Editor 修改入口。
@@ -24,7 +23,6 @@ public static class CollectorMutationUtility
         public CollectionState State;
         public CollectorReverseIndex.CollectorRef CollectorRef;
         public Collector Collector;
-        public AssetCollectionPackage Package;
         public AssetCollectionGroup Group;
     }
 
@@ -57,7 +55,6 @@ public static class CollectorMutationUtility
             return info;
 
         info.CollectorRef = collectorRef;
-        info.Package = GetPackage(setting, collectorRef);
         info.Group = GetGroup(setting, collectorRef);
         info.Collector = GetCollector(setting, collectorRef);
         if (info.Collector == null)
@@ -71,7 +68,10 @@ public static class CollectorMutationUtility
         return info;
     }
 
-    public static bool AddToGroup(AssetCollectionSetting setting, AssetCollectionGroup group, string assetPath, ECollectorType collectorType, EForcePayloadKind forcePayloadKind)
+    /// <summary>
+    /// 把资产路径加入目标 Group。已排除的资产优先恢复采集，不重复新增 Collector。
+    /// </summary>
+    public static bool AddToGroup(AssetCollectionSetting setting, AssetCollectionGroup group, string assetPath)
     {
         if (setting == null || group == null)
             return false;
@@ -96,11 +96,7 @@ public static class CollectorMutationUtility
         group.Collectors.Add(new Collector
         {
             CollectPath = normalized,
-            CollectPathType = isFolder ? ECollectPathType.Folder : ECollectPathType.File,
-            CollectorType = collectorType,
-            ForcePayloadKind = isFolder ? forcePayloadKind : ResolveFilePayloadKind(normalized, forcePayloadKind),
-            FilterRuleName = FYAssetSettings.RULE_COLLECT_ALL,
-            GroupRuleName = FYAssetSettings.RULE_GROUP_ALL
+            CollectPathType = isFolder ? ECollectPathType.Folder : ECollectPathType.File
         });
 
         EditorUtility.SetDirty(setting);
@@ -171,21 +167,12 @@ public static class CollectorMutationUtility
         UnityEditorInternal.InternalEditorUtility.RepaintAllViews();
     }
 
-    private static AssetCollectionPackage GetPackage(AssetCollectionSetting setting, CollectorReverseIndex.CollectorRef collectorRef)
-    {
-        if (setting?.Packages == null || collectorRef.PackageIndex < 0 || collectorRef.PackageIndex >= setting.Packages.Count)
-            return null;
-
-        return setting.Packages[collectorRef.PackageIndex];
-    }
-
     private static AssetCollectionGroup GetGroup(AssetCollectionSetting setting, CollectorReverseIndex.CollectorRef collectorRef)
     {
-        AssetCollectionPackage package = GetPackage(setting, collectorRef);
-        if (package?.Groups == null || collectorRef.GroupIndex < 0 || collectorRef.GroupIndex >= package.Groups.Count)
+        if (setting?.Groups == null || collectorRef.GroupIndex < 0 || collectorRef.GroupIndex >= setting.Groups.Count)
             return null;
 
-        return package.Groups[collectorRef.GroupIndex];
+        return setting.Groups[collectorRef.GroupIndex];
     }
 
     private static Collector GetCollector(AssetCollectionSetting setting, CollectorReverseIndex.CollectorRef collectorRef)
@@ -217,14 +204,6 @@ public static class CollectorMutationUtility
             : collector.CollectPathType == ECollectPathType.File;
         return typeMatches &&
                string.Equals(CollectorPathUtility.NormalizePath(collector.CollectPath), assetPath, StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static EForcePayloadKind ResolveFilePayloadKind(string assetPath, EForcePayloadKind requested)
-    {
-        if (string.Equals(System.IO.Path.GetExtension(assetPath), ".unity", StringComparison.OrdinalIgnoreCase))
-            return EForcePayloadKind.Scene;
-
-        return requested;
     }
 
     private static bool AddExcludedAsset(AssetCollectionSetting setting, string assetPath)

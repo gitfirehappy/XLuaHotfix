@@ -3,22 +3,22 @@ using System.Collections.Generic;
 using UnityEditor;
 
 /// <summary>
-/// 采集扫描引擎 —— 将 AssetCollectionSetting SO 转化为扁平的资源列表。
+/// 采集扫描引擎 —— 将 AssetCollectionSetting 转化为扁平的资源列表。
 /// 纯 Editor 静态工具类，无实例状态。
 /// </summary>
+/// <remarks>
+/// 层级只有 Setting -> Group -> Collector：显式 Collector 收集到的资源都是公共资源，
+/// 资产归属其 Collector 所在 Group；依赖分析发现的资源由构建阶段内部化，不经过本扫描器。
+/// </remarks>
 public static class CollectionScanner
 {
-    /// <summary>
-    /// 扫描 AssetCollectionSetting 中配置的所有 Package/Group/Collector，返回采集结果。
-    /// </summary>
+    /// <summary>扫描 AssetCollectionSetting 中配置的所有 Group/Collector，返回采集结果。</summary>
     public static ScanResult Scan(AssetCollectionSetting setting)
     {
         return Scan(setting, CollectionScanOptions.None);
     }
 
-    /// <summary>
-    /// 扫描 AssetCollectionSetting 中配置的所有 Package/Group/Collector，返回采集结果。
-    /// </summary>
+    /// <summary>扫描 AssetCollectionSetting 中配置的所有 Group/Collector，返回采集结果。</summary>
     public static ScanResult Scan(AssetCollectionSetting setting, CollectionScanOptions options)
     {
         ScanResult result = new ScanResult();
@@ -30,114 +30,23 @@ public static class CollectionScanner
             return result;
         }
 
-        if (setting.Packages == null || setting.Packages.Count == 0)
+        if (setting.Groups == null || setting.Groups.Count == 0)
         {
-            result.Messages.Add(BuildMessage.NoPackages(string.Empty));
+            result.Messages.Add(BuildMessage.NoGroups(string.Empty));
             return result;
         }
 
-        if (!CheckCrossPackageOverlaps(setting, result))
-            return result;
-
-        for (int pkgIdx = 0; pkgIdx < setting.Packages.Count; pkgIdx++)
-        {
-            AssetCollectionPackage package = setting.Packages[pkgIdx];
-            if (package == null)
-                continue;
-
-            if (string.IsNullOrEmpty(package.PackageName))
-            {
-                result.Messages.Add(BuildMessage.EmptyPackageName(string.Concat("Package[", pkgIdx, "]")));
-                continue;
-            }
-
-            if (package.Groups == null || package.Groups.Count == 0)
-            {
-                result.Messages.Add(BuildMessage.EmptyPackage(package.PackageName, string.Empty));
-                continue;
-            }
-
-            if (!ScanPackage(setting, package, options, result))
-                continue;
-        }
-
-        return result;
-    }
-
-    private static bool CheckCrossPackageOverlaps(AssetCollectionSetting setting, ScanResult result)
-    {
-        List<(string path, string pkgName)> allCollectors = new List<(string, string)>();
-
-        for (int pi = 0; pi < setting.Packages.Count; pi++)
-        {
-            var pkg = setting.Packages[pi];
-            if (pkg == null || pkg.Groups == null)
-                continue;
-
-            for (int gi = 0; gi < pkg.Groups.Count; gi++)
-            {
-                var grp = pkg.Groups[gi];
-                if (grp == null || grp.Collectors == null)
-                    continue;
-
-                for (int ci = 0; ci < grp.Collectors.Count; ci++)
-                {
-                    var col = grp.Collectors[ci];
-                    if (col == null || string.IsNullOrEmpty(col.CollectPath))
-                        continue;
-
-                    string normalized = CollectorPathUtility.NormalizePath(col.CollectPath);
-                    allCollectors.Add((normalized, pkg.PackageName));
-                }
-            }
-        }
-
-        for (int i = 0; i < allCollectors.Count; i++)
-        {
-            for (int j = i + 1; j < allCollectors.Count; j++)
-            {
-                var (pathI, pkgI) = allCollectors[i];
-                var (pathJ, pkgJ) = allCollectors[j];
-
-                if (string.Equals(pkgI, pkgJ, StringComparison.Ordinal))
-                    continue;
-
-                if (string.Equals(pathI, pathJ, StringComparison.OrdinalIgnoreCase))
-                {
-                    result.Messages.Add(BuildMessage.CrossPackageOverlap(pathI, pkgI, pkgJ, pathI));
-                    return false;
-                }
-
-                if (CollectorPathUtility.IsPathContained(pathI, pathJ))
-                {
-                    result.Messages.Add(BuildMessage.CrossPackageContainment(pathI, pkgI, pathJ, pkgJ, pathI));
-                    return false;
-                }
-
-                if (CollectorPathUtility.IsPathContained(pathJ, pathI))
-                {
-                    result.Messages.Add(BuildMessage.CrossPackageContainment(pathJ, pkgJ, pathI, pkgI, pathJ));
-                    return false;
-                }
-            }
-        }
-
-        return true;
-    }
-
-    private static bool ScanPackage(AssetCollectionSetting setting, AssetCollectionPackage package, CollectionScanOptions options, ScanResult result)
-    {
-        string packageName = package.PackageName;
-
-        List<CollectorContext> contexts = FlattenCollectors(package);
+        List<CollectorContext> contexts = FlattenCollectors(setting);
         if (contexts.Count == 0)
-            return true;
+            return result;
 
         // 归属规则：更深路径的 Collector 优先，因此按路径深度降序排序
-        contexts.Sort((a, b) => CollectorPathUtility.PathDepth(b.Collector.CollectPath).CompareTo(CollectorPathUtility.PathDepth(a.Collector.CollectPath)));
+        contexts.Sort((a, b) =>
+            CollectorPathUtility.PathDepth(b.Collector.CollectPath)
+                .CompareTo(CollectorPathUtility.PathDepth(a.Collector.CollectPath)));
 
-        if (!CheckSameDepthConflicts(contexts, packageName, result))
-            return false;
+        if (!CheckSameDepthConflicts(contexts, result))
+            return result;
 
         // 每个浅路径 Collector 需排除被其包含的更深路径，避免重复归属
         List<string> currentPaths = new List<string>();
@@ -157,93 +66,57 @@ public static class CollectionScanner
             contexts[i].ExcludedPaths = excluded;
         }
 
-        Dictionary<string, AssetCollectionGroup> groupLookup = new Dictionary<string, AssetCollectionGroup>(
-            StringComparer.OrdinalIgnoreCase);
-        for (int gi = 0; gi < package.Groups.Count; gi++)
-        {
-            var grp = package.Groups[gi];
-            if (grp != null && !string.IsNullOrEmpty(grp.GroupName))
-                groupLookup[grp.GroupName] = grp;
-        }
-
-        List<CollectedAssetInfo> packageAssets = new List<CollectedAssetInfo>();
-
+        List<CollectedAssetInfo> collectedAssets = new List<CollectedAssetInfo>();
         List<string> effectiveIgnorePatterns = setting.GetEffectiveIgnorePatterns();
+
         for (int ci = 0; ci < contexts.Count; ci++)
         {
-            var ctx = contexts[ci];
+            CollectorContext ctx = contexts[ci];
             ctx.Setting = setting;
             ctx.Options = options;
             ctx.IgnorePatterns = effectiveIgnorePatterns;
-            if (!ScanCollector(ctx, packageName, groupLookup, result, packageAssets))
+            if (!ScanCollector(ctx, result, collectedAssets))
                 break;
         }
 
-        if (!CheckGuidUniqueness(packageAssets, result))
-        {
-            result.Assets.AddRange(packageAssets);
-            return false;
-        }
-
-        result.Assets.AddRange(packageAssets);
-        return true;
+        result.Assets.AddRange(collectedAssets);
+        return result;
     }
 
     private static bool ScanCollector(
         CollectorContext ctx,
-        string packageName,
-        Dictionary<string, AssetCollectionGroup> groupLookup,
         ScanResult result,
-        List<CollectedAssetInfo> packageAssets)
+        List<CollectedAssetInfo> collectedAssets)
     {
         Collector collector = ctx.Collector;
         string collectPath = collector.CollectPath;
-
-        if (collector.CollectorType == ECollectorType.Implicit)
-        {
-            result.Messages.Add(BuildMessage.InvalidCollectorType(collector.CollectorType.ToString(), collectPath));
-            return false;
-        }
+        string source = ctx.SourceLabel;
 
         if (string.IsNullOrEmpty(collectPath))
         {
-            result.Messages.Add(BuildMessage.EmptyCollectPath(string.Empty));
+            result.Messages.Add(BuildMessage.EmptyCollectPath(source));
             return false;
         }
 
         if (!CollectPathExists(collector))
         {
-            result.Messages.Add(BuildMessage.PathNotFound(collectPath, collectPath));
-            return true; // 仅 Warning —— Package 内其他 Collector 可能仍有效
+            // 仅 Warning —— 其他 Collector 可能仍有效
+            result.Messages.Add(BuildMessage.PathNotFound(collectPath, source));
+            return true;
         }
-
-        IFilterRule filterRule = ResolveRuleSafe<IFilterRule>(collector.FilterRuleName, "FilterRule", collectPath, result);
-        IGroupRule groupRule = ResolveRuleSafe<IGroupRule>(collector.GroupRuleName, "GroupRule", collectPath, result);
-
-        if (filterRule == null || groupRule == null)
-            return false; // 错误已由 ResolveRuleSafe 添加
 
         List<string> assetPaths = CollectAssetPaths(collector, collectPath);
         if (assetPaths.Count == 0)
         {
-            result.Messages.Add(BuildMessage.EmptyCollector(collectPath, collectPath));
-            return true; // 非错误 —— 仅表示空结果
+            // 非错误 —— 仅表示空结果
+            result.Messages.Add(BuildMessage.EmptyCollector(collectPath, source));
+            return true;
         }
 
         for (int gi = 0; gi < assetPaths.Count; gi++)
         {
-            if (!TryCollectAsset(
-                assetPaths[gi],
-                ctx,
-                packageName,
-                groupLookup,
-                result,
-                packageAssets,
-                filterRule,
-                groupRule))
-            {
+            if (!TryCollectAsset(assetPaths[gi], ctx, result, collectedAssets))
                 return false;
-            }
         }
 
         return true;
@@ -274,8 +147,7 @@ public static class CollectionScanner
         return false;
     }
 
-    private static bool CheckSameDepthConflicts(
-        List<CollectorContext> contexts, string packageName, ScanResult result)
+    private static bool CheckSameDepthConflicts(List<CollectorContext> contexts, ScanResult result)
     {
         for (int i = 0; i < contexts.Count; i++)
         {
@@ -289,7 +161,7 @@ public static class CollectionScanner
 
                 if (depthI == depthJ && string.Equals(pathI, pathJ, StringComparison.OrdinalIgnoreCase))
                 {
-                    result.Messages.Add(BuildMessage.SamePathConflict(pathI, pathI));
+                    result.Messages.Add(BuildMessage.SamePathConflict(pathI, string.Empty));
                     return false;
                 }
             }
@@ -298,13 +170,13 @@ public static class CollectionScanner
         return true;
     }
 
-    private static List<CollectorContext> FlattenCollectors(AssetCollectionPackage package)
+    private static List<CollectorContext> FlattenCollectors(AssetCollectionSetting setting)
     {
         List<CollectorContext> result = new List<CollectorContext>();
 
-        for (int gi = 0; gi < package.Groups.Count; gi++)
+        for (int gi = 0; gi < setting.Groups.Count; gi++)
         {
-            AssetCollectionGroup group = package.Groups[gi];
+            AssetCollectionGroup group = setting.Groups[gi];
             if (group == null || group.Collectors == null || !group.Enabled)
                 continue;
 
@@ -318,7 +190,8 @@ public static class CollectionScanner
                 {
                     Collector = collector,
                     ParentGroupName = group.GroupName ?? string.Empty,
-                    ParentGroup = group
+                    ParentGroup = group,
+                    SourceLabel = string.Concat("Group[", gi.ToString(), "]/Collector[", ci.ToString(), "]")
                 });
             }
         }
@@ -326,38 +199,15 @@ public static class CollectionScanner
         return result;
     }
 
-    private static T ResolveRuleSafe<T>(string className, string ruleType, string collectPath, ScanResult result)
-        where T : class
-    {
-        if (string.IsNullOrEmpty(className))
-        {
-            result.Messages.Add(BuildMessage.EmptyRuleName(ruleType, collectPath));
-            return null;
-        }
-
-        try
-        {
-            return RuleResolver.GetRule<T>(className);
-        }
-        catch (Exception)
-        {
-            result.Messages.Add(BuildMessage.RuleNotFound(className, collectPath));
-            return null;
-        }
-    }
-
     private static bool TryCollectAsset(
         string assetPath,
         CollectorContext ctx,
-        string packageName,
-        Dictionary<string, AssetCollectionGroup> groupLookup,
         ScanResult result,
-        List<CollectedAssetInfo> packageAssets,
-        IFilterRule filterRule,
-        IGroupRule groupRule)
+        List<CollectedAssetInfo> collectedAssets)
     {
         Collector collector = ctx.Collector;
         string collectPath = collector.CollectPath;
+        string source = ctx.SourceLabel;
 
         if (string.IsNullOrEmpty(assetPath))
             return true;
@@ -373,13 +223,19 @@ public static class CollectionScanner
             return true;
 
         string extension = System.IO.Path.GetExtension(assetPath);
-        if (collector.CollectPathType == ECollectPathType.Folder &&
-            string.Equals(extension, ".unity", StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
 
-        if (collector.ForcePayloadKind == EForcePayloadKind.Serialized &&
+        // 默认排除（脚本 / 程序集定义 / 元文件 / Editor 目录）必须最先生效：
+        // 这些内容不是运行时资源，且 .cs 会与同名 ScriptableObject 争抢自动 Address。
+        if (AssetClassifier.IsExcludedByDefault(assetPath))
+            return true;
+
+        // 目录型资产（如 xlua.bundle、*.framework）Unity 会识别为 DefaultAsset 文件夹：
+        // 既不能作为 SerializedObject 构建，也不能当作单个物理文件拷贝，因此不参与采集。
+        if (System.IO.Directory.Exists(assetPath))
+            return true;
+
+        // 场景必须由 File Collector 显式声明：目录采集会连同场景内部对象一起纳入，语义不明确。
+        if (collector.CollectPathType == ECollectPathType.Folder &&
             string.Equals(extension, ".unity", StringComparison.OrdinalIgnoreCase))
         {
             return true;
@@ -394,98 +250,25 @@ public static class CollectionScanner
             return true;
         }
 
-        var filterCtx = new FilterRuleContext
-        {
-            AssetPath = assetPath,
-            Extension = extension,
-            CollectPath = collectPath
-        };
-
-        bool collectable;
-        if (!TryExecuteRule(
-                "FilterRule",
-                collector.FilterRuleName,
-                collectPath,
-                assetPath,
-                result,
-                () => filterRule.IsCollectable(filterCtx),
-                out collectable))
-        {
-            return false;
-        }
-
-        if (!collectable)
-            return true;
-
-        if (!TryExecuteRule(
-                "AssetClassifier",
-                collector.CollectorType.ToString(),
-                collectPath,
-                assetPath,
-                result,
-                () => AssetClassifier.Classify(assetPath, collector.CollectorType, collector.ForcePayloadKind),
-                out AssetClassification classification))
-        {
-            return false;
-        }
+        // 分类顺序由 AssetClassifier 统一保证：白名单 → Scene → 可序列化 → RawFile。
+        // Unity 无法识别的文件按白名单兜底为 RawFile，不再作为 Bundle 入口被跳过。
+        AssetContentType contentType = AssetClassifier.ClassifyContentType(assetPath, ctx.Setting.RawFileRules);
 
         string primaryType = GetPrimaryTypeName(assetPath);
-
-        var groupRuleCtx = new GroupRuleContext
-        {
-            AssetPath = assetPath,
-            Classification = classification,
-            CollectPath = collectPath,
-            PackageName = packageName,
-            ParentGroupName = ctx.ParentGroupName
-        };
-
-        if (!TryExecuteRule(
-                "GroupRule",
-                collector.GroupRuleName,
-                collectPath,
-                assetPath,
-                result,
-                () => groupRule.GetTargetGroup(groupRuleCtx),
-                out string targetGroupName))
-        {
-            return false;
-        }
-
-        if (string.IsNullOrEmpty(targetGroupName))
-            targetGroupName = ctx.ParentGroupName;
-
-        AssetCollectionGroup targetGroup = ResolveGroup(groupLookup, targetGroupName, ctx.ParentGroup);
         string generatedAddress = AssetAddressGenerator.GenerateAddress(assetPath, primaryType, ctx.Setting.AddressStyle);
-        AssetEntry entry = ctx.Setting.GetOrCreateAssetEntry(guid, generatedAddress, classification);
+        AssetOverride assetOverride = ctx.Setting.FindAssetOverride(guid);
 
-        string address = entry.AutoAddress || string.IsNullOrEmpty(entry.Address)
-            ? generatedAddress
-            : entry.Address;
+        string address = assetOverride != null && !string.IsNullOrEmpty(assetOverride.Address)
+            ? assetOverride.Address
+            : generatedAddress;
 
-        AssetClassification resolvedClassification = new AssetClassification
-        {
-            Role = entry.AutoRole ? classification.Role : entry.Role,
-            PayloadKind = entry.AutoPayload ? classification.PayloadKind : entry.PayloadKind
-        };
-        if (IsSceneAssetPath(assetPath))
-            resolvedClassification.PayloadKind = EPayloadKind.Scene;
+        List<string> labels = CopyLabels(assetOverride?.Labels);
 
-        if (resolvedClassification.PayloadKind == EPayloadKind.Serialized &&
-            !AssetClassifier.CanUseAsSerializedBundleEntry(assetPath, out string serializedEntryReason))
-        {
-            result.Messages.Add(BuildMessage.UnsupportedBundleEntryAsset(assetPath, serializedEntryReason, assetPath));
-            return true;
-        }
-
-        List<string> groupLabels = CopyLabels(targetGroup?.Labels);
-        List<string> assetLabels = CopyLabels(entry.Labels);
-        List<string> labels = MergeLabels(groupLabels, assetLabels);
-        BundlePackingMode packingMode = ResolvePackingMode(targetGroup, resolvedClassification);
+        string targetGroupName = ctx.ParentGroupName;
+        BundlePackingMode packingMode = ResolvePackingMode(ctx.ParentGroup, contentType);
         string bundleKey = BundleNameBuilder.GetBundleKey(packingMode, address, guid, labels);
 
-        string segErr = BundleNameBuilder.ValidateSegment(packageName)
-                     ?? BundleNameBuilder.ValidateSegment(targetGroupName)
+        string segErr = BundleNameBuilder.ValidateSegment(targetGroupName)
                      ?? BundleNameBuilder.ValidateBundleKey(bundleKey);
         if (segErr != null)
         {
@@ -496,65 +279,34 @@ public static class CollectionScanner
         if (HasInvalidLabels(labels, assetPath, result))
             return false;
 
-        string bundleName = BundleNameBuilder.Build(
-            packageName,
+        string contentName = BundleNameBuilder.Build(
             targetGroupName,
             packingMode,
             address,
             guid,
             labels,
-            resolvedClassification.PayloadKind,
+            contentType,
             primaryType);
 
-        var collected = new CollectedAssetInfo
+        collectedAssets.Add(new CollectedAssetInfo
         {
             AssetPath = assetPath,
             AssetGUID = guid,
             Address = address,
             PrimaryType = primaryType,
             Labels = labels,
-            GroupLabels = groupLabels,
-            AssetLabels = assetLabels,
             GroupName = targetGroupName,
             SourceGroupName = ctx.ParentGroupName,
-            SourceCollectorPath = collector.CollectPath,
-            PackageName = packageName,
-            BundleName = bundleName,
+            SourceCollectorPath = collectPath,
+            ContentName = contentName,
             BundlePackingMode = packingMode,
-            Classification = resolvedClassification,
-            CollectorType = collector.CollectorType
-        };
+            ContentType = contentType,
+            // 显式 Collector 收集的资源都是公共资源；隐式条目只由依赖分析产生。
+            DependencyOrigin = AssetDependencyOrigin.Explicit,
+            IsPublic = true
+        });
 
-        packageAssets.Add(collected);
         return true;
-    }
-
-    private static bool TryExecuteRule<T>(
-        string ruleType,
-        string ruleClassName,
-        string collectPath,
-        string assetPath,
-        ScanResult result,
-        Func<T> action,
-        out T value)
-    {
-        try
-        {
-            value = action();
-            return true;
-        }
-        catch (Exception ex)
-        {
-            value = default;
-            string source = string.Concat(collectPath, " -> ", assetPath);
-            result.Messages.Add(BuildMessage.RuleExecutionFailed(
-                ruleType,
-                ruleClassName,
-                assetPath,
-                ex.Message,
-                source));
-            return false;
-        }
     }
 
     private static List<string> CollectAssetPaths(Collector collector, string collectPath)
@@ -619,20 +371,6 @@ public static class CollectionScanner
         return false;
     }
 
-    private static AssetCollectionGroup ResolveGroup(
-        Dictionary<string, AssetCollectionGroup> groupLookup,
-        string targetGroupName,
-        AssetCollectionGroup fallback)
-    {
-        if (!string.IsNullOrEmpty(targetGroupName) &&
-            groupLookup.TryGetValue(targetGroupName, out AssetCollectionGroup targetGroup))
-        {
-            return targetGroup;
-        }
-
-        return fallback;
-    }
-
     private static List<string> CopyLabels(List<string> source)
     {
         List<string> result = new List<string>();
@@ -648,43 +386,12 @@ public static class CollectionScanner
         return result;
     }
 
-    private static List<string> MergeLabels(List<string> groupLabels, List<string> assetLabels)
+    private static BundlePackingMode ResolvePackingMode(AssetCollectionGroup targetGroup, AssetContentType contentType)
     {
-        HashSet<string> dedup = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-        if (groupLabels != null)
-        {
-            for (int i = 0; i < groupLabels.Count; i++)
-            {
-                if (!string.IsNullOrEmpty(groupLabels[i]))
-                    dedup.Add(groupLabels[i]);
-            }
-        }
-
-        if (assetLabels != null)
-        {
-            for (int i = 0; i < assetLabels.Count; i++)
-            {
-                if (!string.IsNullOrEmpty(assetLabels[i]))
-                    dedup.Add(assetLabels[i]);
-            }
-        }
-
-        return new List<string>(dedup);
-    }
-
-    private static BundlePackingMode ResolvePackingMode(AssetCollectionGroup targetGroup, AssetClassification classification)
-    {
-        if (classification.PayloadKind == EPayloadKind.Scene ||
-            classification.PayloadKind == EPayloadKind.RawFile)
+        if (contentType == AssetContentType.Scene || contentType == AssetContentType.RawFile)
             return BundlePackingMode.PackSeparately;
 
         return targetGroup != null ? targetGroup.BundlePackingMode : BundlePackingMode.PackTogetherByLabel;
-    }
-
-    private static bool IsSceneAssetPath(string assetPath)
-    {
-        return string.Equals(System.IO.Path.GetExtension(assetPath), ".unity", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string GetPrimaryTypeName(string assetPath)
@@ -719,6 +426,7 @@ public static class CollectionScanner
         public Collector Collector;
         public string ParentGroupName;
         public AssetCollectionGroup ParentGroup;
+        public string SourceLabel;
         public List<string> IgnorePatterns;
         public List<string> ExcludedPaths = new();
     }

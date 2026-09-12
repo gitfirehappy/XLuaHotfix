@@ -23,7 +23,7 @@ public static class SystemIdentifiers
     /// <summary>BundleKey 内部连接符</summary>
     public const char LabelSeparator = '~';
 
-    /// <summary>段值中不允许出现的保留字符（PackageName / GroupName / Labels 使用）</summary>
+    /// <summary>段值中不允许出现的保留字符（GroupName / Labels 使用）</summary>
     public static readonly char[] ReservedChars =
         { '/', '\\', ':', '*', '?', '<', '>', '"', '|', '.', ' ', ';', '%', '~', '$', '_', '#' };
 

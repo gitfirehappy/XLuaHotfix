@@ -1,39 +1,52 @@
 using System.Collections.Generic;
 
 /// <summary>
-/// AB 构建管线主干定义：主干 Task 名单（同时定义编辑器展示顺序）、
-/// 默认 TaskEntry 列表创建与主干完整性校验。通用机制来自 Shared 的 BuildTaskListUtility。
+/// AB 构建管线的固定主干阶段。顺序即执行顺序，成员名同时用作自定义 Task 的插入槽位名。
+/// </summary>
+public enum ABPipelineSlot
+{
+    /// <summary>扫描 Group/Collector，应用排除与 RawFile 规则，补框架内置内容</summary>
+    CollectABAssets = 0,
+
+    /// <summary>分析 Asset 依赖、显式/隐式来源与共享策略，生成计划图</summary>
+    AnalyzeABDependencies = 1,
+
+    /// <summary>按输入指纹复用旧内容并构建本次内容（Serialized/Scene 走 Unity，RawFile 直接复制）</summary>
+    BuildABContent = 2,
+
+    /// <summary>读取 Unity AssetBundleManifest 的实际依赖，生成完整 Asset/Content 映射</summary>
+    GenerateABManifest = 3,
+
+    /// <summary>校验 Address 唯一、公共边界、成员关系、Content 类型、依赖、文件集合与摘要</summary>
+    VerifyABContent = 4,
+
+    /// <summary>计算交付集合、写模式输出与构建摘要</summary>
+    ExportABOutput = 5
+}
+
+/// <summary>
+/// AB 固定主干定义：6 个阶段，每个阶段之间允许 0..N 个自定义 Task。
+/// 主干 Task 直接在这里 new 出来，不经反射；配置只能声明自定义 Task 的插入槽位。
 /// </summary>
 public static class ABPipelineBackbone
 {
-    private static readonly string[] BackboneTaskNameArray =
+    /// <summary>按执行顺序创建 AB 主干槽位；主干顺序是唯一事实来源，配置不能增删阶段。</summary>
+    public static IReadOnlyList<CoreTaskSlot> CreateCoreSlots()
     {
-        "TaskPrepareContext",
-        "TaskCollectAssets",
-        "TaskCollectBuiltins",
-        "TaskAnalyzeDependencies",
-        "TaskBuildBundles",
-        "TaskGenerateManifest",
-        "TaskVerifyBuildResult",
-        "TaskScanABHotfixDiff",
-        "TaskOrganizeOutput",
-        "TaskWriteABPackageManifest",
-        "TaskWritePackageIndex",
-        "TaskExportLocalBuildData",
-    };
-
-    /// <summary>AB 主干 Task 名单，作为主干校验与编辑器展示顺序的唯一来源。</summary>
-    public static IReadOnlyList<string> BackboneTaskNames => BackboneTaskNameArray;
-
-    /// <summary>创建 AB 默认主干 TaskEntry 列表。</summary>
-    public static List<TaskEntry> CreateDefaultTasks()
-    {
-        return BuildTaskListUtility.CreateTasks(BackboneTaskNameArray);
+        return new[]
+        {
+            new CoreTaskSlot(nameof(ABPipelineSlot.CollectABAssets), new CollectABAssetsTask()),
+            new CoreTaskSlot(nameof(ABPipelineSlot.AnalyzeABDependencies), new AnalyzeABDependenciesTask()),
+            new CoreTaskSlot(nameof(ABPipelineSlot.BuildABContent), new BuildABContentTask()),
+            new CoreTaskSlot(nameof(ABPipelineSlot.GenerateABManifest), new GenerateABManifestTask()),
+            new CoreTaskSlot(nameof(ABPipelineSlot.VerifyABContent), new VerifyABContentTask()),
+            new CoreTaskSlot(nameof(ABPipelineSlot.ExportABOutput), new ExportABOutputTask())
+        };
     }
 
-    /// <summary>校验当前配置是否缺少 AB 主干 Task。返回空列表表示通过。</summary>
-    public static List<string> GetMissingRequiredTasks(BuildPipelineConfig config)
+    /// <summary>用固定主干与配置里的自定义 Task 组装本次执行的 Task 序列。</summary>
+    public static IReadOnlyList<IBuildTask> ComposeTasks(BuildPipelineConfig config)
     {
-        return BuildTaskListUtility.GetMissingRequiredTasks(config, BackboneTaskNameArray);
+        return BuildPipelineComposer.Compose(CreateCoreSlots(), config?.Tasks);
     }
 }

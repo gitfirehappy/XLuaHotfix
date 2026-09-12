@@ -1,34 +1,48 @@
 using System.Collections.Generic;
 
 /// <summary>
-/// AA 构建管线主干定义：主干 Task 名单（同时定义编辑器展示顺序）、
-/// 默认 TaskEntry 列表创建与主干完整性校验。通用机制来自 Shared 的 BuildTaskListUtility。
+/// AA 构建管线的固定主干阶段。顺序即执行顺序，成员名同时用作自定义 Task 的插入槽位名。
+/// </summary>
+public enum AAPipelineSlot
+{
+    /// <summary>准备输入：记录 Addressables source 快照，Hotfix 时计算差异并迁移热更分组</summary>
+    PrepareAAInput = 0,
+
+    /// <summary>调用 Addressables 原生构建产出内容</summary>
+    BuildAAContent = 1,
+
+    /// <summary>规范化 catalog 并从实际输出生成完整 AA 清单与哈希</summary>
+    GenerateAAManifest = 2,
+
+    /// <summary>校验 catalog、清单与内容文件集合</summary>
+    VerifyAAContent = 3,
+
+    /// <summary>形成完整构建结果、模式输出与 BuildIndex</summary>
+    ExportAAOutput = 4
+}
+
+/// <summary>
+/// AA 固定主干定义：5 个阶段，每个阶段之间允许 0..N 个自定义 Task。
+/// 主干 Task 直接在这里 new 出来，不经反射；配置只能声明自定义 Task 的插入槽位。
 /// </summary>
 public static class AAPipelineBackbone
 {
-    private static readonly string[] BackboneTaskNameArray =
+    /// <summary>按执行顺序创建 AA 主干槽位；主干顺序是唯一事实来源，配置不能增删阶段。</summary>
+    public static IReadOnlyList<CoreTaskSlot> CreateCoreSlots()
     {
-        "TaskScanAAHotfixDiff",
-        "TaskMoveAAHotfixGroups",
-        "TaskBuildAAContent",
-        "TaskOrganizeAAOutput",
-        "TaskWriteAAPackageManifest",
-        "TaskWritePackageIndex",
-        "TaskExportLocalBuildData",
-    };
-
-    /// <summary>AA 主干 Task 名单，作为主干校验与编辑器展示顺序的唯一来源。</summary>
-    public static IReadOnlyList<string> BackboneTaskNames => BackboneTaskNameArray;
-
-    /// <summary>创建 AA 默认主干 TaskEntry 列表。</summary>
-    public static List<TaskEntry> CreateDefaultTasks()
-    {
-        return BuildTaskListUtility.CreateTasks(BackboneTaskNameArray);
+        return new[]
+        {
+            new CoreTaskSlot(nameof(AAPipelineSlot.PrepareAAInput), new PrepareAAInputTask()),
+            new CoreTaskSlot(nameof(AAPipelineSlot.BuildAAContent), new BuildAAContentTask()),
+            new CoreTaskSlot(nameof(AAPipelineSlot.GenerateAAManifest), new GenerateAAManifestTask()),
+            new CoreTaskSlot(nameof(AAPipelineSlot.VerifyAAContent), new VerifyAAContentTask()),
+            new CoreTaskSlot(nameof(AAPipelineSlot.ExportAAOutput), new ExportAAOutputTask())
+        };
     }
 
-    /// <summary>校验当前配置是否缺少 AA 主干 Task。返回空列表表示通过。</summary>
-    public static List<string> GetMissingRequiredTasks(BuildPipelineConfig config)
+    /// <summary>用固定主干与配置里的自定义 Task 组装本次执行的 Task 序列。</summary>
+    public static IReadOnlyList<IBuildTask> ComposeTasks(BuildPipelineConfig config)
     {
-        return BuildTaskListUtility.GetMissingRequiredTasks(config, BackboneTaskNameArray);
+        return BuildPipelineComposer.Compose(CreateCoreSlots(), config?.Tasks);
     }
 }

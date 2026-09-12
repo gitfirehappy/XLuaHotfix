@@ -3,18 +3,19 @@
 Stable naming rules for fields that cross the resource-management layers. This file explains semantic boundaries; it
 is not an API reference or a current implementation inventory.
 
-## Asset And Bundle Fields
+## Asset And Content Fields
 
-- `Labels` are asset-level query labels. Do not use `Labels` for bundle delivery metadata.
-- `Tags` are bundle-level delivery or strategy markers. Do not use `Tags` for asset query metadata. Labels and Tags do
-  not aggregate automatically.
-- `Address` is a runtime logical name and may have the duplicate policy defined by the owning index.
+- `Labels` are asset-level query labels. They are the only asset classification field; there is no bundle-level `Tags`
+  field in the current manifest model.
+- `Address` is a runtime logical name for public assets only. It is unique and case-insensitive within one package;
+  implicit dependency entries carry no public address and must not be reachable through it.
+- `BundleKey` is a build-time content bucketing key. It is not a business label and must not be used for runtime queries.
 - `AssetPath` and `SourcePath` are project-relative source paths for editor/build diagnostics, not runtime lookup keys.
 - `EntryId` is the canonical unique asset identity. A build-time GUID field that represents the same identity must keep a
   one-to-one mapping instead of inventing a second identity.
-- `PrimaryType` describes one asset. A bundle type describes a bundle-level classification and must not be substituted
-  for an asset type.
-- `BundleName` identifies a physical or logical bundle. Do not derive asset query semantics from it.
+- `PrimaryType` describes one asset. `AssetContentType` describes how an asset or content file is produced and loaded;
+  neither may be substituted for the other.
+- Bundle names identify physical or logical content. Do not derive asset query semantics from them.
 
 ## Path And Locator Fields
 

@@ -4,11 +4,11 @@ using System.Threading.Tasks;
 using UnityEngine;
 
 /// <summary>
-/// 从包目录或 StreamingAssets 基线读取 AAManifest。
+/// AAManifest 加载器 — 从当前激活包根读取 AAManifest.bin/.json 并反序列化。
 /// </summary>
 /// <remarks>
-/// LoadAsync 先读 CurrentGUIDRoot，失败后再读 StreamingAssets；按目录读取时不跨目录回退。
-/// 异步在二进制读取失败后尝试 JSON；同步仅在二进制文件不存在时改读 JSON。JSON 必须含 Version 对象。
+/// 只读取 RuntimePathManager.ActivePackageRoot 一个包根，不做跨目录回退。
+/// 同一目录内优先 .bin，其次 .json；二进制读取失败后仍尝试 .json。
 /// 不初始化 Addressables catalog，也不加载资源对象。
 /// </remarks>
 public static class AAManifestLoader
@@ -17,19 +17,22 @@ public static class AAManifestLoader
     private const string ManifestFileNameJson = FYAssetSettings.AA_MANIFEST_FILE_NAME;
 
     /// <summary>
-    /// 加载当前 Manifest；失败后回退 StreamingAssets。
+    /// 加载当前激活包根下的 AAManifest；包根未激活或文件不可用时返回 null。
     /// </summary>
     public static async Task<AAManifest> LoadAsync()
     {
-        var manifest = await LoadFromDirectoryAsync(RuntimePathManager.CurrentGUIDRoot);
+        string root = RuntimePathManager.ActivePackageRoot;
+        if (string.IsNullOrEmpty(root))
+        {
+            Debug.LogError("[AAManifestLoader] 当前没有激活包根，无法加载 AAManifest。请先激活内置包或本地热更包。");
+            return null;
+        }
+
+        AAManifest manifest = await LoadFromDirectoryAsync(root);
         if (manifest != null)
             return manifest;
 
-        manifest = await LoadFromDirectoryAsync(Application.streamingAssetsPath);
-        if (manifest != null)
-            return manifest;
-
-        Debug.LogWarning("[AAManifestLoader] AAManifest 在热更目录与 StreamingAssets 中均加载失败。");
+        Debug.LogWarning($"[AAManifestLoader] AAManifest 在激活包根下加载失败: {root}");
         return null;
     }
 

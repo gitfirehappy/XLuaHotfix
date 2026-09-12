@@ -79,7 +79,7 @@ public static class BuildTestFixtures
         string current = File.ReadAllText(abs, Encoding.UTF8).TrimEnd('\r', '\n');
         if (!string.Equals(current, expected, StringComparison.Ordinal))
             throw new InvalidOperationException(
-                $"Fixture not at Full baseline before mutation. Path={path}, Expected={expected}, Actual={current}");
+                $"Fixture not at Full delivery state before mutation. Path={path}, Expected={expected}, Actual={current}");
         File.WriteAllText(abs, GetHotfixFixtureV2(backend) + "\n", new UTF8Encoding(false));
         AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
     }
@@ -195,20 +195,15 @@ public static class BuildTestFixtures
         if (setting == null)
             throw new InvalidOperationException("AB AssetCollectionSetting missing.");
 
-        setting.Packages ??= new List<AssetCollectionPackage>();
-        if (setting.Packages.Count == 0)
-            setting.Packages.Add(new AssetCollectionPackage { PackageName = FYAssetSettings.Instance.ProjectName });
-
-        AssetCollectionPackage package = setting.Packages[0];
-        package.Groups ??= new List<AssetCollectionGroup>();
+        setting.Groups ??= new List<AssetCollectionGroup>();
 
         AssetCollectionGroup group = null;
-        for (int i = 0; i < package.Groups.Count; i++)
+        for (int i = 0; i < setting.Groups.Count; i++)
         {
-            if (package.Groups[i] != null
-                && string.Equals(package.Groups[i].GroupName, BuildTestConstants.GroupName, StringComparison.Ordinal))
+            if (setting.Groups[i] != null
+                && string.Equals(setting.Groups[i].GroupName, BuildTestConstants.GroupName, StringComparison.Ordinal))
             {
-                group = package.Groups[i];
+                group = setting.Groups[i];
                 break;
             }
         }
@@ -219,28 +214,20 @@ public static class BuildTestFixtures
             {
                 GroupName = BuildTestConstants.GroupName,
                 Enabled = true,
-                Labels = new List<string> { BuildTestConstants.LabelGroup },
                 BundlePackingMode = BundlePackingMode.PackSeparately,
                 Collectors = new List<Collector>()
             };
-            package.Groups.Add(group);
+            setting.Groups.Add(group);
         }
 
         group.Enabled = true;
         group.BundlePackingMode = BundlePackingMode.PackSeparately;
-        group.Labels ??= new List<string>();
-        if (!group.Labels.Contains(BuildTestConstants.LabelGroup))
-            group.Labels.Add(BuildTestConstants.LabelGroup);
         group.Collectors = new List<Collector>
         {
             new Collector
             {
                 CollectPath = BuildTestConstants.Folder,
-                CollectPathType = ECollectPathType.Folder,
-                CollectorType = ECollectorType.Main,
-                ForcePayloadKind = EForcePayloadKind.Auto,
-                FilterRuleName = FYAssetSettings.RULE_COLLECT_ALL,
-                GroupRuleName = FYAssetSettings.RULE_GROUP_ALL
+                CollectPathType = ECollectPathType.Folder
             }
         };
 
@@ -265,15 +252,14 @@ public static class BuildTestFixtures
         if (string.IsNullOrEmpty(guid))
             throw new InvalidOperationException("Missing GUID for " + assetPath);
 
-        AssetEntry entry = setting.FindAssetEntry(guid);
+        AssetOverride entry = setting.FindAssetOverride(guid);
         if (entry == null)
         {
-            entry = new AssetEntry { AssetGUID = guid };
-            setting.AssetEntries ??= new List<AssetEntry>();
-            setting.AssetEntries.Add(entry);
+            entry = new AssetOverride { AssetGUID = guid };
+            setting.AssetOverrides ??= new List<AssetOverride>();
+            setting.AssetOverrides.Add(entry);
         }
 
-        entry.AutoAddress = false;
         entry.Address = address;
         entry.Labels ??= new List<string>();
         // 保持 type/first label 在共享 group label 之前。
@@ -365,18 +351,14 @@ public static class BuildTestFixtures
         AssertABAddress(setting, BuildTestConstants.RawAssetPath, BuildTestConstants.AddressRaw);
 
         bool groupOk = false;
-        for (int p = 0; p < setting.Packages.Count; p++)
+        for (int g = 0; setting.Groups != null && g < setting.Groups.Count; g++)
         {
-            var groups = setting.Packages[p].Groups;
-            for (int g = 0; groups != null && g < groups.Count; g++)
+            if (setting.Groups[g] != null
+                && string.Equals(setting.Groups[g].GroupName, BuildTestConstants.GroupName, StringComparison.Ordinal)
+                && setting.Groups[g].Enabled
+                && setting.Groups[g].BundlePackingMode == BundlePackingMode.PackSeparately)
             {
-                if (groups[g] != null
-                    && string.Equals(groups[g].GroupName, BuildTestConstants.GroupName, StringComparison.Ordinal)
-                    && groups[g].Enabled
-                    && groups[g].BundlePackingMode == BundlePackingMode.PackSeparately)
-                {
-                    groupOk = true;
-                }
+                groupOk = true;
             }
         }
 
@@ -387,8 +369,8 @@ public static class BuildTestFixtures
     private static void AssertABAddress(AssetCollectionSetting setting, string path, string address)
     {
         string guid = AssetDatabase.AssetPathToGUID(path);
-        AssetEntry entry = setting.FindAssetEntry(guid);
-        if (entry == null || entry.AutoAddress || !string.Equals(entry.Address, address, StringComparison.Ordinal))
+        AssetOverride entry = setting.FindAssetOverride(guid);
+        if (entry == null || !string.Equals(entry.Address, address, StringComparison.Ordinal))
             throw new InvalidOperationException($"AB fixed address missing for {path} -> {address}");
     }
 

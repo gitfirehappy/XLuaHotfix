@@ -12,20 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 232fb182b50132e4cab181aeeaa40389, type: 3}
   m_Name: BuildPipelineConfig
   m_EditorClassIdentifier: 
-  FileNameStyle: 2
   BundleCompression: 0
-  HotfixDiffTaskName: TaskScanABHotfixDiff
   Tasks:
-  - TaskName: TaskPrepareContext
-  - TaskName: TaskCollectAssets
-  - TaskName: TaskCollectBuiltins
-  - TaskName: TaskAnalyzeDependencies
   - TaskName: LuaScriptsIndexBuildTask
-  - TaskName: TaskBuildBundles
-  - TaskName: TaskGenerateManifest
-  - TaskName: TaskVerifyBuildResult
-  - TaskName: TaskScanABHotfixDiff
-  - TaskName: TaskOrganizeOutput
-  - TaskName: TaskWriteABPackageManifest
-  - TaskName: TaskWritePackageIndex
-  - TaskName: TaskExportLocalBuildData
+    Slot: BuildABContent

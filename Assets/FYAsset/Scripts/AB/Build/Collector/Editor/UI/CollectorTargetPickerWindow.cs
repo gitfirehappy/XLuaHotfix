@@ -7,21 +7,15 @@ using UnityEngine.UIElements;
 /// <summary>
 /// 将 Project 中选中的资源批量加入目标 Collector Group 的 UI Toolkit 窗口。
 /// </summary>
+/// <remarks>
+/// 采集类型由路径自身推断：目录生成 Folder Collector，单个文件生成 File Collector。
+/// </remarks>
 public sealed class CollectorTargetPickerWindow : EditorWindow
 {
     private string[] _assetPaths = Array.Empty<string>();
     private Action _onApplied;
     private AssetCollectionSetting _setting;
-    private int _selectedPackageIndex;
     private int _selectedGroupIndex;
-    private ECollectorType _collectorType = ECollectorType.Main;
-    private EForcePayloadKind _forcePayloadKind = EForcePayloadKind.Auto;
-    private static readonly List<string> ManualCollectorTypeNames = new List<string>
-    {
-        ECollectorType.Main.ToString(),
-        ECollectorType.Static.ToString(),
-        ECollectorType.Depend.ToString()
-    };
 
     public static void Show(string[] assetPaths, Action onApplied)
     {
@@ -40,7 +34,7 @@ public sealed class CollectorTargetPickerWindow : EditorWindow
     }
 
     /// <summary>
-    /// 按当前 Package / Group 选择状态重建整个弹窗内容。
+    /// 按当前 Group 选择状态重建整个弹窗内容。
     /// </summary>
     private void Build()
     {
@@ -52,46 +46,17 @@ public sealed class CollectorTargetPickerWindow : EditorWindow
 
         rootVisualElement.Add(BuildPipelineUI.Header("Add to Group"));
 
-        if (_setting == null || _setting.Packages == null || _setting.Packages.Count == 0)
+        if (_setting == null || _setting.Groups == null || _setting.Groups.Count == 0)
         {
-            rootVisualElement.Add(BuildPipelineUI.SmallText("AssetCollectionSetting 缺失或未配置 Package。"));
+            rootVisualElement.Add(BuildPipelineUI.SmallText("AssetCollectionSetting 缺失或未配置 Group。"));
             return;
         }
 
-        string[] packageNames = GetPackageNames();
-        var packagePopup = new PopupField<string>(new List<string>(packageNames), Mathf.Clamp(_selectedPackageIndex, 0, packageNames.Length - 1));
-        packagePopup.label = "Package";
-        packagePopup.RegisterValueChangedCallback(evt =>
-        {
-            _selectedPackageIndex = Array.IndexOf(packageNames, evt.newValue);
-            _selectedGroupIndex = 0;
-            Build();
-        });
-        rootVisualElement.Add(packagePopup);
-
-        string[] groupNames = GetGroupNames(_selectedPackageIndex);
-        if (groupNames.Length == 0)
-        {
-            rootVisualElement.Add(BuildPipelineUI.SmallText("选中的 Package 没有 Group。先到 AssetsCollection 面板新建。"));
-            return;
-        }
-
+        string[] groupNames = GetGroupNames();
         var groupPopup = new PopupField<string>(new List<string>(groupNames), Mathf.Clamp(_selectedGroupIndex, 0, groupNames.Length - 1));
         groupPopup.label = "Group";
         groupPopup.RegisterValueChangedCallback(evt => _selectedGroupIndex = Array.IndexOf(groupNames, evt.newValue));
         rootVisualElement.Add(groupPopup);
-
-        var collectorType = new PopupField<string>("Type", ManualCollectorTypeNames, _collectorType.ToString());
-        collectorType.RegisterValueChangedCallback(evt =>
-        {
-            if (Enum.TryParse(evt.newValue, out ECollectorType parsed) && parsed != ECollectorType.Implicit)
-                _collectorType = parsed;
-        });
-        rootVisualElement.Add(collectorType);
-
-        var payload = new EnumField("Payload", _forcePayloadKind);
-        payload.RegisterValueChangedCallback(evt => _forcePayloadKind = (EForcePayloadKind)evt.newValue);
-        rootVisualElement.Add(payload);
 
         rootVisualElement.Add(BuildPipelineUI.Header("Assets"));
         for (int i = 0; i < _assetPaths.Length; i++)
@@ -109,34 +74,15 @@ public sealed class CollectorTargetPickerWindow : EditorWindow
     private void LoadSetting()
     {
         _setting = AssetDatabase.LoadAssetAtPath<AssetCollectionSetting>(FYAssetABSettings.Instance.AssetCollectionSettingPath);
-        _selectedPackageIndex = 0;
         _selectedGroupIndex = 0;
     }
 
-    private string[] GetPackageNames()
+    private string[] GetGroupNames()
     {
         List<string> names = new List<string>();
-        for (int i = 0; i < _setting.Packages.Count; i++)
+        for (int i = 0; i < _setting.Groups.Count; i++)
         {
-            string packageName = _setting.Packages[i]?.PackageName;
-            names.Add(string.IsNullOrEmpty(packageName) ? "(unnamed package)" : packageName);
-        }
-        return names.ToArray();
-    }
-
-    private string[] GetGroupNames(int packageIndex)
-    {
-        if (packageIndex < 0 || packageIndex >= _setting.Packages.Count)
-            return Array.Empty<string>();
-
-        AssetCollectionPackage package = _setting.Packages[packageIndex];
-        if (package?.Groups == null || package.Groups.Count == 0)
-            return Array.Empty<string>();
-
-        List<string> names = new List<string>();
-        for (int i = 0; i < package.Groups.Count; i++)
-        {
-            string groupName = package.Groups[i]?.GroupName;
+            string groupName = _setting.Groups[i]?.GroupName;
             names.Add(string.IsNullOrEmpty(groupName) ? "(unnamed group)" : groupName);
         }
         return names.ToArray();
@@ -148,19 +94,15 @@ public sealed class CollectorTargetPickerWindow : EditorWindow
     /// </summary>
     private void ApplySelection()
     {
-        if (_setting == null || _selectedPackageIndex < 0 || _selectedPackageIndex >= _setting.Packages.Count)
+        if (_setting?.Groups == null || _selectedGroupIndex < 0 || _selectedGroupIndex >= _setting.Groups.Count)
             return;
 
-        AssetCollectionPackage package = _setting.Packages[_selectedPackageIndex];
-        if (package?.Groups == null || _selectedGroupIndex < 0 || _selectedGroupIndex >= package.Groups.Count)
-            return;
-
-        AssetCollectionGroup group = package.Groups[_selectedGroupIndex];
+        AssetCollectionGroup group = _setting.Groups[_selectedGroupIndex];
         group.Collectors ??= new List<Collector>();
 
         for (int i = 0; i < _assetPaths.Length; i++)
         {
-            CollectorMutationUtility.AddToGroup(_setting, group, _assetPaths[i], _collectorType, _forcePayloadKind);
+            CollectorMutationUtility.AddToGroup(_setting, group, _assetPaths[i]);
         }
 
         EditorUtility.SetDirty(_setting);

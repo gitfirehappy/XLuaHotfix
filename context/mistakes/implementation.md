@@ -242,3 +242,10 @@ uses the standard Symptom, Root cause, Fix, and Prevention fields.
 **Root cause:** No shared contract.
 **Fix:** Use a shared interface or base type.
 **Prevention:** Compiler should enforce mirrored type alignment.
+
+## IP-35: Deleting A Rule Layer Silently Deleted Its Built-In Behavior
+
+**Symptom:** After the reflection-based collection rules were removed, the AB build failed with a public-address conflict: `LuaScriptsIndex.cs` was collected as content and competed with the same-named ScriptableObject for the auto address `LuaScriptsIndex`.
+**Root cause:** The deleted default filter rule also carried behavior: excluding `.meta/.cs/.dll/.asmdef/.asmref/.gitignore` and any `Editor` directory. Removing the layer removed that behavior and nothing in the replacement scanner re-established it. The same class of loss applied to the removed force-payload field, whose previous "force serialized" value had caused non-serializable assets such as directory-shaped bundles to be skipped.
+**Fix:** Port the default exclusions into the scanner (extension list plus `Editor` directory check) and skip directory-typed assets; classify content type from path and rules only. Added gate sub-contracts for both behaviors.
+**Prevention:** Before deleting a configuration, rule, or reflection layer, enumerate every behavior it carries and record where that behavior moves. "Must preserve equivalent behavior" items belong in that batch's gate, not only in prose.

@@ -1,7 +1,11 @@
 # Process Pitfalls
 
-Verified workflow, review, and repository-operation mistakes. Each entry keeps its original IP number and standard
-fields.
+Verified workflow and review mistakes (older entries also record removed repository-operation rules). Each entry keeps its
+original IP number and standard fields.
+
+> Historical scope: entries below are records of what happened at the time they were written. The build repository,
+> its commit/HEAD model, and the pre-realignment document type list they mention were removed by the FYAsset pipeline
+> realignment. Treat the named mechanisms as history, not as current architecture.
 
 ## IP-45: Progress Consolidation Lost Detailed History
 
@@ -37,3 +41,17 @@ fields.
 **Root cause:** MCP `init_timeout` is milliseconds, while `-runTests` owns the batchmode process lifetime and conflicts with an explicit `-quit` during script reload.
 **Fix:** Use `init_timeout: 30000`; run Unity with `-batchmode -nographics -runTests` and no `-quit`; require the result XML before interpreting the process exit code.
 **Prevention:** Record `testcasecount` and `total` from `<test-run>`. `result=Passed` with `total=0` proves discovery completed but provides no business test coverage.
+
+## IP-70: Editor Compilation Accepted As Proof Of Implementation
+
+**Symptom:** Eight batches were reported as "implemented and verified" on the strength of `dotnet build` plus static scenario suites, yet the first real player build exposed a player-only compile error followed by several behavior regressions.
+**Root cause:** Generated project files and the Unity Editor compile both define `UNITY_EDITOR`, and static source assertions cannot observe behavior. Batches that deleted configuration layers or changed runtime-visible types therefore passed every gate while being wrong for the player.
+**Fix:** Treat the player-side compile and real build/runtime runs as required acceptance for batches touching runtime visibility or behavior, and add static boundary gates for what they can cover (player-visible files must not reference editor-only declarations; default exclusions still applied; directory assets skipped).
+**Prevention:** Match the verification method to the change type. "Editor compiles with 0 errors" is not evidence for player compilation or runtime behavior, and deferring all behavior proof to the final acceptance turns acceptance into debugging.
+
+## IP-71: Diagnostic Evidence Erased By The Tool Under Test
+
+**Symptom:** Two capture attempts produced nothing: a report written under `<project>/Temp` disappeared, and a build report written to `BuildData/Reports` was deleted before it could be read.
+**Root cause:** Unity owns `<project>/Temp` as scratch space and clears it when an editor instance starts, and the build-test engine snapshots and restores project state, which removes the report directory on both success and failure.
+**Fix:** Capture evidence during the run into a directory the tool does not manage (`Logs/`), reading the file content as soon as it appears instead of copying it later.
+**Prevention:** Before relying on a generated report for diagnosis, check whether the generating tool deletes or restores it, and choose a capture location outside that tool's lifecycle.

@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <!-- 生产侧管线文件带 UNITY_EDITOR 条件编译（它们是 Editor 目录代码），场景只链接纯 .NET 部分。 -->
+    <DefineConstants>UNITY_EDITOR</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="scenario_support.cs" />
+    <Compile Include="test_pipeline_compose.cs" />
+    <Compile Include="test_pipeline_run.cs" />
+    <!-- 生产源码：Runner/Composer 与 Context/结果类型不依赖 UnityEngine/UnityEditor，可被场景真实链接执行 -->
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Pipeline/Editor/BuildPipelineRunner.cs" Link="Production/BuildPipelineRunner.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Pipeline/Editor/BuildPipelineComposer.cs" Link="Production/BuildPipelineComposer.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Pipeline/Editor/BuildPipelineException.cs" Link="Production/BuildPipelineException.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Pipeline/Editor/CoreTaskSlot.cs" Link="Production/CoreTaskSlot.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Pipeline/Editor/CustomTaskEntry.cs" Link="Production/CustomTaskEntry.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Pipeline/Editor/BuildRequest.cs" Link="Production/BuildRequest.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Pipeline/Editor/BuildRunResult.cs" Link="Production/BuildRunResult.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Pipeline/Editor/IBuildRunEnvironment.cs" Link="Production/IBuildRunEnvironment.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Pipeline/Editor/BuildContext.cs" Link="Production/BuildContext.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Pipeline/Editor/IBuildTask.cs" Link="Production/IBuildTask.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Pipeline/Editor/BuildTaskResult.cs" Link="Production/BuildTaskResult.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Pipeline/Editor/BuildTaskResolver.cs" Link="Production/BuildTaskResolver.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Pipeline/Editor/BuildTaskExecutionStatus.cs" Link="Production/BuildTaskExecutionStatus.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Pipeline/Editor/BuildTaskExecutionEvent.cs" Link="Production/BuildTaskExecutionEvent.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Pipeline/Editor/BuildExecutionOptions.cs" Link="Production/BuildExecutionOptions.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Editor/Common/BuildMessage.cs" Link="Production/BuildMessage.cs" />
+  </ItemGroup>
+</Project>

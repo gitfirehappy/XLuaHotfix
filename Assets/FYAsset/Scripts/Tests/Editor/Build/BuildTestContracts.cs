@@ -96,14 +96,28 @@ public sealed class BuildTestResult
     public string RunRoot;
     public string FirstFailure;
     public string FailedStage;
+
+    /// <summary>本次交付目录：按包名隔离的独立包目录。</summary>
     public string PackagePath;
+
     public string ManifestHash;
-    public string RepositoryHead;
-    public string RepositoryParent;
+
+    /// <summary>本次交付的包名，事实来源是正式 Summary。</summary>
+    public string DeliveredPackageName;
+
+    /// <summary>Hotfix 的基准 Full 版本，事实来源是本地上一次 Full 交付；Full 为空。</summary>
+    public string CumulativeBaseVersion;
+
+    /// <summary>发布目标根 PackageIndex 身份，格式 BackendMode/LatestPackage/LatestVersion；未发布时为空。</summary>
     public string PackageIndexIdentity;
+
     public string StreamingAssetsBaselineHash;
     public string FixturePhysicalArtifact;
+
+    /// <summary>交付目录内清单声明的内容文件数量。</summary>
     public int ArtifactCount;
+
+    /// <summary>交付目录内清单声明的内容文件总字节数。</summary>
     public long ArtifactBytes;
     public int TaskTotal;
     public string ExpectedVersion;

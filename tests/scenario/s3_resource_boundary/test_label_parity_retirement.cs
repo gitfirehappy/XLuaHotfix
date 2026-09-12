@@ -147,19 +147,28 @@ internal static class LabelParityRetirementTests
         return result;
     }
 
+    /// <summary>
+    /// 逐资产标签表：T1 起 CollectorSetting.asset 的 AssetEntries 改名为 AssetOverrides。
+    /// 未配置覆盖的条目直接省略 Address 键（Unity YAML 的空串会留下行尾空格），
+    /// 语义等同「沿用 Setting.AddressStyle 自动生成」，因此这里由 GUID 反查资产路径补出实际 Address，
+    /// 保持 label → address 的对等比较。
+    /// </summary>
     private static Dictionary<string, HashSet<string>> ParseABLabelQueries()
     {
         var result = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
         string[] lines = RepoSource.ReadLines("Assets/FYAsset/CollectorData/CollectorSetting.asset");
+        Dictionary<string, string> assetPathByGuid = BuildAssetPathByGuid();
         bool inEntries = false;
         bool inEntry = false;
         bool inLabels = false;
         string address = null;
+        string guid = null;
 
         for (int i = 0; i < lines.Length; i++)
         {
             string line = lines[i];
-            if (line == "  AssetEntries:")
+            // T1 起逐资产标签表改名为 AssetOverrides，条目结构与字段语义保持不变。
+            if (line == "  AssetOverrides:")
             {
                 inEntries = true;
                 continue;
@@ -168,9 +177,13 @@ internal static class LabelParityRetirementTests
             if (!inEntries) continue;
             if (line.StartsWith("  - AssetGUID: ", StringComparison.Ordinal))
             {
+                guid = line.Substring("  - AssetGUID: ".Length);
                 inEntry = true;
                 inLabels = false;
-                address = null;
+                // 缺省即自动地址：先按自动规则补出，若随后出现显式 Address 键再覆盖。
+                address = ResolveAutoAddress(guid, assetPathByGuid);
+                if (address != null && AbE2EFixtureAddresses.Contains(address))
+                    address = null;
                 continue;
             }
 
@@ -178,6 +191,8 @@ internal static class LabelParityRetirementTests
             if (line.StartsWith("    Address: ", StringComparison.Ordinal))
             {
                 address = line.Substring("    Address: ".Length);
+                if (address.Length == 0)
+                    address = ResolveAutoAddress(guid, assetPathByGuid);
                 if (AbE2EFixtureAddresses.Contains(address))
                     address = null;
                 continue;
@@ -226,5 +241,40 @@ internal static class LabelParityRetirementTests
         }
 
         addresses.Add(address);
+    }
+
+    /// <summary>空 Address 的覆盖条目按 Setting.AddressStyle（ShortName）生成地址。</summary>
+    private static string ResolveAutoAddress(string guid, Dictionary<string, string> assetPathByGuid)
+    {
+        if (string.IsNullOrEmpty(guid) || !assetPathByGuid.TryGetValue(guid, out string assetPath))
+            return null;
+
+        return Path.GetFileNameWithoutExtension(assetPath);
+    }
+
+    /// <summary>扫描 Assets 下的 .meta，建立 GUID → 资产路径映射，用于解析空 Address 的自动地址。</summary>
+    private static Dictionary<string, string> BuildAssetPathByGuid()
+    {
+        var map = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (string metaPath in RepoSource.EnumerateFiles("Assets", "*.meta"))
+        {
+            string[] lines = File.ReadAllLines(metaPath);
+            for (int i = 0; i < lines.Length && i < 4; i++)
+            {
+                if (!lines[i].StartsWith("guid: ", StringComparison.Ordinal))
+                    continue;
+
+                string guid = lines[i].Substring("guid: ".Length).Trim();
+                string assetPath = RepoSource.ToRelative(metaPath);
+                if (assetPath.EndsWith(".meta", StringComparison.Ordinal))
+                    assetPath = assetPath.Substring(0, assetPath.Length - ".meta".Length);
+
+                if (!map.ContainsKey(guid))
+                    map[guid] = assetPath;
+                break;
+            }
+        }
+
+        return map;
     }
 }

@@ -38,20 +38,21 @@ public static class EditorPlayModeSmoke
                 return false;
             }
 
-            var (asset, err) = ABPackageManager.Instance
-                .LoadAssetSync<TextAsset>(BuildTestConstants.AddressSync);
-            if (err != null && err.Severity == RuntimeSeverity.Error)
+            AssetHandle<TextAsset> handle = ABPackageManager.Instance
+                .LoadByAddressSync<TextAsset>(BuildTestConstants.AddressSync);
+            if (handle.Error != null && handle.Error.Severity == RuntimeSeverity.Error)
             {
-                Debug.LogError("[EditorPlayModeSmoke] Load 失败: " + err);
+                Debug.LogError("[EditorPlayModeSmoke] Load 失败: " + handle.Error);
                 return false;
             }
-            if (asset == null)
+            if (handle.Asset == null)
             {
                 Debug.LogError("[EditorPlayModeSmoke] asset 为 null");
                 return false;
             }
 
-            Debug.Log($"[EditorPlayModeSmoke] PASS text={asset.text}");
+            Debug.Log($"[EditorPlayModeSmoke] PASS text={handle.Asset.text}");
+            handle.Release();
             return true;
         }
         finally

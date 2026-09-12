@@ -6,7 +6,9 @@ using UnityEngine;
 public static class BinarySerializerInitializer
 {
     public const uint ABManifestMagic = 0x41424D46;
-    public const ushort ABManifestSchemaVersion = 5;
+
+    /// <summary>ABManifest 结构版本；字段结构变化时必须与 ABManifest 特性、生成器一致地提升。</summary>
+    public const ushort ABManifestSchemaVersion = 6;
     public const uint AAManifestMagic = 0x41414D46;
     public const ushort AAManifestSchemaVersion = 2;
 

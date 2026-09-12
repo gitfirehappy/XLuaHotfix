@@ -114,14 +114,14 @@ public static class E2ETestEngine
             var accept = new BuildTestAcceptance.AcceptanceContext
             {
                 Backend = request.Backend,
-                ExpectedVersion = "2.0.0"
+                ExpectedVersion = BuildTestAcceptance.FirstFullVersionAfterReset
             };
             BuildTestAcceptance.AcceptFull(accept, result);
 
-            BackendMode mode = BuildTestState.ToBackendMode(request.Backend);
-            string channelKey = BuildBaselineStore.GetChannelKey(
-                string.Empty, BackendModeNames.FromBackendMode(mode));
-            BuildBaseline head = BuildBaselineStore.LoadLatest(channelKey);
+            BuildTestAcceptance.RequireLocalFullIdentity(request.Backend, out PackageBuildIdentity fullIdentity);
+            string fullVersion = fullIdentity.Version.GetReleaseVersionString();
+            string fullSourceDir = BuildTestState.ResolveDeliverySourceDir(
+                request.Backend, isHotfix: false, fullIdentity.PackageName);
 
             bool allOk = true;
             string firstFail = null;
@@ -134,16 +134,17 @@ public static class E2ETestEngine
                 FileHelper.EnsureDirectory(tdir);
                 try
                 {
-                    BuildTestState.PublishHeadToTarget(
+                    BuildTestState.PublishDeliveryToTarget(
                         request.Backend,
                         target,
+                        fullSourceDir,
                         FYAssetPathUtility.JoinFilePath(tdir, "publish-full.json"));
                     outcome.PublishSuccess = true;
                     BuildTestState.ProbeTargetIdentity(
                         target,
                         BuildTestPaths.BackendSegment(request.Backend),
-                        head.PackageName,
-                        head.Version.GetReleaseVersionString(),
+                        fullIdentity.PackageName,
+                        fullVersion,
                         true,
                         FYAssetPathUtility.JoinFilePath(tdir, "probe-full.json"));
                     outcome.ProbeSuccess = true;
@@ -233,7 +234,7 @@ public static class E2ETestEngine
 
     private static BuildTestResult RunStandaloneE2E(BuildTestRequest request, string runRoot)
     {
-        // 一级验证：BuildStandalone -> bake StandaloneBuild=true 的 Player -> exit 0
+        // 一级验证：构建 Standalone 包 -> 用该包启动 Player -> exit 0
         var result = new BuildTestResult
         {
             Backend = request.Backend.ToString(),
@@ -253,7 +254,6 @@ public static class E2ETestEngine
 
         string targetDir = FYAssetPathUtility.JoinFilePath(runRoot, "targets", "standalone");
         FileHelper.EnsureDirectory(targetDir);
-        bool oldStandalone = FYAssetSettings.Instance.StandaloneBuild;
         // 快照依赖 durable recovery 记录；记录缺失时拒绝执行任何修改。
         var recovery = BuildTestState.WriteRecovery(runRoot, request, new List<BuildTestTargetSnapshot>());
 
@@ -279,10 +279,6 @@ public static class E2ETestEngine
 
             result.ExitCode = BuildTestExitCodes.BuildFailed;
 
-            // 将 StandaloneBuild=true 烘焙进 Player，构建完成后恢复
-            FYAssetSettings.Instance.StandaloneBuild = true;
-            EditorUtility.SetDirty(FYAssetSettings.Instance);
-            AssetDatabase.SaveAssets();
 
             var target = new BuildTestTargetSnapshot
             {
@@ -328,9 +324,6 @@ public static class E2ETestEngine
         }
         finally
         {
-            FYAssetSettings.Instance.StandaloneBuild = oldStandalone;
-            EditorUtility.SetDirty(FYAssetSettings.Instance);
-            AssetDatabase.SaveAssets();
             try
             {
                 BuildTestState.RestoreProject(runRoot, request.Backend);
@@ -425,14 +418,14 @@ public static class E2ETestEngine
             BuildTestState.SnapshotProject(runRoot, request.Backend);
             BuildTestState.SnapshotTargets(runRoot, targets);
 
-            BuildBaseline fullHead;
+            PackageBuildIdentity fullIdentity;
             bool needSeed = forceSeedFull
-                || (seedFullIfMissing && !TryGetHotfixBaseline(request, targets, out fullHead));
+                || (seedFullIfMissing && !TryGetHotfixBaseline(request, targets, out fullIdentity));
             if (!needSeed)
             {
-                BuildTestAcceptance.RequireLocalFullIdentity(request.Backend, out fullHead);
+                BuildTestAcceptance.RequireLocalFullIdentity(request.Backend, out fullIdentity);
                 for (int i = 0; i < targets.Count; i++)
-                    BuildTestAcceptance.RequireTargetFullIdentity(targets[i], request.Backend, fullHead);
+                    BuildTestAcceptance.RequireTargetFullIdentity(targets[i], request.Backend, fullIdentity);
             }
             else
             {
@@ -441,14 +434,22 @@ public static class E2ETestEngine
                 var fullAccept = new BuildTestAcceptance.AcceptanceContext
                 {
                     Backend = request.Backend,
-                    ExpectedVersion = "2.0.0"
+                    ExpectedVersion = BuildTestAcceptance.FirstFullVersionAfterReset
                 };
                 BuildTestAcceptance.AcceptFull(fullAccept, result);
-                BuildTestAcceptance.RequireLocalFullIdentity(request.Backend, out fullHead);
+                BuildTestAcceptance.RequireLocalFullIdentity(request.Backend, out fullIdentity);
             }
 
-            string fullVersion = fullHead.Version.GetReleaseVersionString();
+            string fullVersion = fullIdentity.Version.GetReleaseVersionString();
+            string fullSourceDir = BuildTestState.ResolveDeliverySourceDir(
+                request.Backend, isHotfix: false, fullIdentity.PackageName);
             string backendName = BuildTestPaths.BackendSegment(request.Backend);
+            // Hotfix 不导出本地启动数据，StreamingAssets 必须保持 Full 交付时的事实。
+            if (string.IsNullOrEmpty(result.StreamingAssetsBaselineHash))
+            {
+                result.StreamingAssetsBaselineHash = HashGenerator.GenerateFileHash(
+                    FYAssetPathUtility.JoinFilePath(Application.streamingAssetsPath, FYAssetSettings.BUILD_INDEX_FILENAME));
+            }
 
             // Full 发布 + Player Full smoke（保留 Player）
             bool allFullRuntimeOk = true;
@@ -462,15 +463,16 @@ public static class E2ETestEngine
                 try
                 {
                     // Player 启动前 Target 必须暴露 Full 身份
-                    BuildTestState.PublishHeadToTarget(
+                    BuildTestState.PublishDeliveryToTarget(
                         request.Backend,
                         target,
+                        fullSourceDir,
                         FYAssetPathUtility.JoinFilePath(tdir, "publish-full.json"));
                     outcome.PublishSuccess = true;
                     BuildTestState.ProbeTargetIdentity(
                         target,
                         backendName,
-                        fullHead.PackageName,
+                        fullIdentity.PackageName,
                         fullVersion,
                         true,
                         FYAssetPathUtility.JoinFilePath(tdir, "probe-full.json"));
@@ -502,28 +504,29 @@ public static class E2ETestEngine
                 return result;
             }
 
-            // Hotfix 构建一次
+            // Hotfix 构建一次；基准事实必须在构建前读取，构建成功后作用域已指向本次交付。
+            BuildTestAcceptance.HotfixBaselineFacts cumulativeBase =
+                BuildTestAcceptance.HotfixBaselineFacts.Capture(request.Backend);
             BuildTestFixtures.MutateHotfixFixture(request.Backend);
             mutated = true;
             InvokeBuild(request.Backend, true);
 
-            VersionRecord versionData = AssetDatabase.LoadAssetAtPath<VersionRecord>(
-                FYAssetSettings.Instance.VersionRecordPath);
-            string expectedHotfix = versionData.CurrentVersion.GetReleaseVersionString();
+            string expectedHotfix = BuildSummaryStore.CreateDefault().ReadCurrentVersionText();
             var hotfixAccept = new BuildTestAcceptance.AcceptanceContext
             {
                 Backend = request.Backend,
                 IsHotfix = true,
                 ExpectedVersion = expectedHotfix,
-                ExpectedParentVersion = fullVersion
+                ExpectedCumulativeBaseVersion = fullVersion,
+                CumulativeBase = cumulativeBase
             };
             BuildTestAcceptance.AcceptHotfix(hotfixAccept, result);
 
-            BackendMode mode = BuildTestState.ToBackendMode(request.Backend);
-            string channelKey = BuildBaselineStore.GetChannelKey(
-                string.Empty, BackendModeNames.FromBackendMode(mode));
-            BuildBaseline hotfixHead = BuildBaselineStore.LoadLatest(channelKey);
-            string hotfixVersion = hotfixHead.Version.GetReleaseVersionString();
+            PackageBuildIdentity hotfixIdentity = BuildTestAcceptance.RequireLatestSuccessfulDelivery(
+                request.Backend, out _);
+            string hotfixVersion = hotfixIdentity.Version.GetReleaseVersionString();
+            string hotfixSourceDir = BuildTestState.ResolveDeliverySourceDir(
+                request.Backend, isHotfix: true, hotfixIdentity.PackageName);
 
             // 发布 Hotfix + relaunch 同 Player/persistent
             bool allHotfixOk = true;
@@ -535,17 +538,18 @@ public static class E2ETestEngine
                 var outcome = FindOrAddOutcome(result, session.TargetId);
                 try
                 {
-                    BuildTestState.PublishHeadToTarget(
+                    BuildTestState.PublishDeliveryToTarget(
                         request.Backend,
                         target,
+                        hotfixSourceDir,
                         FYAssetPathUtility.JoinFilePath(session.TargetDir, "publish-hotfix.json"));
                     outcome.PublishSuccess = true;
-                    outcome.PublishedPackage = hotfixHead.PackageName;
+                    outcome.PublishedPackage = hotfixIdentity.PackageName;
                     outcome.PublishedVersion = hotfixVersion;
                     BuildTestState.ProbeTargetIdentity(
                         target,
                         backendName,
-                        hotfixHead.PackageName,
+                        hotfixIdentity.PackageName,
                         hotfixVersion,
                         true,
                         FYAssetPathUtility.JoinFilePath(session.TargetDir, "probe-hotfix.json"));
@@ -622,19 +626,19 @@ public static class E2ETestEngine
     private static bool TryGetHotfixBaseline(
         BuildTestRequest request,
         List<BuildTestTargetSnapshot> targets,
-        out BuildBaseline fullHead)
+        out PackageBuildIdentity fullIdentity)
     {
-        fullHead = null;
+        fullIdentity = null;
         try
         {
-            BuildTestAcceptance.RequireLocalFullIdentity(request.Backend, out fullHead);
+            BuildTestAcceptance.RequireLocalFullIdentity(request.Backend, out fullIdentity);
             for (int i = 0; i < targets.Count; i++)
-                BuildTestAcceptance.RequireTargetFullIdentity(targets[i], request.Backend, fullHead);
+                BuildTestAcceptance.RequireTargetFullIdentity(targets[i], request.Backend, fullIdentity);
             return true;
         }
         catch
         {
-            fullHead = null;
+            fullIdentity = null;
             return false;
         }
     }
@@ -687,7 +691,6 @@ public static class E2ETestEngine
         string exe = FYAssetPathUtility.JoinFilePath(playerDir, "FYAssetE2E.exe");
 
         BackendMode oldBackend = BuildTestState.GetBackendSettings().Backend;
-        bool oldStandalone = FYAssetSettings.Instance.StandaloneBuild;
         string oldAaUrl = FYAssetAASettings.Instance.HotfixUrl;
         string oldAbUrl = FYAssetABSettings.Instance.HotfixUrl;
         string oldProjectName = FYAssetSettings.Instance.ProjectName;
@@ -698,7 +701,6 @@ public static class E2ETestEngine
             BuildTestState.GetBackendSettings().Backend = backend == BuildTestBackend.AB
                 ? BackendMode.ABManifest
                 : BackendMode.AA;
-            // 保留调用方已设置的 StandaloneBuild（Standalone E2E bake 时为 true）
             FYAssetSettings.Instance.ProjectName = isolatedProjectName;
             if (backend == BuildTestBackend.AB)
                 FYAssetABSettings.Instance.HotfixUrl = target.RuntimeUrl;
@@ -745,7 +747,6 @@ public static class E2ETestEngine
             }
 
             BuildTestState.GetBackendSettings().Backend = oldBackend;
-            FYAssetSettings.Instance.StandaloneBuild = oldStandalone;
             FYAssetSettings.Instance.ProjectName = oldProjectName;
             FYAssetAASettings.Instance.HotfixUrl = oldAaUrl;
             FYAssetABSettings.Instance.HotfixUrl = oldAbUrl;

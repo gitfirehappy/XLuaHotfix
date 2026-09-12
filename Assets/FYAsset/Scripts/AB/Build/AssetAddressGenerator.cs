@@ -6,8 +6,9 @@ using System.IO;
 /// 
 /// 规则：
 /// 1. 自动 Address 由项目级 AssetAddressStyle 决定
-/// 2. Address 允许重复；可解析性由 Address + PrimaryType + Labels 决定
-/// 3. 自动项可重建；手动覆写项保持锁定，除非显式切回 Auto
+/// 2. 公共 Address 在单包内大小写不敏感且唯一，冲突由构建校验阻断；
+///    内部（隐式依赖）条目不进入公共索引，因此不参与唯一性约束
+/// 3. 自动项按样式重建；人工覆写项来自 AssetCollectionSetting.AssetOverrides
 /// </summary>
 public static class AssetAddressGenerator
 {

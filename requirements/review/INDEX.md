@@ -17,6 +17,8 @@ Every report starts with:
 
 ## Active Reviews
 
+- `review-fyasset-windows-ab-remediation-execution-audit-20260911.md` - 签收前执行效果审查：新鲜门禁全绿、无决策偏差；已清理 staged 索引残留与仓库外备份；遗留项见报告（HTML 模型页刷新、SelfCheck 去留、T8 探针入库、EOL 排除、地址对齐确认）。
+- `review-fyasset-resource-pipeline-realignment-20260911.md` - findings F01–F16 dispositioned by `disposition-fyasset-windows-ab-remediation-20260911.md` (F01–F07/F09–F16 closed with fresh evidence; F08 Android deferred by plan; F14 markdown closed, generated HTML pending regeneration; residual items listed in the disposition).
 - `review-xluaframework-fyasset-20260905.md` - open; current-tree runtime, build, editor, export, test, and decision
   audit.
 

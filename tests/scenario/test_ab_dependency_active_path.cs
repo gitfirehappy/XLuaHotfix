@@ -6,9 +6,9 @@ internal static class ABDependencyActivePathTests
     {
         string source = RepoSource.Read("Assets/FYAsset/Scripts/AB/Runtime/ABBundleLoader.cs");
 
-        RepoAssert.AtLeast(2, RepoSource.Count(source, "if (!visited.Add(dep.BundleName))"),
+        RepoAssert.AtLeast(2, RepoSource.Count(source, "if (!visited.Add(dep.FileName))"),
             "sync and async paths must retain active-cycle detection");
-        RepoAssert.AtLeast(2, RepoSource.Count(source, "visited.Remove(dep.BundleName)"),
+        RepoAssert.AtLeast(2, RepoSource.Count(source, "visited.Remove(dep.FileName)"),
             "sync and async paths must remove completed dependencies from the active path");
         RepoAssert.AtLeast(2, RepoSource.Count(source, "finally"),
             "active-path removal must survive dependency load failure");

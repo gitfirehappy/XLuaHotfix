@@ -4,6 +4,7 @@
 
 - Respond to the developer in Chinese.
 - Use plain, objective language. Describe observable behavior, constraints, ownership, lifetime, ordering, and reasons in terms a developer can verify.
+- In discussion, use clear, easy-to-understand human language with the developer. Do not invent jargon or abbreviations, and do not deliver long monologues.
 - Keep this file to cross-project collaboration rules. Project names, paths, types, modules, architecture decisions, tool versions, current status, and historical cases belong elsewhere.
 - Do not modify code or workflow files without explicit developer approval.
 - Keep changes scoped and aligned with the existing repository conventions.

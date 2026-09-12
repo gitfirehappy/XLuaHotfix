@@ -238,7 +238,7 @@ public static class LocalAAHotfixSmokeTest
             throw new InvalidOperationException($"Local PackageIndex mismatch: {localIndex.LatestPackage}");
 
         string bundleRoot = FYAssetPathUtility.JoinFilePath(packageRoot, FYAssetSettings.BUNDLES_DIRECTORY_NAME);
-        if (!IsBaselinePackage(expectedPackage))
+        if (!IsBuiltInPackage(expectedPackage))
         {
             AssertFile(FYAssetPathUtility.JoinFilePath(packageRoot, FYAssetSettings.AA_MANIFEST_FILE_NAME_BIN));
             AssertFile(FYAssetPathUtility.JoinFilePath(packageRoot, FYAssetSettings.ADDRESSABLES_CATALOG_FILE_NAME));
@@ -304,8 +304,9 @@ public static class LocalAAHotfixSmokeTest
             FYAssetSettings.PACKAGE_INDEX_FILE_NAME));
         if (string.Equals(index.LatestPackage, buildIndex.BuildGUID, StringComparison.Ordinal))
         {
-            AAManifest baseline = AAManifestLoader.LoadFromDirectory(Application.streamingAssetsPath);
-            return new ExpectedPackage(index.LatestPackage, baseline?.Bundles?.Count ?? 0);
+            // 内置包身份：读取根由 RuntimePathManager 决定，Standalone 时含隔离子目录
+            AAManifest builtIn = AAManifestLoader.LoadFromDirectory(RuntimePathManager.BuiltInPackageRoot);
+            return new ExpectedPackage(index.LatestPackage, builtIn?.Bundles?.Count ?? 0);
         }
 
         string packageRoot = FYAssetPathUtility.JoinFilePath(RuntimePathManager.HotfixRoot, index.LatestPackage);
@@ -314,7 +315,7 @@ public static class LocalAAHotfixSmokeTest
         return new ExpectedPackage(index.LatestPackage, manifest.Bundles?.Count ?? 0);
     }
 
-    private static bool IsBaselinePackage(string packageName)
+    private static bool IsBuiltInPackage(string packageName)
     {
         return string.Equals(packageName, LoadBuildIndex().BuildGUID, StringComparison.Ordinal);
     }

@@ -4,28 +4,41 @@ using System.Threading.Tasks;
 using UnityEngine;
 
 /// <summary>
-/// AB 资源加载后端 — 基于 ABManifest + ABBundleLoader 的 I/O 服务。
-/// 调用方提供已消歧的 EntryId，解析到 ManifestAssetEntry → BundleEntry，
-/// 委托 ABBundleLoader 加载/卸载 Bundle（含依赖和引用计数）并从 Bundle 中提取资产。
-/// 维护 Asset 级缓存；引用计数由 HandleRegistry._entryActiveCounts 管理：
-/// Load → _entryActiveCounts[entryId]++；Release → --；归零时回调 ReleaseEntry。
-/// API 返回 tuple errors，不抛加载异常。由 ABPackageManager 持有，仅转发已消歧的 Entry。
+/// AB 加载后端的统一出口：由 ABPackageManager 按已解析的 EntryId 调用。
 /// </summary>
+/// <remarks>
+/// Address 只用于错误文本，条目定位一律按 EntryId。
+/// 所有 API 返回 tuple 错误，不抛加载异常。
+/// </remarks>
 internal interface IABLoadBackend
 {
-    Task<(T asset, RuntimeMessage error)> LoadAssetAsync<T>(string key, string entryId)
-        where T : UnityEngine.Object;
-    (T asset, RuntimeMessage error) LoadAssetSync<T>(string key, string entryId)
-        where T : UnityEngine.Object;
-    Task<(byte[] data, RuntimeMessage error)> LoadRawBytesAsync(string key, string entryId);
-    (byte[] data, RuntimeMessage error) LoadRawBytesSync(string key, string entryId);
-    Task<(T asset, string bundleName, RuntimeMessage error)> LoadAssetTupleAsync<T>(
-        string key, string entryId) where T : UnityEngine.Object;
-    (T asset, string bundleName, RuntimeMessage error) LoadAssetTupleSync<T>(
-        string key, string entryId) where T : UnityEngine.Object;
+    /// <summary>加载 SerializedObject 资产，返回 (asset, 内容文件名, error)。</summary>
+    Task<(T asset, string contentFileName, RuntimeMessage error)> LoadAssetTupleAsync<T>(
+        string address, string entryId) where T : UnityEngine.Object;
+
+    /// <summary>同步版本。</summary>
+    (T asset, string contentFileName, RuntimeMessage error) LoadAssetTupleSync<T>(
+        string address, string entryId) where T : UnityEngine.Object;
+
+    /// <summary>读取 RawFile 内容字节；不经过 BundleLoader。</summary>
+    Task<(byte[] data, RuntimeMessage error)> LoadRawBytesAsync(string address, string entryId);
+
+    /// <summary>Release 回调：最后一个 token 释放后卸载该 EntryId 的资产与内容引用。</summary>
     void UnloadByEntryId(string entryId);
+
+    /// <summary>关闭时清空全部内容引用（Bundle 或 Editor 资产缓存）。</summary>
+    void UnloadAllContent();
 }
 
+/// <summary>
+/// AB 资源加载后端 — 基于 ABManifest + ABBundleLoader 的 I/O 服务。
+/// </summary>
+/// <remarks>
+/// 按 EntryId 定位 ManifestAssetEntry，再经 ContentIndex 找到 ManifestContentEntry。
+/// SerializedObject 走 ABBundleLoader（含依赖与引用计数）；RawFile 直接读当前激活包根下的内容文件，
+/// 不经过 BundleLoader，也不参与 Bundle 卸载。
+/// Asset 级缓存以 EntryId 为键；内容引用计数由 HandleRegistry 的 EntryId 活跃 token 计数驱动。
+/// </remarks>
 internal sealed class ABPackageBackend : IABLoadBackend
 {
 
@@ -35,7 +48,7 @@ internal sealed class ABPackageBackend : IABLoadBackend
     private class AssetCacheEntry
     {
         public UnityEngine.Object Asset;
-        public string BundleName;
+        public string ContentFileName;
     }
 
     /// <summary>Asset 缓存：EntryId → CacheEntry</summary>
@@ -46,7 +59,7 @@ internal sealed class ABPackageBackend : IABLoadBackend
 
     private readonly object _inflightLock = new();
 
-    /// <summary>ABManifest 引用，用于 Asset→Bundle 解析</summary>
+    /// <summary>ABManifest 引用，用于 Asset→Content 解析</summary>
     private readonly ABManifest _manifest;
 
     /// <summary>ABBundleLoader 引用，负责 Bundle 级加载/卸载</summary>
@@ -63,62 +76,41 @@ internal sealed class ABPackageBackend : IABLoadBackend
         _bundleLoader = bundleLoader ?? throw new ArgumentNullException(nameof(bundleLoader));
     }
 
-    public async Task<(T asset, RuntimeMessage error)> LoadAssetAsync<T>(string key, string entryId)
-        where T : UnityEngine.Object
+    public async Task<(T asset, string contentFileName, RuntimeMessage error)> LoadAssetTupleAsync<T>(
+        string address, string entryId) where T : UnityEngine.Object
     {
-        if (string.IsNullOrEmpty(key))
-            return (null, RuntimeMessage.Error(RuntimeErrorCodes.InvalidArgument, "LoadAssetAsync: key 为 null 或空"));
-
-        var assetEntry = ResolveAssetEntry(key, entryId);
-        if (assetEntry == null)
-            return (null, RuntimeMessage.NotFound(string.Concat("key=", key, ", entryId=", entryId ?? "")));
+        ManifestAssetEntry assetEntry = ResolveAssetEntry(address, entryId, out RuntimeMessage resolveError);
+        if (assetEntry == null) return (null, null, resolveError);
 
         if (_assetCache.TryGetValue(assetEntry.EntryId, out var cached))
-            return (cached.Asset as T, null);
+            return (cached.Asset as T, cached.ContentFileName, null);
 
-        var (asset, _, error) = await LoadAssetInternalAsync<T>(assetEntry);
-        return (asset, error);
+        return await LoadAssetInternalAsync<T>(assetEntry);
     }
 
-    public (T asset, RuntimeMessage error) LoadAssetSync<T>(string key, string entryId)
-        where T : UnityEngine.Object
+    public (T asset, string contentFileName, RuntimeMessage error) LoadAssetTupleSync<T>(
+        string address, string entryId) where T : UnityEngine.Object
     {
-        if (string.IsNullOrEmpty(key))
-            return (null, RuntimeMessage.Error(RuntimeErrorCodes.InvalidArgument, "LoadAssetSync: key 为 null 或空"));
-
-        var assetEntry = ResolveAssetEntry(key, entryId);
-        if (assetEntry == null)
-            return (null, RuntimeMessage.NotFound(string.Concat("key=", key, ", entryId=", entryId ?? "")));
+        ManifestAssetEntry assetEntry = ResolveAssetEntry(address, entryId, out RuntimeMessage resolveError);
+        if (assetEntry == null) return (null, null, resolveError);
 
         if (_assetCache.TryGetValue(assetEntry.EntryId, out var cached))
-            return (cached.Asset as T, null);
+            return (cached.Asset as T, cached.ContentFileName, null);
 
-        var (asset, _, error) = LoadAssetInternalSync<T>(assetEntry);
-        return (asset, error);
+        // 同一 Entry 的异步加载仍在进行：同步调用不得阻塞等待，也不得重复获取 Bundle，
+        // 否则同一条目会同时存在两份物理加载与两份引用计数。
+        if (IsInflight(assetEntry.EntryId))
+            return (null, null, RuntimeMessage.LoadInProgress(assetEntry.EntryId));
+
+        return LoadAssetInternalSync<T>(assetEntry);
     }
 
-    public async Task<(byte[] data, RuntimeMessage error)> LoadRawBytesAsync(string key, string entryId)
+    public async Task<(byte[] data, RuntimeMessage error)> LoadRawBytesAsync(string address, string entryId)
     {
-        if (string.IsNullOrEmpty(key))
-            return (null, RuntimeMessage.Error(RuntimeErrorCodes.InvalidArgument, "LoadRawBytesAsync: key 为 null 或空"));
-
-        var assetEntry = ResolveAssetEntry(key, entryId);
-        if (assetEntry == null)
-            return (null, RuntimeMessage.NotFound(string.Concat("key=", key, ", entryId=", entryId ?? "")));
+        ManifestAssetEntry assetEntry = ResolveAssetEntry(address, entryId, out RuntimeMessage resolveError);
+        if (assetEntry == null) return (null, resolveError);
 
         return await LoadRawBytesInternalAsync(assetEntry);
-    }
-
-    public (byte[] data, RuntimeMessage error) LoadRawBytesSync(string key, string entryId)
-    {
-        if (string.IsNullOrEmpty(key))
-            return (null, RuntimeMessage.Error(RuntimeErrorCodes.InvalidArgument, "LoadRawBytesSync: key 为 null 或空"));
-
-        var assetEntry = ResolveAssetEntry(key, entryId);
-        if (assetEntry == null)
-            return (null, RuntimeMessage.NotFound(string.Concat("key=", key, ", entryId=", entryId ?? "")));
-
-        return LoadRawBytesInternalSync(assetEntry);
     }
 
     public void UnloadByEntryId(string entryId)
@@ -127,75 +119,42 @@ internal sealed class ABPackageBackend : IABLoadBackend
         ReleaseEntry(entryId);
     }
 
-    /// <summary>按已解析的 EntryId 精确定位资源条目，不做 address 回退。</summary>
-    private ManifestAssetEntry ResolveAssetEntry(string address, string entryId)
+    public void UnloadAllContent()
     {
-        if (string.IsNullOrEmpty(entryId)) return null;
-        if (!_manifest.TryGetAssetByEntryId(entryId, out var assetEntry)) return null;
-        return string.Equals(assetEntry.Address, address, StringComparison.Ordinal) ? assetEntry : null;
+        _assetCache.Clear();
+        _bundleLoader.UnloadAllBundles();
     }
 
     /// <summary>
-    /// 异步加载资产，返回 (asset, bundleName, error) 元组。
-    /// ABPackageManager 通过此方法获取 bundleName 以分配 HandleRegistry 槽位。
+    /// 按 EntryId 精确定位资源条目；Address 只参与错误文本，不做回退查找。
     /// </summary>
-    public async Task<(T asset, string bundleName, RuntimeMessage error)> LoadAssetTupleAsync<T>(
-        string key, string entryId) where T : UnityEngine.Object
+    private ManifestAssetEntry ResolveAssetEntry(
+        string address,
+        string entryId,
+        out RuntimeMessage error)
     {
-        var assetEntry = ResolveAssetEntry(key, entryId);
+        error = null;
+        if (_manifest.TryGetAssetByEntryId(entryId, out ManifestAssetEntry assetEntry))
+            return assetEntry;
 
-        if (assetEntry == null)
-        {
-            return (null, null, RuntimeMessage.NotFound(
-                string.Concat("key=", key, ", entryId=", entryId ?? "")));
-        }
-
-        if (_assetCache.TryGetValue(assetEntry.EntryId, out var cached))
-        {
-            return (cached.Asset as T, cached.BundleName, null);
-        }
-
-        return await LoadAssetInternalAsync<T>(assetEntry);
-    }
-
-    /// <summary>
-    /// 同步加载资产，返回 (asset, bundleName, error) 元组。
-    /// ABPackageManager 通过此方法获取 bundleName 以分配 HandleRegistry 槽位。
-    /// </summary>
-    public (T asset, string bundleName, RuntimeMessage error) LoadAssetTupleSync<T>(
-        string key, string entryId) where T : UnityEngine.Object
-    {
-        var assetEntry = ResolveAssetEntry(key, entryId);
-
-        if (assetEntry == null)
-        {
-            return (null, null, RuntimeMessage.NotFound(
-                string.Concat("key=", key, ", entryId=", entryId ?? "")));
-        }
-
-        if (_assetCache.TryGetValue(assetEntry.EntryId, out var cached))
-        {
-            return (cached.Asset as T, cached.BundleName, null);
-        }
-
-        return LoadAssetInternalSync<T>(assetEntry);
+        error = RuntimeMessage.NotFound(string.Concat("address=", address ?? "", ", entryId=", entryId ?? ""));
+        return null;
     }
 
     /// <summary>
     /// 异步加载资产的内部实现（已确认 assetEntry 有效）。
-    /// 返回 (asset, bundleName, error) 元组 — 内部 API，不抛异常。
     /// 并发去重：同一 EntryId 的并发请求等待同一 inflight Task，避免重复 I/O。
     /// </summary>
-    private async Task<(T asset, string bundleName, RuntimeMessage error)> LoadAssetInternalAsync<T>(
+    private async Task<(T asset, string contentFileName, RuntimeMessage error)> LoadAssetInternalAsync<T>(
         ManifestAssetEntry assetEntry) where T : UnityEngine.Object
     {
-        if (assetEntry.PayloadKind == EPayloadKind.RawFile)
+        if (assetEntry.ContentType != AssetContentType.SerializedObject)
         {
             return (null, null,
                 RuntimeMessage.InvalidPayloadKind(
                     assetEntry.EntryId,
-                    EPayloadKind.Serialized.ToString(),
-                    assetEntry.PayloadKind.ToString()));
+                    AssetContentType.SerializedObject.ToString(),
+                    assetEntry.ContentType.ToString()));
         }
 
         string entryId = assetEntry.EntryId;
@@ -219,26 +178,26 @@ internal sealed class ABPackageBackend : IABLoadBackend
         {
             await inflight;
             if (_assetCache.TryGetValue(entryId, out var existing))
-                return (existing.Asset as T, existing.BundleName, null);
+                return (existing.Asset as T, existing.ContentFileName, null);
             // inflight 完成但缓存中没有 -> 之前的加载失败，本次作为新请求继续
         }
 
         try
         {
-            var bundleEntry = _manifest.GetBundleForAsset(assetEntry);
-            if (bundleEntry == null)
+            var contentEntry = _manifest.GetContentForAsset(assetEntry);
+            if (contentEntry == null)
             {
                 return (null, null,
                     RuntimeMessage.BundleNotFound(
                         string.Concat("(asset: ", assetEntry.Address, ", EntryId=", assetEntry.EntryId, ")")));
             }
 
-            string bundleName = bundleEntry.BundleName;
+            string contentFileName = contentEntry.FileName;
 
-            var (bundle, bundleError) = await _bundleLoader.LoadBundleAsync(bundleName);
+            var (bundle, bundleError) = await _bundleLoader.LoadBundleAsync(contentFileName);
             if (bundleError != null)
             {
-                return (null, bundleName, bundleError);
+                return (null, contentFileName, bundleError);
             }
 
             T asset = null;
@@ -251,21 +210,21 @@ internal sealed class ABPackageBackend : IABLoadBackend
             catch (Exception ex)
             {
                 Debug.LogWarning(
-                    $"[ABPackageBackend] 资源提取异常: EntryId={assetEntry.EntryId}, Bundle={bundleName}, Path={assetEntry.SourcePath}, Error={ex.Message}");
-                _bundleLoader.UnloadBundle(bundleName);
-                return (null, bundleName,
-                    RuntimeMessage.AssetExtractionFailed(assetEntry.EntryId, assetEntry.SourcePath, bundleName));
+                    $"[ABPackageBackend] 资源提取异常: EntryId={assetEntry.EntryId}, Bundle={contentFileName}, Path={assetEntry.SourcePath}, Error={ex.Message}");
+                _bundleLoader.UnloadBundle(contentFileName);
+                return (null, contentFileName,
+                    RuntimeMessage.AssetExtractionFailed(assetEntry.EntryId, assetEntry.SourcePath, contentFileName));
             }
 
             if (asset == null)
             {
-                _bundleLoader.UnloadBundle(bundleName);
-                return (null, bundleName,
-                    RuntimeMessage.AssetExtractionFailed(assetEntry.EntryId, assetEntry.SourcePath, bundleName));
+                _bundleLoader.UnloadBundle(contentFileName);
+                return (null, contentFileName,
+                    RuntimeMessage.AssetExtractionFailed(assetEntry.EntryId, assetEntry.SourcePath, contentFileName));
             }
 
-            AddToAssetCache(assetEntry, asset, bundleName);
-            return (asset, bundleName, null);
+            AddToAssetCache(assetEntry, asset, contentFileName);
+            return (asset, contentFileName, null);
         }
         finally
         {
@@ -283,107 +242,85 @@ internal sealed class ABPackageBackend : IABLoadBackend
 
     /// <summary>
     /// 同步加载资产的内部实现（已确认 assetEntry 有效）。
-    /// 返回 (asset, bundleName, error) 元组 — 内部 API，不抛异常。
     /// </summary>
-    private (T asset, string bundleName, RuntimeMessage error) LoadAssetInternalSync<T>(
+    /// <summary>该 Entry 是否已有异步加载在进行中（同步路径据此快速失败，不阻塞等待）。</summary>
+    private bool IsInflight(string entryId)
+    {
+        lock (_inflightLock)
+        {
+            return _inflightLoads.ContainsKey(entryId);
+        }
+    }
+
+    private (T asset, string contentFileName, RuntimeMessage error) LoadAssetInternalSync<T>(
         ManifestAssetEntry assetEntry) where T : UnityEngine.Object
     {
-        if (assetEntry.PayloadKind == EPayloadKind.RawFile)
+        if (assetEntry.ContentType != AssetContentType.SerializedObject)
         {
             return (null, null,
                 RuntimeMessage.InvalidPayloadKind(
                     assetEntry.EntryId,
-                    EPayloadKind.Serialized.ToString(),
-                    assetEntry.PayloadKind.ToString()));
+                    AssetContentType.SerializedObject.ToString(),
+                    assetEntry.ContentType.ToString()));
         }
 
-        var bundleEntry = _manifest.GetBundleForAsset(assetEntry);
-        if (bundleEntry == null)
+        var contentEntry = _manifest.GetContentForAsset(assetEntry);
+        if (contentEntry == null)
         {
             return (null, null,
                 RuntimeMessage.BundleNotFound(
                     string.Concat("(asset: ", assetEntry.Address, ", EntryId=", assetEntry.EntryId, ")")));
         }
 
-        string bundleName = bundleEntry.BundleName;
+        string contentFileName = contentEntry.FileName;
 
-        var (bundle, bundleError) = _bundleLoader.LoadBundle(bundleName);
+        var (bundle, bundleError) = _bundleLoader.LoadBundle(contentFileName);
         if (bundleError != null)
         {
-            return (null, bundleName, bundleError);
+            return (null, contentFileName, bundleError);
         }
 
         T asset = bundle.LoadAsset<T>(assetEntry.SourcePath);
         if (asset == null)
         {
-            _bundleLoader.UnloadBundle(bundleName);
-            return (null, bundleName,
-                RuntimeMessage.AssetExtractionFailed(assetEntry.EntryId, assetEntry.SourcePath, bundleName));
+            _bundleLoader.UnloadBundle(contentFileName);
+            return (null, contentFileName,
+                RuntimeMessage.AssetExtractionFailed(assetEntry.EntryId, assetEntry.SourcePath, contentFileName));
         }
 
-        AddToAssetCache(assetEntry, asset, bundleName);
-        return (asset, bundleName, null);
+        AddToAssetCache(assetEntry, asset, contentFileName);
+        return (asset, contentFileName, null);
     }
 
+    /// <summary>
+    /// RawFile 读取：FileName 来自 ManifestContentEntry，路径固定在当前激活包根下。
+    /// Android 等平台的 StreamingAssets 是 jar: URI，FileHelper 在该平台改用异步 UWR 读取。
+    /// </summary>
     private async Task<(byte[] data, RuntimeMessage error)> LoadRawBytesInternalAsync(ManifestAssetEntry assetEntry)
     {
-        if (assetEntry.PayloadKind != EPayloadKind.RawFile)
+        if (assetEntry.ContentType != AssetContentType.RawFile)
+        {
             return (null, RuntimeMessage.InvalidPayloadKind(
                 assetEntry.EntryId,
-                EPayloadKind.RawFile.ToString(),
-                assetEntry.PayloadKind.ToString()));
+                AssetContentType.RawFile.ToString(),
+                assetEntry.ContentType.ToString()));
+        }
 
-        var bundleEntry = _manifest.GetBundleForAsset(assetEntry);
-        if (bundleEntry == null)
+        var contentEntry = _manifest.GetContentForAsset(assetEntry);
+        if (contentEntry == null)
         {
             return (null,
                 RuntimeMessage.BundleNotFound(
                     string.Concat("(asset: ", assetEntry.Address, ", EntryId=", assetEntry.EntryId, ")")));
         }
 
-        string bundleName = bundleEntry.BundleName;
-        string primaryPath = BuildBundlePath(RuntimePathManager.CurrentGUIDRoot, bundleName);
-        if (FileHelper.Exists(primaryPath))
-            return await TryReadRawBytesAsync(primaryPath, assetEntry.EntryId);
-
-        string fallbackPath = BuildBundlePath(Application.streamingAssetsPath, bundleName);
-        return await TryReadRawBytesAsync(fallbackPath, assetEntry.EntryId);
-    }
-
-    private (byte[] data, RuntimeMessage error) LoadRawBytesInternalSync(ManifestAssetEntry assetEntry)
-    {
-        if (assetEntry.PayloadKind != EPayloadKind.RawFile)
-            return (null, RuntimeMessage.InvalidPayloadKind(
-                assetEntry.EntryId,
-                EPayloadKind.RawFile.ToString(),
-                assetEntry.PayloadKind.ToString()));
-
-        var bundleEntry = _manifest.GetBundleForAsset(assetEntry);
-        if (bundleEntry == null)
+        string path = BuildContentPath(contentEntry.FileName);
+        if (string.IsNullOrEmpty(path))
         {
-            return (null,
-                RuntimeMessage.BundleNotFound(
-                    string.Concat("(asset: ", assetEntry.Address, ", EntryId=", assetEntry.EntryId, ")")));
+            return (null, RuntimeMessage.BundleNotFound(contentEntry.FileName));
         }
 
-        string bundleName = bundleEntry.BundleName;
-        string primaryPath = BuildBundlePath(RuntimePathManager.CurrentGUIDRoot, bundleName);
-        if (FileHelper.Exists(primaryPath))
-            return TryReadRawBytesSync(primaryPath, assetEntry.EntryId);
-
-        string fallbackPath = BuildBundlePath(Application.streamingAssetsPath, bundleName);
-        if (FileHelper.Exists(fallbackPath))
-            return TryReadRawBytesSync(fallbackPath, assetEntry.EntryId);
-
-        if (IsNonFileSystemPath(fallbackPath))
-        {
-            return (null,
-                RuntimeMessage.UnsupportedOperation(
-                    "ABPackageBackend.LoadRawBytesSync",
-                    "RawFile 同步读取只支持真实文件系统路径，请使用异步 API 读取 StreamingAssets URI"));
-        }
-
-        return (null, RuntimeMessage.BundleNotFound(bundleName));
+        return await TryReadRawBytesAsync(path, assetEntry.EntryId);
     }
 
     private static async Task<(byte[] data, RuntimeMessage error)> TryReadRawBytesAsync(string path, string entryId)
@@ -402,45 +339,24 @@ internal sealed class ABPackageBackend : IABLoadBackend
         }
     }
 
-    private static (byte[] data, RuntimeMessage error) TryReadRawBytesSync(string path, string entryId)
+    private static string BuildContentPath(string contentFileName)
     {
-        try
-        {
-            return (FileHelper.ReadAllBytes(path), null);
-        }
-        catch (System.IO.FileNotFoundException)
-        {
-            return (null, RuntimeMessage.BundleNotFound(path));
-        }
-        catch (Exception ex)
-        {
-            return (null, RuntimeMessage.LoadFailed(entryId, ex.Message));
-        }
-    }
+        string root = RuntimePathManager.ActivePackageRoot;
+        if (string.IsNullOrEmpty(root) || string.IsNullOrEmpty(contentFileName))
+            return null;
 
-    private static string BuildBundlePath(string root, string bundleName)
-    {
-        return FYAssetPathUtility.JoinFilePath(root, FYAssetSettings.BUNDLES_DIRECTORY_NAME, bundleName);
-    }
-
-    private static bool IsNonFileSystemPath(string path)
-    {
-        if (string.IsNullOrEmpty(path))
-            return false;
-
-        return path.StartsWith("jar:", StringComparison.OrdinalIgnoreCase) ||
-               path.IndexOf("://", StringComparison.Ordinal) >= 0;
+        return FYAssetPathUtility.JoinFilePath(root, FYAssetSettings.BUNDLES_DIRECTORY_NAME, contentFileName);
     }
 
     /// <summary>
     /// 将资产加入 EntryId 缓存。
     /// </summary>
-    private void AddToAssetCache(ManifestAssetEntry assetEntry, UnityEngine.Object asset, string bundleName)
+    private void AddToAssetCache(ManifestAssetEntry assetEntry, UnityEngine.Object asset, string contentFileName)
     {
         _assetCache[assetEntry.EntryId] = new AssetCacheEntry
         {
             Asset = asset,
-            BundleName = bundleName
+            ContentFileName = contentFileName
         };
     }
 
@@ -449,12 +365,11 @@ internal sealed class ABPackageBackend : IABLoadBackend
     /// </summary>
     private void ReleaseEntry(string entryId)
     {
-        if (string.IsNullOrEmpty(entryId)) return;
         if (!_assetCache.TryGetValue(entryId, out var entry)) return;
 
         _assetCache.Remove(entryId);
 
-        _bundleLoader.UnloadBundle(entry.BundleName);
+        _bundleLoader.UnloadBundle(entry.ContentFileName);
     }
 
     /// <summary>

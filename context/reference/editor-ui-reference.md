@@ -52,13 +52,13 @@
 
 ---
 
-## 三、 对 XLuaHotfix (Plan E1-4) 的 UX 启示
+## 三、 对 XLuaHotfix 的边界说明
 
-结合上面两个框架的优势，我们正在实现的 E1-4 `CollectorPanel` 已融入了这些最佳实践：
+上面两节是外部框架的观察记录，不定义本项目行为。以下只记录“本项目当前适用/不适用”的边界，当前实现以源码与 `docs/FYAsset/` 为准：
 
-1. **结构设计**: 采纳了 YooAsset 的左右分栏架构（左侧 TreeView 导航层级，右侧属性编辑面板），适合处理复杂的收集规则与配置。
-2. **分割线 (Splitter)**: 采纳可拖拽分割线，允许开发者根据名字长度自由调整左右宽度比例。
-3. **Inspector 解耦** vs **内联编辑**: E1-4 选择在**右侧面板内联编辑**（类似 YooAsset），以保证工具链的一致性，防止用户在 Inspector 和 Build 窗口之间来回切换视线。
-4. **反射自动下拉 (Rule Dropdown)**: 与 YooAsset 一致，提供更好的防呆体验。
-5. **快捷校验红标与双击跳转**: 吸纳了 Addressables 的直观校验体验，增加了双击下方 Validation Panel 的错误条目，自动定位到上方 TreeView 中对应 Collector 节点的能力。
-6. **目录拖拽支持**: 允许在右侧面板的 CollectPath 接收 Project 文件夹拖入事件。
+1. **层级**：AB 采集配置只有 `AssetCollectionSetting → Group → Collector` 三层，没有 YooAsset 的 `Package` 层，也没有独立 Project Labels 页面。照搬 YooAsset 的 `Package → Group → Collector` 树会引入本项目已删除的配置层。
+2. **左右分栏与拖拽**：左右分栏、可拖拽分割线、`CollectPath` 接收 Project 目录拖入事件这类交互与本项目 Collection 面板一致，属于可继续沿用的模式。
+3. **规则下拉框不适用**：本项目已删除 `IFilterRule` / `IGroupRule` / `RuleResolver` 反射规则体系与对应的反射下拉控件（`RuleDropdownHelper`），扫描行为是固定的可验证流程；Collector 只保存 `CollectPath` 与 `CollectPathType`。不要按 YooAsset 的 Rule/Filter/Pack 下拉设计新的采集字段。
+4. **Address / Packing 归属**：Address 样式是项目级 `AssetAddressStyle`，打包粒度是 Group 级 `BundlePackingMode`，都在 Setting/Group 上编辑，不存在 Collector 级 Rule 名或逐资产 Role/Payload 下拉。
+5. **实时校验**：路径缺失、命名非法、同路径冲突等以结构化 `BuildMessage` 输出，可在面板内展示并定位到配置项；这与 Addressables 的校验红标体验目标一致。
+6. **窗口与面板**：AA/AB 各自一个构建窗口，不含统一的 Repository/Diff 管理页；发布目标面板只处理发布与 `Apply URL`。

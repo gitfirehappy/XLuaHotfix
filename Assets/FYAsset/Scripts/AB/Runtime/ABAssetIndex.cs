@@ -1,45 +1,47 @@
 using System;
 using System.Collections.Generic;
+using System.Text;
 
 /// <summary>
-/// AB 资源索引 — 基于 ABManifest 的条目查询实现。
-/// 构造时将 AssetEntries 预转换为 RuntimeAssetEntry 缓存，并预建查询结果数组；
-/// 查询返回的数组为内部缓存，调用方不得修改。
+/// AB 资源索引 — 基于 ABManifest 的公共资源查询与 EntryId 定位。
 /// </summary>
+/// <remarks>
+/// 索引构建时只把 IsPublic=true 的条目放进 Address / Type / Label 查询，
+/// 隐式依赖条目只保留 EntryId 索引，供加载与依赖使用。
+/// 公共 Address 大小写不敏感且唯一；运行期发现重复即记录结构化错误并拒绝本次索引。
+/// 查询返回的数组为内部缓存，调用方不得修改。
+/// </remarks>
 public class ABAssetIndex
 {
 
-    /// <summary>持有的清单引用（用于 Bundle 查询等后续扩展）</summary>
+    /// <summary>持有的清单引用</summary>
     private readonly ABManifest _manifest;
 
-    /// <summary>预转换的全部条目缓存</summary>
+    /// <summary>预转换的全部条目缓存（含隐式依赖条目）</summary>
     private RuntimeAssetEntry[] _entries;
 
-    /// <summary>Address -> 条目索引列表（Address 允许重复）</summary>
-    private Dictionary<string, List<int>> _addressIndex;
+    /// <summary>EntryId -> 条目（唯一，含隐式依赖条目）</summary>
+    private Dictionary<string, RuntimeAssetEntry> _entryIdIndex;
 
-    /// <summary>EntryId -> 条目索引（唯一）</summary>
-    private Dictionary<string, int> _entryIdIndex;
+    /// <summary>公共 Address -> 条目（大小写不敏感、唯一）</summary>
+    private Dictionary<string, RuntimeAssetEntry> _addressIndex;
 
-    /// <summary>PrimaryType -> 条目索引列表</summary>
-    private Dictionary<string, List<int>> _typeIndex;
-
-    /// <summary>Label -> 条目索引列表（大小写不敏感）</summary>
-    private Dictionary<string, List<int>> _labelIndex;
-
-    /// <summary>Address -> 预建结果数组（零分配热路径）</summary>
-    private Dictionary<string, RuntimeAssetEntry[]> _addressResults;
-
-    /// <summary>PrimaryType -> 预建结果数组（零分配热路径）</summary>
+    /// <summary>PrimaryType -> 公共条目数组</summary>
     private Dictionary<string, RuntimeAssetEntry[]> _typeResults;
 
-    /// <summary>(Address, PrimaryType) -> 预建结果数组（零分配热路径）</summary>
-    private Dictionary<(string, string), RuntimeAssetEntry[]> _addressTypeResults;
+    /// <summary>PrimaryType -> 公共 Address 数组</summary>
+    private Dictionary<string, string[]> _typeAddressResults;
+
+    /// <summary>Label -> 公共条目数组（大小写不敏感）</summary>
+    private Dictionary<string, RuntimeAssetEntry[]> _labelResults;
+
+    /// <summary>Label -> 公共 Address 数组（大小写不敏感）</summary>
+    private Dictionary<string, string[]> _labelAddressResults;
 
     /// <summary>
-    /// 构造 ABAssetIndex 并立即初始化索引。
+    /// 构造 ABAssetIndex 并立即构建索引。
     /// </summary>
-    /// <param name="manifest">已初始化的 ABManifest 实例（DeserializeFromJson 后自动调用 Initialize）</param>
+    /// <param name="manifest">已初始化的 ABManifest 实例</param>
     public ABAssetIndex(ABManifest manifest)
     {
         _manifest = manifest ?? throw new ArgumentNullException(nameof(manifest));
@@ -47,7 +49,19 @@ public class ABAssetIndex
     }
 
     /// <summary>
-    /// 遍历 ABManifest.AssetEntries，预转换为 RuntimeAssetEntry 并构建所有索引字典。
+    /// 索引构建失败的结构化原因；成功时为 null。
+    /// </summary>
+    /// <remarks>
+    /// 唯一的失败条件是公共 Address 重复（大小写不敏感）。构建期已由构建结果校验阻断，
+    /// 运行期仍然显式失败，避免用不确定的候选集继续加载。
+    /// </remarks>
+    public RuntimeMessage BuildError { get; private set; }
+
+    /// <summary>索引是否可用。BuildError 非 null 时不可用。</summary>
+    public bool IsValid => BuildError == null;
+
+    /// <summary>
+    /// 遍历 ABManifest.AssetEntries，预转换为 RuntimeAssetEntry 并构建查询索引。
     /// </summary>
     private void BuildIndex()
     {
@@ -60,149 +74,210 @@ public class ABAssetIndex
             _entries[i] = assetEntries[i].ToRuntimeEntry();
         }
 
-        _entryIdIndex = new Dictionary<string, int>(count);
+        _entryIdIndex = new Dictionary<string, RuntimeAssetEntry>(count);
         for (int i = 0; i < count; i++)
         {
-            string id = _entries[i].EntryId;
-            if (!string.IsNullOrEmpty(id))
-                _entryIdIndex[id] = i;
+            RuntimeAssetEntry entry = _entries[i];
+            if (!string.IsNullOrEmpty(entry.EntryId))
+                _entryIdIndex[entry.EntryId] = entry;
         }
 
-        _addressIndex = new Dictionary<string, List<int>>(count);
+        // 公共 Address 唯一性：重复即整体失败，不再保留任何可用的 address 索引
+        var duplicatedAddresses = new List<string>();
+        _addressIndex = new Dictionary<string, RuntimeAssetEntry>(StringComparer.OrdinalIgnoreCase);
         for (int i = 0; i < count; i++)
         {
-            string addr = _entries[i].Address;
-            if (string.IsNullOrEmpty(addr)) continue;
+            RuntimeAssetEntry entry = _entries[i];
+            if (!IsPublicAddressCandidate(entry)) continue;
 
-            if (!_addressIndex.TryGetValue(addr, out var list))
+            if (_addressIndex.TryGetValue(entry.Address, out RuntimeAssetEntry existing))
             {
-                list = new List<int>(1);
-                _addressIndex[addr] = list;
+                duplicatedAddresses.Add(string.Concat(
+                    entry.Address,
+                    " (EntryId=", existing.EntryId, " / ", entry.EntryId, ")"));
+                continue;
             }
-            list.Add(i);
+
+            _addressIndex[entry.Address] = entry;
         }
 
-        _typeIndex = new Dictionary<string, List<int>>();
-        for (int i = 0; i < count; i++)
+        if (duplicatedAddresses.Count > 0)
         {
-            string type = _entries[i].PrimaryType;
-            if (string.IsNullOrEmpty(type)) continue;
-
-            if (!_typeIndex.TryGetValue(type, out var list))
-            {
-                list = new List<int>();
-                _typeIndex[type] = list;
-            }
-            list.Add(i);
+            BuildError = RuntimeMessage.DuplicateAddress(
+                string.Join(", ", duplicatedAddresses),
+                duplicatedAddresses.Count);
+            _addressIndex.Clear();
+            _typeResults = new Dictionary<string, RuntimeAssetEntry[]>(0);
+            _typeAddressResults = new Dictionary<string, string[]>(0);
+            _labelResults = new Dictionary<string, RuntimeAssetEntry[]>(0);
+            _labelAddressResults = new Dictionary<string, string[]>(0);
+            return;
         }
 
-        _labelIndex = new Dictionary<string, List<int>>(StringComparer.OrdinalIgnoreCase);
+        var typeGroups = new Dictionary<string, List<RuntimeAssetEntry>>();
+        var labelGroups = new Dictionary<string, List<RuntimeAssetEntry>>(StringComparer.OrdinalIgnoreCase);
         for (int i = 0; i < count; i++)
         {
-            var labels = _entries[i].Labels;
-            if (labels == null) continue;
+            RuntimeAssetEntry entry = _entries[i];
+            if (!IsPublicAddressCandidate(entry)) continue;
+
+            if (!string.IsNullOrEmpty(entry.PrimaryType))
+                AddGroup(typeGroups, entry.PrimaryType, entry);
+
+            IReadOnlyList<string> labels = entry.Labels;
             for (int j = 0; j < labels.Count; j++)
             {
-                string label = labels[j];
-                if (string.IsNullOrEmpty(label)) continue;
-
-                if (!_labelIndex.TryGetValue(label, out var list))
-                {
-                    list = new List<int>();
-                    _labelIndex[label] = list;
-                }
-                list.Add(i);
+                if (string.IsNullOrEmpty(labels[j])) continue;
+                AddGroup(labelGroups, labels[j], entry);
             }
         }
 
-        _addressResults = new Dictionary<string, RuntimeAssetEntry[]>(_addressIndex.Count);
-        foreach (var kv in _addressIndex)
+        _typeResults = new Dictionary<string, RuntimeAssetEntry[]>(typeGroups.Count, StringComparer.OrdinalIgnoreCase);
+        _typeAddressResults = new Dictionary<string, string[]>(typeGroups.Count, StringComparer.OrdinalIgnoreCase);
+        foreach (var group in typeGroups)
         {
-            var indices = kv.Value;
-            var arr = new RuntimeAssetEntry[indices.Count];
-            for (int i = 0; i < indices.Count; i++)
-                arr[i] = _entries[indices[i]];
-            _addressResults[kv.Key] = arr;
+            _typeResults[group.Key] = group.Value.ToArray();
+            _typeAddressResults[group.Key] = CollectAddresses(group.Value);
         }
 
-        _typeResults = new Dictionary<string, RuntimeAssetEntry[]>(_typeIndex.Count);
-        foreach (var kv in _typeIndex)
+        _labelResults = new Dictionary<string, RuntimeAssetEntry[]>(labelGroups.Count, StringComparer.OrdinalIgnoreCase);
+        _labelAddressResults = new Dictionary<string, string[]>(labelGroups.Count, StringComparer.OrdinalIgnoreCase);
+        foreach (var group in labelGroups)
         {
-            var indices = kv.Value;
-            var arr = new RuntimeAssetEntry[indices.Count];
-            for (int i = 0; i < indices.Count; i++)
-                arr[i] = _entries[indices[i]];
-            _typeResults[kv.Key] = arr;
-        }
-
-        _addressTypeResults = new Dictionary<(string, string), RuntimeAssetEntry[]>();
-        foreach (var kv in _addressIndex)
-        {
-            string address = kv.Key;
-            var indices = kv.Value;
-            var typeGroups = new Dictionary<string, List<int>>(StringComparer.OrdinalIgnoreCase);
-            for (int i = 0; i < indices.Count; i++)
-            {
-                int idx = indices[i];
-                string type = _entries[idx].PrimaryType ?? "";
-                if (!typeGroups.TryGetValue(type, out var typeList))
-                {
-                    typeList = new List<int>();
-                    typeGroups[type] = typeList;
-                }
-                typeList.Add(idx);
-            }
-            foreach (var tg in typeGroups)
-            {
-                var arr = new RuntimeAssetEntry[tg.Value.Count];
-                for (int i = 0; i < tg.Value.Count; i++)
-                    arr[i] = _entries[tg.Value[i]];
-                _addressTypeResults[(address, tg.Key)] = arr;
-            }
+            _labelResults[group.Key] = group.Value.ToArray();
+            _labelAddressResults[group.Key] = CollectAddresses(group.Value);
         }
     }
 
     /// <summary>
-    /// 通过 EntryId 获取条目（精确匹配）。返回 null 表示未找到。
-    /// 零分配热路径。
+    /// 公共条目必须同时满足 IsPublic 与非空 Address 才进入查询索引。
+    /// </summary>
+    private static bool IsPublicAddressCandidate(RuntimeAssetEntry entry)
+    {
+        return entry != null && entry.IsPublic && !string.IsNullOrEmpty(entry.Address);
+    }
+
+    /// <summary>
+    /// 公共 Address 是否在索引内（大小写不敏感）。
+    /// </summary>
+    public bool ContainsAddress(string address)
+    {
+        if (BuildError != null || string.IsNullOrEmpty(address)) return false;
+        return _addressIndex.ContainsKey(address);
+    }
+
+    /// <summary>
+    /// 通过 EntryId 获取条目（含隐式依赖条目）。返回 null 表示未找到。
     /// </summary>
     public RuntimeAssetEntry GetEntryById(string entryId)
     {
         if (string.IsNullOrEmpty(entryId)) return null;
-        if (_entryIdIndex.TryGetValue(entryId, out int index))
-            return _entries[index];
-        return null;
+        return _entryIdIndex.TryGetValue(entryId, out RuntimeAssetEntry entry) ? entry : null;
     }
 
     /// <summary>
-    /// 通过 Address 获取所有匹配条目（Address 允许重复）。
-    /// 零分配热路径 — 返回预建缓存数组。
+    /// 通过公共 Address 获取唯一条目（大小写不敏感）。返回 null 表示未找到。
     /// </summary>
-    public IReadOnlyList<RuntimeAssetEntry> GetEntriesByAddress(string address)
+    public RuntimeAssetEntry GetEntryByAddress(string address)
     {
-        if (string.IsNullOrEmpty(address) || !_addressResults.TryGetValue(address, out var result))
-            return Array.Empty<RuntimeAssetEntry>();
-        return result;
+        if (BuildError != null || string.IsNullOrEmpty(address)) return null;
+        return _addressIndex.TryGetValue(address, out RuntimeAssetEntry entry) ? entry : null;
     }
 
     /// <summary>
-    /// 通过 Address + PrimaryType 获取匹配条目。
-    /// 零分配热路径 — 返回预建缓存数组。
+    /// 获取指定主类型的公共条目（大小写不敏感）。返回内部缓存数组，调用方不得修改。
     /// </summary>
-    public IReadOnlyList<RuntimeAssetEntry> GetEntriesByAddressAndType(string address, string primaryType)
+    public IReadOnlyList<RuntimeAssetEntry> GetEntriesByType(string primaryType)
     {
-        if (string.IsNullOrEmpty(address))
+        if (BuildError != null || string.IsNullOrEmpty(primaryType))
             return Array.Empty<RuntimeAssetEntry>();
-        if (_addressTypeResults.TryGetValue((address, primaryType ?? ""), out var result))
-            return result;
-        return Array.Empty<RuntimeAssetEntry>();
+        return _typeResults.TryGetValue(primaryType, out RuntimeAssetEntry[] entries)
+            ? entries
+            : Array.Empty<RuntimeAssetEntry>();
     }
 
     /// <summary>
-    /// 获取所有条目。返回内部缓存数组的只读视图。
+    /// 获取指定 Label 的公共条目（大小写不敏感）。返回内部缓存数组，调用方不得修改。
+    /// </summary>
+    public IReadOnlyList<RuntimeAssetEntry> GetEntriesByLabel(string label)
+    {
+        if (BuildError != null || string.IsNullOrEmpty(label))
+            return Array.Empty<RuntimeAssetEntry>();
+        return _labelResults.TryGetValue(label, out RuntimeAssetEntry[] entries)
+            ? entries
+            : Array.Empty<RuntimeAssetEntry>();
+    }
+
+    /// <summary>
+    /// 获取指定主类型的公共 Address（大小写不敏感）。返回内部缓存数组，调用方不得修改。
+    /// </summary>
+    public IReadOnlyList<string> GetAddressesByType(string primaryType)
+    {
+        if (BuildError != null || string.IsNullOrEmpty(primaryType))
+            return Array.Empty<string>();
+        return _typeAddressResults.TryGetValue(primaryType, out string[] addresses)
+            ? addresses
+            : Array.Empty<string>();
+    }
+
+    /// <summary>
+    /// 获取指定 Label 的公共 Address（大小写不敏感）。返回内部缓存数组，调用方不得修改。
+    /// </summary>
+    public IReadOnlyList<string> GetAddressesByLabel(string label)
+    {
+        if (BuildError != null || string.IsNullOrEmpty(label))
+            return Array.Empty<string>();
+        return _labelAddressResults.TryGetValue(label, out string[] addresses)
+            ? addresses
+            : Array.Empty<string>();
+    }
+
+    /// <summary>
+    /// 获取同时命中主类型与 Label 的公共地址；结果按查询即时计算，未预建组合索引。
+    /// </summary>
+    public IReadOnlyList<string> GetAddressesByTypeAndLabel(string primaryType, string label)
+    {
+        IReadOnlyList<RuntimeAssetEntry> entries = GetEntriesByType(primaryType);
+        if (entries.Count == 0 || string.IsNullOrEmpty(label))
+            return Array.Empty<string>();
+
+        var addresses = new List<string>();
+        for (int i = 0; i < entries.Count; i++)
+        {
+            if (entries[i].HasLabel(label))
+                addresses.Add(entries[i].Address);
+        }
+
+        return addresses;
+    }
+
+    /// <summary>
+    /// 获取全部条目（含隐式依赖条目）。返回内部缓存数组的只读视图。
     /// </summary>
     public IReadOnlyList<RuntimeAssetEntry> GetAllEntries()
     {
         return _entries;
+    }
+
+    private static void AddGroup(
+        Dictionary<string, List<RuntimeAssetEntry>> groups,
+        string key,
+        RuntimeAssetEntry entry)
+    {
+        if (!groups.TryGetValue(key, out List<RuntimeAssetEntry> list))
+        {
+            list = new List<RuntimeAssetEntry>();
+            groups[key] = list;
+        }
+
+        list.Add(entry);
+    }
+
+    private static string[] CollectAddresses(List<RuntimeAssetEntry> entries)
+    {
+        var addresses = new string[entries.Count];
+        for (int i = 0; i < entries.Count; i++)
+            addresses[i] = entries[i].Address;
+        return addresses;
     }
 }

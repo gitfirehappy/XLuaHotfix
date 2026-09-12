@@ -13,18 +13,6 @@ using UnityEngine;
 public static class BuildTestState
 {
     [Serializable]
-    private sealed class VersionSnapshot
-    {
-        public int Major;
-        public int Minor;
-        public int Patch;
-        public int Build;
-        public string Channel;
-        public string LastBuildTime;
-        public int DailyBuildCount;
-    }
-
-    [Serializable]
     private sealed class SettingsSnapshot
     {
         public BackendMode Backend;
@@ -41,6 +29,10 @@ public static class BuildTestState
                 $"FYAssetBackendSettings not found: {FYAssetBackendSettings.DEFAULT_ASSET_PATH}");
         return settings;
     }
+
+    /// <summary>本地 PackageIndex 路径：构建不再产出该文件，快照只为恢复历史残留。</summary>
+    private static string LocalPackageIndexPath =>
+        FYAssetPathUtility.JoinFilePath(BuildPathManager.OutputRoot, FYAssetSettings.PACKAGE_INDEX_FILE_NAME);
 
     /// <summary>
     /// restore 范围内的分发决策，是唯一允许不读取备份内容就判定行为的方法。
@@ -207,14 +199,11 @@ public static class BuildTestState
         string backup = BuildTestPaths.ProjectBackupRoot(runRoot);
         FileHelper.EnsureDirectory(backup);
 
-        SnapshotScopeEntry(runRoot, ScopeProjectId("version.json"), () => true, () => SnapshotVersion(backup));
         SnapshotScopeEntry(runRoot, ScopeProjectId("settings.json"), () => true, () => SnapshotSettings(backup));
-        SnapshotScopeEntry(runRoot, ScopeProjectId("version.asset"), () => PathExistsAny(FYAssetSettings.Instance.VersionRecordPath),
-            () => SnapshotPath(FYAssetSettings.Instance.VersionRecordPath, backup, "version.asset"));
         SnapshotScopeEntry(runRoot, ScopeProjectId("bootstrap_buildindex.json"), () => PathExistsAny(FYAssetSettings.Instance.BuildIndexJsonPath),
             () => SnapshotPath(FYAssetSettings.Instance.BuildIndexJsonPath, backup, "bootstrap_buildindex.json"));
-        SnapshotScopeEntry(runRoot, ScopeProjectId("package_index.json"), () => PathExistsAny(BuildPathManager.PackageIndexPath),
-            () => SnapshotPath(BuildPathManager.PackageIndexPath, backup, "package_index.json"));
+        SnapshotScopeEntry(runRoot, ScopeProjectId("package_index.json"), () => PathExistsAny(LocalPackageIndexPath),
+            () => SnapshotPath(LocalPackageIndexPath, backup, "package_index.json"));
         SnapshotScopeEntry(runRoot, ScopeProjectId("packages"), () => FileHelper.DirectoryExists(BuildPathManager.PackagesDir),
             () => SnapshotDirectory(BuildPathManager.PackagesDir, backup, "packages"));
         SnapshotScopeEntry(runRoot, ScopeProjectId("builddata"),
@@ -244,19 +233,14 @@ public static class BuildTestState
     {
         string backup = BuildTestPaths.ProjectBackupRoot(runRoot);
 
-        ExecuteScopeRestore(runRoot, ScopeProjectId("version.json"), BackupEntryExists(backup, "version.json"),
-            () => RestoreVersion(backup), () => { }, errors);
         ExecuteScopeRestore(runRoot, ScopeProjectId("settings.json"), BackupEntryExists(backup, "settings.json"),
             () => RestoreSettings(backup), () => { }, errors);
-        ExecuteScopeRestore(runRoot, ScopeProjectId("version.asset"), BackupEntryExists(backup, "version.asset"),
-            () => RestorePath(FYAssetSettings.Instance.VersionRecordPath, backup, "version.asset"),
-            () => DeleteExistingPath(FYAssetSettings.Instance.VersionRecordPath), errors);
         ExecuteScopeRestore(runRoot, ScopeProjectId("bootstrap_buildindex.json"), BackupEntryExists(backup, "bootstrap_buildindex.json"),
             () => RestorePath(FYAssetSettings.Instance.BuildIndexJsonPath, backup, "bootstrap_buildindex.json"),
             () => DeleteExistingPath(FYAssetSettings.Instance.BuildIndexJsonPath), errors);
         ExecuteScopeRestore(runRoot, ScopeProjectId("package_index.json"), BackupEntryExists(backup, "package_index.json"),
-            () => RestorePath(BuildPathManager.PackageIndexPath, backup, "package_index.json"),
-            () => DeleteExistingPath(BuildPathManager.PackageIndexPath), errors);
+            () => RestorePath(LocalPackageIndexPath, backup, "package_index.json"),
+            () => DeleteExistingPath(LocalPackageIndexPath), errors);
         ExecuteScopeRestore(runRoot, ScopeProjectId("packages"), BackupEntryExists(backup, "packages"),
             () => RestoreDirectory(BuildPathManager.PackagesDir, backup, "packages"),
             () => DeleteExistingPath(BuildPathManager.PackagesDir), errors);
@@ -289,26 +273,9 @@ public static class BuildTestState
 
     public static void PrepareIsolatedFullProject(BuildTestBackend backend)
     {
-        VersionRecord version = AssetDatabase.LoadAssetAtPath<VersionRecord>(
-            FYAssetSettings.Instance.VersionRecordPath);
-        if (version == null)
-            throw new InvalidOperationException("VersionRecord missing.");
-
-        version.CurrentVersion = new VersionNumber
-        {
-            Major = 1,
-            Minor = 0,
-            Patch = 0,
-            Build = 0,
-            Channel = string.Empty
-        };
-        version.DailyBuildCount = 0;
-        version.LastBuildTime = string.Empty;
-        EditorUtility.SetDirty(version);
-        AssetDatabase.SaveAssets();
-
-        string channelKey = BuildBaselineStore.GetChannelKey(
-            string.Empty, BackendModeNames.FromBackendMode(ToBackendMode(backend)));
+        // 隔离 Full 项目意味着清空构建事实：Summary 与 Index 都从零开始。
+        if (!BuildSummaryStore.CreateDefault().TryResetAll(out string resetError))
+            throw new InvalidOperationException($"构建事实重置失败: {resetError}");
 
         // 清理残留 AA Hotfix 分组移动，不弹 UI 对话框。
         if (backend == BuildTestBackend.AA)
@@ -319,10 +286,10 @@ public static class BuildTestState
     {
         try
         {
-            HotfixGroupRestoreResult restore = TaskMoveAAHotfixGroups.Restore();
+            HotfixGroupRestoreResult restore = AAHotfixGroupMover.Restore();
             if (restore != null && !string.IsNullOrEmpty(restore.Message))
                 Debug.Log("[BuildTestState] AA Hotfix group 恢复 / restore: " + restore.Message);
-            HotfixGroupRestoreResult discard = TaskMoveAAHotfixGroups.DiscardUnrestorableRecords();
+            HotfixGroupRestoreResult discard = AAHotfixGroupMover.DiscardUnrestorableRecords();
             if (discard != null && !string.IsNullOrEmpty(discard.Message))
                 Debug.Log("[BuildTestState] AA Hotfix group 丢弃 / discard: " + discard.Message);
         }
@@ -453,7 +420,11 @@ public static class BuildTestState
             errors);
     }
 
-    public static void ProbeTargetIdentity(
+    /// <summary>
+    /// 断言目标根 PackageIndex 指向预期的后端/包名/版本，并返回该索引。
+    /// </summary>
+    /// <remarks>requirePackagePresent 为 true 时要求服务器上存在该包目录。</remarks>
+    public static PackageIndex ProbeTargetIdentity(
         BuildTestTargetSnapshot target,
         string expectedBackend,
         string expectedPackage,
@@ -498,21 +469,61 @@ public static class BuildTestState
                     ProbedAtUtc = DateTime.UtcNow.ToString("o")
                 }, true));
         }
+
+        return index;
     }
 
-    public static void PublishHeadToTarget(BuildTestBackend backend, BuildTestTargetSnapshot target, string publishJsonPath)
+    /// <summary>本次交付的发布源目录：Full 与 Hotfix 都是 Packages 下的独立包目录。</summary>
+    public static string ResolveDeliverySourceDir(BuildTestBackend backend, bool isHotfix, string packageName = null)
     {
-        string channelKey = BuildBaselineStore.GetChannelKey(
-            string.Empty, BackendModeNames.FromBackendMode(ToBackendMode(backend)));
+        _ = backend;
+        _ = isHotfix;
+        if (string.IsNullOrEmpty(packageName))
+            throw new InvalidOperationException("发布源目录需要显式包名。");
+        return BuildPathManager.GetPackageDir(packageName);
+    }
+
+    /// <summary>把交付目录发布到目标，并把发布回执写入 publishJsonPath；发布失败抛出。</summary>
+    /// <remarks>不写本地发布缓存：缓存只是发布优化，测试不向项目写入额外状态。</remarks>
+    public static PushReceipt PublishDeliveryToTarget(
+        BuildTestBackend backend,
+        BuildTestTargetSnapshot target,
+        string sourcePackageDir,
+        string publishJsonPath)
+    {
         PushTargetConfig config = PushTargetConfig.FindById(target.TargetId);
-        IPushTarget pushTarget = CompatPushTargetFactory.CreateFull(config);
-        PushReceipt receipt = BuildPublisher.PushLatest(channelKey, pushTarget);
+        if (config == null)
+            throw new InvalidOperationException("Unknown target id: " + target.TargetId);
+
+        // 发布身份只来自正式 Summary：包目录不承载构建事实，测试也不得从目录名推断身份。
+        string packageName = Path.GetFileName(
+            sourcePackageDir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+        PackageBuildIdentity identity = BuildTestAcceptance.RequireDeliveryIdentity(backend, packageName);
+        BuildSummaryStore.CreateDefault().TryReadSummaryDocument(
+            BuildTestPaths.BackendSegment(backend),
+            packageName,
+            out CompleteBuildSummary.SummaryDocument document,
+            out _);
+
+        var request = new PublishRequest
+        {
+            BackendKey = BuildTestPaths.BackendSegment(backend),
+            SourcePackageDir = sourcePackageDir,
+            TargetId = config.Id,
+            ManifestReader = BuildTestAcceptance.ResolveManifestReader(backend),
+            PackagesFolderName = FYAssetSettings.Instance.BuildPackagesFolderName,
+            Identity = identity,
+            BaseFullSummaryId = document?.BaseFullSummaryId
+        };
+
+        PushReceipt receipt = BuildPublisher.Push(request, CompatPushTargetFactory.CreateFull(config));
         FileHelper.WriteAllTextAtomic(
             publishJsonPath,
             SerializationUtility.SerializeToJson(receipt, true));
         if (receipt == null || !receipt.Success)
             throw new InvalidOperationException(
                 $"Publish failed for {target.TargetId}: {receipt?.FailureReason}");
+        return receipt;
     }
 
     public static PackageIndex ReadPackageIndex(BuildTestTargetSnapshot target)
@@ -715,51 +726,6 @@ public static class BuildTestState
         {
             Debug.LogWarning($"[BuildTestState] 范围恢复状态写失败 {scopeId}: {persistEx.Message}");
         }
-    }
-
-    private static void SnapshotVersion(string backup)
-    {
-        VersionRecord version = AssetDatabase.LoadAssetAtPath<VersionRecord>(
-            FYAssetSettings.Instance.VersionRecordPath);
-        if (version == null)
-            return;
-        var snap = new VersionSnapshot
-        {
-            Major = version.CurrentVersion.Major,
-            Minor = version.CurrentVersion.Minor,
-            Patch = version.CurrentVersion.Patch,
-            Build = version.CurrentVersion.Build,
-            Channel = version.CurrentVersion.Channel,
-            LastBuildTime = version.LastBuildTime,
-            DailyBuildCount = version.DailyBuildCount
-        };
-        FileHelper.WriteAllTextAtomic(
-            FYAssetPathUtility.JoinFilePath(backup, "version.json"),
-            SerializationUtility.SerializeToJson(snap, true));
-    }
-
-    private static void RestoreVersion(string backup)
-    {
-        string path = FYAssetPathUtility.JoinFilePath(backup, "version.json");
-        if (!FileHelper.Exists(path))
-            return;
-        var snap = SerializationUtility.DeserializeJson<VersionSnapshot>(File.ReadAllText(path, Encoding.UTF8));
-        VersionRecord version = AssetDatabase.LoadAssetAtPath<VersionRecord>(
-            FYAssetSettings.Instance.VersionRecordPath);
-        if (version == null || snap == null)
-            return;
-        version.CurrentVersion = new VersionNumber
-        {
-            Major = snap.Major,
-            Minor = snap.Minor,
-            Patch = snap.Patch,
-            Build = snap.Build,
-            Channel = snap.Channel ?? string.Empty
-        };
-        version.LastBuildTime = snap.LastBuildTime;
-        version.DailyBuildCount = snap.DailyBuildCount;
-        EditorUtility.SetDirty(version);
-        AssetDatabase.SaveAssets();
     }
 
     private static void SnapshotSettings(string backup)

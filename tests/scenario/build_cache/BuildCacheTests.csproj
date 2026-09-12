@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <!-- 生产构建端代码带 UNITY_EDITOR 条件编译；场景按同一定义链接。 -->
+    <DefineConstants>UNITY_EDITOR</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="scenario_support.cs" />
+    <Compile Include="test_fingerprint_stability.cs" />
+    <Compile Include="test_artifact_reuse.cs" />
+    <Compile Include="test_content_name_rules.cs" />
+    <Compile Include="test_dependency_index_equivalence.cs" />
+    <Compile Include="stubs/reuse_stubs.cs" />
+    <!-- 生产源码：内容指纹与依赖事实换算均为纯 .NET，不含 UnityEngine/UnityEditor 依赖 -->
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/FileDigest.cs" Link="Production/FileDigest.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Helpers/FYAssetPathUtility.cs" Link="Production/FYAssetPathUtility.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Runtime/RuntimeMode.cs" Link="Production/RuntimeMode.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Versioning/VersionNumber.cs" Link="Production/VersionNumber.cs" />
+    <Compile Include="../../../Assets/Tools/Scripts/HashGenerator.cs" Link="Production/HashGenerator.cs" />
+    <Compile Include="../../../Assets/Tools/Scripts/FileHelper.cs" Link="Production/FileHelper.cs" />
+    <Compile Include="../../../Assets/Tools/Scripts/Serialization/BinarySerializableAttribute.cs" Link="Production/BinarySerializableAttribute.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/AB/Build/Cache/Editor/BundleBuildInputFingerprint.cs" Link="Production/BundleBuildInputFingerprint.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/AB/Build/Cache/Editor/ContentDependencyIndexResolver.cs" Link="Production/ContentDependencyIndexResolver.cs" />
+    <!-- T4 生产源码：Summary 复用索引、摘要存储与历史制品复用不依赖 UnityEngine/UnityEditor 具体实现 -->
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Editor/CompleteBuildSummary.cs" Link="Production/CompleteBuildSummary.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Editor/Common/BuildMessage.cs" Link="Production/BuildMessage.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Editor/Summary/BuildSummaryIndex.cs" Link="Production/BuildSummaryIndex.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Editor/Summary/BuildSummaryStore.cs" Link="Production/BuildSummaryStore.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Editor/Summary/BuildVersionPlanner.cs" Link="Production/BuildVersionPlanner.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Editor/Summary/BuildArtifactReuseService.cs" Link="Production/BuildArtifactReuseService.cs" />
+    <!-- 内容逻辑名规则：验证 ContentName 不含 Package 前缀与 hash 后缀 -->
+    <Compile Include="../../../Assets/FYAsset/Scripts/AB/Build/Collector/CollectorEnums.cs" Link="Production/CollectorEnums.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/AB/Build/Collector/Editor/SystemIdentifiers.cs" Link="Production/SystemIdentifiers.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/AB/Build/Collector/Editor/BundleNameBuilder.cs" Link="Production/BundleNameBuilder.cs" />
+  </ItemGroup>
+</Project>

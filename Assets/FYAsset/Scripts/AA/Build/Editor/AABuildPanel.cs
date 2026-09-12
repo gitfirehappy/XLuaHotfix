@@ -9,7 +9,7 @@ public sealed class AABuildPanel : IBuildPipelinePanel, IBuildPipelinePanelVisib
     private readonly PipelinePanel _pipelinePanel = new(
         "AA Build",
         () => FYAssetAASettings.Instance.BuildPipelineConfigPath,
-        AAPipelineBackbone.CreateDefaultTasks,
+        AAPipelineBackbone.CreateCoreSlots,
         "AABuildPanel",
         false,
         true,
@@ -18,7 +18,9 @@ public sealed class AABuildPanel : IBuildPipelinePanel, IBuildPipelinePanelVisib
             BuildFull = AABuildProjectManager.BuildFullPackage,
             BuildHotfix = AABuildProjectManager.BuildHotfix,
             LastBuildSuccess = () => AABuildProjectManager.LastBuildSuccess,
-        });
+        },
+        AAPipelineConfigUpgrade.TryUpgrade,
+        () => BuildProjectRunner.LastSummary);
 
     public string PanelName => "AA Build";
 

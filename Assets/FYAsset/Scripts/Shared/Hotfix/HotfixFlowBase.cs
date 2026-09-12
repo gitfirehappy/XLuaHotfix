@@ -7,8 +7,15 @@ using System.Threading.Tasks;
 using UnityEngine;
 
 /// <summary>
-/// AA 与 AB 共用的确定性热更启动状态机。
+/// AA 与 AB 共用的确定性热更状态机：启动检查与运行中 Check / Prepare / Apply。
 /// </summary>
+/// <remarks>
+/// 职责边界：本类只处理通用状态决策、文件摘要校验、隔离目录、下载与错误分类；
+/// 后端特定的清单解析、下载项映射、元数据持久化与激活由 IHotfixPipeline 实现承担，Shared 不感知后端类型。
+/// 包根只有一个：所有运行时读取都相对 RuntimePathManager.ActivePackageRoot，
+/// 由激活流程显式切换，不存在 Manifest 来自 Local、单个内容文件回退内置包的混合读取。
+/// 目标包只在隔离 staging 根准备；Apply 先换入正式 Build_* 路径再激活，换入前不碰当前包目录。
+/// </remarks>
 public abstract class HotfixFlowBase
 {
     protected abstract string HotfixUrl { get; }
@@ -17,6 +24,12 @@ public abstract class HotfixFlowBase
     protected abstract float HotfixRetryBaseDelaySeconds { get; }
     protected abstract int HotfixMetadataTimeoutSeconds { get; }
     protected abstract int HotfixBundleTimeoutSeconds { get; }
+
+    /// <summary>Apply 门禁使用的活跃 Handle 数（Asset + Scene）；由后端提供，Shared 不感知句柄类型。</summary>
+    protected abstract int GetActiveHandleCount();
+
+    /// <summary>关闭当前资源管理器；返回 null 表示已关闭，非 null 表示拒绝关闭（例如仍有活跃 Handle）。</summary>
+    protected abstract RuntimeMessage ShutdownPackageManager();
 
     private string PackageIndexUrl => FYAssetPathUtility.JoinUrl(
         HotfixUrl,
@@ -32,8 +45,9 @@ public abstract class HotfixFlowBase
     private readonly string[] _stepNames =
     {
         "加载 BuildIndex",
+        "校验内置包",
         "初始化后端",
-        "加载本地版本",
+        "检查本地包",
         "下载 PackageIndex",
         "比较版本",
         "获取远端版本",
@@ -48,8 +62,23 @@ public abstract class HotfixFlowBase
     private string _currentStepName = string.Empty;
     private bool _finishedRaised;
 
+    private HotfixContext _context;
+    private IHotfixPipeline _pipeline;
+    private bool _startupCompleted;
+
     public string CurrentStepName => _currentStepName;
     public float CurrentProgressValue { get; private set; }
+
+    /// <summary>当前使用的内容归属；启动流程尚未建立上下文时为 Blocked。</summary>
+    public HotfixContentState CurrentContent =>
+        _context?.CurrentContent ?? HotfixContentState.Blocked;
+
+    /// <summary>最近一次执行的运行中热更阶段，供业务展示进度或决定是否继续操作。</summary>
+    public HotfixPhase CurrentPhase { get; private set; }
+
+    /// <summary>已准备且通过精确校验的目标包名；没有待应用目标时为空字符串。</summary>
+    public string PreparedTargetName =>
+        _context != null && _context.TargetPrepared ? _context.TargetPackageName : string.Empty;
 
     #region 主流程
 
@@ -61,6 +90,7 @@ public abstract class HotfixFlowBase
         _currentStepIndex = -1;
         CurrentProgressValue = 0f;
         _finishedRaised = false;
+        _startupCompleted = false;
 
         try
         {
@@ -77,30 +107,35 @@ public abstract class HotfixFlowBase
     }
 
     /// <summary>
-    /// 按状态决策执行本地激活、修复、更新或回退流程。
+    /// 按启动流程执行：校验 BuildIndex 与内置包、决定当前内容、准备并激活目标，最后写指针并清理旧包。
     /// </summary>
     private async Task RunAsync()
     {
         var ctx = new HotfixContext();
+        _context = ctx;
+
         await LoadStartupStateAsync(ctx);
 
-        if (IsStandaloneMode())
+        IHotfixPipeline pipeline = CreatePipeline();
+        if (pipeline == null)
+            ThrowFatal("[HotfixManager] 热更后端创建失败。");
+        _pipeline = pipeline;
+
+        await InspectBuiltInPackageAsync(pipeline, ctx);
+
+        if (HotfixStateDecider.IsStandalone(ctx.RuntimeMode))
         {
-            // 离线包：跳过联网步骤，直接完成 PackageManager 初始化与绑定
-            await FinalizeAsync();
+            // 单机包只使用内置完整包：不读远端 PackageIndex，不创建任何远端目标。
+            // 内置 catalog 已随 Player 内置，这里不重复加载外部 catalog。
+            await ActivateCurrentAndFinalizeAsync(pipeline, ctx, null, false);
             return;
         }
 
         if (string.IsNullOrWhiteSpace(HotfixUrl))
             ThrowFatal($"[HotfixManager] {BackendModeName} HotfixUrl 未配置，请先在对应 Settings 资产中填写热更根地址。");
 
-        IHotfixPipeline pipeline = CreatePipeline();
-        if (pipeline == null)
-            ThrowFatal("[HotfixManager] 热更后端创建失败。");
-
         await InitializeBackendAsync(pipeline);
-        await InspectBaselinePackageAsync(pipeline, ctx);
-        await InspectLocalPackageAsync(pipeline, ctx);
+        await InspectCurrentPackageAsync(pipeline, ctx);
 
         PackageIndex remoteIndex = await DownloadRemotePackageIndexAsync();
         if (remoteIndex == null)
@@ -108,7 +143,7 @@ public abstract class HotfixFlowBase
             await HandleRemoteFailureAsync(
                 pipeline,
                 ctx,
-                "[HotfixManager] 远端 PackageIndex 不可用，继续使用本地内容。");
+                "[HotfixManager] 远端 PackageIndex 不可用，继续使用当前完整包。");
             return;
         }
 
@@ -122,147 +157,256 @@ public abstract class HotfixFlowBase
         }
 
         BeginStep("比较版本");
-        HotfixStateDecision decision = HotfixStateDecider.DecideTarget(
-            ctx.LocalPackageIndex.LatestPackage,
-            ctx.LocalPackageIndex.LatestVersion,
-            ctx.LocalPackageInspection?.IsComplete == true,
-            ctx.LocalIsBaseline,
-            remoteIndex.LatestPackage,
-            remoteIndex.LatestVersion);
+        HotfixStateDecision decision = DecideTarget(ctx, remoteIndex);
+        ctx.PendingAction = decision.Action;
         CompleteStep();
 
         switch (decision.Action)
         {
-            case HotfixStateAction.ActivateLocal:
-                Debug.Log($"[HotfixManager] 本地包已验证：{remoteIndex.LatestPackage}，跳过远端 manifest。");
-                await ActivateLocalAndFinalizeAsync(pipeline, ctx);
+            case HotfixStateAction.KeepCurrent:
+                Debug.Log($"[HotfixManager] 当前内容已验证：{ctx.CurrentPackageIndex.LatestPackage}，跳过远端 manifest。");
+                await ActivateCurrentAndFinalizeAsync(pipeline, ctx, null);
                 return;
-            case HotfixStateAction.RepairBaselinePointer:
-                Debug.Log("[HotfixManager] 内置整包完整，仅修复本地 PackageIndex。");
-                await ActivateLocalAndFinalizeAsync(pipeline, ctx, remoteIndex, true);
+            case HotfixStateAction.RepairPointer:
+                Debug.Log("[HotfixManager] 当前完整包可用，仅补写本地 PackageIndex。");
+                await ActivateCurrentAndFinalizeAsync(pipeline, ctx, remoteIndex);
                 return;
             case HotfixStateAction.RejectRemote:
-                ReportWarning("[HotfixManager] 远端目标不是同 Major 前向新包，保持当前本地内容。");
-                await ActivateLocalAndFinalizeAsync(pipeline, ctx);
+                ReportWarning("[HotfixManager] 远端目标不是同 Major 前向新包，保持当前完整包。");
+                await ActivateCurrentAndFinalizeAsync(pipeline, ctx, null);
                 return;
-            case HotfixStateAction.FailStartup:
-                ThrowFatal("[HotfixManager] 本地内容需要修复，但远端目标不是可接受的前向版本。");
+            case HotfixStateAction.Block:
+                ThrowFatal("[HotfixManager] 当前内容需要修复，但远端目标不是可接受的前向版本。");
                 return;
         }
 
-        if (decision.Action == HotfixStateAction.UpdateTarget)
-            DeleteTargetPackage(ctx, "准备前向更新");
-
-        HotfixVersionInfo remoteInfo = await FetchRemoteVersionAsync(pipeline, ctx);
-        if (remoteInfo == null || !HotfixPackageValidator.IsVersionValid(remoteInfo.Version) || remoteInfo.Version != remoteIndex.LatestVersion)
+        HotfixStepResult prepared = await PrepareTargetCoreAsync(pipeline, ctx);
+        if (!prepared.Success)
         {
             await HandleTargetFailureAsync(
                 pipeline,
                 ctx,
-                "[HotfixManager] 远端包 manifest 不可用或与 PackageIndex 不一致。");
+                $"[HotfixManager] 目标包准备失败：{FormatError(prepared)}");
             return;
         }
 
-        IReadOnlyList<BundleDownloadItem> downloadList = PrepareDownloadList(pipeline, remoteInfo);
-        if (!ValidateBundleList(downloadList, out string bundleListError))
+        HotfixStepResult applied = await ApplyTargetCoreAsync(pipeline, ctx);
+        if (!applied.Success)
         {
             await HandleTargetFailureAsync(
                 pipeline,
                 ctx,
-                $"[HotfixManager] 远端 manifest Bundle 列表无效：{bundleListError}");
-            return;
+                $"[HotfixManager] 目标包激活失败：{FormatError(applied)}");
         }
-
-        HotfixPackageInspection reuseInspection = ctx.LocalPackageInspection?.IsComplete == true
-            ? ctx.LocalPackageInspection
-            : ctx.BaselinePackageInspection;
-        string reuseRoot = ctx.LocalPackageInspection?.IsComplete == true
-            ? ctx.LocalPackageRoot
-            : Application.streamingAssetsPath;
-        bool bundlesReady = await DownloadBundlesAsync(
-            ctx,
-            downloadList,
-            reuseInspection?.VersionInfo,
-            reuseRoot);
-        if (!bundlesReady)
-        {
-            await HandleTargetFailureAsync(
-                pipeline,
-                ctx,
-                "[HotfixManager] 一个或多个包内 Bundle 准备失败。");
-            return;
-        }
-
-        bool refreshRequiredMetadata = !pipeline.HasRequiredMetadata(ctx.TargetGUIDRoot);
-        BeginStep("处理下载结果");
-        HotfixStepResult metadataResult = await pipeline.PersistRemoteMetadataAsync(
-            ctx,
-            HotfixMetadataTimeoutSeconds,
-            HotfixMaxRetryCount,
-            HotfixRetryBaseDelaySeconds,
-            refreshRequiredMetadata);
-        if (!metadataResult.Success)
-        {
-            await HandleTargetFailureAsync(
-                pipeline,
-                ctx,
-                $"[HotfixManager] 远端元数据持久化失败：{FormatError(metadataResult)}");
-            return;
-        }
-        CompleteStep();
-
-        HotfixPackageInspection targetInspection = await pipeline.InspectPackageAsync(
-            ctx.TargetGUIDRoot,
-            remoteIndex);
-        if (targetInspection == null || !targetInspection.IsComplete)
-        {
-            await HandleTargetFailureAsync(
-                pipeline,
-                ctx,
-                $"[HotfixManager] 目标包不完整：{targetInspection?.FailureReason}");
-            return;
-        }
-
-        bool applied = await ApplyUpdateAsync(pipeline, ctx);
-        if (!applied)
-        {
-            await HandleTargetFailureAsync(
-                pipeline,
-                ctx,
-                "[HotfixManager] 目标包激活失败。");
-            return;
-        }
-
-        PackageIndex packageIndexToPersist = decision.Action == HotfixStateAction.UpdateTarget
-            ? ctx.RemotePackageIndex
-            : null;
-        await FinalizeTargetAsync(pipeline, ctx, packageIndexToPersist);
     }
 
     #endregion
 
-    #region 主流程函数
+    #region 运行中 Check / Prepare / Apply
 
     /// <summary>
-    /// 加载并校验 BuildIndex，建立内置整包身份。
+    /// 运行中检查是否存在可接受更新：只读取远端 PackageIndex 并做版本决策，不下载内容、不切换包根。
+    /// </summary>
+    /// <remarks>
+    /// 单机模式、启动未完成或远端不可用时返回不可准备的结果，调用方据此跳过 Prepare。
+    /// </remarks>
+    public async Task<HotfixCheckResult> CheckAsync()
+    {
+        CurrentPhase = HotfixPhase.Check;
+        HotfixContext ctx = _context;
+        if (ctx == null || !_startupCompleted)
+            return BlockedCheck("热更启动流程尚未完成，无法检查更新。");
+
+        if (HotfixStateDecider.IsStandalone(ctx.RuntimeMode))
+            return new HotfixCheckResult(
+                HotfixStateAction.KeepCurrent,
+                ctx.CurrentContent,
+                string.Empty,
+                default,
+                "单机模式只使用内置完整包，不检查远端更新。");
+
+        if (_pipeline == null || string.IsNullOrWhiteSpace(HotfixUrl))
+            return BlockedCheck("热更后端或 HotfixUrl 不可用，无法检查更新。");
+
+        PackageIndex remoteIndex = await DownloadRemotePackageIndexAsync();
+        if (remoteIndex == null)
+            return new HotfixCheckResult(
+                HotfixStateAction.KeepCurrent,
+                ctx.CurrentContent,
+                string.Empty,
+                default,
+                "远端 PackageIndex 不可用，保持当前完整包。");
+
+        ctx.RemotePackageIndex = remoteIndex;
+        ConfigureRemoteTarget(ctx);
+
+        if (IsMajorMismatch(ctx.BuildIndex, remoteIndex))
+        {
+            bool remoteIsNewer = remoteIndex.LatestVersion.Major > ctx.BuildIndex.Version.Major;
+            if (remoteIsNewer)
+            {
+                OnClientUpdateRequired?.Invoke(new ClientUpdateRequiredInfo(
+                    ctx.BuildIndex.Version,
+                    remoteIndex.LatestVersion,
+                    remoteIndex.LatestPackage));
+            }
+
+            ctx.PendingAction = HotfixStateAction.KeepCurrent;
+            return new HotfixCheckResult(
+                HotfixStateAction.KeepCurrent,
+                ctx.CurrentContent,
+                remoteIndex.LatestPackage,
+                remoteIndex.LatestVersion,
+                remoteIsNewer
+                    ? "远端 Major 更高，需要更新整个客户端。"
+                    : "远端 Major 低于客户端，可能存在发布或 Channel 配置异常。",
+                remoteIsNewer);
+        }
+
+        HotfixStateDecision decision = DecideTarget(ctx, remoteIndex);
+        ctx.PendingAction = decision.Action;
+
+        switch (decision.Action)
+        {
+            case HotfixStateAction.PrepareTarget:
+                return new HotfixCheckResult(
+                    decision.Action,
+                    decision.ContentState,
+                    remoteIndex.LatestPackage,
+                    remoteIndex.LatestVersion,
+                    "存在同 Major 前向目标包，可以准备。");
+            case HotfixStateAction.RepairPackage:
+                return new HotfixCheckResult(
+                    decision.Action,
+                    decision.ContentState,
+                    remoteIndex.LatestPackage,
+                    remoteIndex.LatestVersion,
+                    "本地包损坏且远端是同版本同包，可以准备修复。");
+            case HotfixStateAction.RejectRemote:
+                return new HotfixCheckResult(
+                    decision.Action,
+                    decision.ContentState,
+                    remoteIndex.LatestPackage,
+                    remoteIndex.LatestVersion,
+                    "远端目标是同版本换包或降级，拒绝自动切换。");
+            default:
+                return new HotfixCheckResult(
+                    decision.Action,
+                    decision.ContentState,
+                    remoteIndex.LatestPackage,
+                    remoteIndex.LatestVersion,
+                    "当前内容已是最新，无需准备。");
+        }
+    }
+
+    /// <summary>
+    /// 运行中准备目标包：当前包继续运行，只在隔离目录内复制同 Hash 内容、下载剩余内容并完整校验。
+    /// </summary>
+    /// <remarks>
+    /// 成功后可继续使用当前包；失败时删除目标目录，当前完整包不受影响。
+    /// </remarks>
+    public async Task<HotfixStepResult> PrepareAsync()
+    {
+        CurrentPhase = HotfixPhase.Prepare;
+        HotfixContext ctx = _context;
+        if (ctx == null || !_startupCompleted || _pipeline == null)
+            return HotfixStepResult.Fail(RuntimeMessage.Error(
+                RuntimeErrorCodes.UnsupportedOperation, "热更启动流程尚未完成，无法准备更新。"));
+
+        if (ctx.PendingAction != HotfixStateAction.PrepareTarget
+            && ctx.PendingAction != HotfixStateAction.RepairPackage)
+        {
+            return HotfixStepResult.Fail(RuntimeMessage.Error(
+                RuntimeErrorCodes.InvalidArgument, "没有可准备的目标包，请先执行 CheckAsync。"));
+        }
+
+        if (ctx.TargetPrepared)
+            return HotfixStepResult.Ok;
+
+        HotfixStepResult result = await PrepareTargetCoreAsync(_pipeline, ctx);
+        if (!result.Success)
+        {
+            // staging 产物保留为诊断物：它不可能被激活，下次 Prepare 会复用其中已通过校验的文件
+            ctx.TargetPrepared = false;
+            ReportWarning(
+                $"[HotfixManager] 目标包准备失败，隔离目录保留用于诊断：{ctx.TargetGUIDRoot}");
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// 运行中应用已准备的目标包：业务回到安全入口并释放全部 Handle 后关闭旧管理器、切换包根并重新初始化。
+    /// </summary>
+    /// <remarks>
+    /// 存在活跃 Asset 或 Scene Handle 时拒绝切换，不强制释放句柄；
+    /// 激活或初始化失败时不写本地 PackageIndex，并恢复此前完整包，恢复失败则返回阻断错误。
+    /// </remarks>
+    public async Task<HotfixStepResult> ApplyAsync()
+    {
+        CurrentPhase = HotfixPhase.Apply;
+        HotfixContext ctx = _context;
+        if (ctx == null || !_startupCompleted || _pipeline == null)
+            return HotfixStepResult.Fail(RuntimeMessage.Error(
+                RuntimeErrorCodes.UnsupportedOperation, "热更启动流程尚未完成，无法应用更新。"));
+
+        if (!ctx.TargetPrepared)
+            return HotfixStepResult.Fail(RuntimeMessage.Error(
+                RuntimeErrorCodes.InvalidArgument, "没有已准备的目标包，请先执行 PrepareAsync。"));
+
+        return await ApplyTargetCoreAsync(_pipeline, ctx);
+    }
+
+    #endregion
+
+    #region 启动流程步骤
+
+    /// <summary>
+    /// 读取并校验 BuildIndex，锁定运行模式与内置包身份。
     /// </summary>
     private async Task LoadStartupStateAsync(HotfixContext ctx)
     {
         BeginStep("加载 BuildIndex");
-        BuildIndexData buildIndex = await LoadBuildIndexFromStreamingAssets();
+        BuildIndexData buildIndex = await LoadBuildIndexAsync();
         if (!IsBuildIndexTrusted(buildIndex, out string error))
             ThrowFatal($"[HotfixManager] BuildIndex 缺失或无效：{error}");
 
         ctx.BuildIndex = buildIndex;
-        ctx.BaselinePackageName = buildIndex.BuildGUID;
-        ctx.BaselinePackageIndex = new PackageIndex
+        ctx.RuntimeMode = buildIndex.RuntimeMode;
+        RuntimePathManager.Initialize(buildIndex);
+        RuntimePathManager.EnsureDirectories();
+        ctx.BuiltInPackageRoot = RuntimePathManager.BuiltInPackageRoot;
+        ctx.BuiltInPackageIndex = new PackageIndex
         {
             LatestPackage = buildIndex.BuildGUID,
             LatestVersion = buildIndex.Version,
             BackendMode = buildIndex.BackendMode
         };
-        RuntimePathManager.Initialize(buildIndex);
-        RuntimePathManager.EnsureDirectories();
+        CompleteStep();
+    }
+
+    /// <summary>
+    /// 严格检查内置完整包，不完整时致命失败；同时把它设为当前候选内容。
+    /// </summary>
+    private async Task InspectBuiltInPackageAsync(IHotfixPipeline pipeline, HotfixContext ctx)
+    {
+        BeginStep("校验内置包");
+        ctx.BuiltInPackageInspection = await pipeline.InspectPackageAsync(
+            ctx.BuiltInPackageRoot,
+            ctx.BuiltInPackageIndex,
+            false);
+        HotfixStateDecision decision = HotfixStateDecider.DecideBuiltInUsable(
+            ctx.BuiltInPackageInspection?.IsComplete == true);
+        if (decision.Action == HotfixStateAction.Block)
+        {
+            ThrowFatal(
+                $"[HotfixManager] 内置完整包缺失或不完整：{ctx.BuiltInPackageInspection?.FailureReason}");
+        }
+
+        ctx.CurrentContent = HotfixContentState.BuiltIn;
+        ctx.CurrentPackageRoot = ctx.BuiltInPackageRoot;
+        ctx.CurrentPackageIndex = ctx.BuiltInPackageIndex;
+        ctx.CurrentPackageInspection = ctx.BuiltInPackageInspection;
+        ctx.CurrentPointerTrusted = false;
         CompleteStep();
     }
 
@@ -279,68 +423,72 @@ public abstract class HotfixFlowBase
     }
 
     /// <summary>
-    /// 严格检查内置整包，不完整时致命失败。
+    /// 读取本地 PackageIndex 并精确检查它指向的包；指针不可用或指向的包损坏时原子移除指针，
+    /// 把当前候选重置为已验证的内置包，再继续远端检查。
     /// </summary>
-    private async Task InspectBaselinePackageAsync(IHotfixPipeline pipeline, HotfixContext ctx)
+    private async Task InspectCurrentPackageAsync(IHotfixPipeline pipeline, HotfixContext ctx)
     {
-        ctx.BaselinePackageInspection = await pipeline.InspectPackageAsync(
-            Application.streamingAssetsPath,
-            ctx.BaselinePackageIndex,
-            false);
-        if (ctx.BaselinePackageInspection == null || !ctx.BaselinePackageInspection.IsComplete)
-        {
-            ThrowFatal(
-                $"[HotfixManager] 内置整包损坏：{ctx.BaselinePackageInspection?.FailureReason}");
-        }
-    }
+        BeginStep("检查本地包");
+        string localIndexPath = LocalPackageIndexPath;
+        bool localIndexExists = FileHelper.Exists(localIndexPath);
 
-    /// <summary>
-    /// 读取本地指针并检查其指向内容；无效指针以内置身份进入远端修复流程。
-    /// </summary>
-    private async Task InspectLocalPackageAsync(IHotfixPipeline pipeline, HotfixContext ctx)
-    {
-        BeginStep("加载本地版本");
         PackageIndex trustedIndex = ReadTrustedLocalPackageIndex();
-        if (trustedIndex == null
-            || trustedIndex.LatestVersion.Major != ctx.BuildIndex.Version.Major)
+        bool pointerTrusted = trustedIndex != null
+                              && trustedIndex.LatestVersion.Major == ctx.BuildIndex.Version.Major;
+        if (trustedIndex != null && !pointerTrusted)
         {
-            if (trustedIndex != null)
-            {
-                ReportWarning(
-                    $"[HotfixManager] 本地 PackageIndex Major 与整包不一致，等待远端修复。整包={ctx.BuildIndex.Version.Major}，本地={trustedIndex.LatestVersion.Major}。");
-            }
-
-            ctx.LocalPackageIndex = ctx.BaselinePackageIndex;
-            ctx.LocalPackageRoot = Application.streamingAssetsPath;
-            ctx.LocalIsBaseline = true;
-            ctx.LocalPackageInspection = HotfixPackageInspection.Incomplete(
-                ctx.BaselinePackageInspection.VersionInfo,
-                "本地 PackageIndex 缺失、损坏或 Major 不匹配。");
-            CompleteStep();
-            return;
+            ReportWarning(
+                "[HotfixManager] 本地 PackageIndex Major 与内置包不一致，改用内置包继续远端检查。"
+                + $"内置={ctx.BuildIndex.Version.Major}，本地={trustedIndex.LatestVersion.Major}。");
         }
 
-        ctx.LocalPackageIndex = trustedIndex;
-        ctx.LocalIsBaseline = IsSamePackageIdentity(trustedIndex, ctx.BaselinePackageIndex);
-        if (ctx.LocalIsBaseline)
+        bool localIsBuiltInIdentity = pointerTrusted
+                                      && IsSamePackageIdentity(trustedIndex, ctx.BuiltInPackageIndex);
+
+        // 只有指针可信且指向本地热更包时才读包根：它是候选内容的唯一完整性输入
+        HotfixPackageInspection localInspection = null;
+        if (pointerTrusted && !localIsBuiltInIdentity)
         {
-            ctx.LocalPackageRoot = Application.streamingAssetsPath;
-            ctx.LocalPackageInspection = ctx.BaselinePackageInspection;
+            string localPackageRoot = RuntimePathManager.GetHotfixPackageRoot(trustedIndex.LatestPackage);
+            localInspection = await pipeline.InspectPackageAsync(localPackageRoot, trustedIndex);
+        }
+
+        bool localPackageComplete = localInspection?.IsComplete == true;
+        bool localPackageDamaged = pointerTrusted && !localIsBuiltInIdentity && !localPackageComplete;
+        // 指针文件存在但无法解析：它同样不能继续被本次或下次启动当作可用指针
+        bool localPointerUnreadable = trustedIndex == null && localIndexExists;
+
+        ctx.CurrentPointerTrusted = pointerTrusted;
+        ctx.CurrentContent = HotfixStateDecider.DecideCurrentContent(
+            pointerTrusted,
+            localIsBuiltInIdentity,
+            localPackageComplete);
+        if (ctx.CurrentContent == HotfixContentState.Local)
+        {
+            ctx.CurrentPackageIndex = trustedIndex;
+            ctx.CurrentPackageRoot = RuntimePathManager.GetHotfixPackageRoot(trustedIndex.LatestPackage);
+            ctx.CurrentPackageInspection = localInspection;
         }
         else
         {
-            RuntimePathManager.SwitchToNewBuild(trustedIndex.LatestPackage);
-            ctx.LocalPackageRoot = RuntimePathManager.CurrentGUIDRoot;
-            ctx.LocalPackageInspection = await pipeline.InspectPackageAsync(
-                ctx.LocalPackageRoot,
-                trustedIndex);
+            if (localPointerUnreadable || localPackageDamaged)
+            {
+                string reason = localPackageDamaged
+                    ? $"本地包不完整：{localInspection?.FailureReason}"
+                    : "本地 PackageIndex 校验未通过";
+                ClearLocalPackageIndex(reason);
+                ctx.CurrentPointerTrusted = false;
+                ReportWarning(
+                    $"[HotfixManager] {reason}，已移除本地指针并回退内置包继续远端检查。");
+            }
+
+            // 损坏包不得继续作为当前内容：候选及其身份、包根、检查结果全部重置为已验证内置包
+            ctx.CurrentContent = HotfixContentState.BuiltIn;
+            ctx.CurrentPackageIndex = ctx.BuiltInPackageIndex;
+            ctx.CurrentPackageRoot = ctx.BuiltInPackageRoot;
+            ctx.CurrentPackageInspection = ctx.BuiltInPackageInspection;
         }
 
-        if (!ctx.LocalPackageInspection.IsComplete)
-        {
-            Debug.LogWarning(
-                $"[HotfixManager] 本地包不完整：{ctx.LocalPackageInspection.FailureReason}");
-        }
         CompleteStep();
     }
 
@@ -379,6 +527,199 @@ public abstract class HotfixFlowBase
         }
     }
 
+    #endregion
+
+    #region 决策处理
+
+    /// <summary>
+    /// 远端失败时只允许启动此前已验证且拥有可信指针的当前完整包。
+    /// </summary>
+    private async Task HandleRemoteFailureAsync(
+        IHotfixPipeline pipeline,
+        HotfixContext ctx,
+        string warning)
+    {
+        ReportWarning(warning);
+        HotfixFallbackDecision fallback = HotfixStateDecider.DecideRemoteFailure(
+            ctx.RuntimeMode,
+            ctx.CurrentPackageInspection?.IsComplete == true,
+            ctx.CurrentContent);
+        if (fallback.DegradedToBuiltIn)
+        {
+            // 退化只影响本次读取根，不修改 RuntimeMode：下次启动照常按 Online 检查远端。
+            ReportWarning(
+                "[HotfixManager] 本次退化使用内置完整包；运行模式保持 "
+                + $"{fallback.RuntimeMode}，下次启动仍会正常检查远端。");
+        }
+        if (fallback.Action == HotfixStateAction.Block)
+            ThrowFatal(warning);
+
+        await ActivateCurrentAndFinalizeAsync(pipeline, ctx, null);
+    }
+
+    /// <summary>
+    /// 目标失败后的收尾：回收换入痕迹后按固定远端失败规则回退或阻断。
+    /// </summary>
+    /// <remarks>
+    /// staging 诊断物不在这里删除：失败目标不允许成为活动包，隔离产物保留下来供定位问题；
+    /// 回退到当前完整包的路径不写本地 PackageIndex。
+    /// </remarks>
+    private async Task HandleTargetFailureAsync(
+        IHotfixPipeline pipeline,
+        HotfixContext ctx,
+        string warning)
+    {
+        ctx.TargetPrepared = false;
+        RestoreTargetRoot(ctx);
+        // 本次失败目标的隔离产物是诊断物：随后的旧包回收必须跳过它
+        ctx.TargetDiagnosticRoot = ctx.TargetGUIDRoot;
+        ReportWarning(warning);
+        HotfixStateAction action = HotfixStateDecider.DecideTargetFailure(
+            ctx.CurrentPackageInspection?.IsComplete == true);
+        if (action == HotfixStateAction.Block)
+            ThrowFatal(warning);
+
+        await ActivateCurrentAndFinalizeAsync(pipeline, ctx, null);
+    }
+
+    /// <summary>
+    /// 处理客户端与远端包的 Major 版本不匹配。
+    /// </summary>
+    private async Task HandleMajorMismatchAsync(IHotfixPipeline pipeline, HotfixContext ctx)
+    {
+        int clientMajor = ctx.BuildIndex.Version.Major;
+        int remoteMajor = ctx.RemotePackageIndex.LatestVersion.Major;
+        HotfixStateDecision decision = HotfixStateDecider.DecideMajorMismatch(
+            clientMajor,
+            remoteMajor,
+            ctx.CurrentPackageInspection?.IsComplete == true,
+            ctx.CurrentContent);
+        ctx.PendingAction = decision.Action;
+        if (decision.NotifyClientUpdate)
+        {
+            OnClientUpdateRequired?.Invoke(new ClientUpdateRequiredInfo(
+                ctx.BuildIndex.Version,
+                ctx.RemotePackageIndex.LatestVersion,
+                ctx.RemotePackageIndex.LatestPackage));
+        }
+
+        string message = remoteMajor > clientMajor
+            ? $"[HotfixManager] 远端 Major 更高，跳过热更并继续当前客户端内容。客户端={clientMajor}，远端={remoteMajor}。"
+            : $"[HotfixManager] 远端 Major 低于客户端，可能存在发布或 Channel 配置异常。客户端={clientMajor}，远端={remoteMajor}。";
+        ReportWarning(message);
+        if (decision.Action == HotfixStateAction.Block)
+            ThrowFatal(message);
+
+        await ActivateCurrentAndFinalizeAsync(pipeline, ctx, null);
+    }
+
+    /// <summary>
+    /// 激活当前候选内容并完成资源管理器初始化；包根必须在这里显式决定。
+    /// </summary>
+    private async Task ActivateCurrentAndFinalizeAsync(
+        IHotfixPipeline pipeline,
+        HotfixContext ctx,
+        PackageIndex packageIndexToPersist,
+        bool activateCatalog = true)
+    {
+        BeginStep("应用更新");
+        bool activated = await ActivatePackageRootAsync(
+            pipeline,
+            ctx.CurrentContent,
+            ctx.CurrentPackageRoot,
+            ctx.CurrentPackageIndex?.LatestPackage,
+            activateCatalog);
+        if (!activated)
+            ThrowFatal($"[HotfixManager] 当前完整包激活失败：{ctx.CurrentPackageRoot}");
+        CompleteStep();
+
+        await FinalizeInitializationAsync(
+            packageIndexToPersist,
+            ctx.CurrentContent == HotfixContentState.Local ? ctx.CurrentPackageRoot : null,
+            ctx.TargetDiagnosticRoot);
+    }
+
+    #endregion
+
+    #region 目标准备与激活
+
+    /// <summary>
+    /// 在隔离 staging 目录内准备目标包：复用同 Hash 内容、下载剩余内容、持久化元数据并精确校验文件集合。
+    /// </summary>
+    /// <remarks>
+    /// 只写 ctx.TargetGUIDRoot（staging）与后端元数据，不写正式 Build_* 根、不切换包根、不写本地 PackageIndex；
+    /// 同包修复与换包前向都走这一条路径，因此不可能在原地覆写当前或损坏的正式包目录。
+    /// 失败时 staging 产物保留为诊断物，由调用方决定是否回收，且绝不会被激活。
+    /// </remarks>
+    private async Task<HotfixStepResult> PrepareTargetCoreAsync(
+        IHotfixPipeline pipeline,
+        HotfixContext ctx)
+    {
+        if (ctx.RemotePackageIndex == null)
+            return HotfixStepResult.Fail(RuntimeMessage.Error(
+                RuntimeErrorCodes.InvalidArgument, "缺少远端 PackageIndex，无法准备目标包。"));
+
+        // 目标写入根必须是 HotfixRoot 直接子级下的 staging：越界路径不允许被创建或写入
+        if (!IsDirectPackageRoot(ctx.TargetGUIDRoot))
+        {
+            return HotfixStepResult.Fail(RuntimeMessage.Error(
+                RuntimeErrorCodes.InvalidArgument, $"目标隔离目录不安全：{ctx.TargetGUIDRoot}"));
+        }
+
+        HotfixVersionInfo remoteInfo = await FetchRemoteVersionAsync(pipeline, ctx);
+        if (remoteInfo == null
+            || !HotfixPackageValidator.IsVersionValid(remoteInfo.Version)
+            || remoteInfo.Version != ctx.RemotePackageIndex.LatestVersion)
+        {
+            return HotfixStepResult.Fail(RuntimeMessage.Error(
+                RuntimeErrorCodes.NotFound, "远端包 manifest 不可用或与 PackageIndex 不一致。"));
+        }
+
+        IReadOnlyList<BundleDownloadItem> downloadList = PrepareDownloadList(pipeline, remoteInfo);
+        if (!ValidateBundleList(downloadList, out string bundleListError))
+        {
+            return HotfixStepResult.Fail(RuntimeMessage.Error(
+                RuntimeErrorCodes.InvalidArgument, $"远端 manifest Bundle 列表无效：{bundleListError}"));
+        }
+
+        bool bundlesReady = await DownloadBundlesAsync(ctx, downloadList);
+        if (!bundlesReady)
+        {
+            return HotfixStepResult.Fail(RuntimeMessage.Error(
+                RuntimeErrorCodes.BundleNotFound, "一个或多个包内 Bundle 准备失败。"));
+        }
+
+        bool refreshRequiredMetadata = !pipeline.HasRequiredMetadata(ctx.TargetGUIDRoot);
+        BeginStep("处理下载结果");
+        HotfixStepResult metadataResult = await pipeline.PersistRemoteMetadataAsync(
+            ctx,
+            HotfixMetadataTimeoutSeconds,
+            HotfixMaxRetryCount,
+            HotfixRetryBaseDelaySeconds,
+            refreshRequiredMetadata);
+        if (!metadataResult.Success)
+        {
+            return HotfixStepResult.Fail(RuntimeMessage.Error(
+                RuntimeErrorCodes.LoadFailed, $"远端元数据持久化失败：{FormatError(metadataResult)}"));
+        }
+        CompleteStep();
+
+        HotfixPackageInspection targetInspection = await pipeline.InspectPackageAsync(
+            ctx.TargetGUIDRoot,
+            ctx.RemotePackageIndex,
+            false);
+        if (targetInspection == null || !targetInspection.IsComplete)
+        {
+            return HotfixStepResult.Fail(RuntimeMessage.Error(
+                RuntimeErrorCodes.LoadFailed,
+                $"目标包不完整：{targetInspection?.FailureReason}"));
+        }
+
+        ctx.TargetPrepared = true;
+        Debug.Log($"[HotfixManager] 目标包已准备并校验通过：{ctx.TargetPackageName}");
+        return HotfixStepResult.Ok;
+    }
+
     /// <summary>
     /// 获取目标包的远端 manifest 信息。
     /// </summary>
@@ -408,173 +749,228 @@ public abstract class HotfixFlowBase
     }
 
     /// <summary>
-    /// 按目标目录、上一个活动包、网络的优先级准备 Bundle。
+    /// 切换包根、激活目标包；activateCatalog 为 false 时只切换读取根（单机内置包已内置 catalog）。
     /// </summary>
-    private async Task<bool> DownloadBundlesAsync(
-        HotfixContext ctx,
-        IReadOnlyList<BundleDownloadItem> remoteBundles,
-        HotfixVersionInfo previousPackageInfo,
-        string previousPackageRoot)
-    {
-        BeginStep("下载 Bundle");
-        try
-        {
-            string targetBundleRoot = FYAssetPathUtility.JoinFilePath(
-                ctx.TargetGUIDRoot,
-                FYAssetSettings.BUNDLES_DIRECTORY_NAME);
-            FileHelper.EnsureDirectory(targetBundleRoot);
-            CleanupStaleTempFiles(targetBundleRoot);
-
-            var previousBundleMap = BuildPreviousBundleMap(previousPackageInfo);
-            int totalBundles = remoteBundles.Count;
-            int completedBundles = 0;
-            int reusedBundles = 0;
-            var semaphore = new SemaphoreSlim(6);
-            var tasks = new List<Task<bool>>();
-
-            for (int i = 0; i < remoteBundles.Count; i++)
-            {
-                BundleDownloadItem bundle = remoteBundles[i];
-                string savePath = FYAssetPathUtility.JoinFilePath(targetBundleRoot, bundle.BundleName);
-                if (VerifyBundle(savePath, bundle))
-                {
-                    reusedBundles++;
-                    completedBundles++;
-                    ReportBundleProgress(completedBundles, totalBundles);
-                    continue;
-                }
-
-                if (TryReusePreviousBundle(bundle, previousBundleMap, previousPackageRoot, savePath))
-                {
-                    reusedBundles++;
-                    completedBundles++;
-                    ReportBundleProgress(completedBundles, totalBundles);
-                    continue;
-                }
-
-                string bundleUrl = FYAssetPathUtility.JoinUrl(
-                    ctx.RemoteUrlRoot,
-                    FYAssetSettings.BUNDLES_DIRECTORY_NAME,
-                    bundle.BundleName);
-                tasks.Add(DownloadBundleWithThrottle(
-                    semaphore,
-                    bundleUrl,
-                    savePath,
-                    bundle,
-                    () => ReportBundleProgress(Interlocked.Increment(ref completedBundles), totalBundles)));
-            }
-
-            if (reusedBundles > 0)
-                Debug.Log($"[HotfixManager] 已复用 {reusedBundles} 个完整 Bundle，无需网络下载。");
-
-            try
-            {
-                bool[] results = await Task.WhenAll(tasks);
-                if (results.Any(success => !success))
-                    return false;
-            }
-            finally
-            {
-                semaphore.Dispose();
-            }
-
-            CompleteStep();
-            return true;
-        }
-        catch (Exception ex)
-        {
-            ReportWarning($"[HotfixManager] Bundle 下载发生异常：{ex.Message}");
-            return false;
-        }
-    }
-
-    /// <summary>
-    /// 激活已经完整校验的目标包。
-    /// </summary>
-    private async Task<bool> ApplyUpdateAsync(
+    private async Task<bool> ActivatePackageRootAsync(
         IHotfixPipeline pipeline,
-        HotfixContext ctx)
+        HotfixContentState contentState,
+        string packageRoot,
+        string packageName,
+        bool activateCatalog = true)
     {
-        BeginStep("应用更新");
-        RuntimePathManager.SwitchToNewBuild(ctx.TargetPackageName);
-        HotfixStepResult activation;
+        if (contentState == HotfixContentState.BuiltIn)
+        {
+            // 内置包根由激活流程显式决定；CurrentGUIDRoot 仍记录本地包身份，不参与读取
+            RuntimePathManager.ActivateBuiltInPackage();
+        }
+        else
+        {
+            RuntimePathManager.SwitchToNewBuild(packageName);
+        }
+
+        if (!activateCatalog)
+            return true;
+
         try
         {
-            activation = await pipeline.ActivatePackageAsync(ctx.TargetGUIDRoot);
+            HotfixStepResult activation = await pipeline.ActivatePackageAsync(packageRoot);
+            if (!activation.Success)
+            {
+                ReportWarning($"[HotfixManager] 包根激活失败：{packageRoot}，原因={FormatError(activation)}");
+                return false;
+            }
         }
         catch (Exception ex)
         {
-            ReportWarning($"[HotfixManager] 目标包激活发生异常：{ex.Message}");
-            return false;
-        }
-        if (!activation.Success)
-        {
-            ReportWarning($"[HotfixManager] 目标包激活失败：{FormatError(activation)}");
+            ReportWarning($"[HotfixManager] 包根激活发生异常：{packageRoot}，原因={ex.Message}");
             return false;
         }
 
-        CompleteStep();
         return true;
     }
 
     /// <summary>
-    /// 初始化运行时资源管理器，按需清理旧包并触发完成事件。
+    /// 激活并初始化已准备的目标包：旧正式目录先 move 到 backup，再把 staging 原子换入正式 Build_* 路径；
+    /// 成功后最后写本地 PackageIndex，并删除 backup 与旧包。
     /// </summary>
-    private async Task FinalizeAsync(
-        string activePackageRootToKeep = null,
-        PackageIndex packageIndexToPersist = null,
-        bool cleanupInactivePackages = false)
+    /// <remarks>
+    /// 存在活跃 Handle 时拒绝切换且不释放句柄；
+    /// 换入、激活或初始化失败时把换入内容退回 staging、恢复此前完整包，恢复失败返回阻断错误；
+    /// 失败路径不写本地 PackageIndex，也不删除 staging 诊断物。
+    /// </remarks>
+    private async Task<HotfixStepResult> ApplyTargetCoreAsync(
+        IHotfixPipeline pipeline,
+        HotfixContext ctx)
+    {
+        BeginStep("应用更新");
+
+        HotfixApplyDecision gate = HotfixStateDecider.DecideApply(GetActiveHandleCount());
+        if (!gate.CanApply)
+        {
+            RuntimeMessage gateError = RuntimeMessage.ActiveHandlesBlockShutdown(
+                gate.ActiveHandleCount,
+                "热更 Apply 需要业务先释放全部 Asset 与 Scene Handle");
+            ReportWarning($"[HotfixManager] 拒绝 Apply：{gateError}");
+            return HotfixStepResult.Fail(gateError);
+        }
+
+        RuntimeMessage shutdownError = ShutdownPackageManager();
+        if (shutdownError != null)
+        {
+            ReportWarning($"[HotfixManager] 关闭旧资源管理器失败：{shutdownError}");
+            return HotfixStepResult.Fail(shutdownError);
+        }
+
+        HotfixContentState previousContent = ctx.CurrentContent;
+        string previousRoot = ctx.CurrentPackageRoot;
+        string previousName = ctx.CurrentPackageIndex?.LatestPackage;
+
+        // 正式包根只在换入阶段写入；staging 与正式根只在这一步发生目录级替换
+        string finalRoot = RuntimePathManager.GetHotfixPackageRoot(ctx.TargetPackageName);
+        if (!TryPromoteStagingToTargetRoot(ctx, finalRoot, out string promoteError))
+        {
+            bool promoteRestored = await RollbackToCurrentAsync(
+                pipeline, previousContent, previousRoot, previousName);
+            return ActivationFailure($"目标包换入失败：{promoteError}", promoteRestored);
+        }
+
+        bool activated = await ActivatePackageRootAsync(
+            pipeline,
+            HotfixContentState.RemoteTarget,
+            finalRoot,
+            ctx.TargetPackageName);
+        if (!activated)
+        {
+            // 换入已发生：先把正式路径还原为换入前的内容，再恢复运行根
+            RestoreTargetRoot(ctx);
+            bool restored = await RollbackToCurrentAsync(
+                pipeline, previousContent, previousRoot, previousName);
+            return ActivationFailure("目标包激活失败", restored);
+        }
+
+        RuntimePathManager.EnsureDirectories();
+        bool initialized = await FinishHotfix();
+        if (!initialized)
+        {
+            RestoreTargetRoot(ctx);
+            bool restored = await RollbackToCurrentAsync(
+                pipeline, previousContent, previousRoot, previousName);
+            return ActivationFailure("目标 PackageManager 初始化失败", restored);
+        }
+
+        RuntimeMessage bindError = BindPackageManager();
+        if (bindError != null)
+        {
+            RestoreTargetRoot(ctx);
+            bool restored = await RollbackToCurrentAsync(
+                pipeline, previousContent, previousRoot, previousName);
+            return ActivationFailure($"目标后端绑定失败：{bindError}", restored);
+        }
+
+        // 激活与初始化都成功之后才写指针：失败路径绝不留下指向未激活包的指针
+        if (ctx.RemotePackageIndex != null
+            && HotfixStateDecider.ShouldPersistLocalPackageIndex(true, true))
+        {
+            PersistLocalPackageIndex(ctx.RemotePackageIndex);
+        }
+
+        // 换入成功且指针已提交：此时才删除旧包目录（含同包修复的旧损坏目录）与其他遗留隔离目录
+        ctx.TargetRootBackedUp = false;
+        DiscardTargetBackup(ctx);
+        CleanupInactivePackages(finalRoot);
+
+        ctx.CurrentContent = HotfixContentState.Local;
+        ctx.CurrentPackageRoot = finalRoot;
+        ctx.TargetGUIDRoot = finalRoot;
+        ctx.CurrentPackageIndex = ctx.RemotePackageIndex;
+        ctx.CurrentPointerTrusted = true;
+        ctx.TargetPrepared = false;
+        ctx.PendingAction = HotfixStateAction.KeepCurrent;
+        CompleteStep();
+
+        // 启动路径在这里补齐启动完成事件；运行中 Apply 不重复广播，完成信号就是本方法的返回值
+        RaiseInitializationCompleted();
+        Debug.Log($"[HotfixManager] 热更内容已激活：{ctx.TargetPackageName}，来源={ctx.CurrentContent}。");
+        return HotfixStepResult.Ok;
+    }
+
+    /// <summary>
+    /// 目标激活失败时恢复此前的完整包。
+    /// </summary>
+    /// <returns>true 表示已恢复到此前完整包；false 表示恢复失败，调用方应阻断。</returns>
+    private async Task<bool> RollbackToCurrentAsync(
+        IHotfixPipeline pipeline,
+        HotfixContentState previousContent,
+        string previousRoot,
+        string previousName)
+    {
+        ReportWarning($"[HotfixManager] 正在恢复此前的完整包：{previousName}");
+
+        bool activated = false;
+        try
+        {
+            activated = await ActivatePackageRootAsync(
+                pipeline,
+                previousContent,
+                previousRoot,
+                previousName);
+        }
+        catch (Exception ex)
+        {
+            ReportWarning($"[HotfixManager] 恢复此前包根发生异常：{ex.Message}");
+        }
+
+        if (!activated)
+            return false;
+
+        try
+        {
+            return await FinishHotfix();
+        }
+        catch (Exception ex)
+        {
+            ReportWarning($"[HotfixManager] 恢复此前 PackageManager 发生异常：{ex.Message}");
+            return false;
+        }
+    }
+
+    private static HotfixStepResult ActivationFailure(string reason, bool restored)
+    {
+        return HotfixStepResult.Fail(RuntimeMessage.Error(
+            RuntimeErrorCodes.LoadFailed,
+            restored
+                ? $"{reason}，已恢复此前完整包，本地 PackageIndex 未修改。"
+                : $"{reason}，且此前完整包恢复失败，启动内容不可信。"));
+    }
+
+    /// <summary>
+    /// 初始化运行时资源管理器，最后写指针、回收旧包并触发完成事件。
+    /// </summary>
+    /// <param name="activeLocalRootToKeep">本次激活的本地包根；为空表示当前使用内置包，跳过旧包清理。</param>
+    /// <param name="keepDiagnosticRoot">
+    /// 本次失败目标的 staging 根：保留为诊断物，本次回收不删除它；为空表示没有待保留项。
+    /// </param>
+    private async Task FinalizeInitializationAsync(
+        PackageIndex packageIndexToPersist,
+        string activeLocalRootToKeep,
+        string keepDiagnosticRoot = null)
     {
         BeginStep("完成初始化");
+        RuntimePathManager.EnsureDirectories();
         bool initialized = await FinishHotfix();
         if (!initialized)
             ThrowFatal("[HotfixManager] PackageManager 初始化失败。");
 
-        if (packageIndexToPersist != null)
+        if (packageIndexToPersist != null
+            && HotfixStateDecider.ShouldPersistLocalPackageIndex(true, initialized))
+        {
             PersistLocalPackageIndex(packageIndexToPersist);
+        }
 
-        if (cleanupInactivePackages)
-            CleanupInactivePackages(activePackageRootToKeep);
+        if (!string.IsNullOrEmpty(activeLocalRootToKeep))
+            CleanupInactivePackages(activeLocalRootToKeep, keepDiagnosticRoot);
 
         CompleteInitialization();
-    }
-
-    /// <summary>
-    /// 完成目标包事务；初始化失败时删除目标并回退到此前完整内容。
-    /// </summary>
-    private async Task FinalizeTargetAsync(
-        IHotfixPipeline pipeline,
-        HotfixContext ctx,
-        PackageIndex packageIndexToPersist)
-    {
-        BeginStep("完成初始化");
-        bool packageManagerInitialized = false;
-        try
-        {
-            packageManagerInitialized = await FinishHotfix();
-            if (!packageManagerInitialized)
-                throw new InvalidOperationException("PackageManager 初始化返回 false。");
-
-            if (packageIndexToPersist != null)
-                PersistLocalPackageIndex(packageIndexToPersist);
-
-            CleanupInactivePackages(ctx.TargetGUIDRoot);
-            CompleteInitialization();
-        }
-        catch (HotfixFatalException) when (!HotfixStateDecider.ShouldDeleteFailedTarget(packageManagerInitialized))
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            if (!HotfixStateDecider.ShouldDeleteFailedTarget(packageManagerInitialized))
-                throw;
-
-            await HandleTargetFailureAsync(
-                pipeline,
-                ctx,
-                $"[HotfixManager] 目标 PackageManager 初始化失败：{ex.Message}");
-        }
     }
 
     private void CompleteInitialization()
@@ -584,7 +980,15 @@ public abstract class HotfixFlowBase
             ThrowFatal($"[HotfixManager] 后端绑定失败：{bindError}");
 
         CompleteStep();
+        RaiseInitializationCompleted();
+    }
 
+    /// <summary>
+    /// 标记启动流程完成并广播完成事件；重复调用只更新状态，不重复广播。
+    /// </summary>
+    private void RaiseInitializationCompleted()
+    {
+        _startupCompleted = true;
         if (_finishedRaised)
             return;
         _finishedRaised = true;
@@ -596,8 +1000,27 @@ public abstract class HotfixFlowBase
     #region 辅助函数
 
     /// <summary>
-    /// 根据远端 PackageIndex 固定目标包路径与下载地址。
+    /// 按当前上下文与远端指针执行版本比较决策。
     /// </summary>
+    private static HotfixStateDecision DecideTarget(HotfixContext ctx, PackageIndex remoteIndex)
+    {
+        return HotfixStateDecider.DecideTarget(
+            ctx.CurrentPackageIndex.LatestPackage,
+            ctx.CurrentPackageIndex.LatestVersion,
+            ctx.CurrentPackageInspection?.IsComplete == true,
+            ctx.CurrentPointerTrusted,
+            ctx.CurrentContent,
+            remoteIndex.LatestPackage,
+            remoteIndex.LatestVersion);
+    }
+
+    /// <summary>
+    /// 根据远端 PackageIndex 固定目标包隔离写入根与下载地址。
+    /// </summary>
+    /// <remarks>
+    /// TargetGUIDRoot 固定为 HotfixRoot 下的 staging 根，与正式 Build_* 路径不同名：
+    /// 准备阶段不得写入当前、损坏或即将使用的正式包目录。
+    /// </remarks>
     private void ConfigureRemoteTarget(HotfixContext ctx)
     {
         ctx.TargetPackageName = ctx.RemotePackageIndex.LatestPackage;
@@ -605,9 +1028,11 @@ public abstract class HotfixFlowBase
             HotfixUrl,
             FYAssetSettings.Instance.BuildPackagesFolderName,
             ctx.TargetPackageName);
-        ctx.TargetGUIDRoot = FYAssetPathUtility.JoinFilePath(
-            RuntimePathManager.HotfixRoot,
-            ctx.TargetPackageName);
+        ctx.TargetGUIDRoot = RuntimePathManager.GetHotfixStagingRoot(ctx.TargetPackageName);
+        ctx.TargetPrepared = false;
+        ctx.TargetRootBackedUp = false;
+        ctx.TargetRootSwapped = false;
+        ctx.TargetDiagnosticRoot = null;
     }
 
     private bool IsBuildIndexTrusted(BuildIndexData buildIndex, out string error)
@@ -618,6 +1043,12 @@ public abstract class HotfixFlowBase
             || !HotfixPackageValidator.IsSafePathSegment(buildIndex.Platform))
         {
             error = "Version、BuildGUID 或 Platform 无效。";
+            return false;
+        }
+        if (buildIndex.RuntimeMode != RuntimeMode.Online
+            && buildIndex.RuntimeMode != RuntimeMode.Standalone)
+        {
+            error = $"RuntimeMode 无效：{buildIndex.RuntimeMode}。";
             return false;
         }
         if (string.IsNullOrEmpty(buildIndex.BackendMode)
@@ -632,108 +1063,9 @@ public abstract class HotfixFlowBase
     }
 
     /// <summary>
-    /// 远端失败时只允许启动此前已验证且拥有可信指针的本地内容。
-    /// </summary>
-    private async Task HandleRemoteFailureAsync(
-        IHotfixPipeline pipeline,
-        HotfixContext ctx,
-        string warning)
-    {
-        ReportWarning(warning);
-        HotfixStateDecision decision = HotfixStateDecider.DecideRemoteFailure(
-            ctx.LocalPackageInspection?.IsComplete == true);
-        if (decision.Action == HotfixStateAction.FailStartup)
-            ThrowFatal(warning);
-
-        await ActivateLocalAndFinalizeAsync(pipeline, ctx);
-    }
-
-    /// <summary>
-    /// 删除失败目标，再按固定远端失败规则回退或阻断。
-    /// </summary>
-    private async Task HandleTargetFailureAsync(
-        IHotfixPipeline pipeline,
-        HotfixContext ctx,
-        string warning)
-    {
-        DeleteTargetPackage(ctx, "目标准备失败");
-        await HandleRemoteFailureAsync(
-            pipeline,
-            ctx,
-            warning);
-    }
-
-    /// <summary>
-    /// 处理客户端与远端包的 Major 版本不匹配。
-    /// </summary>
-    private async Task HandleMajorMismatchAsync(IHotfixPipeline pipeline, HotfixContext ctx)
-    {
-        int clientMajor = ctx.BuildIndex.Version.Major;
-        int remoteMajor = ctx.RemotePackageIndex.LatestVersion.Major;
-        HotfixStateDecision decision = HotfixStateDecider.DecideMajorMismatch(
-            clientMajor,
-            remoteMajor,
-            ctx.LocalPackageInspection?.IsComplete == true);
-        if (decision.NotifyClientUpdate)
-        {
-            OnClientUpdateRequired?.Invoke(new ClientUpdateRequiredInfo(
-                ctx.BuildIndex.Version,
-                ctx.RemotePackageIndex.LatestVersion,
-                ctx.RemotePackageIndex.LatestPackage));
-        }
-
-        string message = remoteMajor > clientMajor
-            ? $"[HotfixManager] 远端 Major 更高，跳过热更并继续当前客户端内容。客户端={clientMajor}，远端={remoteMajor}。"
-            : $"[HotfixManager] 远端 Major 低于客户端，可能存在发布或 Channel 配置异常。客户端={clientMajor}，远端={remoteMajor}。";
-        ReportWarning(message);
-        if (decision.Action == HotfixStateAction.FailStartup)
-            ThrowFatal(message);
-
-        await ActivateLocalAndFinalizeAsync(pipeline, ctx);
-    }
-
-    /// <summary>
-    /// 激活此前已验证的本地内容并完成初始化。
-    /// </summary>
-    private async Task ActivateLocalAndFinalizeAsync(
-        IHotfixPipeline pipeline,
-        HotfixContext ctx,
-        PackageIndex packageIndexToPersist = null,
-        bool cleanupInactivePackages = false)
-    {
-        if (ctx.LocalIsBaseline)
-        {
-            RuntimePathManager.SwitchToNewBuild(ctx.BaselinePackageName);
-            HotfixStepResult baselineActivation = await pipeline.ActivatePackageAsync(
-                Application.streamingAssetsPath);
-            if (!baselineActivation.Success)
-            {
-                ThrowFatal(
-                    $"[HotfixManager] 内置整包激活失败：{FormatError(baselineActivation)}");
-            }
-        }
-        else
-        {
-            RuntimePathManager.SwitchToNewBuild(ctx.LocalPackageIndex.LatestPackage);
-            HotfixStepResult activation = await pipeline.ActivatePackageAsync(ctx.LocalPackageRoot);
-            if (!activation.Success)
-                ThrowFatal($"[HotfixManager] 本地包激活失败：{FormatError(activation)}");
-        }
-
-        RuntimePathManager.EnsureDirectories();
-        await FinalizeAsync(null, packageIndexToPersist, cleanupInactivePackages);
-    }
-
-    /// <summary>
     /// 创建当前模式对应的热更后端。
     /// </summary>
     protected abstract IHotfixPipeline CreatePipeline();
-
-    /// <summary>
-    /// 返回 true 表示当前运行为单机离线模式，跳过所有热更联网步骤。
-    /// 子类按需 override；默认为 false（在线模式）。
-    /// </summary>
-    protected virtual bool IsStandaloneMode() => false;
 
     /// <summary>
     /// 完成 AA 或 AB 运行时资源管理器初始化。
@@ -741,11 +1073,38 @@ public abstract class HotfixFlowBase
     protected abstract Task<bool> FinishHotfix();
 
     /// <summary>
-    /// 后端绑定校验钩子；返回非 null 视为致命失败。跨后端"仅绑定一个 backend"互斥检查属 Compat facade 职责，单后端默认返回 null（成功）。
+    /// 后端绑定校验钩子；返回非 null 视为失败。跨后端"仅绑定一个 backend"互斥检查属 Compat facade 职责，单后端默认返回 null（成功）。
     /// </summary>
     protected virtual RuntimeMessage BindPackageManager()
     {
         return null;
+    }
+
+    /// <summary>本地活动包指针文件路径：HotfixRoot 下的 PackageIndex 文件。</summary>
+    private static string LocalPackageIndexPath => FYAssetPathUtility.JoinFilePath(
+        RuntimePathManager.HotfixRoot,
+        FYAssetSettings.PACKAGE_INDEX_FILE_NAME);
+
+    /// <summary>
+    /// 移除本地包指针文件；文件不存在时无操作。
+    /// </summary>
+    /// <remarks>
+    /// 本地包损坏或指针文件不可解析时必须移除：否则同一份不可用内容会在下次启动继续被选中。
+    /// 移除失败只告警：本次启动已确定使用内置包，残留指针不会指向活动包。
+    /// </remarks>
+    private void ClearLocalPackageIndex(string reason)
+    {
+        string path = LocalPackageIndexPath;
+        if (!FileHelper.Exists(path))
+            return;
+
+        if (FileHelper.TryDelete(path))
+        {
+            Debug.Log($"[HotfixManager] 已移除本地 PackageIndex 指针：{reason}。");
+            return;
+        }
+
+        ReportWarning($"[HotfixManager] 本地 PackageIndex 指针移除失败，请检查文件权限：{path}");
     }
 
     /// <summary>
@@ -755,11 +1114,8 @@ public abstract class HotfixFlowBase
     {
         try
         {
-            string indexPath = FYAssetPathUtility.JoinFilePath(
-                RuntimePathManager.HotfixRoot,
-                FYAssetSettings.PACKAGE_INDEX_FILE_NAME);
             string json = SerializationUtility.SerializeToJson(packageIndex, true);
-            FileHelper.WriteAllTextAtomic(indexPath, json);
+            FileHelper.WriteAllTextAtomic(LocalPackageIndexPath, json);
         }
         catch (Exception ex)
         {
@@ -768,13 +1124,11 @@ public abstract class HotfixFlowBase
     }
 
     /// <summary>
-    /// 读取并校验本地活动包指针。
+    /// 读取并校验本地活动包指针；缺失或损坏时返回 null，由调用方退化为内置包。
     /// </summary>
     private PackageIndex ReadTrustedLocalPackageIndex()
     {
-        string path = FYAssetPathUtility.JoinFilePath(
-            RuntimePathManager.HotfixRoot,
-            FYAssetSettings.PACKAGE_INDEX_FILE_NAME);
+        string path = LocalPackageIndexPath;
         if (!FileHelper.Exists(path))
             return null;
 
@@ -874,17 +1228,17 @@ public abstract class HotfixFlowBase
     }
 
     /// <summary>
-    /// 建立上一个活动包的 Hash 到 BundleName 索引。
+    /// 建立当前完整包的 Hash 到 BundleName 索引。
     /// </summary>
-    private static Dictionary<string, string> BuildPreviousBundleMap(HotfixVersionInfo previousPackageInfo)
+    private static Dictionary<string, string> BuildReuseBundleMap(HotfixVersionInfo currentPackageInfo)
     {
         var map = new Dictionary<string, string>(StringComparer.Ordinal);
-        if (previousPackageInfo?.Bundles == null)
+        if (currentPackageInfo?.Bundles == null)
             return map;
 
-        for (int i = 0; i < previousPackageInfo.Bundles.Count; i++)
+        for (int i = 0; i < currentPackageInfo.Bundles.Count; i++)
         {
-            BundleDownloadItem bundle = previousPackageInfo.Bundles[i];
+            BundleDownloadItem bundle = currentPackageInfo.Bundles[i];
             if (HotfixPackageValidator.IsBundleMetadataValid(
                     bundle.BundleName,
                     bundle.FileSize,
@@ -899,36 +1253,36 @@ public abstract class HotfixFlowBase
     }
 
     /// <summary>
-    /// 从上一个活动包复制并校验同 Hash Bundle。
+    /// 从当前完整包复制并校验同 Hash Bundle。
     /// </summary>
-    private bool TryReusePreviousBundle(
+    private bool TryReuseCurrentBundle(
         BundleDownloadItem bundle,
-        Dictionary<string, string> previousBundleMap,
-        string previousPackageRoot,
+        Dictionary<string, string> reuseBundleMap,
+        string currentPackageRoot,
         string savePath)
     {
         if (string.IsNullOrEmpty(bundle.FileHash)
-            || string.IsNullOrEmpty(previousPackageRoot)
-            || !previousBundleMap.TryGetValue(bundle.FileHash, out string previousBundleName))
+            || string.IsNullOrEmpty(currentPackageRoot)
+            || !reuseBundleMap.TryGetValue(bundle.FileHash, out string currentBundleName))
         {
             return false;
         }
-        if (!HotfixPackageValidator.IsSafePathSegment(previousBundleName))
+        if (!HotfixPackageValidator.IsSafePathSegment(currentBundleName))
             return false;
 
-        string previousBundlePath = FYAssetPathUtility.JoinFilePath(
-            previousPackageRoot,
+        string currentBundlePath = FYAssetPathUtility.JoinFilePath(
+            currentPackageRoot,
             FYAssetSettings.BUNDLES_DIRECTORY_NAME,
-            previousBundleName);
-        if (FYAssetPathUtility.AreSamePath(previousBundlePath, savePath)
-            || !IsFileSizeValid(previousBundlePath, bundle))
+            currentBundleName);
+        if (FYAssetPathUtility.AreSamePath(currentBundlePath, savePath)
+            || !IsFileSizeValid(currentBundlePath, bundle))
             return false;
 
         string tempPath = savePath + ".tmp";
         try
         {
             FileHelper.TryDelete(tempPath);
-            FileHelper.CopyFile(previousBundlePath, tempPath);
+            FileHelper.CopyFile(currentBundlePath, tempPath);
             if (!VerifyBundle(tempPath, bundle))
                 return false;
             FileHelper.ReplaceFile(tempPath, savePath);
@@ -937,12 +1291,91 @@ public abstract class HotfixFlowBase
         catch (Exception ex)
         {
             Debug.LogWarning(
-                $"[HotfixManager] 上一个包的 Bundle 复用失败：{previousBundleName}，错误={ex.Message}");
+                $"[HotfixManager] 当前完整包的 Bundle 复用失败：{currentBundleName}，错误={ex.Message}");
             return false;
         }
         finally
         {
             FileHelper.TryDelete(tempPath);
+        }
+    }
+
+    /// <summary>
+    /// 按目标目录、当前完整包、网络的优先级准备 Bundle。
+    /// </summary>
+    private async Task<bool> DownloadBundlesAsync(
+        HotfixContext ctx,
+        IReadOnlyList<BundleDownloadItem> remoteBundles)
+    {
+        BeginStep("下载 Bundle");
+        try
+        {
+            string targetBundleRoot = FYAssetPathUtility.JoinFilePath(
+                ctx.TargetGUIDRoot,
+                FYAssetSettings.BUNDLES_DIRECTORY_NAME);
+            FileHelper.EnsureDirectory(targetBundleRoot);
+            CleanupStaleTempFiles(targetBundleRoot);
+
+            var reuseBundleMap = BuildReuseBundleMap(ctx.CurrentPackageInspection?.VersionInfo);
+            int totalBundles = remoteBundles.Count;
+            int completedBundles = 0;
+            int reusedBundles = 0;
+            var semaphore = new SemaphoreSlim(6);
+            var tasks = new List<Task<bool>>();
+
+            for (int i = 0; i < remoteBundles.Count; i++)
+            {
+                BundleDownloadItem bundle = remoteBundles[i];
+                string savePath = FYAssetPathUtility.JoinFilePath(targetBundleRoot, bundle.BundleName);
+                if (VerifyBundle(savePath, bundle))
+                {
+                    reusedBundles++;
+                    completedBundles++;
+                    ReportBundleProgress(completedBundles, totalBundles);
+                    continue;
+                }
+
+                if (TryReuseCurrentBundle(bundle, reuseBundleMap, ctx.CurrentPackageRoot, savePath))
+                {
+                    reusedBundles++;
+                    completedBundles++;
+                    ReportBundleProgress(completedBundles, totalBundles);
+                    continue;
+                }
+
+                string bundleUrl = FYAssetPathUtility.JoinUrl(
+                    ctx.RemoteUrlRoot,
+                    FYAssetSettings.BUNDLES_DIRECTORY_NAME,
+                    bundle.BundleName);
+                tasks.Add(DownloadBundleWithThrottle(
+                    semaphore,
+                    bundleUrl,
+                    savePath,
+                    bundle,
+                    () => ReportBundleProgress(Interlocked.Increment(ref completedBundles), totalBundles)));
+            }
+
+            if (reusedBundles > 0)
+                Debug.Log($"[HotfixManager] 已复用 {reusedBundles} 个完整 Bundle，无需网络下载。");
+
+            try
+            {
+                bool[] results = await Task.WhenAll(tasks);
+                if (results.Any(success => !success))
+                    return false;
+            }
+            finally
+            {
+                semaphore.Dispose();
+            }
+
+            CompleteStep();
+            return true;
+        }
+        catch (Exception ex)
+        {
+            ReportWarning($"[HotfixManager] Bundle 下载发生异常：{ex.Message}");
+            return false;
         }
     }
 
@@ -1116,19 +1549,137 @@ public abstract class HotfixFlowBase
         return result.Error != null ? result.Error.ToString() : "未知错误";
     }
 
-    /// <summary>
-    /// 删除本次目标目录。拒绝删除 HotfixRoot 以外或非直接子级路径。
-    /// </summary>
-    private void DeleteTargetPackage(HotfixContext ctx, string reason)
+    private static HotfixCheckResult BlockedCheck(string message)
     {
-        if (ctx == null || !IsDirectPackageRoot(ctx.TargetGUIDRoot))
-            ThrowFatal($"[HotfixManager] 拒绝删除不安全的目标目录：{ctx?.TargetGUIDRoot}");
-        if (!FileHelper.DirectoryExists(ctx.TargetGUIDRoot))
-            return;
-        if (!FileHelper.TryDeleteDirectory(ctx.TargetGUIDRoot, true))
-            ThrowFatal($"[HotfixManager] 目标目录删除失败：{ctx.TargetGUIDRoot}");
+        return new HotfixCheckResult(
+            HotfixStateAction.Block,
+            HotfixContentState.Blocked,
+            string.Empty,
+            default,
+            message);
+    }
 
-        Debug.Log($"[HotfixManager] 已删除目标目录：{ctx.TargetPackageName}，原因={reason}。");
+    /// <summary>
+    /// 把隔离 staging 换入正式 Build_* 路径：旧正式目录先 move 到 backup，再把 staging move 到正式路径。
+    /// </summary>
+    /// <returns>true 表示正式路径上是本次新内容；false 表示换入未完成，调用方必须先恢复运行根。</returns>
+    /// <remarks>
+    /// 调用前必须已关闭旧资源管理器；staging 只在这一步离开隔离位置，
+    /// 因此同包修复不可能在正式或损坏包目录内原地写入。
+    /// </remarks>
+    private bool TryPromoteStagingToTargetRoot(HotfixContext ctx, string finalRoot, out string error)
+    {
+        error = string.Empty;
+        string stagingRoot = ctx.TargetGUIDRoot;
+        string backupRoot = RuntimePathManager.GetHotfixBackupRoot(ctx.TargetPackageName);
+        if (!IsDirectPackageRoot(stagingRoot)
+            || !IsDirectPackageRoot(finalRoot)
+            || !IsDirectPackageRoot(backupRoot))
+        {
+            error = $"staging、正式包根或 backup 不在 HotfixRoot 直接子级：{stagingRoot} → {finalRoot}";
+            return false;
+        }
+        if (!FileHelper.DirectoryExists(stagingRoot))
+        {
+            error = $"staging 目录不存在：{stagingRoot}";
+            return false;
+        }
+
+        try
+        {
+            // 上次失败遗留的 backup 不再需要：本次 staging 已按目标 manifest 完整校验通过
+            FileHelper.TryDeleteDirectory(backupRoot, true);
+            if (FileHelper.DirectoryExists(finalRoot))
+            {
+                MoveDirectory(finalRoot, backupRoot);
+                ctx.TargetRootBackedUp = true;
+            }
+
+            MoveDirectory(stagingRoot, finalRoot);
+            ctx.TargetRootSwapped = true;
+            Debug.Log($"[HotfixManager] 已把隔离目录换入正式包根：{Path.GetFileName(finalRoot)}。");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            RestoreTargetRoot(ctx);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// 换入失败或激活失败时的补偿：换入产物退回 staging 保留诊断，换入前的正式目录放回正式路径。
+    /// </summary>
+    /// <remarks>
+    /// 换入未发生时（两个换入标志都为 false）不做任何文件操作：
+    /// 正式包根上此时可能是仍在使用的当前包，不能被本次失败流程触碰。
+    /// </remarks>
+    private void RestoreTargetRoot(HotfixContext ctx)
+    {
+        bool swapped = ctx.TargetRootSwapped;
+        bool backedUp = ctx.TargetRootBackedUp;
+        ctx.TargetRootSwapped = false;
+        ctx.TargetRootBackedUp = false;
+        if (!swapped && !backedUp)
+            return;
+
+        string stagingRoot = RuntimePathManager.GetHotfixStagingRoot(ctx.TargetPackageName);
+        string finalRoot = RuntimePathManager.GetHotfixPackageRoot(ctx.TargetPackageName);
+        string backupRoot = RuntimePathManager.GetHotfixBackupRoot(ctx.TargetPackageName);
+        if (!IsDirectPackageRoot(stagingRoot) || !IsDirectPackageRoot(finalRoot) || !IsDirectPackageRoot(backupRoot))
+            return;
+
+        try
+        {
+            if (swapped && FileHelper.DirectoryExists(finalRoot))
+                MoveDirectory(finalRoot, stagingRoot);
+            if (backedUp && FileHelper.DirectoryExists(backupRoot))
+                MoveDirectory(backupRoot, finalRoot);
+        }
+        catch (Exception ex)
+        {
+            ReportWarning($"[HotfixManager] 恢复换入前的包目录失败：{finalRoot}，原因={ex.Message}");
+            return;
+        }
+
+        Debug.LogWarning($"[HotfixManager] 已恢复换入前的包目录：{Path.GetFileName(finalRoot)}。");
+    }
+
+    /// <summary>
+    /// 删除本次换入留下的 backup 目录（即换入前的旧包目录）；目录不存在时无操作。
+    /// </summary>
+    /// <remarks>
+    /// 只在换入、激活、初始化与指针写入都成功之后调用；删除失败只告警，
+    /// 残留目录是 HotfixRoot 直接子级，会在下次成功启动的旧包回收里重试。
+    /// </remarks>
+    private void DiscardTargetBackup(HotfixContext ctx)
+    {
+        string backupRoot = RuntimePathManager.GetHotfixBackupRoot(ctx.TargetPackageName);
+        if (!IsDirectPackageRoot(backupRoot) || !FileHelper.DirectoryExists(backupRoot))
+            return;
+
+        if (!FileHelper.TryDeleteDirectory(backupRoot, true))
+        {
+            ReportWarning($"[HotfixManager] 旧包目录删除失败，将在下次成功启动时重试：{backupRoot}");
+            return;
+        }
+
+        Debug.Log($"[HotfixManager] 已删除旧包目录：{Path.GetFileName(backupRoot)}。");
+    }
+
+    /// <summary>
+    /// 移动目录：目标已存在时先删除目标，同卷目录改名不会产生半成品目录树。
+    /// </summary>
+    private static void MoveDirectory(string sourceDir, string targetDir)
+    {
+        if (!FileHelper.DirectoryExists(sourceDir))
+            throw new DirectoryNotFoundException($"待移动目录不存在：{sourceDir}");
+
+        FileHelper.EnsureDirectory(Path.GetDirectoryName(targetDir));
+        if (FileHelper.DirectoryExists(targetDir))
+            FileHelper.TryDeleteDirectory(targetDir, true);
+        Directory.Move(sourceDir, targetDir);
     }
 
     private static bool IsDirectPackageRoot(string packageRoot)
@@ -1151,9 +1702,16 @@ public abstract class HotfixFlowBase
     }
 
     /// <summary>
-    /// 删除 HotfixRoot 下除目标包外的直接子级 Build_* 目录；目标为空时全部删除。
+    /// 删除 HotfixRoot 下除当前激活包外的直接子级 Build_* 目录；当前激活包为空时全部删除。
     /// </summary>
-    private static void CleanupInactivePackages(string activePackageRoot)
+    /// <param name="activePackageRoot">当前激活的包根；为空表示使用内置包，跳过本次回收。</param>
+    /// <param name="keepDiagnosticRoot">要保留为诊断物的 staging 根；为空表示没有待保留项。</param>
+    /// <remarks>
+    /// staging / backup 目录与被替换的旧包目录都是 Build_* 直接子级，因此一并在这里回收，
+    /// 保证失败准备的残留不会无限累积；唯一例外是 keepDiagnosticRoot：
+    /// 失败目标的隔离产物在失败当下与随后恢复当前内容时都保留，供定位问题。
+    /// </remarks>
+    private static void CleanupInactivePackages(string activePackageRoot, string keepDiagnosticRoot = null)
     {
         string hotfixRoot = RuntimePathManager.HotfixRoot;
         try
@@ -1178,6 +1736,12 @@ public abstract class HotfixFlowBase
                 }
                 if (keepActive && FYAssetPathUtility.AreSamePath(packageDir, activePackageRoot))
                     continue;
+                if (!string.IsNullOrEmpty(keepDiagnosticRoot)
+                    && FYAssetPathUtility.AreSamePath(packageDir, keepDiagnosticRoot))
+                {
+                    Debug.Log($"[HotfixManager] 保留失败准备的隔离目录用于诊断：{packageDir}");
+                    continue;
+                }
 
                 long packageBytes = FileHelper.GetDirectorySize(packageDir);
                 if (!FileHelper.TryDeleteDirectory(packageDir, true))
@@ -1200,9 +1764,9 @@ public abstract class HotfixFlowBase
     }
 
     /// <summary>
-    /// 从 StreamingAssets 加载内置 BuildIndex。
+    /// 从 StreamingAssets 读取内置 BuildIndex；它是启动标记，不是包内容，因此不受单包根约束。
     /// </summary>
-    private async Task<BuildIndexData> LoadBuildIndexFromStreamingAssets()
+    private async Task<BuildIndexData> LoadBuildIndexAsync()
     {
         string path = FYAssetPathUtility.JoinFilePath(
             Application.streamingAssetsPath,

@@ -7,8 +7,8 @@ using System.Threading.Tasks;
 /// </summary>
 public interface IBuildBackend
 {
-    /// <summary>baseline package（本地启动数据）staging / 校验 / 应用契约；由后端模块提供。</summary>
-    IBaselinePackageHandler BaselineHandler { get; }
+    /// <summary>内置包（StreamingAssets 启动数据）staging / 校验 / 应用契约；由后端模块提供。</summary>
+    IBuiltInPackageHandler BuiltInPackageHandler { get; }
 
     Task<BuildBackendResult> BuildAsync(BuildPackageRequest request, BuildExecutionOptions options);
 }

@@ -9,58 +9,58 @@ using Stopwatch = System.Diagnostics.Stopwatch;
 
 /// <summary>
 /// 执行 AB Task 管线并产出构建报告。
-/// 同时提供 AB baseline 文件的暂存与安装操作；最终交付由 BuildProjectRunner 编排。
+/// 同时提供 AB 内置包（StreamingAssets 启动数据）文件的暂存与安装操作；最终交付由 BuildProjectRunner 编排。
 /// </summary>
-public class ABBuildBackend : IBuildBackend, IBaselinePackageHandler
+public class ABBuildBackend : IBuildBackend, IBuiltInPackageHandler
 {
-    public IBaselinePackageHandler BaselineHandler => this;
+    public IBuiltInPackageHandler BuiltInPackageHandler => this;
 
     public Task<BuildBackendResult> BuildAsync(BuildPackageRequest request, BuildExecutionOptions options)
     {
         var stopwatch = Stopwatch.StartNew();
-        BuildContext context = null;
-        BuildResult result = null;
+        BuildRunResult result = null;
 
         var config = AssetDatabase.LoadAssetAtPath<BuildPipelineConfig>(
             FYAssetABSettings.Instance.BuildPipelineConfigPath);
         if (config == null)
         {
             var error = BuildMessage.Error(BuildErrorCodes.SettingNull, "未找到 BuildPipelineConfig。", nameof(ABBuildBackend));
-            string reportPath = TryWriteReport(request, result, context, stopwatch, error);
+            string reportPath = TryWriteReport(request, result, null, stopwatch, error);
             return Task.FromResult(BuildBackendResult.Fail(error, result, request, reportPath));
         }
 
         try
         {
             request = request ?? throw new ArgumentNullException(nameof(request));
-            context = new BuildContext();
-            context.Set(BuildContextKeys.BuildPackageRequest, request);
-            context.Set(BuildContextKeys.BuildType, request.BuildType);
-            context.Set(BuildContextKeys.DeferPackagePublication, true);
-            context.Set(BuildContextKeys.BaselinePackageHandler, this);
-            Debug.Log($"[{nameof(ABBuildBackend)}] 启动 AB Pipeline。BuildType={request.BuildType}, Package={request.PackageName}");
-            result = BuildPipelineRunner.Execute(config, context, options, ABPipelineBackbone.BackboneTaskNames);
+
+            // 一次性把旧的“主干顺序列表”升级成“自定义 Task + 槽位”；已升级配置保持原样。
+            ABPipelineConfigUpgrade.TryUpgrade(config);
+
+            // 主干固定 6 段，自定义 Task 只能插入到合法槽位；组装失败一律致命。
+            IReadOnlyList<IBuildTask> tasks = ABPipelineBackbone.ComposeTasks(config);
+
+            var runRequest = new BuildRequest(request, options, new EditorBuildRunEnvironment());
+            Debug.Log($"[{nameof(ABBuildBackend)}] 启动 AB Pipeline。BuildType={request.BuildType}, Package={request.PackageName}, Tasks={tasks.Count}");
+            result = BuildPipelineRunner.Run(runRequest, tasks);
             if (!result.Success)
             {
                 LogBuildResultErrors(result);
-                var error = BuildMessage.Error(BuildErrorCodes.BuildFailed,
-                    $"AB 管线构建失败。已完成: {result.CompletedTasks}/{result.TotalTasks}", nameof(ABBuildBackend));
-                string reportPath = TryWriteReport(request, result, context, stopwatch, error);
+                var error = BuildMessage.Error(BuildErrorCodes.BuildFailed, FirstFailureMessage(result), nameof(ABBuildBackend));
+                string reportPath = TryWriteReport(request, result, result.Context, stopwatch, error);
                 return Task.FromResult(BuildBackendResult.Fail(error, result, request, reportPath));
             }
 
-            var artifacts = context.Get<List<BuildDiffEntry>>(BuildContextKeys.RepositoryArtifacts);
-            Debug.Log($"[{nameof(ABBuildBackend)}] AB Pipeline 完成。Completed={result.CompletedTasks}/{result.TotalTasks}, RepositoryArtifacts={(artifacts != null ? artifacts.Count : 0)}");
-            string successReportPath = TryWriteReport(request, result, context, stopwatch, null);
+            Debug.Log($"[{nameof(ABBuildBackend)}] AB Pipeline 完成。Completed={result.CompletedTasks}/{result.TotalTasks}");
+            string successReportPath = TryWriteReport(request, result, result.Context, stopwatch, null);
             return Task.FromResult(BuildBackendResult.Ok(
-                artifacts, result, request, successReportPath,
-                context.Get<ArtifactDelta>(BuildContextKeys.ArtifactDelta)));
+                result, request, successReportPath,
+                result.Context.Get<CompleteBuildSummary>(BuildContextKeys.BuildSummary)));
         }
         catch (Exception ex)
         {
             Debug.LogError($"[{nameof(ABBuildBackend)}] AB Pipeline 异常: {ex}");
             var error = BuildMessage.Error(BuildErrorCodes.BuildFailed, $"AB 管线异常: {ex.Message}", nameof(ABBuildBackend));
-            string reportPath = TryWriteReport(request, result, context, stopwatch, error);
+            string reportPath = TryWriteReport(request, result, result?.Context, stopwatch, error);
             return Task.FromResult(BuildBackendResult.Fail(error, result, request, reportPath));
         }
     }
@@ -68,7 +68,7 @@ public class ABBuildBackend : IBuildBackend, IBaselinePackageHandler
     /// <summary>
     /// 把失败 Task 结果写成 Warning。
     /// </summary>
-    private static void LogBuildResultErrors(BuildResult result)
+    private static void LogBuildResultErrors(BuildRunResult result)
     {
         if (result?.TaskResults == null)
             return;
@@ -83,11 +83,33 @@ public class ABBuildBackend : IBuildBackend, IBaselinePackageHandler
     }
 
     /// <summary>
+    /// 首个失败 Task 的错误码与消息。Runner 首个失败即停，因此它就是本次构建的根因；
+    /// 后端只做展示，不做裁剪或重试。
+    /// </summary>
+    private static string FirstFailureMessage(BuildRunResult result)
+    {
+        if (result?.TaskResults != null)
+        {
+            for (int i = 0; i < result.TaskResults.Count; i++)
+            {
+                var taskResult = result.TaskResults[i];
+                if (taskResult == null || taskResult.Success)
+                    continue;
+
+                return $"AB 管线构建失败于 {taskResult.TaskName}: [{taskResult.ErrorCode}] {taskResult.ErrorMessage}"
+                    + $"（已完成 {result.CompletedTasks}/{result.TotalTasks}）";
+            }
+        }
+
+        return $"AB 管线构建失败。已完成: {result?.CompletedTasks ?? 0}/{result?.TotalTasks ?? 0}";
+    }
+
+    /// <summary>
     /// Best-effort 写入 AB 构建报告。报告失败不能覆盖原始构建结果。
     /// </summary>
     private static string TryWriteReport(
         BuildPackageRequest request,
-        BuildResult result,
+        BuildRunResult result,
         BuildContext context,
         Stopwatch stopwatch,
         BuildMessage error)
@@ -111,31 +133,17 @@ public class ABBuildBackend : IBuildBackend, IBaselinePackageHandler
         }
     }
 
-    public IReadOnlyList<string> RequiredManifestFileNames
-    {
-        get
-        {
-            return FYAssetABSettings.Instance.ManifestOutputFormat switch
-            {
-                ManifestOutputFormat.JsonOnly => new[] { FYAssetSettings.MANIFEST_FILE_NAME },
-                ManifestOutputFormat.BinaryOnly => new[] { FYAssetSettings.MANIFEST_FILE_NAME_BIN },
-                _ => new[]
-                {
-                    FYAssetSettings.MANIFEST_FILE_NAME,
-                    FYAssetSettings.MANIFEST_FILE_NAME_BIN
-                }
-            };
-        }
-    }
+    /// <summary>包根必须存在的 AB 清单文件；解析规则由 ABPackageManifestReader 统一持有。</summary>
+    public IReadOnlyList<string> RequiredManifestFileNames => ABPackageManifestReader.ResolveRequiredFileNames();
 
-    public void StageBaselineFiles(BuildPackageRequest request, string stageRoot)
+    public void StageBuiltInFiles(BuildPackageRequest request, string stageRoot)
     {
-        Debug.Log("[ABBuildBackend] 正在暂存 AB baseline package...");
+        Debug.Log("[ABBuildBackend] 正在暂存 AB 内置包清单...");
         StageFileIfExists(request.OutputDir, stageRoot, FYAssetSettings.MANIFEST_FILE_NAME);
         StageFileIfExists(request.OutputDir, stageRoot, FYAssetSettings.MANIFEST_FILE_NAME_BIN);
     }
 
-    public IReadOnlyList<BundleDownloadItem> LoadStagedBaselineBundles(string stageRoot)
+    public IReadOnlyList<BundleDownloadItem> LoadStagedBundles(string stageRoot)
     {
         string json = FYAssetPathUtility.JoinFilePath(stageRoot, FYAssetSettings.MANIFEST_FILE_NAME);
         string bin = FYAssetPathUtility.JoinFilePath(stageRoot, FYAssetSettings.MANIFEST_FILE_NAME_BIN);
@@ -144,10 +152,10 @@ public class ABBuildBackend : IBuildBackend, IBaselinePackageHandler
 
         ABManifest manifest = SerializationUtility.ReadFromFile<ABManifest>(
             FileHelper.Exists(bin) ? bin : json);
-        return ToBundleItems(manifest?.BundleEntries);
+        return ToBundleItems(manifest?.ContentEntries);
     }
 
-    public void ApplyStagedBaseline(string stageRoot)
+    public void ApplyStagedBuiltIn(string stageRoot)
     {
         ApplyFileOrDelete(stageRoot, Application.streamingAssetsPath, FYAssetSettings.MANIFEST_FILE_NAME);
         ApplyFileOrDelete(stageRoot, Application.streamingAssetsPath, FYAssetSettings.MANIFEST_FILE_NAME_BIN);
@@ -178,21 +186,21 @@ public class ABBuildBackend : IBuildBackend, IBaselinePackageHandler
         FileHelper.TryDelete(targetPath);
     }
 
-    private static IReadOnlyList<BundleDownloadItem> ToBundleItems(IReadOnlyList<ManifestBundleEntry> bundles)
+    private static IReadOnlyList<BundleDownloadItem> ToBundleItems(IReadOnlyList<ManifestContentEntry> contents)
     {
-        if (bundles == null)
+        if (contents == null)
             return null;
 
-        var result = new List<BundleDownloadItem>(bundles.Count);
-        for (int i = 0; i < bundles.Count; i++)
+        var result = new List<BundleDownloadItem>(contents.Count);
+        for (int i = 0; i < contents.Count; i++)
         {
-            ManifestBundleEntry bundle = bundles[i];
-            result.Add(bundle == null ? default : new BundleDownloadItem
+            ManifestContentEntry content = contents[i];
+            result.Add(content == null ? default : new BundleDownloadItem
             {
-                BundleName = bundle.BundleName,
-                FileHash = bundle.FileHash,
-                FileCRC = bundle.FileCRC,
-                FileSize = bundle.FileSize
+                BundleName = content.FileName,
+                FileHash = content.FileHash,
+                FileCRC = content.FileCRC,
+                FileSize = content.FileSize
             });
         }
         return result;

@@ -5,7 +5,8 @@ using System.Collections.Generic;
 /// AB 资源的运行时身份与查询元数据。
 /// </summary>
 /// <remarks>
-/// EntryId 用作缓存与句柄身份，Address 可以重复；SourcePath 还用于 backend 从 Bundle 或 AssetDatabase 提取资源。
+/// EntryId 用作缓存与句柄身份；公共 Address 唯一，隐式依赖条目没有 Address。
+/// SourcePath 还用于 backend 从 Bundle 或 AssetDatabase 提取资源。
 /// SetLabels 保留输入顺序、重复项和大小写，匹配使用大小写不敏感的集合。
 /// </remarks>
 [Serializable]
@@ -18,9 +19,15 @@ public class RuntimeAssetEntry
     public string EntryId;
 
     /// <summary>
-    /// 逻辑查询键；允许重复。
+    /// 公共查询键；隐式依赖条目为空。
     /// </summary>
     public string Address;
+
+    /// <summary>
+    /// 是否为公共资源：显式采集为 true，依赖分析自动发现为 false。
+    /// 只有公共条目进入 Address / Type / Label 查询索引。
+    /// </summary>
+    public bool IsPublic;
 
     /// <summary>
     /// 查询匹配用的类型名；本字段不验证可赋值性。
@@ -28,9 +35,9 @@ public class RuntimeAssetEntry
     public string PrimaryType;
 
     /// <summary>
-    /// Selects UnityEngine.Object or RawFile loading.
+    /// 内容类型：SerializedObject/Scene 走 UnityEngine.Object 加载，RawFile 直接读取物理文件。
     /// </summary>
-    public EPayloadKind PayloadKind = EPayloadKind.Serialized;
+    public AssetContentType ContentType = AssetContentType.SerializedObject;
 
     /// <summary>
     /// SetLabels 原样复制的 Labels，不去重。
@@ -43,16 +50,6 @@ public class RuntimeAssetEntry
     /// 来自 Manifest 的工程路径；不是公开查询键。
     /// </summary>
     public string SourcePath;
-
-    /// <summary>
-    /// 构建 Group 元数据；不是 Resolve/Load 过滤条件。
-    /// </summary>
-    public string Group;
-
-    /// <summary>
-    /// 是否由构建配置生成 Address。
-    /// </summary>
-    public bool AutoAddress = true;
 
     /// <summary>
     /// 大小写不敏感匹配缓存，SetLabels 时失效。
@@ -127,8 +124,8 @@ public class RuntimeAssetEntry
         return string.Concat(
             "[", EntryId ?? "", "] ",
             Address ?? "", " (", PrimaryType ?? "", ") Labels=[",
-            string.Join(",", Labels), "] Payload=",
-            PayloadKind.ToString()
+            string.Join(",", Labels), "] ContentType=",
+            ContentType.ToString()
         );
     }
 }

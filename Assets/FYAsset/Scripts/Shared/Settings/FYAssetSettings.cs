@@ -15,10 +15,8 @@ public class FYAssetSettings : ScriptableObject
     [Header("Build")]
     public string BuildOutputRoot = "HotfixOutput";
     public string BuildPackagesFolderName = "Packages";
-    public bool StandaloneBuild = false;
 
     [Header("Version")]
-    public string VersionRecordPath = "Assets/Build/VersionRecord.asset";
     public string BuildIndexJsonPath = "Assets/Build/Bootstrap/BuildIndex.json";
 
     [Header("Push")]
@@ -29,6 +27,8 @@ public class FYAssetSettings : ScriptableObject
     public const string HOTFIX_GROUP_NAME = "HotfixGroup";
     public const string BUILD_INDEX_FILENAME = "BuildIndex.json";
 
+    /// <summary>累计 Hotfix 输出根目录名（相对 BuildOutputRoot）：Hotfix 累计、Full 重置</summary>
+
     // --- 输出文件命名 ---
     public const string PACKAGE_INDEX_FILE_NAME = "PackageIndex.json";
     public const string MANIFEST_FILE_NAME = "ABManifest.json";
@@ -38,10 +38,6 @@ public class FYAssetSettings : ScriptableObject
     public const string BUNDLES_DIRECTORY_NAME = "bundles";
     public const string STANDALONE_DIRECTORY_NAME = "Standalone";
     public const string ADDRESSABLES_CATALOG_FILE_NAME = "catalog.json";
-
-    // --- Collector 规则名 ---
-    public const string RULE_COLLECT_ALL = "CollectAll";
-    public const string RULE_GROUP_ALL = "GroupAll";
 
     // ═══ Singleton ═══
 

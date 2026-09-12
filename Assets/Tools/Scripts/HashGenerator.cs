@@ -58,6 +58,37 @@ public static class HashGenerator
         return crc ^ 0xFFFFFFFFu;
     }
 
+    /// <summary>
+    /// 一次流式遍历同时计算文件 MD5 与 CRC32。
+    /// 文件摘要需要 Hash 与 CRC 两项，分两次调用会重复读取整个文件并在内存中载入大数据包。
+    /// </summary>
+    /// <exception cref="ArgumentNullException">filePath 为空。</exception>
+    /// <exception cref="IOException">文件不存在或读取失败。</exception>
+    public static void ComputeFileHashAndCRC(string filePath, out string hash, out uint crc)
+    {
+        if (string.IsNullOrEmpty(filePath))
+            throw new ArgumentNullException(nameof(filePath));
+
+        EnsureCrcTable();
+        uint state = 0xFFFFFFFFu;
+        using (var md5 = MD5.Create())
+        using (var stream = File.OpenRead(filePath))
+        {
+            byte[] buffer = new byte[81920];
+            int read;
+            while ((read = stream.Read(buffer, 0, buffer.Length)) > 0)
+            {
+                md5.TransformBlock(buffer, 0, read, null, 0);
+                UpdateCRC(buffer, read, ref state);
+            }
+
+            md5.TransformFinalBlock(Array.Empty<byte>(), 0, 0);
+            hash = BitConverter.ToString(md5.Hash).Replace("-", "").ToLowerInvariant();
+        }
+
+        crc = state ^ 0xFFFFFFFFu;
+    }
+
     /// <summary>按给定顺序组合多个文件内容并计算 MD5。缺失文件以路径标记参与计算，保持结果确定。</summary>
     public static string GenerateCompositeFileHash(params string[] filePaths)
     {
@@ -97,6 +128,19 @@ public static class HashGenerator
         using (var md5 = MD5.Create())
         {
             byte[] hash = md5.ComputeHash(Encoding.UTF8.GetBytes(content));
+            return BitConverter.ToString(hash).Replace("-", "").ToLowerInvariant();
+        }
+    }
+
+    /// <summary>
+    /// 字节数组 MD5 Hash（hex 字符串）。
+    /// 用于对已经读入内存的内容取摘要（例如下载到内存的清单），避免为了取 Hash 再落一次盘。
+    /// </summary>
+    public static string GenerateBytesHash(byte[] data)
+    {
+        using (var md5 = MD5.Create())
+        {
+            byte[] hash = md5.ComputeHash(data ?? Array.Empty<byte>());
             return BitConverter.ToString(hash).Replace("-", "").ToLowerInvariant();
         }
     }

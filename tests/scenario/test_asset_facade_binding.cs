@@ -17,6 +17,20 @@ internal static class AssetFacadeBindingTests
         RepoAssert.Contains(facade, "(T asset, RuntimeMessage error) LoadAssetSync<T>",
             "sync common load returns tuple");
         RepoAssert.Contains(facade, "void UnloadAsset<T>", "common unload is typed");
+        RepoAssert.Contains(facade, "ABPackageManager.Instance.LoadByAddress<T>",
+            "AB facade path must go through handle-returning address loads");
+        RepoAssert.Contains(facade, "Stack<AssetLease>",
+            "AB facade path must keep one handle token per address load");
+        RepoAssert.Contains(facade, "lease.Release?.Invoke()",
+            "AB facade unload must release exactly one stored handle token");
+        RepoAssert.Contains(facade, "new(StringComparer.OrdinalIgnoreCase)",
+            "AB lease identity must be case-insensitive, matching the public address contract");
+
+        string pathUtility = RepoSource.Read("Assets/FYAsset/Scripts/Shared/Helpers/FYAssetPathUtility.cs");
+        RepoAssert.Contains(pathUtility, "string.Equals(normalizedLeft, normalizedRight, FilePathComparison)",
+            "path equality must use the platform filesystem comparison");
+        RepoAssert.Contains(pathUtility, "private static StringComparison FilePathComparison",
+            "platform filesystem comparison must remain the single source of truth");
 
         RepoAssert.Contains(hotfix, "InitializeAsync(BackendMode mode)", "hotfix selection is explicit");
         RepoAssert.NotContains(hotfix, "UseABBackend", "hotfix facade must not reread runtime settings");

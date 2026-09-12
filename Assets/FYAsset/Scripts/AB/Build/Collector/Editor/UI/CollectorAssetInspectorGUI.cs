@@ -47,9 +47,8 @@ public static class CollectorAssetInspectorGUI
 
         if (isCollected)
         {
-            string packageName = GetPackageName(membership);
             string groupName = GetGroupName(membership);
-            EditorGUILayout.LabelField("Package: " + packageName + "    Group: " + groupName, EditorStyles.miniLabel);
+            EditorGUILayout.LabelField("Group: " + groupName, EditorStyles.miniLabel);
 
             if (membership.State == CollectorMutationUtility.CollectionState.CoveredByFolderCollector)
             {
@@ -91,12 +90,6 @@ public static class CollectorAssetInspectorGUI
         }
 
         GUILayout.EndVertical();
-    }
-
-    private static string GetPackageName(CollectorMutationUtility.MembershipInfo membership)
-    {
-        string packageName = membership?.Package?.PackageName;
-        return string.IsNullOrEmpty(packageName) ? "(unnamed package)" : packageName;
     }
 
     private static string GetGroupName(CollectorMutationUtility.MembershipInfo membership)

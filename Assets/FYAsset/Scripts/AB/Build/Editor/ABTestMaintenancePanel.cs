@@ -6,7 +6,7 @@ using UnityEngine;
 using UnityEngine.UIElements;
 
 /// <summary>
-/// 测试维护面板：本地热更服务器、Reset Version、清空 AB 基线 Channel。
+/// 测试维护面板：本地热更服务器、Reset Build Facts、清空 AB 本地构建输出。
 /// 只面向测试，不属于日常构建路径，执行前均要求确认。
 /// </summary>
 public sealed class ABTestMaintenancePanel : IBuildPipelinePanel
@@ -15,9 +15,8 @@ public sealed class ABTestMaintenancePanel : IBuildPipelinePanel
     private Label _messageLabel;
     private Label _localServerStatusLabel;
     private IntegerField _localServerPortField;
-    private Toggle _clearPackageIndexToggle;
     private Toggle _deletePackagesToggle;
-    private Toggle _clearStartupBaselineToggle;
+    private Toggle _clearStartupBuiltInToggle;
 
     public string PanelName => "Test";
 
@@ -95,17 +94,15 @@ public sealed class ABTestMaintenancePanel : IBuildPipelinePanel
         var title = BuildPipelineUI.Header("Test Reset (AB)");
         title.style.flexGrow = 1f;
         header.Add(title);
-        header.Add(BuildPipelineUI.ToolbarButton("Reset Version", RunResetVersionForTest, 104f));
-        header.Add(BuildPipelineUI.ToolbarButton("Clear Channel", RunClearChannelForTest, 104f));
+        header.Add(BuildPipelineUI.ToolbarButton("Reset Build Facts", RunResetVersionForTest, 130f));
+        header.Add(BuildPipelineUI.ToolbarButton("Clear Local State", RunClearLocalStateForTest, 120f));
         card.Add(header);
 
-        card.Add(BuildPipelineUI.SmallText("删除当前 Channel/AB 的 baseline.json。"));
-        _clearPackageIndexToggle = new Toggle("Clear output PackageIndex.json");
+        card.Add(BuildPipelineUI.SmallText("清空 AB 本地构建输出（不影响服务器上的已发布包）。"));
         _deletePackagesToggle = new Toggle("Delete local package folders");
-        _clearStartupBaselineToggle = new Toggle("Clear startup BuildIndex / StreamingAssets baseline");
-        card.Add(_clearPackageIndexToggle);
+        _clearStartupBuiltInToggle = new Toggle("Clear startup BuildIndex / StreamingAssets built-in package");
         card.Add(_deletePackagesToggle);
-        card.Add(_clearStartupBaselineToggle);
+        card.Add(_clearStartupBuiltInToggle);
         return card;
     }
 
@@ -119,76 +116,53 @@ public sealed class ABTestMaintenancePanel : IBuildPipelinePanel
 
     private void RunResetVersionForTest()
     {
-        VersionRecord versionDB = AssetDatabase.LoadAssetAtPath<VersionRecord>(FYAssetSettings.Instance.VersionRecordPath);
-        if (versionDB == null)
-        {
-            EditorUtility.DisplayDialog("Reset Version", "VersionRecord not found:\n\n" + FYAssetSettings.Instance.VersionRecordPath, "OK");
-            return;
-        }
-
+        BuildSummaryStore store = BuildSummaryStore.CreateDefault();
         if (!EditorUtility.DisplayDialog(
-                "Reset Version",
-                "Reset VersionRecord to 1.0.0 for testing?\n\nThis clears Channel, LastBuildTime, and DailyBuildCount.",
+                "Reset Build Facts",
+                "清空 BuildData/Summaries（全部成功摘要与索引）？\n\n项目版本将回到 1.0.0，历史包目录不会被删除。",
                 "Reset",
                 "Cancel"))
             return;
 
-        Undo.RecordObject(versionDB, "Reset VersionRecord");
-        versionDB.CurrentVersion = new VersionNumber { Major = 1, Minor = 0, Patch = 0, Build = 0, Channel = string.Empty };
-        versionDB.LastBuildTime = string.Empty;
-        versionDB.DailyBuildCount = 0;
-        EditorUtility.SetDirty(versionDB);
-        AssetDatabase.SaveAssets();
-        if (_messageLabel != null)
-            _messageLabel.text = "VersionRecord 已重置为 1.0.0。";
+        if (store.TryResetAll(out string error))
+        {
+            if (_messageLabel != null)
+                _messageLabel.text = "构建事实已清空（Summary 与 Index）。";
+        }
+        else
+        {
+            EditorUtility.DisplayDialog("Reset Build Facts", error, "OK");
+        }
     }
 
-    private void RunClearChannelForTest()
+    private void RunClearLocalStateForTest()
     {
-        bool clearPackageIndex = _clearPackageIndexToggle?.value == true;
         bool deletePackages = _deletePackagesToggle?.value == true;
-        bool clearStartupBaseline = _clearStartupBaselineToggle?.value == true;
+        bool clearStartupBuiltIn = _clearStartupBuiltInToggle?.value == true;
 
-        VersionRecord versionDB = AssetDatabase.LoadAssetAtPath<VersionRecord>(FYAssetSettings.Instance.VersionRecordPath);
-        VersionNumber version = versionDB != null ? versionDB.CurrentVersion : default;
-        string channelKey = BuildBaselineStore.GetChannelKey(version, BackendModeNames.AB);
-
-        string message = $"Clear AB baseline channel for test?\n\nChannel: {channelKey}\n\nThis deletes the baseline.json for this channel.";
-        if (clearPackageIndex)
-            message += "\n- Clear output PackageIndex.json";
+        string message = "清空 AB 本地构建状态？";
         if (deletePackages)
             message += "\n- Delete local package folders";
-        if (clearStartupBaseline)
-            message += "\n- Clear startup BuildIndex / StreamingAssets baseline";
+        if (clearStartupBuiltIn)
+            message += "\n- Clear startup BuildIndex / StreamingAssets built-in package";
 
-        if (!EditorUtility.DisplayDialog("Clear Baseline Channel", message, "Clear", "Cancel"))
+        if (!EditorUtility.DisplayDialog("Clear Local Build State", message, "Clear", "Cancel"))
             return;
 
         try
         {
-            BuildBaselineStore.ClearForTest(channelKey);
-            if (clearPackageIndex)
-            {
-                var empty = new PackageIndex
-                {
-                    LatestPackage = string.Empty,
-                    LatestVersion = default,
-                    BackendMode = string.Empty
-                };
-                FileHelper.WriteAllTextAtomic(BuildPathManager.PackageIndexPath, SerializationUtility.SerializeToJson(empty, true));
-            }
             if (deletePackages)
                 DeleteLocalPackageFolders();
-            if (clearStartupBaseline)
-                ClearAbStartupBaseline();
+            if (clearStartupBuiltIn)
+                ClearAbStartupBuiltIn();
 
             AssetDatabase.Refresh();
             if (_messageLabel != null)
-                _messageLabel.text = $"AB baseline channel cleared: {channelKey}";
+                _messageLabel.text = "AB 本地构建状态已清理。";
         }
         catch (Exception ex)
         {
-            Debug.LogError($"[{nameof(ABTestMaintenancePanel)}] 清理 Channel 失败：{ex}");
+            Debug.LogError($"[{nameof(ABTestMaintenancePanel)}] 清理本地构建状态失败：{ex}");
             if (_messageLabel != null)
                 _messageLabel.text = ex.Message;
         }
@@ -211,7 +185,7 @@ public sealed class ABTestMaintenancePanel : IBuildPipelinePanel
         }
     }
 
-    private static void ClearAbStartupBaseline()
+    private static void ClearAbStartupBuiltIn()
     {
         FileHelper.TryDelete(ResolveProjectPath(FYAssetSettings.Instance.BuildIndexJsonPath));
         FileHelper.TryDelete(FYAssetPathUtility.JoinFilePath(Application.streamingAssetsPath, FYAssetSettings.BUILD_INDEX_FILENAME));

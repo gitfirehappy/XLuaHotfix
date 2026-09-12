@@ -4,7 +4,7 @@ using UnityEngine;
 using UnityEngine.UIElements;
 
 /// <summary>
-/// FYAsset 全局设置面板：项目名、构建输出、Standalone 与 VersionRecord 路径。
+/// FYAsset 全局设置面板：项目名、构建输出、Standalone 与构建索引路径。
 /// 后端专属字段由 AA/AB Config 面板编辑。
 /// </summary>
 public class SettingsPanel : IBuildPipelinePanel
@@ -64,67 +64,9 @@ public class SettingsPanel : IBuildPipelinePanel
         _scrollView.style.flexGrow = 1f;
 
         DrawSection(_so, "Project", "ProjectName");
-        DrawSection(_so, "Build", "BuildOutputRoot", "BuildPackagesFolderName", "StandaloneBuild", "VersionRecordPath", "BuildIndexJsonPath");
-
-        DrawPackageModeSection();
-
-
+        DrawSection(_so, "Build", "BuildOutputRoot", "BuildPackagesFolderName", "BuildIndexJsonPath");
 
         _root.Add(_scrollView);
-    }
-
-    /// <summary>
-    /// 离线包 / 在线热更快切（与 AB Editor PlayMode 正交）。
-    /// </summary>
-    private void DrawPackageModeSection()
-    {
-        if (_settings == null) return;
-
-        bool isStandalone = _settings.StandaloneBuild;
-        string modeLabel = isStandalone ? "● Standalone (离线)" : "● Online (热更)";
-
-        VisualElement card = BuildPipelineUI.Card();
-        card.Add(BuildPipelineUI.Header("Package Mode"));
-        var modeLabelEl = new Label(modeLabel);
-        modeLabelEl.style.marginBottom = 4;
-        modeLabelEl.style.unityFontStyleAndWeight = FontStyle.Bold;
-        card.Add(modeLabelEl);
-
-        var row = new VisualElement();
-        row.style.flexDirection = FlexDirection.Row;
-        row.style.marginTop = 4;
-
-        var btnStandalone = new Button(() =>
-        {
-            _settings.StandaloneBuild = true;
-            EditorUtility.SetDirty(_settings);
-            AssetDatabase.SaveAssets();
-            EditorApplication.isPlaying = true;
-        })
-        {
-            text = "▶ Run as Standalone"
-        };
-        btnStandalone.style.flexGrow = 1;
-        btnStandalone.style.marginRight = 4;
-        btnStandalone.SetEnabled(!isStandalone);
-
-        var btnOnline = new Button(() =>
-        {
-            _settings.StandaloneBuild = false;
-            EditorUtility.SetDirty(_settings);
-            AssetDatabase.SaveAssets();
-            EditorApplication.isPlaying = true;
-        })
-        {
-            text = "▶ Run Online"
-        };
-        btnOnline.style.flexGrow = 1;
-        btnOnline.SetEnabled(isStandalone);
-
-        row.Add(btnStandalone);
-        row.Add(btnOnline);
-        card.Add(row);
-        _scrollView.Add(card);
     }
 
     /// <summary>

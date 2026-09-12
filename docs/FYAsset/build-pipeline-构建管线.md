@@ -4,13 +4,22 @@
 
 > **关联代码**
 >
-> `Assets/FYAsset/Scripts/Shared/Build/Pipeline/Editor/` · `Assets/FYAsset/Scripts/Compat/Runtime/BackendMode.cs` · `Assets/FYAsset/Scripts/Compat/Runtime/FYAssetBackendSettings.cs`
+> `Assets/FYAsset/Scripts/Shared/Build/Pipeline/Editor/` · `Assets/FYAsset/Scripts/AA/Build/Pipeline/Editor/` · `Assets/FYAsset/Scripts/AB/Build/Pipeline/Editor/` · `Assets/FYAsset/Scripts/Compat/Runtime/BackendMode.cs`
 
 ---
 
 ## 概述
 
-Build Pipeline 采用 **Task + 线性执行列表** 模型。每个构建步骤（采集资产、分析依赖、打包 Bundle、生成清单等）实现为独立的 `IBuildTask`，通过 `BuildPipelineRunner` 按 `BuildPipelineConfig.Tasks` 的列表顺序执行。配置集中在 `BuildPipelineConfig` ScriptableObject 中。
+Build Pipeline 由三个职责分离的部分组成：
+
+```text
+PipelineBackbone（各后端）  →  固定主干 CoreTaskSlot 列表
+BuildPipelineConfig（SO）   →  自定义 Task 的 TaskName + Slot
+BuildPipelineComposer       →  组装成线性 Task 序列
+BuildPipelineRunner         →  顺序执行、管理 attempt、成功后提升正式输出
+```
+
+Runner **不理解后端**：它只接受已经组装好的 Task 列表，不读配置、不解析主干、不参与差异、发布、PackageIndex、版本回滚和 UI 操作。
 
 ---
 
@@ -21,8 +30,9 @@ Build Pipeline 采用 **Task + 线性执行列表** 模型。每个构建步骤�
 每个 Task 只声明唯一的 `TaskName`，并通过 `Execute(BuildContext)` 完成一个构建步骤。
 
 实现要求：
-- 无参公共构造函数（由 `BuildTaskResolver` 反射实例化）
-- `TaskName` 全局唯一
+
+- 无参公共构造函数（**只有自定义 Task** 由 `BuildTaskResolver` 反射实例化）
+- `TaskName` 全局唯一，且不得与主干阶段同名
 - `Execute` 同步返回结果（Unity AssetBundle API 本身是同步的）
 
 ### BuildContext — 数据总线
@@ -30,53 +40,97 @@ Build Pipeline 采用 **Task + 线性执行列表** 模型。每个构建步骤�
 Task 之间不直接通信，所有数据通过 `BuildContext` 传递。内部是 `Dictionary<string, object>`，提供类型安全的 `Set<T>` / `Get<T>` / `Require<T>` / `Has` 方法。
 
 - `Get<T>` — Key 不存在返回 `default(T)`
-- `Require<T>` — Key 不存在抛出 `KeyNotFoundException`
+- `Require<T>` — Key 不存在抛出异常
 - `Has` — 检查 Key 是否存在
 
-Task 的输入输出契约直接体现在 `Get/Require/Set` 调用和固定主干顺序中，不再维护重复的 `ReadKeys` / `WriteKeys` 声明。
+构建只通过 Context 传递构建事实（配置、请求、模式、输出路径、校验结果与摘要）；交付清单与历史差异不进入 Context，由交付事务与发布事务各自持有。中性键名集中在 Shared 的 `BuildContextKeys`，后端私有键放在 `ABBuildContextKeys` / `AABuildContextKeys`：
+
+| Key 常量类 | 键 |
+|---|---|
+| `BuildContextKeys` | `BuildConfig`、`BuildPackageRequest`、`BuildType`、`OutputPath`、`DeferPackagePublication`、`BuildVerificationResult`、`BuildSummary`、`BuildStartedAtUtc` |
+| `ABBuildContextKeys` | `ABManifest`、`CollectedAssets`、`SharePolicy`、`BundleDependencyGraph`、`BundleBuildResults`、`ABDeliveryContents`、`ABDeliveryPreviewMode`、`BuildRecipeFingerprint` |
+| `AABuildContextKeys` | `AAManifest`、`AASourceScan` |
 
 ### BuildPipelineRunner — 线性执行器
 
-执行前先解析列表，再线性执行：
+`BuildPipelineRunner.Run(BuildRequest request, IReadOnlyList<IBuildTask> tasks)` 的确定行为：
 
-- 非 whitelist 模式检查 AA/AB 必需主干 Task 是否缺失
-- 拒绝空、重复或无法解析的 `TaskName`
-- 按 `BuildPipelineConfig.Tasks` 顺序逐个执行
-- 执行运行在 Unity Editor 主线程上，确定性串行执行；不存在额外的并行/串行切换开关
-- Fatal 错误立即中止所有后续 Task
-- `stopAfterTaskName` 命中后提前停止，已执行 Task 产出的 `BuildContext` 数据可被调用方读取
-- `taskWhitelist` 在解析前过滤列表，常用于 Diff Preview
-- `BuildContextKeys` 常量类存储标准 Key 名称
+1. `request.Environment` 为 null 时只执行任务，不建 Context 标准键、不提升产物。
+2. 通过 `IBuildRunEnvironment.PrepareContext(context, request)` 写入 Context 标准键；该接口是 Runner 唯一允许的“只有编辑器/具体后端才知道”的动作出口。
+3. `IBuildRunEnvironment.BeginAttempt(context, request)` 建立本次运行的产物事务；返回 null 表示不需要 attempt 中间目录。
+4. 先对全部 Task 报 `Pending`，再逐个报 `Running` 并按 `Success|Failed` 报结果，剩余 Task 报 `Skipped`。
+5. **首个失败即停**：即使 Task 声明 `IsFatal = false`，Runner 同样中止后续 Task，因为后续 Task 会消费不完整的 Context。（`BuildTaskResult.IsFatal` 字段仍存在，但当前不改变 Runner 的调度决策。）
+6. Task 抛出异常或返回 null 时转换为 `TASK_EXECUTION_ERROR` / `NULL_RESULT` 失败结果。
+7. 失败时调用 `IBuildAttempt.Discard()` 回收 attempt，正式输出与构建事实保持运行前状态。
+8. 成功后 `IBuildAttempt.TryPromote(out IBuildDeliveryToken, out string error)` 提升正式输出；提升失败按失败处理。
+9. 把交付 token 交给调用方，由调用方在自己的事务边界 `Commit` / `Rollback`。
 
-### BackendMode — 宿主后端模式
+Runner **不提供**：whitelist、stop-after、自由 DAG、可编辑主干、后端工厂、PackageIndex、历史 baseline 语义、发布和版本回滚（逐项现状见文末“已移除的旧管线能力”）。预览功能直接调用无副作用的扫描或 Diff 服务，不通过截断生产管线实现。
 
-`BackendMode` 是 Compat Runtime 的宿主选择枚举；Shared 构建请求和序列化协议只携带 `BackendKey` / `BackendMode` 字符串字段，不引用该枚举。`FYAssetBackendSettings` 的 `Backend` 保存运行时宿主选择，`GameLauncher` 通过序列化引用读取并在启动时绑定一次。
+### BuildPipelineComposer — 主干与自定义 Task 组装
 
-| 值 | 含义 |
-|----|------|
-| `AA` | 基于 Addressables 的 AA 构建 |
-| `ABManifest` | 基于 ABManifest 的自研构建（显示名为 AB） |
+```csharp
+public static IReadOnlyList<IBuildTask> Compose(
+    IReadOnlyList<CoreTaskSlot> coreTasks,
+    IReadOnlyList<CustomTaskEntry> customTasks);
+```
 
-正式 AA/AB concrete 构建入口继续显式决定自己的后端。Repository CLI 的 `-backend` 只用于选择仓库通道，不覆盖正式构建后端。
+顺序语义：
 
-`BuildType` 取值：
+```text
+Input 槽 → [主干[0] 槽的自定义 Task] → 主干[0] → … → 主干[N-1] → Output 槽
+```
 
-| 值 | 含义 |
-|----|------|
-| `Full` | 整包；交付包、安装包启动数据、PackageIndex 与 baseline |
-| `Hotfix` | 热更包；更新交付包、PackageIndex 与 baseline，不覆盖安装包启动数据 |
-| `Standalone` | AB 离线包；正式入口先写 attempt，再交付到 `StreamingAssets/Standalone/`；不写 baseline/PackageIndex，不生成 `HotfixOutput/Packages` 副本 |
+- `CoreTaskSlot(Slot, Task)`：主干阶段名 + 主干 Task 实例。主干 Task 由后端直接 `new`，不经反射。
+- `CustomTaskEntry(TaskName, Slot)`：`Slot` 表示“插入到该槽主干任务之前”，同一槽内多条按配置顺序稳定排列，每槽允许 `0..N` 条。
+- 合法槽位 = `Input` + 全部主干槽位名 + `Output`。
+- 所有校验失败都抛 `BuildPipelineException`，不做静默跳过：空槽位名、重复槽位名、缺主干 Task 实例、空主干、空 TaskName、未知 Slot、重复自定义 TaskName、自定义 Task 与主干同名、TaskName 无法解析。
 
-### Editor Layout
+`BuildTaskResolver` 启动时扫描已加载程序集，找出全部 `IBuildTask` 非抽象实现并按 `TaskName` 建索引。**反射只服务自定义 Task，不解析主干。**
 
-Build Pipeline 编辑器保留两个独立窗口，菜单入口统一归属 `FYAsset`：
+---
 
-- `FYAsset/Build/AA Build Pipeline`：AA 配置、构建、结果、发布目标及 Hotfix Group 恢复。
-- `FYAsset/Build/AB Build Pipeline`：AB 配置、Collection、构建、结果、Diff、发布目标及维护。
+## 固定主干
 
-窗口共享布局标准，具体页面由各自窗口装配。独立 Project Labels 页面已移除：AB 在 Collection 候选配置内修改 Labels，统一 Save/Cancel；AA 在 Addressables 原生编辑器维护。
+### AA：5 段
 
-人工构建由管线面板的 `Mode + Build` 发起，AB 支持 Full/Hotfix/Standalone，AA 支持 Full/Hotfix。不存在统一的三栏 Repository 页面。流程图和文件职责见 [HTML 建模文档](./fyasset-modeling.html)。
+```text
+PrepareAAInput
+→ BuildAAContent
+→ GenerateAAManifest
+→ VerifyAAContent
+→ ExportAAOutput
+```
+
+| 阶段 | 职责 |
+|---|---|
+| `PrepareAAInput` | 记录 Addressables source 快照（`AASourceScan`）；Hotfix 计算差异并迁移热更分组。Full/Standalone 不做临时移动 |
+| `BuildAAContent` | 调用 Addressables 原生 `BuildPlayerContent` |
+| `GenerateAAManifest` | 规范化 catalog，并从实际输出建立完整 AA 清单与哈希 |
+| `VerifyAAContent` | 校验 catalog、清单与内容文件集合 |
+| `ExportAAOutput` | 形成完整构建结果（`CompleteBuildSummary`）、模式输出与包内 BuildIndex；写 AA 源快照 `AASourceScan.json` |
+
+Addressables Group 的修改必须由 AA 入口 `try/finally` 恢复，不由尾部 Task 恢复。
+
+### AB：6 段
+
+```text
+CollectABAssets
+→ AnalyzeABDependencies
+→ BuildABContent
+→ GenerateABManifest
+→ VerifyABContent
+→ ExportABOutput
+```
+
+| 阶段 | 职责 |
+|---|---|
+| `CollectABAssets` | 扫描 Group/Collector，应用排除、RawFile 与 Address/Labels 覆盖，补框架内置内容 |
+| `AnalyzeABDependencies` | 分析 Asset 依赖、显式/隐式来源与共享策略，生成计划图 |
+| `BuildABContent` | 按输入指纹从历史正式 Summary 复用制品；SerializedObject/Scene 走 Unity，RawFile 直接复制 |
+| `GenerateABManifest` | 读取 Unity `AssetBundleManifest` 的实际依赖，生成完整 Asset/Content 映射 |
+| `VerifyABContent` | 校验 Address 唯一、Public 边界、成员关系、Content 类型、依赖、文件集合、Hash/CRC/Size |
+| `ExportABOutput` | 计算交付内容集合（Hotfix 为相对基准 Full 的新增/修改内容），写 Manifest、包内 BuildIndex 与 `ABDeliveryContents` |
 
 ---
 
@@ -86,123 +140,119 @@ AB 配置默认位于 `Assets/Build/BuildPipelineConfig.asset`，AA 配置默认
 
 ```
 BuildPipelineConfig
-├─ FileNameStyle         (BundleName / HashName / BundleName_HashName)
 ├─ BundleCompression     (LZ4 / LZMA / Uncompressed，默认 LZ4)
-└─ Tasks[]               (TaskEntry 顺序列表)
-     └─ TaskName         ("TaskPrepareContext")
+└─ Tasks[]               (CustomTaskEntry 列表：TaskName + Slot)
 ```
 
-### BundleFileNameStyle
+配置只保存构建选项与自定义 Task 的插入位置，**不能增删主干**。后端键由 concrete build manager 的 `BuildPackageRequest` 决定；Shared 不读取项目级后端选择配置。配置升级由 `BuildPipelineConfigUpgrader` 与 AA/AB 各自的 `*PipelineConfigUpgrade` 处理，把旧的“TaskName 列表”数据迁移成带槽位的 `CustomTaskEntry`。
 
-| 值 | 输出格式 |
-|----|---------|
-| `BundleName` | `{pkg}_{group}_{packKey}.bundle` |
-| `HashName` | `{MD5}.bundle` |
-| `BundleName_HashName` | `{pkg}_{group}_{packKey}_{MD5}.bundle`（默认） |
+### 物理内容文件名
 
-### 主干顺序护栏
+配置里不再有文件名风格选项；物理内容文件名由 `BundleNameBuilder.BuildPhysicalName` 统一生成：
 
-`TaskEntry` 只保存 `TaskName`，执行顺序只由列表位置决定。主干名单由各后端持有（`AAPipelineBackbone` / `ABPipelineBackbone`），缺失检查与默认列表创建共用 Shared 的 `BuildTaskListUtility` 机制，并由调用方把名单注入 `BuildPipelineRunner.Execute`；runner 不做拓扑排序，也不维护第二套依赖声明。骨架校验只查漏、不拒绝列表中的额外条目。超出骨架的 `TaskName` 即自定义 Task，由 `BuildTaskResolver` 按名解析；找不到实现则明确 Fail。本仓库的 `LuaScriptsIndexBuildTask` 属于 Compat 胶水，不进入 AA/AB 骨架。
+| 段 | 含义 |
+|----|------|
+| `group` | 内容逻辑名的分组段 |
+| `kind` | `asset` / `scene` / `raw` / `all` / `labels` / `unlabeled` |
+| `readable` | 可读段（自动 Address 用资源短名；整组 / 无标签模式不生成），超长截断 |
+| `hash12` | 由内容逻辑名、kind 与可读段派生的 12 位身份哈希 |
 
----
+最终形如 `{group}_{kind}[_{readable}]_{hash12}`，不含文件扩展名。物理名的唯一性与长度上限由这 12 位哈希承担，逻辑名到物理名的映射由 Manifest 的 `ManifestContentEntry.FileName` 承担。规则版本是 `BundleNameBuilder.PhysicalNameRuleVersion`，它参与身份哈希与构建配方指纹，规则变化必须同时提升它。
 
-## BuildTaskResolver — Task 发现
+### BuildType 与模式输出
 
-启动时扫描所有已加载程序集，找到所有 `IBuildTask` 的非抽象实现类，按 `TaskName` 构建 `Type` 索引并缓存。`CreateTask(taskName)` 通过 `Activator.CreateInstance` 实例化，重复调用返回新实例。
+| 值 | 含义 |
+|----|------|
+| `Full` | 完整内置包：`BuildIndex(RuntimeMode=Online)` + 完整 Manifest + 全部内容，交付到 `Packages/Build_*` 独立目录 |
+| `Hotfix` | AB：完整目标 Manifest + 相对最近成功 Full 的新增/修改内容；AA：本次 Addressables 构建的产出内容（相对基准 Full 裁剪属延期矩阵）。都交付到独立 `Build_*` 目录，不写包内 BuildIndex |
+| `Standalone` | 完整离线包：`BuildIndex(RuntimeMode=Standalone)` + 完整 Manifest + 全部内容，交付到 `StreamingAssets/Standalone/` |
 
-`BuildPipelineConfig.TaskEntry` 只存储 `TaskName` 字符串（不存 `ClassName`），因此类名修改不影响已有 SO 配置数据。
-
----
-
-## BuildTaskResult / BuildResult
-
-### BuildTaskResult — 单 Task 结果
-
-Task 通过 `Ok` 或 `Fail` 工厂返回结构化结果。
-
-`IsFatal = true` 的失败会中止 runner 后续 Task。`IsFatal = false` 仅记录错误，调度继续。
-
-### BuildResult — 管线汇总
-
-`BuildResult` 汇总整体成功状态、参与/完成/跳过数量和按执行顺序排列的 Task 结果。
+`RuntimeMode` 由 `CompleteBuildSummary.ResolveRuntimeMode(BuildType)` 推导并在构建导出时写入 `BuildIndex`，运行时只读该字段。
 
 ---
 
-## 跳过与提前终止规则
+## 构建结果摘要
 
-构建管线区分三类情况：Task 内部 no-op 跳过、runner 提前终止、错误中止。跳过必须保持数据不污染：只读预览不能写 `PackageIndex`、基线文件（`BuildData/Baselines`） 或正式输出目录；Task 内 no-op 只能返回成功，不能留下半成品状态。
+`CompleteBuildSummary` 是**构建结果面板的唯一数据源**：
 
-| 场景 | 机制 | 结果 |
-|------|------|------|
-| AA Diff Preview | runner whitelist 从配置列表头执行到 `TaskScanAAHotfixDiff`（含注入的 Compat lua task；preview 下该 task 不写资产），并在 diff Task 后 stop-after | 只计算 `ArtifactDelta`，不移动 group、不构建、不写 PackageIndex、不提交 repository |
-| AB Diff Preview | runner whitelist 允许 AB 构建到 `TaskScanABHotfixDiff`，并在该 Task 后 stop-after | 使用 `Temp/BuildRepositoryPreview/{guid}` 临时输出，finally 清理，不写正式 PackageIndex 与基线；展示基线 Diff 和 Full-baseline Hotfix Delivery 两组信息 |
-| AA Full Build | `TaskScanAAHotfixDiff` 和 `TaskMoveAAHotfixGroups` 内按 `BuildType` 返回成功跳过 | Full 不做 hotfix diff/group move，但继续后续构建 |
-| Full/Standalone 本地启动数据 | `TaskExportLocalBuildData` 在 `BuildType.Full` / `Standalone` 执行 | AB attempt 路径由 Runner 交付时调用 BeginDelivery；Full 更新在线基线，Standalone 安装独立离线包及 BuildIndex；AA 保留非 attempt 路径 |
-| Hotfix Build 本地启动数据 | `TaskExportLocalBuildData` 在 `BuildType.Hotfix` 返回成功跳过 | Hotfix 不覆盖整包启动数据 |
-| AA Hotfix 无差异 | diff Task 写空 `ArtifactDelta`，group move Task no-op 成功 | 继续构建，确认无变更流程仍正确 |
-| AB Hotfix 无差异 | `TaskScanABHotfixDiff` 写入空 `ABDeliveryBundles` 并返回成功 | 后续 organize/manifest/PackageIndex 仍按官方构建执行，输出 manifest-only Hotfix 包 |
-| AB Hotfix 缺 Full baseline | `TaskScanABHotfixDiff` fatal fail | 缺少同 Channel/Backend/Major 且 `BuildType == Full` 的 baseline 时不进入 package finalization |
-| `PackageIndex` 写入 | `TaskWritePackageIndex` 在官方 Full/Hotfix runner 中执行 | `PackageIndex` 是远端最新包指针，不是 Full-only 数据；Diff Preview 早停不会执行它 |
-| Fatal Task 失败 | `BuildTaskResult.Fail(..., fatal: true)` | 调度器停止后续 Task，剩余 Task 标记 Skipped |
-| runner 校验失败 | Validate 阶段阻断 | 不执行任何 Task |
-| AA pending group move | `TaskMoveAAHotfixGroups` 检测 undo log 并 fatal fail | 要求先手动 reset，避免覆盖原始 group 归属 |
-| AB 手动 reset | `ResetGroupsToOriginal()` 检测 AB backend | 直接跳过并提示，因为 AB 没有 Addressables group move |
+```csharp
+public sealed class CompleteBuildSummary
+{
+    public string BuildId;         // 当前为包名
+    public string BackendId;       // AA / AB
+    public BuildType BuildType;
+    public RuntimeMode RuntimeMode;
+    public VersionNumber Version;
+    public string Platform;
+    public DateTime StartedAt;     // UTC
+    public TimeSpan Duration;
+    public bool Success;
+    public List<FileDigest> Files;
+    public List<SummaryContentFact> Contents;   // 内容复用事实
+    public List<BuildMessage> Messages;
+    public BuildStatistics Statistics;   // AssetCount / ContentCount / FileCount / TotalBytes
+}
+```
+
+- Export 阶段把它写入 `BuildContextKeys.BuildSummary`，后端通过 `BuildBackendResult.Summary` 返回，`BuildProjectRunner.LastSummary` 供 `PipelinePanel` 结果摘要区读取；每次构建开始时先清空。
+- 详细 Task 日志仍由 Runner 的逐个 Task 结果独立承载。
+- 摘要有两份落盘形式：正式摘要写在 `BuildData/Summaries/{AA|AB}/{BuildId}.json`（不可变，含文件清单与内容复用事实），定位索引是可重建的 `BuildData/Summaries/index.json`；包目录内不再有摘要文件。
+- 摘要与 Index 由交付事务提交，Index 是最后一个可见身份提交点；发布侧的包身份由发布 UI 从正式摘要解析后注入，不再从包目录解析。
+- 摘要不拥有生命周期，也不定义复用字节来源：历史 `Build_*` 包才是字节来源，摘要是复用索引。
+
+AB 窗口另有独立的 `ABReportPanel`（`BuildData/Reports/AB` 下的 editor-only JSON 报告，由 `ABBuildReportBuilder` 在 `ABBuildBackend` 中写出）。它与上面的摘要区数据源不同：摘要区只读 `CompleteBuildSummary`，报告面板只读报告文件，两者都不写包输出。
+
+---
+
+## BackendMode — 宿主后端模式
+
+`BackendMode` 是 Compat Runtime 的身份枚举（`Unspecified` / `AA` / `ABManifest`）；Shared 构建请求和序列化协议只携带 `BackendKey` / `BackendMode` 字符串字段，不引用该枚举。
+
+| 枚举 `BackendMode` | 字符串名（`BackendModeNames`） | 含义 |
+|----|----|------|
+| `AA` | `"AA"` | 基于 Addressables 的 AA 构建 |
+| `ABManifest` | `"AB"` | 基于 ABManifest 的自研构建 |
+| `Unspecified` | — | 未选择；`IsValid` 返回 false，正式入口会拒绝 |
+
+`BackendMode` 只做身份校验与诊断，不创建、不选择、不切换后端；后端身份不一致一律 Error 严格阻断。正式 AA/AB concrete 构建入口各自固定使用所属后端。
+
+---
+
+## Editor Layout
+
+Build Pipeline 编辑器保留两个独立窗口，菜单入口统一归属 `FYAsset`：
+
+| 窗口 | 面板 |
+|---|---|
+| `FYAsset/Build/AA Build Pipeline` | `SettingsPanel`、`AAConfigPanel`、`AABuildPanel`、`AAReportPanel`、`PublishTargetPanel`、`AAHotfixGroupMaintenancePanel` |
+| `FYAsset/Build/AB Build Pipeline` | `SettingsPanel`、`ABConfigPanel`、`AssetsCollectionPanel`、`PipelinePanel`、`BuildPanelActions`、`ABReportPanel`、`PublishTargetPanel`、`ABTestMaintenancePanel` |
+
+- `PipelinePanel` 负责自定义 Task 的槽位编辑、主干展示、构建入口与结果摘要区。
+- 独立 Project Labels 页面已移除：AB 在 Collection 候选配置内修改 Labels，统一 Save/Cancel；AA 在 Addressables 原生编辑器维护。
+- 人工构建由管线面板的 `Mode + Build` 发起，AB 支持 Full/Hotfix/Standalone，AA 支持 Full/Hotfix。不存在统一的三栏 Repository 页面，也不存在 Diff Preview 页面。
+- 流程图和文件职责见 [HTML 建模文档](./fyasset-modeling.html)。
 
 ---
 
 ## 路径规范
 
-- `BuildConfig.OutputRoot` 在创建时解析为规范本地路径；CLI `--output`、Diff Preview 输出根和默认输出根进入后续 Task 前都会经过统一解析。
+- `BuildConfig.OutputRoot` 在创建时解析为规范本地路径。
 - 远端 URL 只使用 `FYAssetPathUtility.JoinUrl(...)` 拼接。
 - 构建输出、临时目录、包体目录、manifest、bundle、`StreamingAssets` 导出等本地路径使用 `FYAssetPathUtility.JoinFilePath(...)` / `ResolveFilePath(...)`。
 - Unity `AssetDatabase` 路径保持 `Assets/...` 和 `/` 分隔符，通过 `NormalizeAssetPath(...)` / `JoinAssetPath(...)` 处理。
+- `BuildPathManager` 提供 `PackagesDir`（`{OutputRoot}/{BuildPackagesFolderName}`）、`AttemptPackagesRoot`（`{OutputRoot}/_attempt`）与 `StandalonePackageDir`（`StreamingAssets/Standalone`）；不再有固定累计 Hotfix 目录，Full 与 Hotfix 都交付到 `Packages` 下按包名隔离的目录。
 
 ---
 
-## 执行流程
+## 已移除的旧管线能力
 
-1. 解析阶段先应用 whitelist，再检查必需主干及空、重复、未注册的 TaskName。
-2. 解析成功后严格按配置顺序执行。
-3. `stop-after` 正常提前结束；Fatal 失败中止并将后续 Task 标为跳过。
+以下能力在当前源码中不存在，文档与配置都不得再按现行机制描述：
 
----
-
-## 标准数据流 Key
-
-`BuildContextKeys` 类集中管理 BuildContext 的标准 Key 名称：
-
-| Key | 类型 | 写入者 | 消费者 |
-|-----|------|--------|--------|
-| `BuildPackageRequest` | `BuildPackageRequest` | AB/AA Backend | 所有 Task |
-| `BuildType` | `BuildType` | AB/AA Backend | TaskScan*, TaskExport*, TaskMove* |
-| `CollectedAssets` | `List<CollectedAssetInfo>` | TaskCollectAssets, TaskCollectBuiltins | TaskAnalyzeDependencies, TaskBuildBundles, TaskGenerateManifest |
-| `SharePolicies` | `Dictionary<string, SharePolicyConfig>` | TaskCollectAssets | TaskAnalyzeDependencies |
-| `BundleDependencyGraph` | `BundleDependencyGraph` | TaskAnalyzeDependencies | TaskBuildBundles, TaskGenerateManifest |
-| `BundleBuildResults` | `List<BundleBuildInfo>` | TaskBuildBundles | TaskGenerateManifest, TaskVerifyBuildResult |
-| `ABManifest` | `ABManifest` | TaskGenerateManifest | TaskVerifyBuildResult, TaskScanABHotfixDiff, TaskOrganizeOutput, TaskWriteABPackageManifest |
-| `ABDeliveryBundles` | `List<ManifestBundleEntry>` | TaskScanABHotfixDiff | TaskOrganizeOutput, TaskWriteABPackageManifest |
-| `BuildVerificationResult` | `BuildVerificationResult` | TaskVerifyBuildResult | TaskOrganizeOutput |
-| `OutputPath` | `string` | TaskOrganizeOutput / TaskOrganizeAAOutput | TaskWrite*Manifest, TaskExportLocalBuildData |
-| `ArtifactDelta` | `ArtifactDelta` | TaskScan*HotfixDiff | TaskMoveAAHotfixGroups, BuildProjectRunner |
-| `RepositoryArtifacts` | `List<BuildDiffEntry>` | TaskScan*HotfixDiff | AB/AA Backend，再由 BuildProjectRunner 保存 baseline |
-| `AAManifest` | `AAManifest` | TaskWriteAAPackageManifest | (context) |
-| `RepositoryPreviewOutput` | `string` | RepositoryPreviewRunner | TaskPrepareContext (预览模式) |
-| `RepositoryPreviewMode` | `bool` | RepositoryPreviewRunner | TaskScan*HotfixDiff |
-| `ABDeliveryPreviewMode` | `bool` | RepositoryPreviewRunner | TaskScanABHotfixDiff |
-
----
-
-## 现有 Task 列表
-
-这里按阶段说明，不复制完整类清单；精确 TaskName 和顺序以各自 `BuildPipelineConfig` 资产为准。
-
-| 阶段 | AB | AA |
-|------|----|----|
-| 准备与采集 | 初始化上下文，采集普通资产、Shader 和 Resources | 扫描 Addressables 源资产差异 |
-| 依赖与分组 | BFS 分析依赖并抽取共享 Bundle | Hotfix 时临时移动变更资产到 Hotfix Group |
-| 构建 | 按 PayloadKind 构建 Bundle/Scene/RawFile | 调用 Addressables BuildPlayerContent |
-| 校验与差异 | 生成并校验 ABManifest；计算基线 Diff 与 Full-baseline Delivery | 整理输出并生成 AAManifest |
-| 交付 | 整理 Full/Hotfix 文件，Runner 提交包、启动数据、索引与基线；失败尝试逆序补偿 | 写 manifest，构建后发布启动数据和索引，再保存 baseline |
-| 本地基线 | Full 导出 BuildIndex、manifest 和 bundles；Standalone 从 attempt 交付到离线目录；Hotfix 跳过 | Full 导出 BuildIndex 与查询索引；Hotfix 跳过 |
-
-具体 Task 顺序和数据依赖仍以配置与调用为准。构建交付不等于外部 Push；两条管线不承诺相同的事务范围。
+| 已移除 | 现状 |
+|---|---|
+| 可编辑主干 / DAG / 拓扑排序 | 主干由 AA/AB `PipelineBackbone` 固定定义；Runner 只顺序执行 Composer 结果 |
+| `whitelist` / `stop-after` 预览 | 无该参数；预览改为直接调用无副作用服务 |
+| `TaskEntry.DependsOn` / `BuildTaskListUtility` / `BuildResult` | 已删除；改为 `CustomTaskEntry` + `BuildRunResult` |
+| `TaskPrepareContext` / `TaskWritePackageIndex` / `TaskExportLocalBuildData` 等独立 Task | 职责并入 Runner 环境、Export 阶段与 `BuildProjectRunner` 交付事务 |
+| 生产管线截断预览（`BuildPreviewRunner`、`*RepositoryPreview`） | 已删除 |
+| Runner 内的 PackageIndex 写入与 baseline 提交 | 已删除；PackageIndex 由发布事务最后写入 |

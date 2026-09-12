@@ -6,9 +6,15 @@ public static class ABBuildContextKeys
 {
     public const string ABManifest = "ABManifest";
     public const string CollectedAssets = "CollectedAssets";
-    public const string SharePolicies = "SharePolicies";
+    public const string SharePolicy = "SharePolicy";
     public const string BundleDependencyGraph = "BundleDependencyGraph";
     public const string BundleBuildResults = "BundleBuildResults";
-    public const string ABDeliveryBundles = "ABDeliveryBundles";
+
+    /// <summary>本次 Hotfix 交付的内容集合；由 ExportABOutputTask 写入，供输出组织与发布读取</summary>
+    public const string ABDeliveryContents = "ABDeliveryContents";
+
     public const string ABDeliveryPreviewMode = "ABDeliveryPreviewMode";
+
+    /// <summary>本次构建的构建配方指纹（ABBuildContentFingerprint.ComputeRecipeFingerprint）；导出阶段写入正式 Summary</summary>
+    public const string BuildRecipeFingerprint = "BuildRecipeFingerprint";
 }

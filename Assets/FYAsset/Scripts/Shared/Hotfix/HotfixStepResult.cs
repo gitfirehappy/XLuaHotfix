@@ -13,7 +13,7 @@ public readonly struct HotfixStepResult
         Error = error;
     }
 
-    public static HotfixStepResult Ok => new HotfixStepResult(true, null);
+    public static HotfixStepResult Ok => new(true, null);
 
     public static HotfixStepResult Fail(RuntimeMessage error)
         => new HotfixStepResult(false, error);

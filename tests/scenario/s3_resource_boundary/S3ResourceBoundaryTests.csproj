@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="scenario_support.cs" />
+    <Compile Include="test_upper_package_boundary.cs" />
+    <Compile Include="test_backend_label_panels.cs" />
+    <Compile Include="test_label_parity_retirement.cs" />
+    <Compile Include="test_export_boundary.cs" />
+    <Compile Include="test_xluaframework_boundary.cs" />
+    <Compile Include="test_stale_serialized_dependency.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Compat/Runtime/BackendMode.cs" Link="BackendMode.cs" />
+  </ItemGroup>
+</Project>

@@ -1,60 +1,44 @@
 using System;
 using System.Collections.Generic;
-using UnityEngine;
 
 /// <summary>
-/// AB 资源清单 — 完整描述一次构建产出的所有资源与 Bundle 的映射关系。
-/// 
+/// AB 资源清单 —— 完整描述一次构建产出的资源与内容（物理文件）的映射关系。
+///
 /// 使用流程：
-/// 1. DeserializeFromJson() 反序列化得到实例
-/// 2. Initialize() 自动被调用，构建运行时索引
-/// 3. 通过 TryGetAssets* / GetBundle* 方法查询资源和 Bundle 信息
+/// 1. DeserializeFromJson() / DeserializeFromFile() 反序列化得到实例，并自动 Initialize()
+/// 2. 通过 TryGetAssetsByAddress / TryGetAssetByEntryId / TryGetContentByFileName 查询
+///
+/// 地址语义：Address 只对公共条目（IsPublic=true，即显式采集的资源）有意义，
+/// 隐式依赖条目不写 Address，也不进入地址索引；地址索引只服务公共资源的加载与查询。
 /// </summary>
 [Serializable]
-[BinarySerializable(Magic = 0x41424D46, SchemaVersion = 5)]
+[BinarySerializable(Magic = 0x41424D46, SchemaVersion = 6)]
 public class ABManifest
 {
 
-    /// <summary>包裹标识（如 "MainPackage"）</summary>
-    [BinaryField(0)]
-    public string PackageName;
-
     /// <summary>包裹版本号</summary>
-    [BinaryField(1)]
+    [BinaryField(0)]
     public VersionNumber PackageVersion;
 
-    /// <summary>构建时间戳（ISO 8601 格式，调试用）</summary>
-    [BinaryField(2)]
-    public string BuildTimestamp;
-
-    /// <summary>此字段为空时生成 canonical manifest hash。</summary>
-    [BinaryField(3)]
-    public string FileHash;
-
-    /// <summary>所有资源条目</summary>
-    [BinaryField(4)]
+    /// <summary>所有资源条目；显式采集与隐式依赖都在这里，用 IsPublic 区分</summary>
+    [BinaryField(1)]
     public List<ManifestAssetEntry> AssetEntries = new();
 
-    /// <summary>所有 Bundle 条目</summary>
-    [BinaryField(5)]
-    public List<ManifestBundleEntry> BundleEntries = new();
+    /// <summary>所有内容条目（AssetBundle 与 RawFile 统一承载）</summary>
+    [BinaryField(2)]
+    public List<ManifestContentEntry> ContentEntries = new();
 
-    /// <summary>
-    /// 本次远端包实际交付的 Bundle 条目。
-    /// Full build 保持空列表；Hotfix build 记录相对同 Major Full baseline 的 Added/Modified 物理 Bundle。
-    /// Runtime 查找和当前热更准备列表使用 BundleEntries；DeliveryBundles 供构建与发布交付使用。
-    /// </summary>
-    [BinaryField(6)]
-    public List<ManifestBundleEntry> DeliveryBundles = new();
-
-    /// <summary>Address -> AssetEntry 索引列表（支持重复 Address）</summary>
+    /// <summary>公共 Address -> AssetEntry 索引列表；只含 IsPublic 条目</summary>
     [NonSerialized] private Dictionary<string, List<int>> _addressIndex;
 
     /// <summary>EntryId -> AssetEntry 索引（唯一）</summary>
     [NonSerialized] private Dictionary<string, int> _entryIdIndex;
 
-    /// <summary>BundleName -> BundleEntry 索引</summary>
-    [NonSerialized] private Dictionary<string, int> _bundleNameIndex;
+    /// <summary>FileName -> ContentEntry 索引</summary>
+    [NonSerialized] private Dictionary<string, int> _contentFileNameIndex;
+
+    /// <summary>ContentIndex -> 该内容包含的资产条目下标；按需构建，不序列化</summary>
+    [NonSerialized] private List<List<int>> _assetIndicesByContent;
 
     /// <summary>标记是否已初始化</summary>
     [NonSerialized] private bool _initialized;
@@ -62,25 +46,33 @@ public class ABManifest
     /// <summary>
     /// 构建运行时索引。反序列化后必须调用。
     /// </summary>
+    /// <remarks>
+    /// 索引只做查询加速，不做数据校验；重复或非法的条目由构建期 VerifyABContent 阻断，
+    /// 运行时不因为坏数据抛异常而拒绝加载整份清单。
+    /// </remarks>
     public void Initialize()
     {
         if (_initialized) return;
 
         int assetCount = AssetEntries != null ? AssetEntries.Count : 0;
-        int bundleCount = BundleEntries != null ? BundleEntries.Count : 0;
+        int contentCount = ContentEntries != null ? ContentEntries.Count : 0;
 
         _entryIdIndex = new Dictionary<string, int>(assetCount);
         for (int i = 0; i < assetCount; i++)
         {
             var entry = AssetEntries[i];
-            if (!string.IsNullOrEmpty(entry.EntryId))
+            if (entry != null && !string.IsNullOrEmpty(entry.EntryId))
                 _entryIdIndex[entry.EntryId] = i;
         }
 
-        _addressIndex = new Dictionary<string, List<int>>(assetCount);
+        // 只有公共条目的 Address 有意义；隐式依赖条目的 Address 为空，天然不进索引
+        _addressIndex = new Dictionary<string, List<int>>(StringComparer.OrdinalIgnoreCase);
         for (int i = 0; i < assetCount; i++)
         {
-            string addr = AssetEntries[i].Address;
+            var entry = AssetEntries[i];
+            if (entry == null || !entry.IsPublic) continue;
+
+            string addr = entry.Address;
             if (string.IsNullOrEmpty(addr)) continue;
 
             if (!_addressIndex.TryGetValue(addr, out var list))
@@ -91,48 +83,24 @@ public class ABManifest
             list.Add(i);
         }
 
-        _bundleNameIndex = new Dictionary<string, int>(bundleCount);
-        for (int i = 0; i < bundleCount; i++)
+        _contentFileNameIndex = new Dictionary<string, int>(contentCount, StringComparer.OrdinalIgnoreCase);
+        for (int i = 0; i < contentCount; i++)
         {
-            var bundle = BundleEntries[i];
-            if (string.IsNullOrEmpty(bundle.BundleName))
+            var content = ContentEntries[i];
+            if (content == null || string.IsNullOrEmpty(content.FileName))
                 continue;
-            if (_bundleNameIndex.ContainsKey(bundle.BundleName))
-                throw new InvalidOperationException($"Duplicate ManifestBundleEntry.BundleName: {bundle.BundleName}");
-            _bundleNameIndex[bundle.BundleName] = i;
-        }
 
-        for (int i = 0; i < bundleCount; i++)
-        {
-            BundleEntries[i].IncludeAssets = new List<ManifestAssetEntry>();
-            BundleEntries[i].ReferencedByBundleIndices = new List<int>();
-        }
-
-        for (int i = 0; i < assetCount; i++)
-        {
-            int bundleIdx = AssetEntries[i].BundleIndex;
-            if (bundleIdx >= 0 && bundleIdx < bundleCount)
-                BundleEntries[bundleIdx].IncludeAssets.Add(AssetEntries[i]);
-        }
-
-        // 反向依赖索引：将当前 Bundle 索引加入被依赖 Bundle 的 ReferencedByBundleIndices
-        for (int i = 0; i < bundleCount; i++)
-        {
-            var deps = BundleEntries[i].DependBundleIndices;
-            if (deps == null) continue;
-            for (int j = 0; j < deps.Length; j++)
-            {
-                int depIdx = deps[j];
-                if (depIdx >= 0 && depIdx < bundleCount)
-                    BundleEntries[depIdx].ReferencedByBundleIndices.Add(i);
-            }
+            // 同名内容只保留首个；重复文件名由构建期校验阻断
+            if (!_contentFileNameIndex.ContainsKey(content.FileName))
+                _contentFileNameIndex[content.FileName] = i;
         }
 
         _initialized = true;
     }
 
     /// <summary>
-    /// 按 Address 查找资源条目（Address 允许重复，返回所有匹配项）。
+    /// 按公共 Address 查找资源条目（大小写不敏感）。
+    /// 契约上公共 Address 在单包内唯一，返回列表是为了让调用方在坏数据下也能显式消歧。
     /// </summary>
     public bool TryGetAssetsByAddress(string address, out List<ManifestAssetEntry> results)
     {
@@ -163,59 +131,102 @@ public class ABManifest
     }
 
     /// <summary>
-    /// 获取所有资源条目数量。
+    /// 按输出文件名查找内容条目（大小写不敏感）。
+    /// </summary>
+    public bool TryGetContentByFileName(string fileName, out ManifestContentEntry result)
+    {
+        result = null;
+        if (_contentFileNameIndex == null || string.IsNullOrEmpty(fileName))
+            return false;
+        if (!_contentFileNameIndex.TryGetValue(fileName, out int index))
+            return false;
+        result = ContentEntries[index];
+        return true;
+    }
+
+    /// <summary>
+    /// 获取资源条目数量。
     /// </summary>
     public int AssetCount => AssetEntries != null ? AssetEntries.Count : 0;
 
     /// <summary>
-    /// 获取所有 Bundle 条目数量。
+    /// 获取内容条目数量。
     /// </summary>
-    public int BundleCount => BundleEntries != null ? BundleEntries.Count : 0;
+    public int ContentCount => ContentEntries != null ? ContentEntries.Count : 0;
 
     /// <summary>
-    /// 获取资源条目所属的 Bundle 条目。
+    /// 获取资源条目所属的内容条目；ContentIndex 越界或不在清单内时返回 null。
     /// </summary>
-    public ManifestBundleEntry GetBundleForAsset(ManifestAssetEntry assetEntry)
+    public ManifestContentEntry GetContentForAsset(ManifestAssetEntry assetEntry)
     {
-        if (assetEntry == null || BundleEntries == null) return null;
-        int idx = assetEntry.BundleIndex;
-        if (idx >= 0 && idx < BundleEntries.Count)
-            return BundleEntries[idx];
+        if (assetEntry == null || ContentEntries == null) return null;
+        int idx = assetEntry.ContentIndex;
+        if (idx >= 0 && idx < ContentEntries.Count)
+            return ContentEntries[idx];
         return null;
     }
 
     /// <summary>
-    /// 获取 Bundle 的直接依赖列表。
+    /// 获取内容的直接依赖列表。
     /// 注意：递归展开由 ABBundleLoader 负责，此方法只返回直接依赖。
     /// </summary>
-    public List<ManifestBundleEntry> GetDirectDependencies(ManifestBundleEntry bundleEntry)
+    public List<ManifestContentEntry> GetDirectDependencies(ManifestContentEntry contentEntry)
     {
-        if (bundleEntry == null || bundleEntry.DependBundleIndices == null)
-            return new List<ManifestBundleEntry>(0);
+        if (contentEntry == null || contentEntry.DependencyIndices == null)
+            return new List<ManifestContentEntry>(0);
 
-        var deps = bundleEntry.DependBundleIndices;
-        var result = new List<ManifestBundleEntry>(deps.Length);
+        var deps = contentEntry.DependencyIndices;
+        var result = new List<ManifestContentEntry>(deps.Length);
         for (int i = 0; i < deps.Length; i++)
         {
             int depIdx = deps[i];
-            if (depIdx >= 0 && depIdx < BundleEntries.Count)
-                result.Add(BundleEntries[depIdx]);
+            if (depIdx >= 0 && ContentEntries != null && depIdx < ContentEntries.Count)
+                result.Add(ContentEntries[depIdx]);
         }
         return result;
     }
 
     /// <summary>
-    /// 按 BundleName 查找 Bundle 条目。
+    /// 获取指定内容包含的资产条目。
+    /// 该索引按需构建，只存在于运行时，不是内容条目的字段。
     /// </summary>
-    public bool TryGetBundleByName(string bundleName, out ManifestBundleEntry result)
+    public IReadOnlyList<ManifestAssetEntry> GetAssetsInContent(int contentIndex)
     {
-        result = null;
-        if (_bundleNameIndex == null || string.IsNullOrEmpty(bundleName))
-            return false;
-        if (!_bundleNameIndex.TryGetValue(bundleName, out int index))
-            return false;
-        result = BundleEntries[index];
-        return true;
+        if (ContentEntries == null || contentIndex < 0 || contentIndex >= ContentEntries.Count)
+            return Array.Empty<ManifestAssetEntry>();
+
+        if (_assetIndicesByContent == null)
+            BuildAssetIndicesByContent();
+
+        return _assetIndicesByContent[contentIndex].Count == 0
+            ? Array.Empty<ManifestAssetEntry>()
+            : CollectAssets(_assetIndicesByContent[contentIndex]);
+    }
+
+    private void BuildAssetIndicesByContent()
+    {
+        _assetIndicesByContent = new List<List<int>>(ContentEntries.Count);
+        for (int i = 0; i < ContentEntries.Count; i++)
+            _assetIndicesByContent.Add(new List<int>());
+
+        int assetCount = AssetEntries != null ? AssetEntries.Count : 0;
+        for (int i = 0; i < assetCount; i++)
+        {
+            var entry = AssetEntries[i];
+            if (entry == null) continue;
+            int contentIndex = entry.ContentIndex;
+            if (contentIndex < 0 || contentIndex >= _assetIndicesByContent.Count)
+                continue;
+            _assetIndicesByContent[contentIndex].Add(i);
+        }
+    }
+
+    private List<ManifestAssetEntry> CollectAssets(List<int> indices)
+    {
+        var result = new List<ManifestAssetEntry>(indices.Count);
+        for (int i = 0; i < indices.Count; i++)
+            result.Add(AssetEntries[indices[i]]);
+        return result;
     }
 
     /// <summary>

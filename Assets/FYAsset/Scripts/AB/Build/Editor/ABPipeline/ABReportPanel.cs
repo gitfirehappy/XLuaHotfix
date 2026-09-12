@@ -25,7 +25,7 @@ public sealed class ABReportPanel : BuildPipelineUIToolkitPanel
     {
         AssetBundles,
         Assets,
-        Groups,
+        ContentTypes,
         Labels
     }
 
@@ -126,7 +126,7 @@ public sealed class ABReportPanel : BuildPipelineUIToolkitPanel
         tabs.Add(BuildPipelineUI.Spacer());
 
         _exploreModeField = new PopupField<string>(
-            new List<string> { "AssetBundles", "Assets", "Groups", "Labels" },
+            new List<string> { "AssetBundles", "Assets", "ContentTypes", "Labels" },
             _exploreMode.ToString());
         _exploreModeField.style.width = 160f;
         _exploreModeField.RegisterValueChangedCallback(evt =>
@@ -309,7 +309,7 @@ public sealed class ABReportPanel : BuildPipelineUIToolkitPanel
         {
             ("Bundles", _report.Summary.BundleCount.ToString()),
             ("Assets", _report.Summary.AssetCount.ToString()),
-            ("Groups", _report.Summary.GroupCount.ToString()),
+            ("ContentTypes", _report.Summary.ContentTypeCount.ToString()),
             ("Labels", _report.Summary.LabelCount.ToString()),
             ("Total Size", FileHelper.FormatBytes(_report.Summary.TotalBundleSize)),
             ("Delivery", $"{_report.Summary.DeliveryBundleCount} / {FileHelper.FormatBytes(_report.Summary.DeliveryBundleSize)}"),
@@ -341,8 +341,8 @@ public sealed class ABReportPanel : BuildPipelineUIToolkitPanel
             case ExploreMode.Assets:
                 DrawAssetRows(scroll);
                 break;
-            case ExploreMode.Groups:
-                DrawGroupRows(scroll);
+            case ExploreMode.ContentTypes:
+                DrawContentTypeRows(scroll);
                 break;
             case ExploreMode.Labels:
                 DrawLabelRows(scroll);
@@ -386,11 +386,11 @@ public sealed class ABReportPanel : BuildPipelineUIToolkitPanel
 
     private void DrawBundleRows(VisualElement parent)
     {
-        AddTableHeader(parent, "Bundle / Asset", "File Size", "Type", "Group", "Assets", "Refs To", "Refs By", "Delivery");
+        AddTableHeader(parent, "Content / Asset", "File Size", "Type", "Assets", "Refs To", "Refs By", "Delivery");
         for (int i = 0; i < _report.Bundles.Count; i++)
         {
             ABBuildReportBundle bundle = _report.Bundles[i];
-            if (!MatchesSearch(bundle.BundleName, bundle.BundleType, bundle.Group, bundle.Tags))
+            if (!MatchesSearch(bundle.BundleName, bundle.ContentType))
                 continue;
 
             VisualElement row = CreateDataRow();
@@ -399,8 +399,7 @@ public sealed class ABReportPanel : BuildPipelineUIToolkitPanel
             foldout.style.flexShrink = 0f;
             row.Add(foldout);
             row.Add(CreateCell(FileHelper.FormatBytes(bundle.FileSize), 92f));
-            row.Add(CreateCell(bundle.BundleType, 90f));
-            row.Add(CreateCell(bundle.Group, 130f));
+            row.Add(CreateCell(bundle.ContentType, 90f));
             row.Add(CreateCell(bundle.AssetCount.ToString(), 56f));
             row.Add(CreateCell(bundle.DependencyCount.ToString(), 52f));
             row.Add(CreateCell((bundle.ReferencedBy?.Count ?? 0).ToString(), 52f));
@@ -422,7 +421,6 @@ public sealed class ABReportPanel : BuildPipelineUIToolkitPanel
                 assetRow.Add(assetName);
                 assetRow.Add(CreateCell(asset.Address, 92f));
                 assetRow.Add(CreateCell(asset.PrimaryType, 90f));
-                assetRow.Add(CreateCell(asset.Group, 130f));
                 assetRow.Add(CreateCell(string.Empty, 56f));
                 assetRow.Add(CreateCell(string.Empty, 52f));
                 assetRow.Add(CreateCell(string.Empty, 52f));
@@ -437,18 +435,18 @@ public sealed class ABReportPanel : BuildPipelineUIToolkitPanel
 
     private void DrawAssetRows(VisualElement parent)
     {
-        AddTableHeader(parent, "Asset", "Address", "Type", "Group", "Bundle", "Delivery");
+        AddTableHeader(parent, "Asset", "Address", "Type", "Public", "Content", "Delivery");
         for (int i = 0; i < _report.Assets.Count; i++)
         {
             ABBuildReportAsset asset = _report.Assets[i];
-            if (!MatchesSearch(asset.SourcePath, asset.Address, asset.PrimaryType, asset.Group, asset.Labels, asset.BundleName))
+            if (!MatchesSearch(asset.SourcePath, asset.Address, asset.PrimaryType, asset.Labels, asset.BundleName))
                 continue;
 
             VisualElement row = CreateDataRow();
             row.Add(CreateCell(asset.SourcePath, 300f));
             row.Add(CreateCell(asset.Address, 180f));
             row.Add(CreateCell(asset.PrimaryType, 100f));
-            row.Add(CreateCell(asset.Group, 120f));
+            row.Add(CreateCell(asset.IsPublic ? "Yes" : "No", 120f));
             row.Add(CreateCell(asset.BundleName, 220f));
             row.Add(CreateCell(asset.Delivered ? "Yes" : "No", 70f, asset.Delivered ? new Color(0.35f, 0.95f, 0.35f) : BuildPipelineUI.SecondaryTextColor));
             row.RegisterCallback<PointerDownEvent>(_ => DrawAssetDetails(asset));
@@ -456,21 +454,22 @@ public sealed class ABReportPanel : BuildPipelineUIToolkitPanel
         }
     }
 
-    private void DrawGroupRows(VisualElement parent)
+    private void DrawContentTypeRows(VisualElement parent)
     {
-        AddTableHeader(parent, "Group", "Assets", "Bundles", "Total Size");
-        for (int i = 0; i < _report.Groups.Count; i++)
+        AddTableHeader(parent, "Content Type", "Assets", "Contents", "Total Size");
+        for (int i = 0; i < _report.ContentTypes.Count; i++)
         {
-            ABBuildReportGroup group = _report.Groups[i];
-            if (!MatchesSearch(group.Group))
+            ABBuildReportContentType contentType = _report.ContentTypes[i];
+            if (!MatchesSearch(contentType.ContentType))
                 continue;
 
             VisualElement row = CreateDataRow();
-            row.Add(CreateCell(group.Group, 260f));
-            row.Add(CreateCell(group.AssetCount.ToString(), 80f));
-            row.Add(CreateCell(group.BundleCount.ToString(), 80f));
-            row.Add(CreateCell(FileHelper.FormatBytes(group.TotalSize), 120f));
-            row.RegisterCallback<PointerDownEvent>(_ => DrawAggregateDetails("Group", group.Group, group.AssetCount, group.BundleCount, group.TotalSize));
+            row.Add(CreateCell(contentType.ContentType, 260f));
+            row.Add(CreateCell(contentType.AssetCount.ToString(), 80f));
+            row.Add(CreateCell(contentType.BundleCount.ToString(), 80f));
+            row.Add(CreateCell(FileHelper.FormatBytes(contentType.TotalSize), 120f));
+            row.RegisterCallback<PointerDownEvent>(_ => DrawAggregateDetails(
+                "Content Type", contentType.ContentType, contentType.AssetCount, contentType.BundleCount, contentType.TotalSize));
             parent.Add(row);
         }
     }
@@ -497,29 +496,27 @@ public sealed class ABReportPanel : BuildPipelineUIToolkitPanel
     private void DrawBundleDetails(ABBuildReportBundle bundle)
     {
         _details.Clear();
-        _details.Add(BuildPipelineUI.Header("Bundle"));
+        _details.Add(BuildPipelineUI.Header("Content"));
         AddKeyValue(_details, "Name", bundle.BundleName);
         AddKeyValue(_details, "File Path", GetBundleFilePath(bundle.BundleName));
         AddKeyValue(_details, "Size", FileHelper.FormatBytes(bundle.FileSize));
         AddKeyValue(_details, "Hash", bundle.FileHash);
         AddKeyValue(_details, "CRC", bundle.FileCRC.ToString());
-        AddKeyValue(_details, "Type", bundle.BundleType);
-        AddKeyValue(_details, "Group", bundle.Group);
-        AddKeyValue(_details, "Tags", bundle.Tags);
+        AddKeyValue(_details, "Type", bundle.ContentType);
         AddKeyValue(_details, "Delivered", bundle.Delivered ? "Yes" : "No");
         AddList(_details, "Dependencies", bundle.Dependencies);
         AddList(_details, "Referenced By", bundle.ReferencedBy);
         AddList(_details, "Assets", bundle.Assets);
     }
 
-    private string GetBundleFilePath(string bundleName)
+    private string GetBundleFilePath(string contentName)
     {
-        if (_report?.Header == null || string.IsNullOrEmpty(_report.Header.PackagePath) || string.IsNullOrEmpty(bundleName))
+        if (_report?.Header == null || string.IsNullOrEmpty(_report.Header.PackagePath) || string.IsNullOrEmpty(contentName))
             return string.Empty;
         return FYAssetPathUtility.JoinFilePath(
             _report.Header.PackagePath,
             FYAssetSettings.BUNDLES_DIRECTORY_NAME,
-            bundleName);
+            contentName);
     }
 
     private void DrawAssetDetails(ABBuildReportAsset asset)
@@ -530,9 +527,10 @@ public sealed class ABReportPanel : BuildPipelineUIToolkitPanel
         AddKeyValue(_details, "EntryId", asset.EntryId);
         AddKeyValue(_details, "Address", asset.Address);
         AddKeyValue(_details, "Type", asset.PrimaryType);
-        AddKeyValue(_details, "Group", asset.Group);
+        AddKeyValue(_details, "Public", asset.IsPublic ? "Yes" : "No");
+        AddKeyValue(_details, "ContentType", asset.ContentType);
         AddKeyValue(_details, "Labels", asset.Labels);
-        AddKeyValue(_details, "Bundle", asset.BundleName);
+        AddKeyValue(_details, "Content", asset.BundleName);
         AddKeyValue(_details, "Delivered", asset.Delivered ? "Yes" : "No");
     }
 

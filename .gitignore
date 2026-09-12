@@ -35,6 +35,8 @@
 # IDE helper files
 .vsconfig
 *.csproj
+# 手维护的场景门禁工程必须可提交，否则干净检出无法复现门禁（Unity 生成的根级工程仍由 *.csproj 忽略）
+!tests/scenario/**/*.csproj
 *.unityproj
 *.sln
 *.suo

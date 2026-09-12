@@ -11,25 +11,25 @@ public static class ABBuildReportBuilder
 {
     public static ABBuildReport Build(
         BuildPackageRequest request,
-        BuildResult buildResult,
+        BuildRunResult runResult,
         BuildContext context,
         Stopwatch stopwatch,
         BuildMessage backendError)
     {
         var report = new ABBuildReport();
-        FillHeader(report, request, buildResult, stopwatch, backendError);
-        FillTasks(report, buildResult);
+        FillHeader(report, request, runResult, stopwatch, backendError);
+        FillTasks(report, runResult);
 
         ABManifest manifest = context?.Get<ABManifest>(ABBuildContextKeys.ABManifest);
-        List<ManifestBundleEntry> deliveryBundles = context?.Get<List<ManifestBundleEntry>>(ABBuildContextKeys.ABDeliveryBundles)
-            ?? new List<ManifestBundleEntry>();
+        List<ManifestContentEntry> deliveryContents = context?.Get<List<ManifestContentEntry>>(ABBuildContextKeys.ABDeliveryContents)
+            ?? new List<ManifestContentEntry>();
         BuildVerificationResult verification = context?.Get<BuildVerificationResult>(BuildContextKeys.BuildVerificationResult);
 
         FillVerificationIssues(report, verification);
         if (manifest != null)
-            FillManifestData(report, manifest, deliveryBundles);
+            FillManifestData(report, manifest, deliveryContents);
 
-        report.Summary.GroupCount = report.Groups.Count;
+        report.Summary.ContentTypeCount = report.ContentTypes.Count;
         report.Summary.LabelCount = report.Labels.Count;
         report.Summary.BundleCount = report.Bundles.Count;
         report.Summary.AssetCount = report.Assets.Count;
@@ -39,13 +39,13 @@ public static class ABBuildReportBuilder
     private static void FillHeader(
         ABBuildReport report,
         BuildPackageRequest request,
-        BuildResult buildResult,
+        BuildRunResult runResult,
         Stopwatch stopwatch,
         BuildMessage backendError)
     {
         DateTime finishedAt = DateTime.UtcNow;
         DateTime startedAt = request?.CreatedAt ?? finishedAt;
-        bool success = buildResult != null && buildResult.Success && backendError == null;
+        bool success = runResult != null && runResult.Success && backendError == null;
 
         report.Header.Backend = "AB";
         report.Header.BuildType = request?.BuildType.ToString() ?? string.Empty;
@@ -67,7 +67,7 @@ public static class ABBuildReportBuilder
         }
         else
         {
-            BuildTaskResult firstFailure = FindFirstFailure(buildResult);
+            BuildTaskResult firstFailure = FindFirstFailure(runResult);
             if (firstFailure != null)
             {
                 report.Header.ErrorCode = firstFailure.ErrorCode;
@@ -76,7 +76,7 @@ public static class ABBuildReportBuilder
         }
     }
 
-    private static BuildTaskResult FindFirstFailure(BuildResult result)
+    private static BuildTaskResult FindFirstFailure(BuildRunResult result)
     {
         if (result?.TaskResults == null)
             return null;
@@ -91,21 +91,21 @@ public static class ABBuildReportBuilder
         return null;
     }
 
-    private static void FillTasks(ABBuildReport report, BuildResult buildResult)
+    private static void FillTasks(ABBuildReport report, BuildRunResult runResult)
     {
-        if (buildResult == null)
+        if (runResult == null)
             return;
 
-        report.Summary.TotalTasks = buildResult.TotalTasks;
-        report.Summary.CompletedTasks = buildResult.CompletedTasks;
-        report.Summary.SkippedTasks = buildResult.SkippedTasks;
+        report.Summary.TotalTasks = runResult.TotalTasks;
+        report.Summary.CompletedTasks = runResult.CompletedTasks;
+        report.Summary.SkippedTasks = runResult.SkippedTasks;
 
-        if (buildResult.TaskResults == null)
+        if (runResult.TaskResults == null)
             return;
 
-        for (int i = 0; i < buildResult.TaskResults.Count; i++)
+        for (int i = 0; i < runResult.TaskResults.Count; i++)
         {
-            BuildTaskResult taskResult = buildResult.TaskResults[i];
+            BuildTaskResult taskResult = runResult.TaskResults[i];
             if (taskResult == null)
                 continue;
 
@@ -154,7 +154,7 @@ public static class ABBuildReportBuilder
 
             AddIssue(report,
                 issue.Level == IssueLevel.Error ? "Error" : "Warning",
-                "TaskVerifyBuildResult",
+                "VerifyABContent",
                 issue.CheckName,
                 issue.BundleName,
                 issue.Message);
@@ -182,18 +182,18 @@ public static class ABBuildReportBuilder
     private static void FillManifestData(
         ABBuildReport report,
         ABManifest manifest,
-        List<ManifestBundleEntry> deliveryBundles)
+        List<ManifestContentEntry> deliveryContents)
     {
-        var delivered = BuildDeliverySet(deliveryBundles);
-        var bundleNames = BuildBundleNameList(manifest);
-        var assetCountByBundle = new int[bundleNames.Count];
-        var groupStats = new Dictionary<string, AggregateStats>(StringComparer.Ordinal);
+        var delivered = BuildDeliverySet(deliveryContents);
+        var contentNames = BuildContentNameList(manifest);
+        var assetCountByContent = new int[contentNames.Count];
+        var contentTypeStats = new Dictionary<string, AggregateStats>(StringComparer.Ordinal);
         var labelStats = new Dictionary<string, AggregateStats>(StringComparer.OrdinalIgnoreCase);
 
-        FillAssetRows(report, manifest, delivered, bundleNames, assetCountByBundle, groupStats, labelStats);
-        FillBundleRows(report, manifest, delivered, bundleNames, assetCountByBundle, groupStats, labelStats);
+        FillAssetRows(report, manifest, delivered, contentNames, assetCountByContent, contentTypeStats, labelStats);
+        FillContentRows(report, manifest, delivered, contentNames, assetCountByContent, contentTypeStats, labelStats);
         FillReferencedBy(report.Bundles);
-        FillAggregateRows(report, groupStats, labelStats);
+        FillAggregateRows(report, contentTypeStats, labelStats);
     }
 
     internal static void FillReferencedBy(List<ABBuildReportBundle> bundles)
@@ -220,28 +220,28 @@ public static class ABBuildReportBuilder
         }
     }
 
-    private static HashSet<string> BuildDeliverySet(List<ManifestBundleEntry> deliveryBundles)
+    private static HashSet<string> BuildDeliverySet(List<ManifestContentEntry> deliveryContents)
     {
         var delivered = new HashSet<string>(StringComparer.Ordinal);
-        if (deliveryBundles == null)
+        if (deliveryContents == null)
             return delivered;
 
-        for (int i = 0; i < deliveryBundles.Count; i++)
+        for (int i = 0; i < deliveryContents.Count; i++)
         {
-            string bundleName = deliveryBundles[i]?.BundleName;
-            if (!string.IsNullOrEmpty(bundleName))
-                delivered.Add(bundleName);
+            string fileName = deliveryContents[i]?.FileName;
+            if (!string.IsNullOrEmpty(fileName))
+                delivered.Add(fileName);
         }
 
         return delivered;
     }
 
-    private static List<string> BuildBundleNameList(ABManifest manifest)
+    private static List<string> BuildContentNameList(ABManifest manifest)
     {
         var names = new List<string>();
-        int count = manifest.BundleEntries != null ? manifest.BundleEntries.Count : 0;
+        int count = manifest.ContentEntries != null ? manifest.ContentEntries.Count : 0;
         for (int i = 0; i < count; i++)
-            names.Add(manifest.BundleEntries[i]?.BundleName ?? string.Empty);
+            names.Add(manifest.ContentEntries[i]?.FileName ?? string.Empty);
         return names;
     }
 
@@ -249,9 +249,9 @@ public static class ABBuildReportBuilder
         ABBuildReport report,
         ABManifest manifest,
         HashSet<string> delivered,
-        List<string> bundleNames,
-        int[] assetCountByBundle,
-        Dictionary<string, AggregateStats> groupStats,
+        List<string> contentNames,
+        int[] assetCountByContent,
+        Dictionary<string, AggregateStats> contentTypeStats,
         Dictionary<string, AggregateStats> labelStats)
     {
         int assetCount = manifest.AssetEntries != null ? manifest.AssetEntries.Count : 0;
@@ -261,10 +261,10 @@ public static class ABBuildReportBuilder
             if (asset == null)
                 continue;
 
-            string bundleName = GetBundleName(bundleNames, asset.BundleIndex);
-            bool isDelivered = delivered.Contains(bundleName);
-            if (asset.BundleIndex >= 0 && asset.BundleIndex < assetCountByBundle.Length)
-                assetCountByBundle[asset.BundleIndex]++;
+            string contentName = GetContentName(contentNames, asset.ContentIndex);
+            bool isDelivered = delivered.Contains(contentName);
+            if (asset.ContentIndex >= 0 && asset.ContentIndex < assetCountByContent.Length)
+                assetCountByContent[asset.ContentIndex]++;
 
             report.Assets.Add(new ABBuildReportAsset
             {
@@ -272,13 +272,14 @@ public static class ABBuildReportBuilder
                 SourcePath = asset.SourcePath,
                 Address = asset.Address,
                 PrimaryType = asset.PrimaryType,
-                Group = asset.Group,
+                IsPublic = asset.IsPublic,
+                ContentType = asset.ContentType.ToString(),
                 Labels = JoinList(asset.Labels),
-                BundleName = bundleName,
+                BundleName = contentName,
                 Delivered = isDelivered
             });
 
-            GetStats(groupStats, NormalizeGroup(asset.Group)).AssetCount++;
+            GetStats(contentTypeStats, asset.ContentType.ToString()).AssetCount++;
             if (asset.Labels == null)
                 continue;
 
@@ -292,64 +293,61 @@ public static class ABBuildReportBuilder
         }
     }
 
-    private static void FillBundleRows(
+    private static void FillContentRows(
         ABBuildReport report,
         ABManifest manifest,
         HashSet<string> delivered,
-        List<string> bundleNames,
-        int[] assetCountByBundle,
-        Dictionary<string, AggregateStats> groupStats,
+        List<string> contentNames,
+        int[] assetCountByContent,
+        Dictionary<string, AggregateStats> contentTypeStats,
         Dictionary<string, AggregateStats> labelStats)
     {
-        int bundleCount = manifest.BundleEntries != null ? manifest.BundleEntries.Count : 0;
-        for (int i = 0; i < bundleCount; i++)
+        int contentCount = manifest.ContentEntries != null ? manifest.ContentEntries.Count : 0;
+        for (int i = 0; i < contentCount; i++)
         {
-            ManifestBundleEntry bundle = manifest.BundleEntries[i];
-            if (bundle == null)
+            ManifestContentEntry content = manifest.ContentEntries[i];
+            if (content == null)
                 continue;
 
-            bool isDelivered = delivered.Contains(bundle.BundleName);
+            bool isDelivered = delivered.Contains(content.FileName);
             if (isDelivered)
             {
                 report.Summary.DeliveryBundleCount++;
-                report.Summary.DeliveryBundleSize += bundle.FileSize;
+                report.Summary.DeliveryBundleSize += content.FileSize;
             }
 
-            report.Summary.TotalBundleSize += bundle.FileSize;
+            report.Summary.TotalBundleSize += content.FileSize;
 
-            List<string> dependencies = BuildDependencyNames(bundleNames, bundle.DependBundleIndices);
-            List<string> assets = BuildBundleAssetPaths(manifest, i);
-            string groupName = InferBundleGroup(manifest, i);
+            List<string> dependencies = BuildDependencyNames(contentNames, content.DependencyIndices);
+            List<string> assets = BuildContentAssetPaths(manifest, i);
 
             report.Bundles.Add(new ABBuildReportBundle
             {
-                BundleName = bundle.BundleName,
-                FileHash = bundle.FileHash,
-                FileCRC = bundle.FileCRC,
-                FileSize = bundle.FileSize,
-                BundleType = bundle.BundleType,
-                Tags = JoinList(bundle.Tags),
-                Group = groupName,
-                AssetCount = i < assetCountByBundle.Length ? assetCountByBundle[i] : assets.Count,
+                BundleName = content.FileName,
+                FileHash = content.FileHash,
+                FileCRC = content.FileCRC,
+                FileSize = content.FileSize,
+                ContentType = content.ContentType.ToString(),
+                AssetCount = i < assetCountByContent.Length ? assetCountByContent[i] : assets.Count,
                 DependencyCount = dependencies.Count,
                 Delivered = isDelivered,
                 Dependencies = dependencies,
                 Assets = assets
             });
 
-            AggregateStats group = GetStats(groupStats, NormalizeGroup(groupName));
-            group.BundleCount++;
-            group.BundleNames.Add(bundle.BundleName);
-            group.TotalSize += bundle.FileSize;
+            AggregateStats contentStats = GetStats(contentTypeStats, content.ContentType.ToString());
+            contentStats.BundleCount++;
+            contentStats.BundleNames.Add(content.FileName);
+            contentStats.TotalSize += content.FileSize;
 
-            AddBundleToLabelStats(manifest, i, bundle, labelStats);
+            AddContentToLabelStats(manifest, i, content, labelStats);
         }
     }
 
-    private static void AddBundleToLabelStats(
+    private static void AddContentToLabelStats(
         ABManifest manifest,
-        int bundleIndex,
-        ManifestBundleEntry bundle,
+        int contentIndex,
+        ManifestContentEntry content,
         Dictionary<string, AggregateStats> labelStats)
     {
         if (manifest.AssetEntries == null)
@@ -359,7 +357,7 @@ public static class ABBuildReportBuilder
         for (int i = 0; i < manifest.AssetEntries.Count; i++)
         {
             ManifestAssetEntry asset = manifest.AssetEntries[i];
-            if (asset == null || asset.BundleIndex != bundleIndex || asset.Labels == null)
+            if (asset == null || asset.ContentIndex != contentIndex || asset.Labels == null)
                 continue;
 
             for (int labelIndex = 0; labelIndex < asset.Labels.Count; labelIndex++)
@@ -370,29 +368,29 @@ public static class ABBuildReportBuilder
 
                 AggregateStats stats = GetStats(labelStats, label);
                 stats.BundleCount++;
-                stats.BundleNames.Add(bundle.BundleName);
-                stats.TotalSize += bundle.FileSize;
+                stats.BundleNames.Add(content.FileName);
+                stats.TotalSize += content.FileSize;
             }
         }
     }
 
     private static void FillAggregateRows(
         ABBuildReport report,
-        Dictionary<string, AggregateStats> groupStats,
+        Dictionary<string, AggregateStats> contentTypeStats,
         Dictionary<string, AggregateStats> labelStats)
     {
-        foreach (var pair in groupStats)
+        foreach (var pair in contentTypeStats)
         {
-            report.Groups.Add(new ABBuildReportGroup
+            report.ContentTypes.Add(new ABBuildReportContentType
             {
-                Group = pair.Key,
+                ContentType = pair.Key,
                 AssetCount = pair.Value.AssetCount,
                 BundleCount = pair.Value.BundleCount,
                 TotalSize = pair.Value.TotalSize
             });
         }
 
-        report.Groups.Sort((left, right) => string.Compare(left.Group, right.Group, StringComparison.Ordinal));
+        report.ContentTypes.Sort((left, right) => string.Compare(left.ContentType, right.ContentType, StringComparison.Ordinal));
 
         foreach (var pair in labelStats)
         {
@@ -408,7 +406,7 @@ public static class ABBuildReportBuilder
         report.Labels.Sort((left, right) => string.Compare(left.Label, right.Label, StringComparison.OrdinalIgnoreCase));
     }
 
-    private static List<string> BuildDependencyNames(List<string> bundleNames, int[] dependencyIndices)
+    private static List<string> BuildDependencyNames(List<string> contentNames, int[] dependencyIndices)
     {
         var result = new List<string>();
         if (dependencyIndices == null)
@@ -416,7 +414,7 @@ public static class ABBuildReportBuilder
 
         for (int i = 0; i < dependencyIndices.Length; i++)
         {
-            string dependencyName = GetBundleName(bundleNames, dependencyIndices[i]);
+            string dependencyName = GetContentName(contentNames, dependencyIndices[i]);
             if (!string.IsNullOrEmpty(dependencyName))
                 result.Add(dependencyName);
         }
@@ -424,7 +422,7 @@ public static class ABBuildReportBuilder
         return result;
     }
 
-    private static List<string> BuildBundleAssetPaths(ABManifest manifest, int bundleIndex)
+    private static List<string> BuildContentAssetPaths(ABManifest manifest, int contentIndex)
     {
         var result = new List<string>();
         if (manifest.AssetEntries == null)
@@ -433,7 +431,7 @@ public static class ABBuildReportBuilder
         for (int i = 0; i < manifest.AssetEntries.Count; i++)
         {
             ManifestAssetEntry asset = manifest.AssetEntries[i];
-            if (asset == null || asset.BundleIndex != bundleIndex)
+            if (asset == null || asset.ContentIndex != contentIndex)
                 continue;
             result.Add(string.IsNullOrEmpty(asset.SourcePath) ? asset.Address : asset.SourcePath);
         }
@@ -441,26 +439,11 @@ public static class ABBuildReportBuilder
         return result;
     }
 
-    private static string InferBundleGroup(ABManifest manifest, int bundleIndex)
+    private static string GetContentName(List<string> contentNames, int index)
     {
-        if (manifest.AssetEntries == null)
+        if (contentNames == null || index < 0 || index >= contentNames.Count)
             return string.Empty;
-
-        for (int i = 0; i < manifest.AssetEntries.Count; i++)
-        {
-            ManifestAssetEntry asset = manifest.AssetEntries[i];
-            if (asset != null && asset.BundleIndex == bundleIndex && !string.IsNullOrEmpty(asset.Group))
-                return asset.Group;
-        }
-
-        return string.Empty;
-    }
-
-    private static string GetBundleName(List<string> bundleNames, int index)
-    {
-        if (bundleNames == null || index < 0 || index >= bundleNames.Count)
-            return string.Empty;
-        return bundleNames[index];
+        return contentNames[index];
     }
 
     private static AggregateStats GetStats(Dictionary<string, AggregateStats> map, string key)
@@ -473,11 +456,6 @@ public static class ABBuildReportBuilder
         }
 
         return stats;
-    }
-
-    private static string NormalizeGroup(string group)
-    {
-        return string.IsNullOrEmpty(group) ? "(None)" : group;
     }
 
     private static string JoinList(List<string> values)

@@ -16,16 +16,23 @@ public enum AssetAddressStyle
 }
 
 /// <summary>
-/// 资产采集配置资产。
-/// 层级结构：Setting -> Package -> Group -> Collector，资产元数据按 GUID 独立存储。
+/// 资产采集配置资产。层级结构：Setting -> Group -> Collector；
+/// 资产级只保留 Address 与 Labels 的人工覆盖，按 GUID 独立存储。
 /// </summary>
+/// <remarks>
+/// 显式 Collector 收集到的资源都是公共资源；依赖分析自动发现的资源由构建阶段内部化，
+/// 因此配置层不再需要 Package、Role 或载荷类型的用户声明。
+/// </remarks>
 public class AssetCollectionSetting : ScriptableObject
 {
-    /// <summary>所有资产包配置列表</summary>
-    public List<AssetCollectionPackage> Packages = new();
-
     /// <summary>自动 Address 的项目级默认生成样式。</summary>
     public AssetAddressStyle AddressStyle = AssetAddressStyle.ShortName;
+
+    /// <summary>全部采集 Group；Group 只控制显式资源的打包方式。</summary>
+    public List<AssetCollectionGroup> Groups = new();
+
+    /// <summary>资产级 Address / Labels 人工覆盖，按 Unity GUID 作为权威键。</summary>
+    public List<AssetOverride> AssetOverrides = new();
 
     /// <summary>全局忽略规则，用于 Project Scan 和构建扫描阶段过滤项目资产。</summary>
     public List<string> IgnorePatterns = CreateDefaultIgnorePatterns();
@@ -33,22 +40,39 @@ public class AssetCollectionSetting : ScriptableObject
     /// <summary>被 Folder Collector 覆盖但显式排除的资产列表，按 GUID 判断，路径只作为可读缓存。</summary>
     public List<AssetExclusion> ExcludedAssets = new();
 
-    /// <summary>资产级元数据，按 Unity GUID 作为权威键</summary>
-    public List<AssetEntry> AssetEntries = new();
+    /// <summary>项目级 RawFile 白名单：命中的文件即使 Unity 可识别也按原始文件构建与加载。</summary>
+    public RawFileRules RawFileRules = new();
 
-    public AssetEntry FindAssetEntry(string assetGuid)
+    /// <summary>依赖共享策略：强制共享与禁止共享的路径匹配规则。</summary>
+    public SharePolicyConfig SharePolicy = new();
+
+    /// <summary>按 GUID 查找人工覆盖；未配置覆盖时返回 null。</summary>
+    public AssetOverride FindAssetOverride(string assetGuid)
     {
-        if (string.IsNullOrEmpty(assetGuid) || AssetEntries == null)
+        if (string.IsNullOrEmpty(assetGuid) || AssetOverrides == null)
             return null;
 
-        for (int i = 0; i < AssetEntries.Count; i++)
+        for (int i = 0; i < AssetOverrides.Count; i++)
         {
-            AssetEntry entry = AssetEntries[i];
+            AssetOverride entry = AssetOverrides[i];
             if (entry != null && string.Equals(entry.AssetGUID, assetGuid, StringComparison.Ordinal))
                 return entry;
         }
 
         return null;
+    }
+
+    /// <summary>为编辑器交互获取或创建覆盖条目；扫描阶段不得调用，避免把自动结果写回配置。</summary>
+    public AssetOverride GetOrCreateAssetOverride(string assetGuid)
+    {
+        AssetOverride existing = FindAssetOverride(assetGuid);
+        if (existing != null)
+            return existing;
+
+        AssetOverrides ??= new List<AssetOverride>();
+        var created = new AssetOverride { AssetGUID = assetGuid };
+        AssetOverrides.Add(created);
+        return created;
     }
 
     public AssetExclusion FindExcludedAsset(string assetGuid)
@@ -115,6 +139,7 @@ public class AssetCollectionSetting : ScriptableObject
     }
 
 #if UNITY_EDITOR
+    /// <summary>刷新排除条目的路径缓存；GUID 已失效的条目直接移除。</summary>
     public bool RefreshExcludedAssetPaths()
     {
         if (ExcludedAssets == null)
@@ -142,29 +167,6 @@ public class AssetCollectionSetting : ScriptableObject
         return changed;
     }
 #endif
-
-    public AssetEntry GetOrCreateAssetEntry(string assetGuid, string generatedAddress, AssetClassification generatedClassification)
-    {
-        AssetEntries ??= new List<AssetEntry>();
-
-        AssetEntry existing = FindAssetEntry(assetGuid);
-        if (existing != null)
-            return existing;
-
-        AssetEntry entry = new AssetEntry
-        {
-            AssetGUID = assetGuid,
-            AutoAddress = true,
-            Address = generatedAddress,
-            AutoRole = true,
-            Role = generatedClassification.Role,
-            AutoPayload = true,
-            PayloadKind = generatedClassification.PayloadKind,
-            Labels = new List<string>()
-        };
-        AssetEntries.Add(entry);
-        return entry;
-    }
 
     public static List<string> CreateDefaultIgnorePatterns()
     {
@@ -229,35 +231,16 @@ public class AssetExclusion
 }
 
 /// <summary>
-/// Package 级别配置，对应一个独立的资产包（如主包、DLC 包等）。
-/// </summary>
-[Serializable]
-public class AssetCollectionPackage
-{
-    /// <summary>包名，用于构建 Bundle 逻辑名的第一段前缀</summary>
-    public string PackageName;
-    
-    /// <summary>该包下的所有 Group 配置</summary>
-    public List<AssetCollectionGroup> Groups = new();
-    
-    /// <summary>Package 级共享提取策略，由依赖分析 Task 读取</summary>
-    public SharePolicyConfig SharePolicy = new();
-}
-
-/// <summary>
-/// Group 级别配置，对应一组具有相同标签和打包策略的采集器。
+/// Group 级别配置，对应一组共享打包策略的采集器。
 /// </summary>
 [Serializable]
 public class AssetCollectionGroup
 {
-    /// <summary>组名，用于构建 Bundle 逻辑名的第二段</summary>
+    /// <summary>组名，用于构建内容逻辑名的分组段</summary>
     public string GroupName;
 
     /// <summary>是否启用该 Group。为 false 时 CollectionScanner 跳过整个 Group</summary>
     public bool Enabled = true;
-
-    /// <summary>组级别标签，会强制继承到该 Group 下所有资产</summary>
-    public List<string> Labels = new();
 
     /// <summary>Addressables 风格的 Group 打包模式</summary>
     public BundlePackingMode BundlePackingMode = BundlePackingMode.PackTogetherByLabel;
@@ -267,7 +250,8 @@ public class AssetCollectionGroup
 }
 
 /// <summary>
-/// 最底层的采集规则绑定单元，指定一个目录或文件路径及其对应的规则组合。
+/// 最底层的采集规则绑定单元：指定一个目录或文件路径。
+/// 显式采集到的资源都是公共资源，路径所在 Group 决定打包方式。
 /// </summary>
 [Serializable]
 public class Collector
@@ -277,32 +261,18 @@ public class Collector
 
     /// <summary>采集路径类型；默认 Folder 表示目录采集器</summary>
     public ECollectPathType CollectPathType = ECollectPathType.Folder;
-
-    /// <summary>采集器类型，决定资产的语义角色</summary>
-    public ECollectorType CollectorType;
-
-    /// <summary>强制指定载荷类型；Auto 表示由 Classifier 自动推断</summary>
-    public EForcePayloadKind ForcePayloadKind;
-
-    /// <summary>过滤规则类名，由 RuleResolver 反射解析为 IFilterRule 实例</summary>
-    public string FilterRuleName;
-
-    /// <summary>分组规则类名，由 RuleResolver 反射解析为 IGroupRule 实例</summary>
-    public string GroupRuleName;
 }
 
 /// <summary>
-/// 资产级权威元数据，以 Unity GUID 为键。
+/// 资产级人工覆盖。Address 为空表示沿用自动生成地址；Labels 与自动结果无关，全部来自此处。
 /// </summary>
 [Serializable]
-public class AssetEntry
+public class AssetOverride
 {
     public string AssetGUID;
-    public bool AutoAddress = true;
+
+    /// <summary>公开 Address 覆盖；为空时由 AssetAddressGenerator 生成。</summary>
     public string Address;
+
     public List<string> Labels = new();
-    public bool AutoRole = true;
-    public EAssetRole Role = EAssetRole.Main;
-    public bool AutoPayload = true;
-    public EPayloadKind PayloadKind = EPayloadKind.Serialized;
 }

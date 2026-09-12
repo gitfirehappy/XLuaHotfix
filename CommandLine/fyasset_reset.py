@@ -9,12 +9,12 @@ Common ops:
   python CommandLine/fyasset_reset.py all --dry-run
 
 What it cleans (project-local only):
-  - BuildData/Snapshots/<platform>/{AA|AB}
+  - BuildData/PublishCache/{AA|AB}
   - BuildData/Reports/{AA|AB} (optional with --reports)
-  - HotfixOutput/Packages and root PackageIndex.json
+  - HotfixOutput/Packages and HotfixOutput/Hotfix (cumulative hotfix output)
   - StreamingAssets package exports (BuildIndex/manifests/bundles/catalog)
   - Assets/Build/Bootstrap/BuildIndex.json (if present)
-  - VersionRecord -> 1.0.0 / Build 0
+  - BuildData/Summaries (successful summaries and index)
   - AA Hotfix group undo log
   - Permanent pipeline fixtures back to Full markers
   - HotfixPublish local service roots (optional)
@@ -73,44 +73,24 @@ def write_text(path: Path, content: str, dry_run: bool) -> None:
     log(f"wrote: {path.relative_to(ROOT)}")
 
 
-def reset_version_database(dry_run: bool) -> None:
-    path = ROOT / "Assets" / "Build" / "VersionRecord.asset"
+def reset_build_facts(dry_run: bool) -> None:
+    path = ROOT / "BuildData" / "Summaries"
     if not path.exists():
-        log("VersionRecord.asset missing; skip")
+        log("BuildData/Summaries missing; skip")
         return
-    text = path.read_text(encoding="utf-8")
-
-    def set_field(src: str, field: str, value: str) -> str:
-        return re.sub(
-            rf"(^\s*{re.escape(field)}:\s*).*$",
-            rf"\g<1>{value}",
-            src,
-            count=1,
-            flags=re.M,
-        )
-
-    # Nested VersionNumber under CurrentVersion
-    text = set_field(text, "Major", "1")
-    text = set_field(text, "Minor", "0")
-    text = set_field(text, "Patch", "0")
-    text = set_field(text, "Build", "0")
-    text = set_field(text, "Channel", '""')
-    text = set_field(text, "LastBuildTime", '""')
-    text = set_field(text, "DailyBuildCount", "0")
     if dry_run:
-        log("DRY would reset VersionRecord to 1.0.0 / Build 0")
+        log("DRY would delete BuildData/Summaries (successful summaries and index)")
         return
-    # Unity batchmode 退出后文件锁可能短暂残留
     last_err: Exception | None = None
     for attempt in range(5):
         try:
-            path.write_text(text, encoding="utf-8", newline="\n")
-            log("reset VersionRecord -> 1.0.0 / Build 0")
+            shutil.rmtree(path)
+            log("reset build facts -> deleted BuildData/Summaries")
             return
         except OSError as exc:
             last_err = exc
             time.sleep(0.4 * (attempt + 1))
-    raise OSError(f"reset VersionRecord failed after retries: {last_err}") from last_err
+    raise OSError(f"reset build facts failed after retries: {last_err}") from last_err
 
 
 def reset_fixtures(dry_run: bool) -> None:
@@ -156,13 +136,8 @@ def reset_streaming_assets(dry_run: bool) -> None:
 
 def reset_backend(backend: str, dry_run: bool, reports: bool) -> None:
     backend = backend.upper()
-    # Repository snapshots for all platforms under BuildData/Snapshots
-    snapshots = ROOT / "BuildData" / "Snapshots"
-    if snapshots.exists():
-        for platform_dir in snapshots.iterdir():
-            if not platform_dir.is_dir():
-                continue
-            rm_path(platform_dir / backend, dry_run)
+    # Publish cache is local-only state; deleting it never affects published packages.
+    rm_path(ROOT / "BuildData" / "PublishCache" / backend, dry_run)
 
     if reports:
         rm_path(ROOT / "BuildData" / "Reports" / backend, dry_run)
@@ -180,7 +155,8 @@ def reset_shared_outputs(dry_run: bool, keep_testruns: bool, clear_publish: bool
     packages = ROOT / "HotfixOutput" / "Packages"
     if packages.exists():
         clear_dir_contents(packages, dry_run)
-    rm_path(ROOT / "HotfixOutput" / "PackageIndex.json", dry_run)
+    # Cumulative hotfix output: rebuilt by the next Full build, which resets it.
+    rm_path(ROOT / "HotfixOutput" / "Hotfix", dry_run)
     rm_path(ROOT / "HotfixOutput" / "build.log", dry_run)
 
     if not keep_testruns:
@@ -188,7 +164,7 @@ def reset_shared_outputs(dry_run: bool, keep_testruns: bool, clear_publish: bool
 
     bootstrap = ROOT / "Assets" / "Build" / "Bootstrap" / "BuildIndex.json"
     if bootstrap.exists():
-        # leave empty object or delete; deleting is cleaner for "no baseline"
+        # leave empty object or delete; deleting is cleaner before the first launch
         rm_path(bootstrap, dry_run)
         rm_path(bootstrap.with_suffix(".json.meta"), dry_run)
 
@@ -213,7 +189,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument(
         "scope",
         choices=["aa", "ab", "all"],
-        help="Which backend repository/report state to clear",
+        help="Which backend local build state to clear",
     )
     p.add_argument("--dry-run", action="store_true")
     p.add_argument("--keep-testruns", action="store_true", help="Keep HotfixOutput/TestRuns evidence")
@@ -241,10 +217,10 @@ def main(argv: list[str] | None = None) -> int:
         reset_backend("AB", args.dry_run, args.reports)
 
     # Shared package/output state is always cleaned for practical "full clean"
-    # even when scope is aa/ab, because PackageIndex/Packages are shared roots.
+    # even when scope is aa/ab, because Packages and the cumulative hotfix root are shared.
     reset_shared_outputs(args.dry_run, args.keep_testruns, args.clear_publish)
     reset_streaming_assets(args.dry_run)
-    reset_version_database(args.dry_run)
+    reset_build_facts(args.dry_run)
     if not args.no_fixtures:
         reset_fixtures(args.dry_run)
 

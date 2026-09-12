@@ -2,6 +2,11 @@
 
 Verified editor and user-interface mistakes. Each entry keeps its original IP number and standard fields.
 
+> Historical scope: entries below are records of what happened at the time they were written. The collector data model
+> they describe (`AssetEntry` with Address/Labels/Role/Payload fields, `AssetCollectionPackage`, filter/group rules,
+> reflection rule dropdowns) was replaced by `AssetCollectionSetting` + `AssetOverrides` + `RawFileRules` +
+> `SharePolicy`. Treat the named types as history, not as current architecture.
+
 ## IP-35: GraphView Edge Layout Mutated Too Early
 
 **Symptom:** Edge styling triggered layout errors during reload.
@@ -99,3 +104,10 @@ Verified editor and user-interface mistakes. Each entry keeps its original IP nu
 **Root cause:** Each target had expanded from one row to several rows, but the Push card still had a maximum height and its nested editor, target, and local-server containers retained the UI Toolkit default `flexShrink = 1`. Removing only the outer cap was insufficient because nested vertical containers could still surrender layout height while their controls painted outside the reduced boxes. Per-control width and minimum-height changes only moved the overflow.
 **Fix:** Remove the Push card's maximum height and set the intrinsic-height editor, target, and local-server containers to `flexShrink = 0`; the existing outer vertical `ScrollView` owns overflow.
 **Prevention:** Dynamic lists inside a scroll container must preserve intrinsic height through every nested vertical container. When several sibling rows compress or overlap together, audit the complete ancestor shrink chain before changing individual controls.
+
+## IP-66: Reset Tool Corrupted A Tracked Asset And New Metas Missed A Newline
+
+**Symptom:** After running the local-state reset tool, Unity reported `Unable to parse file Assets/Build/VersionRecord.asset: [Parser Failure at line 22]`, and every newly added asset logged `The GUID inside '...meta' cannot be extracted by the YAML Parser`.
+**Root cause:** Two independent format defects. The tool's field-replacement regex used `\s*` after the field name, which also matches newlines, so replacing `Channel:` consumed the following `LastBuildTime:` line and left an orphan `""` line. Separately, newly created `.meta` files were written without a trailing newline, unlike every existing meta, which made Unity's YAML parser fall back to string matching.
+**Fix:** Restrict the regex to intra-line whitespace (`[ \t]*`) and repair the damaged asset; append the missing trailing newline to the affected metas and verify that no meta lacks a trailing newline.
+**Prevention:** Tools that rewrite YAML assets must validate the result's structure after writing. New `.meta` files must match the existing format byte-for-byte, including the trailing newline.

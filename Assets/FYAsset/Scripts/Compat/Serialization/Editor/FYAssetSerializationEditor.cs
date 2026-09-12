@@ -14,7 +14,7 @@ public static class FYAssetSerializationEditor
     public static Type[] GetSerializableTypes() => new[]
     {
         typeof(ABManifest), typeof(AAManifest), typeof(VersionNumber),
-        typeof(ManifestAssetEntry), typeof(ManifestBundleEntry), typeof(BundleInfo),
+        typeof(ManifestAssetEntry), typeof(ManifestContentEntry), typeof(BundleInfo),
         typeof(PackageEntry), typeof(TypeToKeys), typeof(LabelToKeys)
     };
 

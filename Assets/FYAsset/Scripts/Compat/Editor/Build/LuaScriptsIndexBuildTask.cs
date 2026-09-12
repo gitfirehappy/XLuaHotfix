@@ -12,7 +12,7 @@ using UnityEngine;
 /// <remarks>
 /// AA：重建索引并注册到 Addressables。
 /// AB：按已采集容器重建索引，并把索引资产收编进 CollectedAssets。
-/// Preview 模式不改写资产。
+/// 由 BuildPipelineConfig 按名注入到 AA 的 Input 槽与 AB 的 BuildABContent 槽之前。
 /// </remarks>
 public sealed class LuaScriptsIndexBuildTask : IBuildTask
 {
@@ -20,9 +20,6 @@ public sealed class LuaScriptsIndexBuildTask : IBuildTask
 
     public BuildTaskResult Execute(BuildContext ctx)
     {
-        if (ctx.Get<bool>(BuildContextKeys.RepositoryPreviewMode))
-            return BuildTaskResult.Ok(new List<string> { "[LUA INDEX] Preview skipped (no asset rewrite)" });
-
         var request = ctx.Get<BuildPackageRequest>(BuildContextKeys.BuildPackageRequest);
         if (request == null)
             return BuildTaskResult.Fail(BuildErrorCodes.BuildFailed, "BuildPackageRequest is null.", true);
@@ -67,7 +64,7 @@ public sealed class LuaScriptsIndexBuildTask : IBuildTask
         if (assets == null || assets.Count == 0)
         {
             return BuildTaskResult.Fail(BuildErrorCodes.NoCollectedAssets,
-                "TaskCollectAssets 未产出 Asset。无法构建 LuaScriptsIndex。", true);
+                "CollectABAssets 未产出 Asset。无法构建 LuaScriptsIndex。", true);
         }
 
         var containerAddresses = new Dictionary<string, string>(StringComparer.Ordinal);
@@ -80,7 +77,7 @@ public sealed class LuaScriptsIndexBuildTask : IBuildTask
         }
 
         int containerCount = LuaScriptsIndexBuilder.Rebuild(containerAddresses);
-        if (!TryAddLuaScriptsIndex(assets, assets[0].PackageName ?? "Default", out bool added, out string error))
+        if (!TryAddLuaScriptsIndex(assets, out bool added, out string error))
             return BuildTaskResult.Fail(BuildErrorCodes.LuaIndexInvalid, error, true);
 
         ctx.Set(ABBuildContextKeys.CollectedAssets, assets);
@@ -180,7 +177,6 @@ public sealed class LuaScriptsIndexBuildTask : IBuildTask
 
     private static bool TryAddLuaScriptsIndex(
         List<CollectedAssetInfo> assets,
-        string packageName,
         out bool added,
         out string error)
     {
@@ -232,24 +228,16 @@ public sealed class LuaScriptsIndexBuildTask : IBuildTask
             Address = LuaScriptsIndex.AssetAddress,
             PrimaryType = primaryType,
             Labels = new List<string> { LuaScriptsIndex.AssetAddress },
-            GroupLabels = new List<string>(),
-            AssetLabels = new List<string> { LuaScriptsIndex.AssetAddress },
             GroupName = SystemIdentifiers.SharedGroupName,
-            PackageName = packageName,
-            BundleName = BundleNameBuilder.BuildShared(
-                packageName,
+            ContentName = BundleNameBuilder.BuildShared(
                 "lua-index",
-                EPayloadKind.Serialized,
+                AssetContentType.SerializedObject,
                 primaryType),
             BundlePackingMode = BundlePackingMode.PackSeparately,
-            Classification = new AssetClassification
-            {
-                Role = EAssetRole.Main,
-                PayloadKind = EPayloadKind.Serialized
-            },
-            CollectorType = ECollectorType.Main,
-            IsInSharedBundle = true,
-            IsDuplicated = false
+            ContentType = AssetContentType.SerializedObject,
+            // Lua 索引是运行时按 Address 加载的公共资源，因此保持显式来源与公共标记。
+            DependencyOrigin = AssetDependencyOrigin.Explicit,
+            IsPublic = true
         });
         added = true;
         return true;

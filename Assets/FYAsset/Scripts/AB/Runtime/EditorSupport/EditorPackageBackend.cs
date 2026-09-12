@@ -12,6 +12,8 @@ using UnityEngine;
 /// </summary>
 internal sealed class EditorPackageBackend : IABLoadBackend
 {
+    private const string EditorContentName = "editor";
+
     private readonly ABManifest _manifest;
     private readonly Dictionary<string, UnityEngine.Object> _assetCache = new();
 
@@ -20,48 +22,54 @@ internal sealed class EditorPackageBackend : IABLoadBackend
         _manifest = manifest ?? throw new ArgumentNullException(nameof(manifest));
     }
 
-    public async Task<(T asset, RuntimeMessage error)> LoadAssetAsync<T>(string key, string entryId)
-        where T : UnityEngine.Object
+    public async Task<(T asset, string contentFileName, RuntimeMessage error)> LoadAssetTupleAsync<T>(
+        string address, string entryId) where T : UnityEngine.Object
     {
         await Task.Yield();
-        return LoadAssetSync<T>(key, entryId);
+        return LoadAssetTupleSync<T>(address, entryId);
     }
 
-    public (T asset, RuntimeMessage error) LoadAssetSync<T>(string key, string entryId)
-        where T : UnityEngine.Object
+    public (T asset, string contentFileName, RuntimeMessage error) LoadAssetTupleSync<T>(
+        string address, string entryId) where T : UnityEngine.Object
     {
-        if (string.IsNullOrEmpty(key))
-            return (null, RuntimeMessage.Error(RuntimeErrorCodes.InvalidArgument, "LoadAssetSync: key 为空"));
+        ManifestAssetEntry assetEntry = ResolveAssetEntry(address, entryId, out RuntimeMessage resolveError);
+        if (assetEntry == null) return (null, null, resolveError);
 
-        var assetEntry = ResolveAssetEntry(key, entryId);
-        if (assetEntry == null)
-            return (null, RuntimeMessage.NotFound($"key={key}, entryId={entryId ?? ""}"));
+        if (assetEntry.ContentType != AssetContentType.SerializedObject)
+        {
+            return (null, null, RuntimeMessage.InvalidPayloadKind(
+                assetEntry.EntryId,
+                AssetContentType.SerializedObject.ToString(),
+                assetEntry.ContentType.ToString()));
+        }
 
         if (_assetCache.TryGetValue(assetEntry.EntryId, out var cached) && cached is T typedCached)
-            return (typedCached, null);
+            return (typedCached, EditorContentName, null);
 
         if (string.IsNullOrEmpty(assetEntry.SourcePath))
-            return (null, RuntimeMessage.LoadFailed(entryId, "Editor 条目缺少 SourcePath"));
+        {
+            return (null, EditorContentName,
+                RuntimeMessage.LoadFailed(entryId, "Editor 条目缺少 SourcePath"));
+        }
 
         var asset = AssetDatabase.LoadAssetAtPath<T>(assetEntry.SourcePath);
         if (asset == null)
-            return (null, RuntimeMessage.LoadFailed(entryId, $"AssetDatabase 未找到: {assetEntry.SourcePath}"));
+        {
+            return (null, EditorContentName,
+                RuntimeMessage.LoadFailed(entryId, $"AssetDatabase 未找到: {assetEntry.SourcePath}"));
+        }
 
         _assetCache[assetEntry.EntryId] = asset;
-        return (asset, null);
+        return (asset, EditorContentName, null);
     }
 
-    public async Task<(byte[] data, RuntimeMessage error)> LoadRawBytesAsync(string key, string entryId)
+    public async Task<(byte[] data, RuntimeMessage error)> LoadRawBytesAsync(string address, string entryId)
     {
         await Task.Yield();
-        return LoadRawBytesSync(key, entryId);
-    }
 
-    public (byte[] data, RuntimeMessage error) LoadRawBytesSync(string key, string entryId)
-    {
-        var assetEntry = ResolveAssetEntry(key, entryId);
-        if (assetEntry == null)
-            return (null, RuntimeMessage.NotFound($"key={key}, entryId={entryId ?? ""}"));
+        ManifestAssetEntry assetEntry = ResolveAssetEntry(address, entryId, out RuntimeMessage resolveError);
+        if (assetEntry == null) return (null, resolveError);
+
         if (string.IsNullOrEmpty(assetEntry.SourcePath) || !File.Exists(assetEntry.SourcePath))
             return (null, RuntimeMessage.LoadFailed(entryId, $"Raw 文件不存在: {assetEntry.SourcePath}"));
 
@@ -75,31 +83,29 @@ internal sealed class EditorPackageBackend : IABLoadBackend
         }
     }
 
-    public async Task<(T asset, string bundleName, RuntimeMessage error)> LoadAssetTupleAsync<T>(
-        string key, string entryId) where T : UnityEngine.Object
-    {
-        await Task.Yield();
-        return LoadAssetTupleSync<T>(key, entryId);
-    }
-
-    public (T asset, string bundleName, RuntimeMessage error) LoadAssetTupleSync<T>(
-        string key, string entryId) where T : UnityEngine.Object
-    {
-        var (asset, error) = LoadAssetSync<T>(key, entryId);
-        return (asset, "editor", error);
-    }
-
     public void UnloadByEntryId(string entryId)
     {
         if (string.IsNullOrEmpty(entryId)) return;
         _assetCache.Remove(entryId);
     }
 
-    private ManifestAssetEntry ResolveAssetEntry(string address, string entryId)
+    public void UnloadAllContent()
     {
-        if (string.IsNullOrEmpty(entryId)) return null;
-        if (!_manifest.TryGetAssetByEntryId(entryId, out var assetEntry)) return null;
-        return string.Equals(assetEntry.Address, address, StringComparison.Ordinal) ? assetEntry : null;
+        _assetCache.Clear();
+    }
+
+    /// <summary>按 EntryId 精确定位资源条目；Address 只参与错误文本。</summary>
+    private ManifestAssetEntry ResolveAssetEntry(
+        string address,
+        string entryId,
+        out RuntimeMessage error)
+    {
+        error = null;
+        if (_manifest.TryGetAssetByEntryId(entryId, out ManifestAssetEntry assetEntry))
+            return assetEntry;
+
+        error = RuntimeMessage.NotFound(string.Concat("address=", address ?? "", ", entryId=", entryId ?? ""));
+        return null;
     }
 }
 #endif

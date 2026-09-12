@@ -40,33 +40,35 @@ public sealed class AAPackageManager
     public void UnloadAsset<T>(string address) where T : UnityEngine.Object => LastAddress = address;
 }
 
+/// <summary>
+/// ABPackageManager 替身：只保留 Compat facade 现在依赖的句柄分配入口。
+/// </summary>
 public sealed class ABPackageManager
 {
     public static readonly ABPackageManager Instance = new();
     public static string LastAddress;
 
-    public System.Threading.Tasks.Task<(T asset, RuntimeMessage error)> LoadAssetAsync<T>(string address)
+    public System.Threading.Tasks.Task<AssetHandle<T>> LoadByAddress<T>(string address)
         where T : UnityEngine.Object
     {
         LastAddress = address;
-        return System.Threading.Tasks.Task.FromResult<(T, RuntimeMessage)>((null, null));
+        return System.Threading.Tasks.Task.FromResult(default(AssetHandle<T>));
     }
 
-    public (T asset, RuntimeMessage error) LoadAssetSync<T>(string address) where T : UnityEngine.Object
+    public AssetHandle<T> LoadByAddressSync<T>(string address) where T : UnityEngine.Object
     {
         LastAddress = address;
-        return (null, null);
+        return default;
     }
-
-    public void UnloadAsset<T>(string address) where T : UnityEngine.Object => LastAddress = address;
 }
 
+/// <summary>
+/// ABAssetIndex 替身：AssetResolver 只依赖索引不可用原因与 Address 唯一命中。
+/// </summary>
 public abstract class ABAssetIndex
 {
-    public abstract RuntimeAssetEntry GetEntryById(string entryId);
-    public abstract IReadOnlyList<RuntimeAssetEntry> GetEntriesByAddress(string address);
-    public abstract IReadOnlyList<RuntimeAssetEntry> GetEntriesByAddressAndType(string address, string primaryType);
-    public abstract IReadOnlyList<RuntimeAssetEntry> GetAllEntries();
+    public abstract RuntimeMessage BuildError { get; }
+    public abstract RuntimeAssetEntry GetEntryByAddress(string address);
 }
 
 internal sealed class LuaScriptContainer : UnityEngine.Object { }
@@ -74,6 +76,11 @@ internal sealed class UIFormConfigSO : UnityEngine.ScriptableObject { }
 internal sealed class UniqueConfigSO : UnityEngine.ScriptableObject { }
 internal sealed class FacadeAsset : UnityEngine.Object { }
 
+/// <summary>
+/// AB Address 解析契约（计划 T5 后的语义）。
+/// 公共 Address 在单包内大小写不敏感且唯一，因此解析不再做 Type 消歧、也没有 Object 回退分支；
+/// 地址命中的条目还必须与请求的内容类型一致（SerializedObject / RawFile / Scene）。
+/// </summary>
 internal static class ABTypedAddressResolutionTests
 {
     private static int Main()
@@ -90,36 +97,67 @@ internal static class ABTypedAddressResolutionTests
 
     public static void Run()
     {
-        var duplicate = new FakeAssetIndex(
-            Entry("ui", "Dialogue", nameof(UIFormConfigSO)),
-            Entry("lua", "Dialogue", nameof(LuaScriptContainer)));
-        ResolveResult exact = AssetResolver.ResolveByAddress<LuaScriptContainer>(duplicate, "Dialogue");
-        RepoAssert.True(exact.IsSuccess && exact.Entry.EntryId == "lua", "exact requested type must win");
+        var index = new FakeAssetIndex(
+            Entry("config", "Dialogue", nameof(LuaScriptContainer), AssetContentType.SerializedObject),
+            Entry("raw", "RawTable", nameof(UnityEngine.Object), AssetContentType.RawFile),
+            Entry("scene", "Battle", nameof(UnityEngine.Object), AssetContentType.Scene));
 
-        ResolveResult ambiguousBase = AssetResolver.ResolveByAddress<UnityEngine.Object>(duplicate, "Dialogue");
-        RepoAssert.Equal(RuntimeErrorCodes.AmbiguousMatch, ambiguousBase.Error?.Code,
-            "Object fallback must reject multiple address candidates");
+        ResolveResult exact = AssetResolver.ResolveByAddress(index, "Dialogue");
+        RepoAssert.True(exact.IsSuccess && exact.Entry.EntryId == "config",
+            "a unique public address must resolve to its entry");
 
-        var duplicateExact = new FakeAssetIndex(
-            Entry("lua-a", "Player", nameof(LuaScriptContainer)),
-            Entry("lua-b", "Player", nameof(LuaScriptContainer)));
-        ResolveResult ambiguousExact = AssetResolver.ResolveByAddress<LuaScriptContainer>(duplicateExact, "Player");
-        RepoAssert.Equal(RuntimeErrorCodes.AmbiguousMatch, ambiguousExact.Error?.Code,
-            "multiple exact type candidates must remain ambiguous");
+        ResolveResult caseInsensitive = AssetResolver.ResolveByAddress(index, "dialogue");
+        RepoAssert.True(caseInsensitive.IsSuccess && caseInsensitive.Entry.EntryId == "config",
+            "address lookup must be case insensitive");
 
-        var unique = new FakeAssetIndex(Entry("config", "Config", nameof(UniqueConfigSO)));
-        ResolveResult uniqueBase = AssetResolver.ResolveByAddress<UnityEngine.ScriptableObject>(unique, "Config");
-        RepoAssert.True(uniqueBase.IsSuccess && uniqueBase.Entry.EntryId == "config",
-            "ScriptableObject may fall back to one unique address candidate");
+        ResolveResult missing = AssetResolver.ResolveByAddress(index, "Missing");
+        RepoAssert.Equal(RuntimeErrorCodes.NotFound, missing.Error?.Code,
+            "an unknown address must fail with NotFound");
 
-        ResolveResult mismatch = AssetResolver.ResolveByAddress<LuaScriptContainer>(unique, "Config");
-        RepoAssert.Equal(RuntimeErrorCodes.TypeMismatch, mismatch.Error?.Code,
-            "non-base request without an exact type must fail");
+        ResolveResult rawThroughAssetApi = AssetResolver.ResolveByAddress(index, "RawTable");
+        RepoAssert.Equal(RuntimeErrorCodes.InvalidPayloadKind, rawThroughAssetApi.Error?.Code,
+            "the asset API must reject an address whose content type is RawFile");
+
+        ResolveResult sceneThroughAssetApi = AssetResolver.ResolveByAddress(index, "Battle");
+        RepoAssert.Equal(RuntimeErrorCodes.InvalidPayloadKind, sceneThroughAssetApi.Error?.Code,
+            "the asset API must reject an address whose content type is Scene");
+
+        ResolveResult rawHit = AssetResolver.ResolveRawByAddress(index, "RawTable");
+        RepoAssert.True(rawHit.IsSuccess && rawHit.Entry.EntryId == "raw",
+            "the RawFile API must resolve a RawFile address");
+
+        ResolveResult rawMismatch = AssetResolver.ResolveRawByAddress(index, "Dialogue");
+        RepoAssert.Equal(RuntimeErrorCodes.InvalidPayloadKind, rawMismatch.Error?.Code,
+            "the RawFile API must reject a SerializedObject address");
+
+        ResolveResult sceneHit = AssetResolver.ResolveSceneByAddress(index, "Battle");
+        RepoAssert.True(sceneHit.IsSuccess && sceneHit.Entry.EntryId == "scene",
+            "the Scene API must resolve a Scene address");
+
+        ResolveResult sceneMismatch = AssetResolver.ResolveSceneByAddress(index, "Dialogue");
+        RepoAssert.Equal(RuntimeErrorCodes.InvalidPayloadKind, sceneMismatch.Error?.Code,
+            "the Scene API must reject a SerializedObject address");
+
+        var broken = new FakeAssetIndex(RuntimeMessage.DuplicateAddress("Dialogue", 2));
+        ResolveResult brokenResult = AssetResolver.ResolveByAddress(broken, "Dialogue");
+        RepoAssert.Equal(RuntimeErrorCodes.NotFound, brokenResult.Error?.Code,
+            "an index rejected for duplicate addresses must not resolve anything");
+
+        List<ResolveResult> many = AssetResolver.ResolveMany(index, new[] { "Dialogue", "Missing" });
+        RepoAssert.True(many.Count == 2 && many[0].IsSuccess && !many[1].IsSuccess,
+            "batch resolution must report success and failure independently");
     }
 
-    private static RuntimeAssetEntry Entry(string id, string address, string type)
+    private static RuntimeAssetEntry Entry(string id, string address, string type, AssetContentType contentType)
     {
-        return new RuntimeAssetEntry { EntryId = id, Address = address, PrimaryType = type };
+        return new RuntimeAssetEntry
+        {
+            EntryId = id,
+            Address = address,
+            PrimaryType = type,
+            IsPublic = true,
+            ContentType = contentType
+        };
     }
 
     private static void RunCase(string name, Action test, ref int failures)
@@ -142,31 +180,23 @@ internal static class ABTypedAddressResolutionTests
 
         public FakeAssetIndex(params RuntimeAssetEntry[] entries) => _entries = entries;
 
-        public override RuntimeAssetEntry GetEntryById(string entryId)
+        public FakeAssetIndex(RuntimeMessage buildError)
+        {
+            _entries = Array.Empty<RuntimeAssetEntry>();
+            BuildError = buildError;
+        }
+
+        public override RuntimeMessage BuildError { get; }
+
+        public override RuntimeAssetEntry GetEntryByAddress(string address)
         {
             for (int i = 0; i < _entries.Length; i++)
-                if (_entries[i].EntryId == entryId) return _entries[i];
+            {
+                if (string.Equals(_entries[i].Address, address, StringComparison.OrdinalIgnoreCase))
+                    return _entries[i];
+            }
+
             return null;
         }
-
-        public override IReadOnlyList<RuntimeAssetEntry> GetEntriesByAddress(string address)
-        {
-            var result = new List<RuntimeAssetEntry>();
-            for (int i = 0; i < _entries.Length; i++)
-                if (_entries[i].Address == address) result.Add(_entries[i]);
-            return result;
-        }
-
-        public override IReadOnlyList<RuntimeAssetEntry> GetEntriesByAddressAndType(string address, string primaryType)
-        {
-            var result = new List<RuntimeAssetEntry>();
-            for (int i = 0; i < _entries.Length; i++)
-                if (_entries[i].Address == address &&
-                    string.Equals(_entries[i].PrimaryType, primaryType, StringComparison.OrdinalIgnoreCase))
-                    result.Add(_entries[i]);
-            return result;
-        }
-
-        public override IReadOnlyList<RuntimeAssetEntry> GetAllEntries() => _entries;
     }
 }

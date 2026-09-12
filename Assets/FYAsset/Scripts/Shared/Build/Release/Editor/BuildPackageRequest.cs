@@ -4,6 +4,12 @@ using System;
 /// <summary>
 /// 单次构建包请求。包名与最终输出路径只在创建时计算一次；后端和 Task 只消费，不重新计算。
 /// </summary>
+/// <remarks>
+/// 输出语义（计划 T2）：
+/// 1. Full / Hotfix / Standalone 都交付到按包名隔离的独立不可变目录，包名即目录名；
+/// 2. Hotfix 包内是“完整目标 Manifest + 相对作用域最近成功 Full 的变化内容”，不依赖前一个 Hotfix 包；
+/// 3. 构建不写 PackageIndex：PackageIndex 由发布器在发布事务最后生成并上传。
+/// </remarks>
 public sealed class BuildPackageRequest
 {
     public const string PackageTimestampFormat = "yyyyMMddHHmmss";
@@ -20,7 +26,6 @@ public sealed class BuildPackageRequest
     public string OutputDir { get; }
 
     public string BundlesDir { get; }
-    public string PackageIndexPath { get; }
     public DateTime CreatedAt { get; }
 
     /// <summary>attempt 布局：任务产物尚未交付，live 目录应保持零变化。</summary>
@@ -29,9 +34,13 @@ public sealed class BuildPackageRequest
     /// <summary>
     /// 本次交付的最终输出目录（Runner finalize promote 的落地路径）。
     /// 非 attempt 布局等于 <see cref="OutputDir"/>。Standalone 恒为 StreamingAssets/Standalone；
-    /// Full/Hotfix 为 HotfixOutput 下该包名的最终目录。
+    /// Full 与 Hotfix 都是 Packages 下该包名的独立目录。
+    /// 它同时是发布流程的源包目录。
     /// </summary>
     public string DeliveryOutputDir { get; }
+
+    /// <summary>发布源目录：都是本包名的独立包目录。</summary>
+    public string PublishSourceDir => DeliveryOutputDir;
 
     private BuildPackageRequest(
         VersionNumber version,
@@ -40,7 +49,6 @@ public sealed class BuildPackageRequest
         string packageName,
         string outputDir,
         string bundlesDir,
-        string packageIndexPath,
         DateTime createdAt,
         bool attemptLayout,
         string deliveryOutputDir)
@@ -51,7 +59,6 @@ public sealed class BuildPackageRequest
         PackageName = packageName;
         OutputDir = outputDir;
         BundlesDir = bundlesDir;
-        PackageIndexPath = packageIndexPath;
         CreatedAt = createdAt;
         IsAttemptLayout = attemptLayout;
         DeliveryOutputDir = deliveryOutputDir;
@@ -72,7 +79,6 @@ public sealed class BuildPackageRequest
             PackageName,
             DeliveryOutputDir,
             BuildPathManager.GetBundlesDir(DeliveryOutputDir),
-            PackageIndexPath,
             CreatedAt,
             attemptLayout: false,
             DeliveryOutputDir);
@@ -84,9 +90,7 @@ public sealed class BuildPackageRequest
     {
         var createdAt = DateTime.UtcNow;
         string packageName = CreatePackageName(version, createdAt);
-        string deliveryOutputDir = buildType == BuildType.Standalone
-            ? BuildPathManager.StandalonePackageDir
-            : BuildPathManager.GetPackageDir(packageName);
+        string deliveryOutputDir = ResolveDeliveryOutputDir(buildType, backendKey, packageName);
         string outputDir = attemptLayout
             ? BuildPathManager.GetAttemptPackageDir(packageName)
             : deliveryOutputDir;
@@ -97,10 +101,17 @@ public sealed class BuildPackageRequest
             packageName,
             outputDir,
             BuildPathManager.GetBundlesDir(outputDir),
-            BuildPathManager.PackageIndexPath,
             createdAt,
             attemptLayout,
             deliveryOutputDir);
+    }
+
+    /// <summary>按构建类型解析最终出口；Full 与 Hotfix 都是独立包目录。</summary>
+    public static string ResolveDeliveryOutputDir(BuildType buildType, string backendKey, string packageName)
+    {
+        return buildType == BuildType.Standalone
+            ? BuildPathManager.StandalonePackageDir
+            : BuildPathManager.GetPackageDir(packageName);
     }
 
     public static string CreatePackageName(VersionNumber version, DateTime createdAt)

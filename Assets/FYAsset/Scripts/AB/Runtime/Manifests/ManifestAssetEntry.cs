@@ -2,8 +2,12 @@ using System;
 using System.Collections.Generic;
 
 /// <summary>
-/// 序列化的 AB 资源元数据，含所属 Bundle 下标。
+/// 序列化的 AB 资源元数据，含所属内容下标。
 /// </summary>
+/// <remarks>
+/// 公共资源（IsPublic=true）由显式 Collector 采集，带 Address 并进入公共查询索引；
+/// 隐式依赖条目只服务内容构建与校验，Address 为空，不参与地址查询。
+/// </remarks>
 [Serializable]
 [BinarySerializable]
 public class ManifestAssetEntry
@@ -16,7 +20,7 @@ public class ManifestAssetEntry
     public string EntryId;
 
     /// <summary>
-    /// 逻辑查询键；允许重复。
+    /// 公共查询键；只对公共条目有意义，隐式依赖条目为空。
     /// </summary>
     [BinaryField(1)]
     public string Address;
@@ -40,31 +44,25 @@ public class ManifestAssetEntry
     public string SourcePath;
 
     /// <summary>
-    /// 构建 Group 元数据；不是运行时查询过滤条件。
+    /// 是否为公共资源：显式采集为 true，依赖分析自动发现为 false。
     /// </summary>
     [BinaryField(5)]
-    public string Group;
+    public bool IsPublic;
 
     /// <summary>
-    /// 是否由构建配置生成 Address。
+    /// 内容类型：选择 UnityEngine.Object 加载或物理文件读取。
     /// </summary>
     [BinaryField(6)]
-    public bool AutoAddress = true;
+    public AssetContentType ContentType = AssetContentType.SerializedObject;
 
     /// <summary>
-    /// Index into ABManifest.BundleEntries.
+    /// Index into ABManifest.ContentEntries；多个条目可以指向同一个内容。
     /// </summary>
     [BinaryField(7)]
-    public int BundleIndex;
+    public int ContentIndex;
 
     /// <summary>
-    /// Selects UnityEngine.Object or RawFile loading.
-    /// </summary>
-    [BinaryField(8)]
-    public EPayloadKind PayloadKind = EPayloadKind.Serialized;
-
-    /// <summary>
-    /// 复制查询元数据与 Labels；BundleIndex 仍留在 Manifest。
+    /// 复制查询元数据与 Labels；ContentIndex 仍留在 Manifest。
     /// </summary>
     public RuntimeAssetEntry ToRuntimeEntry()
     {
@@ -74,9 +72,8 @@ public class ManifestAssetEntry
             Address = Address,
             PrimaryType = PrimaryType,
             SourcePath = SourcePath,
-            Group = Group,
-            AutoAddress = AutoAddress,
-            PayloadKind = PayloadKind
+            IsPublic = IsPublic,
+            ContentType = ContentType
         };
         entry.SetLabels(Labels);
         return entry;

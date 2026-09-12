@@ -1,14 +1,12 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Threading.Tasks;
 using UnityEngine;
-using UnityEngine.Networking;
 
 /// <summary>
 /// AB Bundle 加载器 — 负责 AssetBundle 文件的加载、卸载与依赖管理。
 /// 通过 ABManifest 查询依赖并递归加载；Bundle 级缓存 + 引用计数，RefCount=0 时 AssetBundle.Unload(true)。
-/// 路径策略与 ABManifestLoader 一致：热更目录优先，StreamingAssets 回退。
+/// 所有物理路径都相对当前激活包根 RuntimePathManager.ActivePackageRoot 解析，不做逐文件回退。
 /// 同一 BundleName 的并发物理加载共享 leader 请求（single-flight）。
 /// 由 ABPackageBackend 创建并持有；释放时调用 UnloadBundle，引用计数归零后自动卸载 Bundle 及其依赖。
 /// </summary>
@@ -74,7 +72,7 @@ public class ABBundleLoader
     /// 同步加载 Bundle（含依赖）。
     /// 如果已缓存则直接增加引用计数并返回。
     /// </summary>
-    /// <param name="bundleName">ManifestBundleEntry.BundleName</param>
+    /// <param name="bundleName">ManifestContentEntry.FileName</param>
     /// <returns>成功返回 (bundle, null)，失败返回 (null, error)</returns>
     public (AssetBundle bundle, RuntimeMessage error) LoadBundle(string bundleName)
     {
@@ -89,7 +87,7 @@ public class ABBundleLoader
             return (cached.Bundle, null);
         }
 
-        if (!_manifest.TryGetBundleByName(bundleName, out var bundleEntry))
+        if (!_manifest.TryGetContentByFileName(bundleName, out var contentEntry))
         {
             return (null, RuntimeMessage.BundleNotFound(bundleName));
         }
@@ -99,7 +97,7 @@ public class ABBundleLoader
         {
             bundleName
         };
-        var (depNames, depError) = LoadDependenciesSync(bundleEntry, visited);
+        var (depNames, depError) = LoadDependenciesSync(contentEntry, visited);
         if (depError != null)
         {
             return (null, depError);
@@ -112,7 +110,7 @@ public class ABBundleLoader
     /// <summary>
     /// 同步卸载 Bundle。引用计数 -1，降至 0 时执行 AssetBundle.Unload(true) 并递归卸载依赖。
     /// </summary>
-    /// <param name="bundleName">ManifestBundleEntry.BundleName</param>
+    /// <param name="bundleName">ManifestContentEntry.FileName</param>
     public void UnloadBundle(string bundleName)
     {
         if (string.IsNullOrEmpty(bundleName)) return;
@@ -136,7 +134,7 @@ public class ABBundleLoader
     /// 异步加载 Bundle（含依赖）。
     /// 如果已缓存则直接增加引用计数并返回。
     /// </summary>
-    /// <param name="bundleName">ManifestBundleEntry.BundleName</param>
+    /// <param name="bundleName">ManifestContentEntry.FileName</param>
     /// <returns>成功返回 (bundle, null)，失败返回 (null, error)</returns>
     public async Task<(AssetBundle bundle, RuntimeMessage error)> LoadBundleAsync(string bundleName)
     {
@@ -151,7 +149,7 @@ public class ABBundleLoader
             return (cached.Bundle, null);
         }
 
-        if (!_manifest.TryGetBundleByName(bundleName, out var bundleEntry))
+        if (!_manifest.TryGetContentByFileName(bundleName, out var contentEntry))
         {
             return (null, RuntimeMessage.BundleNotFound(bundleName));
         }
@@ -161,7 +159,7 @@ public class ABBundleLoader
         {
             bundleName
         };
-        var (depNames, depError) = await LoadDependenciesAsync(bundleEntry, visited);
+        var (depNames, depError) = await LoadDependenciesAsync(contentEntry, visited);
         if (depError != null)
         {
             return (null, depError);
@@ -189,87 +187,32 @@ public class ABBundleLoader
 
     /// <summary>
     /// 解析 Bundle 文件的物理路径。
-    /// 策略：热更目录优先 → StreamingAssets 回退。
-    /// 跨平台：通过 FileHelper.Exists 统一处理 Android jar: URI 等非文件系统路径。
+    /// 只在当前激活包根下查找；找不到返回 null，调用方按结构化错误处理，不再回退其他目录。
+    /// 跨平台：通过 FileHelper.Exists 判定文件是否存在。
     /// </summary>
     /// <param name="bundleName">Bundle 文件名</param>
     /// <returns>存在的文件路径，找不到返回 null</returns>
-    private string ResolveBundlePath(string bundleName)
+    private static string ResolveBundlePath(string bundleName)
     {
-        // Primary: 当前热更包的 bundles 目录
-        string primaryPath = FYAssetPathUtility.JoinFilePath(RuntimePathManager.CurrentGUIDRoot, FYAssetSettings.BUNDLES_DIRECTORY_NAME, bundleName);
-        if (FileHelper.Exists(primaryPath))
-            return primaryPath;
+        string root = RuntimePathManager.ActivePackageRoot;
+        if (string.IsNullOrEmpty(root)) return null;
 
-        // Fallback: 包内初始 bundles 目录（standalone 模式使用隔离子目录）
-        string fallbackPath = FYAssetPathUtility.JoinFilePath(GetStreamingAssetsBundlesDir(), bundleName);
-        if (FileHelper.Exists(fallbackPath))
-            return fallbackPath;
-
-        return null;
+        string path = FYAssetPathUtility.JoinFilePath(
+            root,
+            FYAssetSettings.BUNDLES_DIRECTORY_NAME,
+            bundleName);
+        return FileHelper.Exists(path) ? path : null;
     }
 
     /// <summary>
-    /// 从 StreamingAssets 异步加载 AssetBundle（跨平台）。
-    /// 非 Android / Editor → 直接走 LoadFromFileAsync。
-    /// Android 运行时 → UnityWebRequestAssetBundle（jar: URI 不是真实文件系统）。
-    /// </summary>
-    private static async Task<AssetBundle> LoadBundleFromStreamingAssetsAsync(string bundleName)
-    {
-        string path = FYAssetPathUtility.JoinFilePath(GetStreamingAssetsBundlesDir(), bundleName);
-
-#if UNITY_ANDROID && !UNITY_EDITOR
-        using var request = UnityWebRequestAssetBundle.GetAssetBundle(path);
-        await request.SendWebRequest();
-        if (request.result != UnityWebRequest.Result.Success)
-        {
-            Debug.LogError($"[ABBundleLoader] StreamingAssets Bundle 加载失败: {path}, 错误: {request.error}");
-            return null;
-        }
-        return DownloadHandlerAssetBundle.GetContent(request);
-#else
-        if (!FileHelper.Exists(path))
-        {
-            Debug.LogError($"[ABBundleLoader] StreamingAssets 中未找到 Bundle: {path}");
-            return null;
-        }
-        var fileRequest = AssetBundle.LoadFromFileAsync(path);
-        var tcs = new TaskCompletionSource<AssetBundle>();
-        if (fileRequest.isDone)
-        {
-            tcs.SetResult(fileRequest.assetBundle);
-        }
-        else
-        {
-            fileRequest.completed += _ => tcs.SetResult(fileRequest.assetBundle);
-        }
-        return await tcs.Task;
-#endif
-    }
-
-    /// <summary>
-    /// 返回 StreamingAssets 下 bundles 目录的路径。
-    /// standalone 模式使用 StreamingAssets/Standalone/bundles/，与在线基线隔离。
-    /// </summary>
-    private static string GetStreamingAssetsBundlesDir() =>
-        FYAssetSettings.Instance.StandaloneBuild
-            ? FYAssetPathUtility.JoinFilePath(
-                Application.streamingAssetsPath,
-                FYAssetSettings.STANDALONE_DIRECTORY_NAME,
-                FYAssetSettings.BUNDLES_DIRECTORY_NAME)
-            : FYAssetPathUtility.JoinFilePath(
-                Application.streamingAssetsPath,
-                FYAssetSettings.BUNDLES_DIRECTORY_NAME);
-
-    /// <summary>
-    /// 同步递归加载 BundleEntry 的所有依赖 Bundle。
+    /// 同步递归加载 ContentEntry 的所有依赖内容。
     /// 使用 HashSet 防环和防重复加载。
     /// </summary>
     /// <returns>成功返回 (depNames, null)，失败返回 (null, error)</returns>
     private (string[] depNames, RuntimeMessage error) LoadDependenciesSync(
-        ManifestBundleEntry bundleEntry, HashSet<string> visited)
+        ManifestContentEntry contentEntry, HashSet<string> visited)
     {
-        var directDeps = _manifest.GetDirectDependencies(bundleEntry);
+        var directDeps = _manifest.GetDirectDependencies(contentEntry);
         if (directDeps.Count == 0)
             return (Array.Empty<string>(), null);
 
@@ -278,30 +221,30 @@ public class ABBundleLoader
         for (int i = 0; i < directDeps.Count; i++)
         {
             var dep = directDeps[i];
-            if (string.IsNullOrEmpty(dep.BundleName)) continue;
+            if (string.IsNullOrEmpty(dep.FileName)) continue;
 
             // 环依赖直接判错，避免坏 manifest 在运行时递归爆栈
-            if (!visited.Add(dep.BundleName))
+            if (!visited.Add(dep.FileName))
             {
                 UnloadDependencies(loadedDepNames);
-                return (null, RuntimeMessage.DependencyFailed(bundleEntry.BundleName, dep.BundleName));
+                return (null, RuntimeMessage.DependencyFailed(contentEntry.FileName, dep.FileName));
             }
 
             try
             {
                 // 递归加载依赖的依赖，visited 仅表示当前递归路径。
-                var (depBundle, depError) = LoadBundleInternal(dep.BundleName, visited);
+                var (depBundle, depError) = LoadBundleInternal(dep.FileName, visited);
                 if (depError != null)
                 {
                     UnloadDependencies(loadedDepNames);
-                    return (null, RuntimeMessage.DependencyFailed(bundleEntry.BundleName, dep.BundleName));
+                    return (null, RuntimeMessage.DependencyFailed(contentEntry.FileName, dep.FileName));
                 }
 
-                loadedDepNames.Add(dep.BundleName);
+                loadedDepNames.Add(dep.FileName);
             }
             finally
             {
-                visited.Remove(dep.BundleName);
+                visited.Remove(dep.FileName);
             }
         }
 
@@ -309,14 +252,14 @@ public class ABBundleLoader
     }
 
     /// <summary>
-    /// 异步递归加载 BundleEntry 的所有依赖 Bundle。
+    /// 异步递归加载 ContentEntry 的所有依赖内容。
     /// 使用 HashSet 防环和防重复加载。
     /// </summary>
     /// <returns>成功返回 (depNames, null)，失败返回 (null, error)</returns>
     private async Task<(string[] depNames, RuntimeMessage error)> LoadDependenciesAsync(
-        ManifestBundleEntry bundleEntry, HashSet<string> visited)
+        ManifestContentEntry contentEntry, HashSet<string> visited)
     {
-        var directDeps = _manifest.GetDirectDependencies(bundleEntry);
+        var directDeps = _manifest.GetDirectDependencies(contentEntry);
         if (directDeps.Count == 0)
             return (Array.Empty<string>(), null);
 
@@ -325,30 +268,30 @@ public class ABBundleLoader
         for (int i = 0; i < directDeps.Count; i++)
         {
             var dep = directDeps[i];
-            if (string.IsNullOrEmpty(dep.BundleName)) continue;
+            if (string.IsNullOrEmpty(dep.FileName)) continue;
 
             // 环依赖直接判错，避免坏 manifest 在运行时递归爆栈
-            if (!visited.Add(dep.BundleName))
+            if (!visited.Add(dep.FileName))
             {
                 UnloadDependencies(loadedDepNames);
-                return (null, RuntimeMessage.DependencyFailed(bundleEntry.BundleName, dep.BundleName));
+                return (null, RuntimeMessage.DependencyFailed(contentEntry.FileName, dep.FileName));
             }
 
             try
             {
                 // 递归加载依赖的依赖，visited 仅表示当前递归路径。
-                var (depBundle, depError) = await LoadBundleInternalAsync(dep.BundleName, visited);
+                var (depBundle, depError) = await LoadBundleInternalAsync(dep.FileName, visited);
                 if (depError != null)
                 {
                     UnloadDependencies(loadedDepNames);
-                    return (null, RuntimeMessage.DependencyFailed(bundleEntry.BundleName, dep.BundleName));
+                    return (null, RuntimeMessage.DependencyFailed(contentEntry.FileName, dep.FileName));
                 }
 
-                loadedDepNames.Add(dep.BundleName);
+                loadedDepNames.Add(dep.FileName);
             }
             finally
             {
-                visited.Remove(dep.BundleName);
+                visited.Remove(dep.FileName);
             }
         }
 
@@ -388,9 +331,11 @@ public class ABBundleLoader
 
             if (operation.LocalRequest == null)
             {
+                // 物理请求尚未建立：同步调用无法安全加入，返回结构化错误而不是空引用。
+                // 当前实现里 inflight 记录建立与 LoadFromFileAsync 调用之间没有 await，因此该分支实际不可达。
                 return (null, RuntimeMessage.UnsupportedOperation(
                     nameof(LoadBundle),
-                    "无法同步等待正在进行的 StreamingAssets/UWR Bundle 加载"));
+                    "无法同步等待尚未开始的 Bundle 物理加载"));
             }
 
             operation.PendingAcquireCount++;
@@ -402,6 +347,7 @@ public class ABBundleLoader
                     operation.LocalRequest.completed -= operation.CompletionHandler;
                 }
 
+                // 读取请求结果会同步完成尚未结束的本地加载，避免同步调用阻塞在队列上
                 AssetBundle bundle = operation.LocalRequest.assetBundle;
                 RuntimeMessage error = bundle == null
                     ? RuntimeMessage.BundleLoadFailed(bundleName, operation.BundlePath)
@@ -475,22 +421,11 @@ public class ABBundleLoader
 
         if (bundlePath == null)
         {
-            try
-            {
-                AssetBundle streamedBundle = await LoadBundleFromStreamingAssetsAsync(bundleName);
-                RuntimeMessage streamError = streamedBundle == null
-                    ? RuntimeMessage.BundleLoadFailed(bundleName, "streamingAssets")
-                    : null;
-                return FinalizeBundleLoad(bundleName, leaderOperation, streamedBundle, streamError);
-            }
-            catch (Exception)
-            {
-                return FinalizeBundleLoad(
-                    bundleName,
-                    leaderOperation,
-                    null,
-                    RuntimeMessage.BundleLoadFailed(bundleName, "streamingAssets"));
-            }
+            return FinalizeBundleLoad(
+                bundleName,
+                leaderOperation,
+                null,
+                RuntimeMessage.BundleNotFound(bundleName));
         }
 
         try
@@ -613,12 +548,12 @@ public class ABBundleLoader
             return (cached.Bundle, null);
         }
 
-        if (!_manifest.TryGetBundleByName(bundleName, out var bundleEntry))
+        if (!_manifest.TryGetContentByFileName(bundleName, out var contentEntry))
         {
             return (null, RuntimeMessage.BundleNotFound(bundleName));
         }
 
-        var (depNames, depError) = LoadDependenciesSync(bundleEntry, visited);
+        var (depNames, depError) = LoadDependenciesSync(contentEntry, visited);
         if (depError != null)
         {
             return (null, depError);
@@ -645,12 +580,12 @@ public class ABBundleLoader
             return (cached.Bundle, null);
         }
 
-        if (!_manifest.TryGetBundleByName(bundleName, out var bundleEntry))
+        if (!_manifest.TryGetContentByFileName(bundleName, out var contentEntry))
         {
             return (null, RuntimeMessage.BundleNotFound(bundleName));
         }
 
-        var (depNames, depError) = await LoadDependenciesAsync(bundleEntry, visited);
+        var (depNames, depError) = await LoadDependenciesAsync(contentEntry, visited);
         if (depError != null)
         {
             return (null, depError);
