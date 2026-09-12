@@ -16,17 +16,17 @@
     <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Pipeline/Editor/BuildPipelineRunner.cs" Link="Production/BuildPipelineRunner.cs" />
     <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Pipeline/Editor/BuildPipelineComposer.cs" Link="Production/BuildPipelineComposer.cs" />
     <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Pipeline/Editor/BuildPipelineException.cs" Link="Production/BuildPipelineException.cs" />
-    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Pipeline/Editor/CoreTaskSlot.cs" Link="Production/CoreTaskSlot.cs" />
-    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Pipeline/Editor/CustomTaskEntry.cs" Link="Production/CustomTaskEntry.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Pipeline/Editor/Tasks/CoreTaskSlot.cs" Link="Production/CoreTaskSlot.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Pipeline/Editor/Tasks/CustomTaskEntry.cs" Link="Production/CustomTaskEntry.cs" />
     <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Pipeline/Editor/BuildRequest.cs" Link="Production/BuildRequest.cs" />
     <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Pipeline/Editor/BuildRunResult.cs" Link="Production/BuildRunResult.cs" />
     <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Pipeline/Editor/IBuildRunEnvironment.cs" Link="Production/IBuildRunEnvironment.cs" />
     <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Pipeline/Editor/BuildContext.cs" Link="Production/BuildContext.cs" />
-    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Pipeline/Editor/IBuildTask.cs" Link="Production/IBuildTask.cs" />
-    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Pipeline/Editor/BuildTaskResult.cs" Link="Production/BuildTaskResult.cs" />
-    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Pipeline/Editor/BuildTaskResolver.cs" Link="Production/BuildTaskResolver.cs" />
-    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Pipeline/Editor/BuildTaskExecutionStatus.cs" Link="Production/BuildTaskExecutionStatus.cs" />
-    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Pipeline/Editor/BuildTaskExecutionEvent.cs" Link="Production/BuildTaskExecutionEvent.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Pipeline/Editor/Tasks/IBuildTask.cs" Link="Production/IBuildTask.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Pipeline/Editor/Tasks/BuildTaskResult.cs" Link="Production/BuildTaskResult.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Pipeline/Editor/Tasks/BuildTaskResolver.cs" Link="Production/BuildTaskResolver.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Pipeline/Editor/Tasks/BuildTaskExecutionStatus.cs" Link="Production/BuildTaskExecutionStatus.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Pipeline/Editor/Tasks/BuildTaskExecutionEvent.cs" Link="Production/BuildTaskExecutionEvent.cs" />
     <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Pipeline/Editor/BuildExecutionOptions.cs" Link="Production/BuildExecutionOptions.cs" />
     <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Editor/Common/BuildMessage.cs" Link="Production/BuildMessage.cs" />
   </ItemGroup>

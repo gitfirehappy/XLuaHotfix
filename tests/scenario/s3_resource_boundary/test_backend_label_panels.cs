@@ -18,7 +18,7 @@ internal static class BackendLabelPanelTests
         RepoAssert.NotContains(aa, "ProjectSelectionLabelPanel", "AA uses native Addressables editing");
         RepoAssert.NotContains(ab, "ProjectSelectionLabelPanel", "AB uses Collection editing");
 
-        // T1 起标签只由 AssetOverrides 承载：断言“标签编辑只改 Curate candidate、只有 Save 才落盘”，
+        // 标签只由 AssetOverrides 承载：标签编辑只改 Curate candidate，只有 Save 才落盘，
         // 不再断言已删除的 AssetEntries / 批量标签入口。
         string source = RepoSource.Read(root + "AB/Build/Editor/ABPipeline/AssetsCollectionPanel.cs");
         string overrides = Between(source, "private void DrawAssetOverridesEditor(", "private static Label CreateColumnLabel(");

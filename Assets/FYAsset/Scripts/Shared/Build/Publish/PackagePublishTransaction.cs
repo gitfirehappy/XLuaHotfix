@@ -8,17 +8,7 @@ using UnityEngine;
 /// 目录型发布事务：读取服务器事实 → 组装新的隔离包目录 → 校验逻辑完整性 → 就位 → 最后写 PackageIndex。
 /// </summary>
 /// <remarks>
-/// 计划 T7 的发布语义：
-/// 1. 服务器 PackageIndex 与其指向的 Manifest 是唯一远端事实；查询失败或 Manifest 损坏时退化为完整上传；
-/// 2. 新目录先在服务器根下的隔离工作区组装：同名同 Hash 的内容直接复用服务器已有文件，
-///    其余从本地包目录复制；Hash 命中但名称不同的内容也允许复用（复用后逐文件校验摘要）；
-///    稀疏 Hotfix 的目标集合以包内完整清单声明为准：本地缺失的内容由服务器当前包或本地基准 Full 补齐，
-///    三处都取不到（或字节与清单声明不一致）时以“来源不足”拒绝发布，且不写任何文件；
-/// 3. 组装完成后校验新目录逻辑完整性（必填清单齐全、文件集合与目标计划一致、包内文件都被清单声明）；
-/// 4. 校验通过才就位新包目录，并且**最后**才生成并上传 PackageIndex；
-/// 5. 当前 PackageIndex 指向的包目录不可被覆盖；其他旧包一律不删除（清理是独立维护入口）；
-///    本事务对服务器当前包只读：不会写入、删除或重命名其内的任何文件；
-/// 6. 任一步骤失败按逆序补偿：旧 PackageIndex 与旧包目录保持中断前的状态。
+/// 服务器 PackageIndex 和 Manifest 是远端事实。目标包先在隔离工作区组装并校验，成功后才替换正式目录并提交新索引；失败时保留旧包。
 /// </remarks>
 public sealed class PackagePublishTransaction : IDisposable
 {
@@ -133,10 +123,7 @@ public sealed class PackagePublishTransaction : IDisposable
         }
     }
 
-    /// <summary>
-    /// 第 1-4 步：读取服务器 PackageIndex 与其指向的 Manifest，扫描本地包并做无状态 Diff。
-    /// 只读操作，不修改任何文件；稀疏 Hotfix 的来源不足也在这一步被拒绝。
-    /// </summary>
+    /// <summary>读取服务器事实、扫描本地包并建立发布计划；只读，不修改文件。</summary>
     public PublishPlan CreatePlan()
     {
         Plan = new PublishPlan
@@ -145,7 +132,7 @@ public sealed class PackagePublishTransaction : IDisposable
             ServerPackageIndexPath = _packageIndexPath
         };
 
-        if (!PackageFileScanner.TryScan(_request.SourcePackageDir, out List<FileDigest> localFiles, out string scanError))
+        if (!PackageFileScanner.TryScan(_request.SourcePackageDir, out List<FileHelper.FileDigest> localFiles, out string scanError))
             throw new IOException($"本地包目录扫描失败: {scanError}");
 
         Plan.LocalFiles = localFiles;
@@ -154,19 +141,25 @@ public sealed class PackagePublishTransaction : IDisposable
         ReadServerFacts(Plan);
         AssembleTargetSet(Plan);
 
-        List<FileDigest> targetFiles = Plan.ResolveTargetFiles();
-        Plan.Diff = FileDiff.Compute(Plan.ServerFiles, targetFiles);
+        List<FileHelper.FileDigest> targetFiles = Plan.ResolveTargetFiles();
+        FileHelper.ComputeDiff(
+            Plan.ServerFiles,
+            targetFiles,
+            out Plan.AddedFiles,
+            out Plan.ModifiedFiles,
+            out Plan.UnchangedFiles,
+            out Plan.RemovedFiles);
         Plan.AddMessage(
             $"本地文件={Plan.LocalFiles.Count}, 目标文件={targetFiles.Count}, 服务器声明={Plan.ServerFiles.Count}, "
-            + $"新增={Plan.Diff.Added.Count}, 修改={Plan.Diff.Modified.Count}, 未变={Plan.Diff.Unchanged.Count}, "
-            + $"服务器移除={Plan.Diff.Removed.Count}");
+            + $"新增={Plan.AddedFiles.Count}, 修改={Plan.ModifiedFiles.Count}, 未变={Plan.UnchangedFiles.Count}, "
+            + $"服务器移除={Plan.RemovedFiles.Count}");
 
         DescribeCacheDrift(Plan);
         return Plan;
     }
 
     /// <summary>
-    /// 第 4.5 步：把本地包目录与清单声明的完整目标内容集合合并成目标包组装计划。
+    /// <summary>在隔离目录中组装完整目标包。</summary>
     /// 只读操作：稀疏 Hotfix 的来源不足（基准 Full 摘要不可读、包目录缺失、内容两处都找不到、
     /// 或字节与清单声明不一致）在此直接抛出，此时尚未写出任何文件。
     /// </summary>
@@ -194,7 +187,7 @@ public sealed class PackagePublishTransaction : IDisposable
     }
 
     /// <summary>
-    /// 第 5 步：在隔离目录组装新包内容，优先复用服务器已有 Hash 内容。
+    /// <summary>在隔离目录中复用或复制目标文件。</summary>
     /// </summary>
     public void Stage()
     {
@@ -202,15 +195,15 @@ public sealed class PackagePublishTransaction : IDisposable
         FileHelper.TryDeleteDirectory(_workRoot, true);
         FileHelper.EnsureDirectory(_stagedPackageDir);
 
-        List<FileDigest> targetFiles = Plan.ResolveTargetFiles();
-        List<FileDigest> serverFiles = Plan.ServerFiles;
-        var serverByName = FileDiff.IndexByName(serverFiles);
-        var serverByHash = FileDiff.IndexByHash(serverFiles);
+        List<FileHelper.FileDigest> targetFiles = Plan.ResolveTargetFiles();
+        List<FileHelper.FileDigest> serverFiles = Plan.ServerFiles;
+        var serverByName = FileHelper.IndexByName(serverFiles);
+        var serverByHash = FileHelper.IndexByHash(serverFiles);
         var expectedNames = new HashSet<string>(StringComparer.Ordinal);
 
         for (int i = 0; i < targetFiles.Count; i++)
         {
-            FileDigest expected = targetFiles[i];
+            FileHelper.FileDigest expected = targetFiles[i];
             if (!expectedNames.Add(expected.Name))
                 throw new InvalidOperationException($"目标包存在重名文件: {expected.Name}");
 
@@ -218,7 +211,7 @@ public sealed class PackagePublishTransaction : IDisposable
             string targetPath = FYAssetPathUtility.JoinFilePath(_stagedPackageDir, expected.Name);
             FileHelper.CopyFile(source, targetPath, true);
 
-            if (!FileDigest.TryCreate(targetPath, expected.Name, out FileDigest staged) || !staged.Matches(expected))
+            if (!FileHelper.TryCreateDigest(targetPath, expected.Name, out FileHelper.FileDigest staged) || !staged.Matches(expected))
             {
                 throw new IOException(
                     $"隔离目录文件摘要与目标包声明不一致: {expected.Name}（来源={source}）");
@@ -232,7 +225,7 @@ public sealed class PackagePublishTransaction : IDisposable
     }
 
     /// <summary>
-    /// 第 6 步：校验新目录逻辑完整性。未通过时不得进入就位与写 PackageIndex。
+    /// <summary>校验隔离目录和目标清单的一致性。</summary>
     /// </summary>
     public void VerifyStaged()
     {
@@ -242,18 +235,18 @@ public sealed class PackagePublishTransaction : IDisposable
 
         EnsureRequiredFilesPresent(Plan.ResolveTargetFiles(), _stagedPackageDir, "隔离目录");
 
-        if (!PackageFileScanner.TryScan(_stagedPackageDir, out List<FileDigest> stagedFiles, out string scanError))
+        if (!PackageFileScanner.TryScan(_stagedPackageDir, out List<FileHelper.FileDigest> stagedFiles, out string scanError))
             throw new IOException($"隔离目录扫描失败: {scanError}");
 
-        var expectedByName = FileDiff.IndexByName(Plan.ResolveTargetFiles());
+        var expectedByName = FileHelper.IndexByName(Plan.ResolveTargetFiles());
         if (stagedFiles.Count != expectedByName.Count)
             throw new InvalidOperationException(
                 $"隔离目录文件数与发布计划不一致: 实际={stagedFiles.Count}, 计划={expectedByName.Count}");
 
         for (int i = 0; i < stagedFiles.Count; i++)
         {
-            FileDigest staged = stagedFiles[i];
-            if (!expectedByName.TryGetValue(staged.Name, out FileDigest expected))
+            FileHelper.FileDigest staged = stagedFiles[i];
+            if (!expectedByName.TryGetValue(staged.Name, out FileHelper.FileDigest expected))
                 throw new InvalidOperationException($"隔离目录出现计划外文件: {staged.Name}");
             if (!staged.Matches(expected))
                 throw new InvalidOperationException($"隔离目录文件内容与计划不一致: {staged.Name}");
@@ -264,7 +257,7 @@ public sealed class PackagePublishTransaction : IDisposable
     }
 
     /// <summary>
-    /// 第 7 步：把校验过的隔离目录就位为新的包目录。
+    /// <summary>把校验通过的隔离目录替换为正式包目录。</summary>
     /// 当前 PackageIndex 指向的同名目录视为已发布内容，不允许被覆盖。
     /// </summary>
     public void Apply()
@@ -297,7 +290,7 @@ public sealed class PackagePublishTransaction : IDisposable
     }
 
     /// <summary>
-    /// 第 8 步：生成并上传新的 PackageIndex。必须在内容就位并通过校验之后执行。
+    /// <summary>在内容就位后生成并提交新的 PackageIndex。</summary>
     /// </summary>
     public void WritePackageIndex()
     {
@@ -390,13 +383,13 @@ public sealed class PackagePublishTransaction : IDisposable
             return;
         }
 
-        if (!_request.ManifestReader.TryReadContentDigests(serverPackageDir, out IReadOnlyList<FileDigest> contents, out string manifestError))
+        if (!_request.ManifestReader.TryReadContentDigests(serverPackageDir, out IReadOnlyList<FileHelper.FileDigest> contents, out string manifestError))
         {
             Degrade(plan, $"服务器 Manifest 损坏或缺失: {manifestError}");
             return;
         }
 
-        var serverFiles = new List<FileDigest>();
+        var serverFiles = new List<FileHelper.FileDigest>();
         IReadOnlyList<string> required = _request.ManifestReader.RequiredPackageFileNames;
         for (int i = 0; i < required.Count; i++)
         {
@@ -405,7 +398,7 @@ public sealed class PackagePublishTransaction : IDisposable
                 continue;
 
             string path = FYAssetPathUtility.JoinFilePath(serverPackageDir, name);
-            if (!FileDigest.TryCreate(path, name.Replace('\\', '/'), out FileDigest digest))
+            if (!FileHelper.TryCreateDigest(path, name.Replace('\\', '/'), out FileHelper.FileDigest digest))
             {
                 Degrade(plan, $"服务器包缺少清单文件或不可读: {name}");
                 return;
@@ -439,7 +432,7 @@ public sealed class PackagePublishTransaction : IDisposable
     /// <summary>服务器包内实际存在的内容文件必须与 Manifest 声明一致，否则该事实不可复用。</summary>
     private bool VerifyServerContentMatchesManifest(
         string serverPackageDir,
-        IReadOnlyList<FileDigest> declaredContents,
+        IReadOnlyList<FileHelper.FileDigest> declaredContents,
         out string error)
     {
         error = string.Empty;
@@ -454,18 +447,18 @@ public sealed class PackagePublishTransaction : IDisposable
         if (!PackageFileScanner.TryScanContentDirectory(
                 serverPackageDir,
                 contentDirectory,
-                out List<FileDigest> physical,
+                out List<FileHelper.FileDigest> physical,
                 out string scanError))
         {
             error = scanError;
             return false;
         }
 
-        var declaredByName = FileDiff.IndexByName(declaredContents);
+        var declaredByName = FileHelper.IndexByName(declaredContents);
         for (int i = 0; i < physical.Count; i++)
         {
-            FileDigest file = physical[i];
-            if (!declaredByName.TryGetValue(file.Name, out FileDigest declared))
+            FileHelper.FileDigest file = physical[i];
+            if (!declaredByName.TryGetValue(file.Name, out FileHelper.FileDigest declared))
             {
                 error = $"存在清单未声明的文件: {file.Name}";
                 return false;
@@ -481,11 +474,11 @@ public sealed class PackagePublishTransaction : IDisposable
         return true;
     }
 
-    /// <summary>把计划标记为完整上传退化；服务器声明集合清空，避免使用不可信事实。</summary>
+    /// <summary>把发布降级为完整上传，并清空不可信的服务器声明集合。</summary>
     private static void Degrade(PublishPlan plan, string reason)
     {
         plan.DegradeReason = reason;
-        plan.ServerFiles = new List<FileDigest>();
+        plan.ServerFiles = new List<FileHelper.FileDigest>();
         plan.ServerManifestReadable = false;
         plan.AddMessage($"退化为完整上传: {reason}");
     }
@@ -524,28 +517,28 @@ public sealed class PackagePublishTransaction : IDisposable
         }
     }
 
-    /// <summary>决定单个目标文件的来源：优先同名/Hash 复用服务器内容，其次组装计划指定的来源（本地包或基准 Full）。</summary>
+    /// <summary>决定单个目标文件的来源：优先复用服务器内容，其次使用本地包或基准 Full。</summary>
     private string ResolveStagingSource(
-        in FileDigest target,
-        Dictionary<string, FileDigest> serverByName,
-        Dictionary<string, FileDigest> serverByHash)
+        in FileHelper.FileDigest target,
+        Dictionary<string, FileHelper.FileDigest> serverByName,
+        Dictionary<string, FileHelper.FileDigest> serverByHash)
     {
-        if (serverByName.TryGetValue(target.Name, out FileDigest sameName)
+        if (serverByName.TryGetValue(target.Name, out FileHelper.FileDigest sameName)
             && string.Equals(sameName.Hash, target.Hash, StringComparison.Ordinal)
             && sameName.CRC == target.CRC
             && sameName.Size == target.Size)
         {
             string reusePath = FYAssetPathUtility.JoinFilePath(Plan.ServerPackageDir, target.Name);
-            if (FileDigest.TryCreate(reusePath, target.Name, out FileDigest actual) && actual.Matches(target))
+            if (FileHelper.TryCreateDigest(reusePath, target.Name, out FileHelper.FileDigest actual) && actual.Matches(target))
                 return reusePath;
         }
 
-        string hashKey = FileDiff.HashKey(target.Hash, target.Size);
-        if (serverByHash.TryGetValue(hashKey, out FileDigest sameHash)
+        string hashKey = FileHelper.HashKey(target.Hash, target.Size);
+        if (serverByHash.TryGetValue(hashKey, out FileHelper.FileDigest sameHash)
             && !string.Equals(sameHash.Name, target.Name, StringComparison.Ordinal))
         {
             string reusePath = FYAssetPathUtility.JoinFilePath(Plan.ServerPackageDir, sameHash.Name);
-            if (FileDigest.TryCreate(reusePath, sameHash.Name, out FileDigest actual) && actual.Matches(sameHash))
+            if (FileHelper.TryCreateDigest(reusePath, sameHash.Name, out FileHelper.FileDigest actual) && actual.Matches(sameHash))
             {
                 Plan.ReusedByHash.Add(target);
                 Plan.AddMessage($"Hash 命中复用服务器内容: {target.Name} ← {sameHash.Name}");
@@ -560,13 +553,13 @@ public sealed class PackagePublishTransaction : IDisposable
     }
 
     /// <summary>必填清单文件必须存在且非空，否则该目录无法作为包使用。</summary>
-    private void EnsureRequiredFilesPresent(IReadOnlyList<FileDigest> files, string rootDir, string description)
+    private void EnsureRequiredFilesPresent(IReadOnlyList<FileHelper.FileDigest> files, string rootDir, string description)
     {
         IReadOnlyList<string> required = _request.ManifestReader.RequiredPackageFileNames;
         if (required == null || required.Count == 0)
             throw new InvalidOperationException("后端未声明包清单文件名，无法校验包头完整性。");
 
-        var byName = FileDiff.IndexByName(files);
+        var byName = FileHelper.IndexByName(files);
         for (int i = 0; i < required.Count; i++)
         {
             string name = required[i];
@@ -584,21 +577,21 @@ public sealed class PackagePublishTransaction : IDisposable
     /// 否则客户端能下载到文件却永远读不到它（清单才是下载与加载的契约）。
     /// 清单声明但未随包发布的文件是允许的：Hotfix 包只携带相对 Full 累计变化的内容。
     /// </summary>
-    private void VerifyDeclaredByManifest(IReadOnlyList<FileDigest> stagedFiles)
+    private void VerifyDeclaredByManifest(IReadOnlyList<FileHelper.FileDigest> stagedFiles)
     {
-        if (!_request.ManifestReader.TryReadContentDigests(_stagedPackageDir, out IReadOnlyList<FileDigest> declared, out string error))
+        if (!_request.ManifestReader.TryReadContentDigests(_stagedPackageDir, out IReadOnlyList<FileHelper.FileDigest> declared, out string error))
             throw new InvalidOperationException($"隔离目录清单不可解析: {error}");
 
-        var declaredByName = FileDiff.IndexByName(declared);
+        var declaredByName = FileHelper.IndexByName(declared);
         string contentPrefix = ResolveContentPrefix();
 
         for (int i = 0; i < stagedFiles.Count; i++)
         {
-            FileDigest staged = stagedFiles[i];
+            FileHelper.FileDigest staged = stagedFiles[i];
             if (contentPrefix.Length == 0 || !staged.Name.StartsWith(contentPrefix, StringComparison.Ordinal))
                 continue;
 
-            if (!declaredByName.TryGetValue(staged.Name, out FileDigest declaredDigest))
+            if (!declaredByName.TryGetValue(staged.Name, out FileHelper.FileDigest declaredDigest))
                 throw new InvalidOperationException($"包内容文件未被清单声明: {staged.Name}");
 
             if (!string.Equals(declaredDigest.Hash, staged.Hash, StringComparison.Ordinal)
@@ -627,19 +620,19 @@ public sealed class PackagePublishTransaction : IDisposable
                && string.Equals(serverIndex.LatestPackage, Identity.PackageName, StringComparison.Ordinal);
     }
 
-    /// <summary>目标目录内容是否与本次计划完全一致（幂等重复发布判定）。</summary>
+    /// <summary>目标目录内容是否与目标文件集合完全一致。</summary>
     private bool ContentMatchesTarget()
     {
-        if (!PackageFileScanner.TryScan(_targetPackageDir, out List<FileDigest> existing, out _))
+        if (!PackageFileScanner.TryScan(_targetPackageDir, out List<FileHelper.FileDigest> existing, out _))
             return false;
 
-        var expectedByName = FileDiff.IndexByName(Plan.ResolveTargetFiles());
+        var expectedByName = FileHelper.IndexByName(Plan.ResolveTargetFiles());
         if (existing.Count != expectedByName.Count)
             return false;
 
         for (int i = 0; i < existing.Count; i++)
         {
-            if (!expectedByName.TryGetValue(existing[i].Name, out FileDigest expected)
+            if (!expectedByName.TryGetValue(existing[i].Name, out FileHelper.FileDigest expected)
                 || !existing[i].Matches(expected))
             {
                 return false;
@@ -675,7 +668,7 @@ public sealed class PackagePublishTransaction : IDisposable
         {
             BackendId = string.IsNullOrEmpty(Identity.BackendId) ? _request.BackendKey : Identity.BackendId,
             TargetId = _request.TargetId ?? string.Empty,
-            Files = new List<FileDigest>(Plan.ResolveTargetFiles()),
+            Files = new List<FileHelper.FileDigest>(Plan.ResolveTargetFiles()),
             LastPackageName = Identity.PackageName,
             PublishedAtUtc = DateTime.UtcNow.ToString("o")
         });

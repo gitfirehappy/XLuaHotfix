@@ -1,12 +1,8 @@
 using System;
 
 /// <summary>
-/// T4「ABManifest 与验证」目标契约门禁（计划 Code Change Map T4 与 Target Data Model - ABManifest）。
-/// 目标结构：ManifestBundleEntry 改为 ManifestContentEntry（承载 Bundle 与 RawFile 的统一文件事实）；
-/// ABManifest 用 PackageVersion/AssetEntries/ContentEntries 描述一次构建；
-/// ManifestAssetEntry 用 EntryId/Address/PrimaryType/Labels/SourcePath/IsPublic/ContentType/ContentIndex 描述资产；
-/// 删除 Manifest 自 Hash、DeliveryBundles、Group、AutoAddress、BundleIndex、PayloadKind 与写包 Manifest 的独立 Task，
-/// 并同步重建 Compat 序列化生成代码。
+/// ABManifest 与内容验证契约门禁。
+/// 验证 Manifest 统一承载 Bundle、RawFile、资产索引和依赖事实，且旧字段与独立写包 Task 已移除。
 /// </summary>
 internal static class ManifestContractTests
 {

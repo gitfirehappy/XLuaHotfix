@@ -22,12 +22,12 @@ public enum AAPipelineSlot
 }
 
 /// <summary>
-/// AA 固定主干定义：5 个阶段，每个阶段之间允许 0..N 个自定义 Task。
-/// 主干 Task 直接在这里 new 出来，不经反射；配置只能声明自定义 Task 的插入槽位。
+/// AA 固定主干定义；成员顺序即执行顺序，成员名同时用作自定义 Task 的插入槽位。
+/// 主干 Task 直接在这里创建，配置只能声明自定义 Task 的插入槽位。
 /// </summary>
 public static class AAPipelineBackbone
 {
-    /// <summary>按执行顺序创建 AA 主干槽位；主干顺序是唯一事实来源，配置不能增删阶段。</summary>
+    /// <summary>按执行顺序创建 AA 主干槽位；配置不能增删主干 Task。</summary>
     public static IReadOnlyList<CoreTaskSlot> CreateCoreSlots()
     {
         return new[]

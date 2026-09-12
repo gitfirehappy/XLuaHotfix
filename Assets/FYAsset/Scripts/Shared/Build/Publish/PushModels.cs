@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 
 /// <summary>
-/// 已组装完成、等待上传的发布负载。
+/// 已组装并校验、等待上传的发布负载。
 /// </summary>
 /// <remarks>
 /// 发布事务负责组装与校验，上传目标只负责搬运：
@@ -75,10 +75,7 @@ public interface IPushTarget
 /// 目录型目标能力：服务器内容可以用本地目录表达。
 /// </summary>
 /// <remarks>
-/// 计划 T7 的发布流程需要读取服务器 PackageIndex 与其指向的 Manifest，并能在服务器根下组装隔离目录。
-/// 只有具备该能力的目录型目标（本地目录镜像、挂载盘等）才能执行完整发布事务；
-/// 其他目标（例如 HTTP/CLI 型部署）无法读取服务器事实，发布方按“完整上传”退化，
-/// 但仍然保证 PackageIndex 在最后上传。
+/// 目录型目标可以读取服务器 PackageIndex 和 Manifest，并在服务器根下组装隔离目录；其他目标按完整上传处理，PackageIndex 仍最后提交。
 /// </remarks>
 public interface IDirectoryPushTarget : IPushTarget
 {

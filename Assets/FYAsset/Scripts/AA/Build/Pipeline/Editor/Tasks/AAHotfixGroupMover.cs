@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Text;
 using UnityEditor;
 using UnityEditor.AddressableAssets;
 using UnityEditor.AddressableAssets.Settings;
@@ -9,11 +8,8 @@ using UnityEditor.AddressableAssets.Settings.GroupSchemas;
 using UnityEngine;
 
 /// <summary>
-/// AA 热更分组迁移工具：把 diff 中 Added/Modified 资源移入 Hotfix group，并提供手动 Restore / Discard 能力。
+/// AA 热更分组操作：将差异资源移入 Hotfix group，并提供 Restore / Discard。
 /// </summary>
-/// <remarks>
-/// 不再是 IBuildTask：构建期调用由 PrepareAAInputTask 承担，本类只保留可被构建与编辑器复用的静态操作。
-/// </remarks>
 public static class AAHotfixGroupMover
 {
     private const string UndoLogPath = "Assets/FYAsset/Editor/Generated/HotfixGroupUndoLog.json";
@@ -61,13 +57,12 @@ public static class AAHotfixGroupMover
         return status;
     }
 
-    /// <summary>
-    /// 将 Added + Modified 资源移入 Hotfix group。若 undo log 未清理，直接阻断，避免多轮迁移覆盖原始 group。
-    /// </summary>
-    /// <remarks>差异由无状态 FileDiff 给出（源快照按 GUID 配对）；本方法只负责分组操作与撤销记录。</remarks>
-    public static bool Apply(FileDiff diff)
+    /// <summary>将新增和修改的资源移入 Hotfix group。</summary>
+    public static bool Apply(
+        IReadOnlyList<FileHelper.FileDigest> added,
+        IReadOnlyList<FileHelper.FileDigest> modified)
     {
-        if (diff == null || (diff.Added.Count == 0 && diff.Modified.Count == 0))
+        if ((added == null || added.Count == 0) && (modified == null || modified.Count == 0))
             return true;
 
         if (HasPendingMoves)
@@ -86,8 +81,8 @@ public static class AAHotfixGroupMover
         var hotfixGroup = GetOrCreateHotfixGroup(settings);
         var undoLog = new HotfixGroupUndoLog();
 
-        MoveArtifacts(diff.Added, settings, hotfixGroup, undoLog);
-        MoveArtifacts(diff.Modified, settings, hotfixGroup, undoLog);
+        MoveArtifacts(added, settings, hotfixGroup, undoLog);
+        MoveArtifacts(modified, settings, hotfixGroup, undoLog);
 
         if (undoLog.Entries.Count == 0)
             return true;
@@ -206,11 +201,11 @@ public static class AAHotfixGroupMover
         return result;
     }
 
-    private static void MoveArtifacts(List<FileDigest> artifacts, AddressableAssetSettings settings, AddressableAssetGroup hotfixGroup, HotfixGroupUndoLog undoLog)
+    private static void MoveArtifacts(IReadOnlyList<FileHelper.FileDigest> artifacts, AddressableAssetSettings settings, AddressableAssetGroup hotfixGroup, HotfixGroupUndoLog undoLog)
     {
         for (int i = 0; i < artifacts.Count; i++)
         {
-            FileDigest artifact = artifacts[i];
+            FileHelper.FileDigest artifact = artifacts[i];
             if (!artifact.IsComplete)
                 continue;
 
@@ -336,7 +331,7 @@ public static class AAHotfixGroupMover
     private static void SaveUndoLog(HotfixGroupUndoLog undoLog)
     {
         string json = JsonUtility.ToJson(undoLog, true);
-        FileHelper.WriteAllTextAtomic(GetUndoLogPath(), json, Encoding.UTF8);
+        FileHelper.WriteAllTextAtomic(GetUndoLogPath(), json);
     }
 
     private static bool PersistUndoLog(List<HotfixGroupUndoEntry> remainingEntries, out string error)

@@ -12,8 +12,7 @@ using UnityEngine.UIElements;
 /// 展示 Full/Hotfix 历史包与制品状态，并按用户确认删除制品（摘要长期保留）。
 /// </summary>
 /// <remarks>
-/// 删除语义（计划 T2）：只删除包目录，不删除正式 Summary；被任何 Hotfix Summary 引用为基准的 Full 拒绝删除。
-/// 制品缺失只改变显示状态（Missing），版本历史不受影响。
+/// 制品目录可删除但正式 Summary 保留；被 Hotfix Summary 用作基准的 Full 不允许删除。
 /// </remarks>
 public sealed class BuildPackageResultsView
 {

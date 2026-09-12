@@ -16,7 +16,7 @@
     <Compile Include="test_dependency_index_equivalence.cs" />
     <Compile Include="stubs/reuse_stubs.cs" />
     <!-- 生产源码：内容指纹与依赖事实换算均为纯 .NET，不含 UnityEngine/UnityEditor 依赖 -->
-    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/FileDigest.cs" Link="Production/FileDigest.cs" />
+
     <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Helpers/FYAssetPathUtility.cs" Link="Production/FYAssetPathUtility.cs" />
     <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Runtime/RuntimeMode.cs" Link="Production/RuntimeMode.cs" />
     <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Versioning/VersionNumber.cs" Link="Production/VersionNumber.cs" />

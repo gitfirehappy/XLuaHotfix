@@ -8,18 +8,17 @@ using UnityEngine;
 using UnityEngine.UIElements;
 
 /// <summary>
-/// 发布目标面板：维护 FYAssetSettings.PushTargets、把本地包发布到所选目标、把目标 URL 写入本后端 HotfixUrl。
+/// 发布面板：从正式 Summary 选择制品，并发布到显式选择的目标。
 /// </summary>
 /// <remarks>
-/// 计划 T7 的发布事实：
-/// 1. 待发布目录由面板显式选择某个已构建的正式包目录（来自 Summary 的成功交付列表）；
-/// 2. 发布由 BuildPublisher 执行：读取服务器 PackageIndex + Manifest，复用已有 Hash 内容，最后写 PackageIndex；
-/// 3. 旧包清理是独立维护动作，永远不删除当前 PackageIndex 指向的包目录。
+/// 面板从正式 Summary 取得包目录；BuildPublisher 负责组装、校验和提交 PackageIndex，旧包清理是独立动作。
 /// </remarks>
 public sealed class PublishTargetPanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
 {
     private readonly string _backendKey;
     private readonly Action<string> _applyHotfixUrl;
+    private readonly Func<string> _getCurrentTargetId;
+    private readonly Action<string> _setCurrentTargetId;
     private readonly IPackageManifestReader _manifestReader;
 
     private VisualElement _root;
@@ -30,15 +29,34 @@ public sealed class PublishTargetPanel : IBuildPipelinePanel, IBuildPipelinePane
     private Label _cacheLabel;
     private DropdownField _targetDropdown;
     private DropdownField _sourceDropdown;
-    private readonly List<string> _sourcePaths = new List<string>();
+    private Button _pushButton;
+    private readonly List<string> _targetIds = new List<string>();
+    private readonly List<PublishSourceCandidate> _sourceCandidates = new List<PublishSourceCandidate>();
 
     public PublishTargetPanel(string backendKey, Action<string> applyHotfixUrl, IPackageManifestReader manifestReader)
     {
-        if (string.IsNullOrEmpty(backendKey))
-            throw new ArgumentNullException(nameof(backendKey));
-        _backendKey = backendKey;
+        _backendKey = RequireBackendKey(backendKey);
         _applyHotfixUrl = applyHotfixUrl ?? throw new ArgumentNullException(nameof(applyHotfixUrl));
         _manifestReader = manifestReader ?? throw new ArgumentNullException(nameof(manifestReader));
+    }
+
+    public PublishTargetPanel(
+        string backendKey,
+        Func<string> getCurrentTargetId,
+        Action<string> setCurrentTargetId,
+        IPackageManifestReader manifestReader)
+    {
+        _backendKey = RequireBackendKey(backendKey);
+        _getCurrentTargetId = getCurrentTargetId ?? throw new ArgumentNullException(nameof(getCurrentTargetId));
+        _setCurrentTargetId = setCurrentTargetId ?? throw new ArgumentNullException(nameof(setCurrentTargetId));
+        _manifestReader = manifestReader ?? throw new ArgumentNullException(nameof(manifestReader));
+    }
+
+    private static string RequireBackendKey(string backendKey)
+    {
+        if (string.IsNullOrEmpty(backendKey))
+            throw new ArgumentNullException(nameof(backendKey));
+        return backendKey;
     }
 
     public string PanelName => "Publish";
@@ -95,20 +113,21 @@ public sealed class PublishTargetPanel : IBuildPipelinePanel, IBuildPipelinePane
         var titleBox = new VisualElement();
         titleBox.style.flexGrow = 1f;
         titleBox.style.minWidth = 0f;
-        var title = BuildPipelineUI.Header(_backendKey);
+        var title = BuildPipelineUI.Header(_backendKey + " Publish");
         title.style.fontSize = 14f;
         titleBox.Add(title);
-        titleBox.Add(BuildPipelineUI.SmallText($"Backend: {_backendKey}"));
         top.Add(titleBox);
         top.Add(BuildPipelineUI.ToolbarButton("Refresh", Rebuild, 70f));
-        top.Add(BuildPipelineUI.ToolbarButton("Push", RunPush, 60f));
+        _pushButton = BuildPipelineUI.ToolbarButton("Push", RunPush, 60f);
+        top.Add(_pushButton);
         header.Add(top);
 
         var statusRow = new VisualElement();
         statusRow.style.flexDirection = FlexDirection.Row;
         statusRow.style.alignItems = Align.Center;
         statusRow.style.marginTop = 6f;
-        _statusBadge = CreateBadge("Idle", new Color(0.42f, 0.42f, 0.42f));
+        _statusBadge = CreateBadge(string.Empty, Color.clear);
+        _statusBadge.style.display = DisplayStyle.None;
         statusRow.Add(_statusBadge);
         _messageLabel = BuildPipelineUI.SmallText(string.Empty);
         _messageLabel.style.marginLeft = 8f;
@@ -146,18 +165,23 @@ public sealed class PublishTargetPanel : IBuildPipelinePanel, IBuildPipelinePane
         var row = new VisualElement();
         row.style.flexDirection = FlexDirection.Row;
         row.style.alignItems = Align.Center;
-        _targetDropdown = new DropdownField("Target", GetPushTargetLabels(), 0);
+        List<string> labels = GetPushTargetLabels();
+        _targetDropdown = new DropdownField("Target", labels, ResolveInitialTargetIndex());
         _targetDropdown.style.flexGrow = 1f;
         SetCompactFieldLabel(_targetDropdown, 48f);
+        _targetDropdown.RegisterValueChangedCallback(_ => HandleTargetSelectionChanged());
         row.Add(_targetDropdown);
-        Button applyUrl = BuildPipelineUI.ToolbarButton("Apply URL", RunApplyTargetUrl, 78f);
-        applyUrl.style.marginLeft = 6f;
-        row.Add(applyUrl);
+        if (_applyHotfixUrl != null)
+        {
+            Button applyUrl = BuildPipelineUI.ToolbarButton("Apply URL", RunApplyTargetUrl, 78f);
+            applyUrl.style.marginLeft = 6f;
+            row.Add(applyUrl);
+        }
         card.Add(row);
 
         card.Add(BuildPipelineUI.SmallText(
             "Push 读取服务器 PackageIndex 与 Manifest，复用已有 Hash 内容，最后写入 PackageIndex；"
-            + "服务器事实不可用时退化为完整上传。Apply URL 只写入本后端 HotfixUrl。"));
+            + "服务器事实不可用时退化为完整上传。"));
         return card;
     }
 
@@ -211,26 +235,17 @@ public sealed class PublishTargetPanel : IBuildPipelinePanel, IBuildPipelinePane
         row.style.flexDirection = FlexDirection.Row;
         row.style.alignItems = Align.Center;
 
-        var idField = new TextField("Id")
+        var nameField = new TextField("Name")
         {
-            value = config != null ? config.Id : string.Empty,
+            value = config != null ? config.Name : string.Empty,
             isDelayed = true
         };
-        idField.style.flexGrow = 1f;
-        idField.style.minWidth = 120f;
-        idField.style.marginRight = 6f;
-        SetCompactFieldLabel(idField, 22f);
-        idField.RegisterValueChangedCallback(evt =>
-        {
-            if (config == null)
-                return;
-
-            Undo.RecordObject(FYAssetSettings.Instance, "Edit Push Target");
-            config.Id = (evt.newValue ?? string.Empty).Trim();
-            SaveSettings();
-            Rebuild();
-        });
-        row.Add(idField);
+        nameField.style.flexGrow = 1f;
+        nameField.style.minWidth = 120f;
+        nameField.style.marginRight = 6f;
+        SetCompactFieldLabel(nameField, 38f);
+        nameField.RegisterValueChangedCallback(evt => SaveTargetName(config, evt.newValue));
+        row.Add(nameField);
 
         var typeField = new EnumField("Type", config != null ? config.Type : PushTargetType.LocalDirectory);
         typeField.RegisterValueChangedCallback(evt =>
@@ -249,7 +264,9 @@ public sealed class PublishTargetPanel : IBuildPipelinePanel, IBuildPipelinePane
         remove.style.marginLeft = 6f;
         row.Add(remove);
         container.Add(row);
-        container.Add(typeField);
+
+        if (config != null)
+            container.Add(BuildPipelineUI.SmallText("TargetId: " + config.TargetId));
 
         SerializedProperty pathProperty = new SerializedObject(FYAssetSettings.Instance)
             .FindProperty(nameof(FYAssetSettings.PushTargets))
@@ -263,23 +280,18 @@ public sealed class PublishTargetPanel : IBuildPipelinePanel, IBuildPipelinePane
             value = config != null ? config.PublicBaseUrl : string.Empty,
             isDelayed = true
         };
-        urlField.RegisterValueChangedCallback(evt =>
-        {
-            if (config == null)
-                return;
-
-            Undo.RecordObject(FYAssetSettings.Instance, "Edit Push Target URL");
-            config.PublicBaseUrl = (evt.newValue ?? string.Empty).Trim();
-            SaveSettings();
-            Rebuild();
-        });
+        urlField.RegisterValueChangedCallback(evt => SaveTargetUrl(config, evt.newValue));
         container.Add(urlField);
 
         if (config != null)
         {
             string note = config.Type == PushTargetType.CloudflarePages
-                ? "Cloudflare Pages 由 Compat 部署胶水处理；面板 Push 只支持目录型目标。"
+                ? "Cloudflare Pages 由 Compat 部署入口处理。"
                 : $"发布目录：(所选 Path，空为 OutputRoot)/{_backendKey}";
+            if (config.TryGetHotfixUrl(_backendKey, out string preview, out string error))
+                note += "  URL: " + preview;
+            else
+                note += "  URL 无效: " + error;
             container.Add(BuildPipelineUI.SmallText(note));
         }
 
@@ -301,38 +313,37 @@ public sealed class PublishTargetPanel : IBuildPipelinePanel, IBuildPipelinePane
         if (_sourceDropdown == null)
             return;
 
-        string previous = ResolveSelectedSource();
-        _sourcePaths.Clear();
+        string previousSummaryId = ResolveSelectedSourceCandidate()?.SummaryId;
+        _sourceCandidates.Clear();
+        _sourceCandidates.AddRange(PublishSourceCatalog.Read(_backendKey, _manifestReader));
+
         var labels = new List<string>();
-
-        string[] packageDirs = FileHelper.GetDirectories(BuildPathManager.PackagesDir, "Build_*");
-        Array.Sort(packageDirs, StringComparer.Ordinal);
-        for (int i = 0; i < packageDirs.Length; i++)
-        {
-            _sourcePaths.Add(packageDirs[i]);
-            labels.Add(Path.GetFileName(packageDirs[i]));
-        }
-
+        for (int i = 0; i < _sourceCandidates.Count; i++)
+            labels.Add(_sourceCandidates[i].Label);
         if (labels.Count == 0)
             labels.Add("(none)");
 
         _sourceDropdown.choices = labels;
-        int index = previous != null ? _sourcePaths.IndexOf(previous) : -1;
-        _sourceDropdown.SetValueWithoutNotify(labels[index >= 0 ? index : 0]);
+        int selectedIndex = 0;
+        for (int i = 0; i < _sourceCandidates.Count; i++)
+        {
+            if (string.Equals(_sourceCandidates[i].SummaryId, previousSummaryId, StringComparison.Ordinal))
+            {
+                selectedIndex = i;
+                break;
+            }
+        }
+        _sourceDropdown.SetValueWithoutNotify(labels[selectedIndex]);
     }
 
-    /// <summary>发布源身份只来自正式 Summary：包目录不承载构建事实。</summary>
-    private string DescribeSelectedIdentity(string sourceDir)
+    private string DescribeSelectedIdentity(PublishSourceCandidate candidate)
     {
-        string packageName = string.IsNullOrEmpty(sourceDir) ? null : Path.GetFileName(sourceDir);
-        if (string.IsNullOrEmpty(packageName))
+        if (candidate == null)
             return "未选择发布源。";
+        if (!candidate.IsValid)
+            return "不可发布：" + candidate.InvalidReason;
 
-        BuildSummaryStore store = BuildSummaryStore.CreateDefault();
-        if (!store.TryReadSummaryDocument(_backendKey, packageName,
-                out CompleteBuildSummary.SummaryDocument document, out string error))
-            return $"正式 Summary 中缺少包身份: {error}";
-
+        CompleteBuildSummary.SummaryDocument document = candidate.Document;
         return string.IsNullOrEmpty(document.BuildType)
             ? $"{document.BuildId} | {document.Version}"
             : $"{document.BuildId} | {document.Version} | {document.BuildType}";
@@ -340,14 +351,13 @@ public sealed class PublishTargetPanel : IBuildPipelinePanel, IBuildPipelinePane
 
     private void RefreshSourceFacts()
     {
-        string sourceDir = ResolveSelectedSource();
+        PublishSourceCandidate candidate = ResolveSelectedSourceCandidate();
         if (_sourceLabel != null)
-            _sourceLabel.text = string.IsNullOrEmpty(sourceDir) ? "-" : sourceDir;
-
+            _sourceLabel.text = string.IsNullOrEmpty(candidate?.SourcePackageDir) ? "-" : candidate.SourcePackageDir;
         if (_identityLabel != null)
-        {
-            _identityLabel.text = DescribeSelectedIdentity(sourceDir);
-        }
+            _identityLabel.text = DescribeSelectedIdentity(candidate);
+        if (_pushButton != null)
+            _pushButton.SetEnabled(candidate != null && candidate.IsValid && GetSelectedTargetConfigOrNull() != null);
 
         if (_cacheLabel != null)
         {
@@ -358,13 +368,13 @@ public sealed class PublishTargetPanel : IBuildPipelinePanel, IBuildPipelinePane
         }
     }
 
-    private string ResolveSelectedSource()
+    private PublishSourceCandidate ResolveSelectedSourceCandidate()
     {
-        if (_sourceDropdown == null || _sourcePaths.Count == 0)
+        if (_sourceDropdown == null || _sourceCandidates.Count == 0)
             return null;
 
         int index = _sourceDropdown.index;
-        return index >= 0 && index < _sourcePaths.Count ? _sourcePaths[index] : null;
+        return index >= 0 && index < _sourceCandidates.Count ? _sourceCandidates[index] : null;
     }
 
     private void RunPush()
@@ -376,19 +386,12 @@ public sealed class PublishTargetPanel : IBuildPipelinePanel, IBuildPipelinePane
                 throw new InvalidOperationException(
                     $"面板 Push 只支持目录型目标；'{config.Type}' 请使用 Compat 部署入口。");
 
-            string sourceDir = ResolveSelectedSource();
-            if (string.IsNullOrEmpty(sourceDir))
-                throw new InvalidOperationException("没有可发布的本地包目录。请先完成一次构建。");
+            PublishSourceCandidate source = ResolveSelectedSourceCandidate();
+            if (source == null || !source.IsValid)
+                throw new InvalidOperationException(source?.InvalidReason ?? "没有可发布的正式 Summary。");
 
-            // 发布身份只来自正式 Summary：包目录不承载身份，面板不得从目录名或包内文件推断。
-            string packageName = Path.GetFileName(
-                sourceDir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
-            if (!BuildSummaryStore.CreateDefault().TryReadSummaryDocument(
-                    _backendKey, packageName, out CompleteBuildSummary.SummaryDocument document, out string identityError))
-            {
-                throw new InvalidOperationException("正式 Summary 中缺少包身份: " + identityError);
-            }
-
+            string sourceDir = source.SourcePackageDir;
+            CompleteBuildSummary.SummaryDocument document = source.Document;
             if (!VersionNumber.TryParse(document.Version, out VersionNumber version))
                 throw new InvalidOperationException("正式 Summary 版本无法解析: " + document.Version);
 
@@ -396,7 +399,7 @@ public sealed class PublishTargetPanel : IBuildPipelinePanel, IBuildPipelinePane
             {
                 BackendKey = _backendKey,
                 SourcePackageDir = sourceDir,
-                TargetId = config.Id,
+                TargetId = config.TargetId,
                 ManifestReader = _manifestReader,
                 PublishCachePath = ResolvePublishCachePath(),
                 PackagesFolderName = FYAssetSettings.Instance.BuildPackagesFolderName,
@@ -497,10 +500,10 @@ public sealed class PublishTargetPanel : IBuildPipelinePanel, IBuildPipelinePane
         FYAssetSettings settings = FYAssetSettings.Instance;
         Undo.RecordObject(settings, "Add Push Target");
         settings.PushTargets ??= new List<PushTargetConfig>();
-        int index = settings.PushTargets.Count + 1;
         settings.PushTargets.Add(new PushTargetConfig
         {
-            Id = "target" + index,
+            TargetId = Guid.NewGuid().ToString("D"),
+            Name = CreateUniqueTargetName(settings.PushTargets),
             Type = PushTargetType.LocalDirectory,
             Path = string.Empty,
             PublicBaseUrl = string.Empty
@@ -515,10 +518,80 @@ public sealed class PublishTargetPanel : IBuildPipelinePanel, IBuildPipelinePane
         if (settings.PushTargets == null || index < 0 || index >= settings.PushTargets.Count)
             return;
 
+        PushTargetConfig target = settings.PushTargets[index];
+        if (_getCurrentTargetId != null
+            && target != null
+            && string.Equals(_getCurrentTargetId(), target.TargetId, StringComparison.OrdinalIgnoreCase))
+        {
+            SetFeedback("Remove Refused", "当前 AB Target 必须先切换或清空选择。", new Color(0.65f, 0.20f, 0.16f));
+            return;
+        }
+
         Undo.RecordObject(settings, "Remove Push Target");
         settings.PushTargets.RemoveAt(index);
         SaveSettings();
         Rebuild();
+    }
+
+    private void SaveTargetName(PushTargetConfig config, string value)
+    {
+        if (config == null)
+            return;
+
+        string name = (value ?? string.Empty).Trim();
+        if (string.IsNullOrEmpty(name) || IsDuplicateTargetName(config, name))
+        {
+            SetFeedback("Name Invalid", "Target Name 必须非空且大小写不敏感唯一。", new Color(0.65f, 0.20f, 0.16f));
+            Rebuild();
+            return;
+        }
+
+        Undo.RecordObject(FYAssetSettings.Instance, "Rename Push Target");
+        config.Name = name;
+        SaveSettings();
+        Rebuild();
+    }
+
+    private void SaveTargetUrl(PushTargetConfig config, string value)
+    {
+        if (config == null)
+            return;
+
+        string previous = config.PublicBaseUrl;
+        config.PublicBaseUrl = (value ?? string.Empty).Trim();
+        if (!config.TryNormalizePublicBaseUrl(out string normalized, out string error))
+        {
+            config.PublicBaseUrl = previous;
+            SetFeedback("URL Invalid", error, new Color(0.65f, 0.20f, 0.16f));
+            Rebuild();
+            return;
+        }
+
+        Undo.RecordObject(FYAssetSettings.Instance, "Edit Push Target URL");
+        config.PublicBaseUrl = normalized;
+        SaveSettings();
+        Rebuild();
+    }
+
+    private bool IsDuplicateTargetName(PushTargetConfig target, string name)
+    {
+        List<PushTargetConfig> targets = FYAssetSettings.Instance.PushTargets;
+        for (int i = 0; targets != null && i < targets.Count; i++)
+        {
+            PushTargetConfig other = targets[i];
+            if (other != null && !ReferenceEquals(other, target)
+                && string.Equals(other.Name, name, StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+        return false;
+    }
+
+    private static string CreateUniqueTargetName(List<PushTargetConfig> targets)
+    {
+        int suffix = targets.Count + 1;
+        while (PushTargetConfig.FindByName("target" + suffix) != null)
+            suffix++;
+        return "target" + suffix;
     }
 
     private static void SaveSettings()
@@ -527,48 +600,93 @@ public sealed class PublishTargetPanel : IBuildPipelinePanel, IBuildPipelinePane
         AssetDatabase.SaveAssets();
     }
 
-    /// <summary>发布缓存的独立存储路径（后端 + 目标隔离）；目标缺失时返回 null。</summary>
     private string ResolvePublishCachePath()
     {
         PushTargetConfig config = GetSelectedTargetConfigOrNull();
         return config == null
             ? null
-            : PublishRequest.ResolvePublishCachePath(BuildPathManager.ProjectRoot, _backendKey, config.Id);
+            : PublishRequest.ResolvePublishCachePath(BuildPathManager.ProjectRoot, _backendKey, config.TargetId);
     }
 
     private PushTargetConfig GetSelectedTargetConfig()
     {
-        PushTargetConfig config = GetSelectedTargetConfigOrNull();
-        if (config == null)
-            throw new InvalidOperationException("未配置 Push Target。");
+        if (!TryGetSelectedTargetConfig(out PushTargetConfig config, out string error))
+            throw new InvalidOperationException(error);
         return config;
     }
 
     private PushTargetConfig GetSelectedTargetConfigOrNull()
     {
-        FYAssetSettings settings = FYAssetSettings.Instance;
-        string targetId = _targetDropdown != null && !string.IsNullOrEmpty(_targetDropdown.value)
-            ? _targetDropdown.value
-            : (settings.PushTargets != null && settings.PushTargets.Count > 0 ? settings.PushTargets[0].Id : string.Empty);
-        return PushTargetConfig.FindById(targetId);
+        return TryGetSelectedTargetConfig(out PushTargetConfig config, out _) ? config : null;
     }
 
-    private static List<string> GetPushTargetLabels()
+    private bool TryGetSelectedTargetConfig(out PushTargetConfig config, out string error)
+    {
+        config = null;
+        error = "未选择有效 Push Target。";
+        if (_targetDropdown == null)
+            return false;
+
+        int index = _targetDropdown.index;
+        string targetId = index >= 0 && index < _targetIds.Count ? _targetIds[index] : string.Empty;
+        return PushTargetConfig.TryResolveById(
+            FYAssetSettings.Instance.PushTargets,
+            targetId,
+            out config,
+            out error);
+    }
+
+    private List<string> GetPushTargetLabels()
     {
         var labels = new List<string>();
-        FYAssetSettings settings = FYAssetSettings.Instance;
-        if (settings.PushTargets != null)
+        _targetIds.Clear();
+        if (_setCurrentTargetId != null)
         {
-            for (int i = 0; i < settings.PushTargets.Count; i++)
-            {
-                PushTargetConfig config = settings.PushTargets[i];
-                if (config != null && !string.IsNullOrEmpty(config.Id))
-                    labels.Add(config.Id);
-            }
-        }
-        if (labels.Count == 0)
             labels.Add("(none)");
+            _targetIds.Add(string.Empty);
+        }
+
+        List<PushTargetConfig> targets = FYAssetSettings.Instance.PushTargets;
+        for (int i = 0; targets != null && i < targets.Count; i++)
+        {
+            PushTargetConfig config = targets[i];
+            if (config == null || string.IsNullOrEmpty(config.TargetId))
+                continue;
+            labels.Add(string.IsNullOrEmpty(config.Name) ? config.TargetId : config.Name);
+            _targetIds.Add(config.TargetId);
+        }
+
+        if (labels.Count == 0)
+        {
+            labels.Add("(none)");
+            _targetIds.Add(string.Empty);
+        }
         return labels;
+    }
+
+    private int ResolveInitialTargetIndex()
+    {
+        string current = _getCurrentTargetId?.Invoke();
+        if (!string.IsNullOrEmpty(current))
+        {
+            int index = _targetIds.FindIndex(id => string.Equals(id, current, StringComparison.OrdinalIgnoreCase));
+            if (index >= 0)
+                return index;
+        }
+        return _setCurrentTargetId != null ? 0 : Math.Min(0, _targetIds.Count - 1);
+    }
+
+    private void HandleTargetSelectionChanged()
+    {
+        int index = _targetDropdown?.index ?? -1;
+        string targetId = index >= 0 && index < _targetIds.Count ? _targetIds[index] : string.Empty;
+        if (_setCurrentTargetId != null)
+        {
+            Undo.RecordObject(FYAssetSettings.Instance, "Select AB Push Target");
+            _setCurrentTargetId(targetId);
+            SaveSettings();
+        }
+        RefreshSourceFacts();
     }
 
     internal static Label CreateBadge(string text, Color color)
@@ -614,8 +732,16 @@ public sealed class PublishTargetPanel : IBuildPipelinePanel, IBuildPipelinePane
         if (_statusBadge == null)
             return;
 
+        _statusBadge.style.display = DisplayStyle.Flex;
         _statusBadge.text = text;
         _statusBadge.style.backgroundColor = color;
+    }
+
+    private void SetFeedback(string badge, string message, Color color)
+    {
+        SetBadge(badge, color);
+        if (_messageLabel != null)
+            _messageLabel.text = message;
     }
 
     internal static void SetCompactFieldLabel(BaseField<string> field, float labelWidth)

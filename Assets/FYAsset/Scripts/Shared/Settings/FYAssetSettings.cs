@@ -21,6 +21,7 @@ public class FYAssetSettings : ScriptableObject
 
     [Header("Push")]
     public List<PushTargetConfig> PushTargets = new();
+    public string CurrentABTargetId = string.Empty;
 
     // ═══ 纯编译期常量（static const） ═══
 

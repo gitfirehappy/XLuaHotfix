@@ -38,7 +38,7 @@ public static class BuildArtifactReuseService
         string inputFingerprint,
         string targetDirectory,
         out string fileName,
-        out FileDigest digest,
+        out FileHelper.FileDigest digest,
         out List<string> dependencyFileNames,
         out string reason)
     {
@@ -168,7 +168,7 @@ public static class BuildArtifactReuseService
                 continue;
             }
 
-            var recorded = new FileDigest(fact.FileName, fact.FileHash, fact.FileCRC, fact.FileSize);
+            var recorded = new FileHelper.FileDigest(fact.FileName, fact.FileHash, fact.FileCRC, fact.FileSize);
             if (!recorded.IsComplete)
             {
                 missReason = $"历史 Summary 记录的制品摘要不完整（{document.BuildId}）";
@@ -186,7 +186,7 @@ public static class BuildArtifactReuseService
                 FYAssetPathUtility.JoinFilePath(packageDirectory, FYAssetSettings.BUNDLES_DIRECTORY_NAME),
                 fact.FileName);
 
-            if (!FileDigest.TryCreate(sourcePath, fact.FileName, out FileDigest sourceDigest))
+            if (!FileHelper.TryCreateDigest(sourcePath, fact.FileName, out FileHelper.FileDigest sourceDigest))
             {
                 missReason = $"历史制品缺失或不可读: {sourcePath}";
                 continue;
@@ -211,7 +211,7 @@ public static class BuildArtifactReuseService
             }
 
             // 复制是唯一可能引入损坏的环节，必须对落盘文件重新校验，不能沿用源文件摘要。
-            if (!FileDigest.TryCreate(targetPath, fact.FileName, out FileDigest copied) || !copied.Matches(recorded))
+            if (!FileHelper.TryCreateDigest(targetPath, fact.FileName, out FileHelper.FileDigest copied) || !copied.Matches(recorded))
             {
                 TryDelete(targetPath);
                 missReason = $"复制后的制品与 Summary 记录不一致: {targetPath}";

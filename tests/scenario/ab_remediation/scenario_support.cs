@@ -4,8 +4,8 @@ using System.IO;
 using System.Text.RegularExpressions;
 
 /// <summary>
-/// Windows AB 修复计划（fyasset-windows-ab-remediation）的目标契约门禁入口。
-/// 每个门禁锁定计划中的一条目标结构；计划落地前允许失败（RED），落地后必须转绿并作为回归保护。
+/// AB 修复流程的目标契约门禁入口。
+/// 各门禁验证一个独立的版本、摘要、包完整性或交付约束，成功后作为回归保护。
 /// </summary>
 internal static class Program
 {

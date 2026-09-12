@@ -13,10 +13,10 @@ internal sealed class TestManifestReader : IPackageManifestReader
 {
     public const string ManifestFileName = "TestManifest.json";
 
-    private readonly Func<string, FileDigest, FileDigest> _digestOverride;
+    private readonly Func<string, FileHelper.FileDigest, FileHelper.FileDigest> _digestOverride;
 
     /// <param name="digestOverride">可选：篡改清单声明摘要，用于验证“校验未过不得写 PackageIndex”。</param>
-    public TestManifestReader(Func<string, FileDigest, FileDigest> digestOverride = null)
+    public TestManifestReader(Func<string, FileHelper.FileDigest, FileHelper.FileDigest> digestOverride = null)
     {
         _digestOverride = digestOverride;
     }
@@ -25,9 +25,9 @@ internal sealed class TestManifestReader : IPackageManifestReader
 
     public string ContentDirectoryName => "bundles";
 
-    public bool TryReadContentDigests(string packageDir, out IReadOnlyList<FileDigest> contents, out string error)
+    public bool TryReadContentDigests(string packageDir, out IReadOnlyList<FileHelper.FileDigest> contents, out string error)
     {
-        contents = new List<FileDigest>();
+        contents = new List<FileHelper.FileDigest>();
         error = string.Empty;
 
         string manifestPath = Path.Combine(packageDir, ManifestFileName);
@@ -54,14 +54,14 @@ internal sealed class TestManifestReader : IPackageManifestReader
             return false;
         }
 
-        var result = new List<FileDigest>();
+        var result = new List<FileHelper.FileDigest>();
         for (int i = 0; i < document.Files.Count; i++)
         {
             ManifestEntry entry = document.Files[i];
             if (entry == null || string.IsNullOrEmpty(entry.Name))
                 continue;
 
-            var digest = new FileDigest(entry.Name, entry.Hash, entry.Crc, entry.Size);
+            var digest = new FileHelper.FileDigest(entry.Name, entry.Hash, entry.Crc, entry.Size);
             if (_digestOverride != null)
                 digest = _digestOverride(entry.Name, digest);
             result.Add(digest);
@@ -72,12 +72,12 @@ internal sealed class TestManifestReader : IPackageManifestReader
     }
 
     /// <summary>按目录内实际文件写出一份清单（模拟构建产出的完整清单）。</summary>
-    public static void WriteManifest(string packageDir, IReadOnlyList<FileDigest> contents, Func<FileDigest, FileDigest> tamper = null)
+    public static void WriteManifest(string packageDir, IReadOnlyList<FileHelper.FileDigest> contents, Func<FileHelper.FileDigest, FileHelper.FileDigest> tamper = null)
     {
         var document = new ManifestDocument { Files = new List<ManifestEntry>() };
         for (int i = 0; i < contents.Count; i++)
         {
-            FileDigest digest = tamper != null ? tamper(contents[i]) : contents[i];
+            FileHelper.FileDigest digest = tamper != null ? tamper(contents[i]) : contents[i];
             document.Files.Add(new ManifestEntry
             {
                 Name = digest.Name,
@@ -154,14 +154,14 @@ internal sealed class TestPackage
     public string Version { get; }
     public string BackendKey { get; }
 
-    private readonly List<FileDigest> _contents = new List<FileDigest>();
+    private readonly List<FileHelper.FileDigest> _contents = new List<FileHelper.FileDigest>();
 
     /// <summary>写入一个内容文件；同名重复写入即覆盖内容。</summary>
     public void WriteContent(string fileName, string content)
     {
         string relative = "bundles/" + fileName;
         FileFixtures.Write(SourceDir, relative, content);
-        FileDigest digest = FileFixtures.Digest(SourceDir, relative);
+        FileHelper.FileDigest digest = FileFixtures.Digest(SourceDir, relative);
 
         _contents.RemoveAll(item => string.Equals(item.Name, relative, StringComparison.Ordinal));
         _contents.Add(digest);
@@ -181,18 +181,18 @@ internal sealed class TestPackage
     /// 只在清单里声明一个内容文件，不随包携带其字节。
     /// 用于构造稀疏 Hotfix 包：目标清单声明完整内容集合，而未变化内容不在包目录内。
     /// </summary>
-    public void DeclareContent(string fileName, FileDigest digest)
+    public void DeclareContent(string fileName, FileHelper.FileDigest digest)
     {
         string relative = "bundles/" + fileName;
         _contents.RemoveAll(item => string.Equals(item.Name, relative, StringComparison.Ordinal));
-        _contents.Add(new FileDigest(relative, digest.Hash, digest.CRC, digest.Size));
+        _contents.Add(new FileHelper.FileDigest(relative, digest.Hash, digest.CRC, digest.Size));
     }
 
     /// <summary>当前清单声明的内容集合（名称为包根相对路径）。</summary>
-    public List<FileDigest> Contents => new List<FileDigest>(_contents);
+    public List<FileHelper.FileDigest> Contents => new List<FileHelper.FileDigest>(_contents);
 
     /// <summary>写出清单（包目录只含发布内容，不含构建摘要）。</summary>
-    public void Seal(Func<FileDigest, FileDigest> manifestTamper = null)
+    public void Seal(Func<FileHelper.FileDigest, FileHelper.FileDigest> manifestTamper = null)
     {
         TestManifestReader.WriteManifest(SourceDir, _contents, manifestTamper);
     }

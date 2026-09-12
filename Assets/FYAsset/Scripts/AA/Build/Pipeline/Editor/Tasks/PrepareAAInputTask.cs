@@ -7,7 +7,7 @@ using UnityEditor.AddressableAssets.Settings.GroupSchemas;
 using UnityEngine;
 
 /// <summary>
-/// AA 主干第 1 阶段：准备构建输入。
+/// AA 构建管线：准备构建输入。
 /// 记录当前 Addressables source 快照；Hotfix 时相对<b>最近成功 Full 包内的源快照</b>（构建事实）
 /// 计算差异，并把变化资源迁入 Hotfix group。
 /// Full/Standalone 不做任何临时移动，只留下可供后续比对与诊断的快照。
@@ -27,7 +27,7 @@ public class PrepareAAInputTask : IBuildTask
 
         try
         {
-            List<FileDigest> current = ScanCurrentArtifacts();
+            List<FileHelper.FileDigest> current = ScanCurrentArtifacts();
             ctx.Set(AABuildContextKeys.AASourceScan, current);
 
             if (buildType != BuildType.Hotfix)
@@ -47,17 +47,21 @@ public class PrepareAAInputTask : IBuildTask
                     $"AA Hotfix 基准 Full 解析失败: {baselineError}", true);
             }
 
-            if (!AASourceScanFile.TryRead(baseFullDir, out List<FileDigest> previous, out string scanError))
+            if (!AASourceScanFile.TryRead(baseFullDir, out List<FileHelper.FileDigest> previous, out string scanError))
             {
                 return BuildTaskResult.Fail(BuildErrorCodes.BuildFailed,
                     $"AA Hotfix 缺少基准 Full 的源快照，无法确定变化资源: {scanError}。"
                     + $"基准包={baseFullDir}", true);
             }
 
-            FileDiff diff = FileDiff.Compute(previous, current);
-            LogDiff(diff);
+            FileHelper.ComputeDiff(previous, current,
+                out List<FileHelper.FileDigest> added,
+                out List<FileHelper.FileDigest> modified,
+                out List<FileHelper.FileDigest> unchanged,
+                out List<string> removed);
+            LogDiff(added, modified, removed);
 
-            if (!AAHotfixGroupMover.Apply(diff))
+            if (!AAHotfixGroupMover.Apply(added, modified))
             {
                 return BuildTaskResult.Fail(BuildErrorCodes.BuildFailed,
                     "AA Hotfix Group 迁移失败，构建已中止。", true);
@@ -65,8 +69,8 @@ public class PrepareAAInputTask : IBuildTask
 
             return BuildTaskResult.Ok(new List<string>
             {
-                $"[AA INPUT] Added={diff.Added.Count}, Modified={diff.Modified.Count}, "
-                + $"Unchanged={diff.Unchanged.Count}, Removed={diff.Removed.Count}"
+                $"[AA INPUT] Added={added.Count}, Modified={modified.Count}, "
+                + $"Unchanged={unchanged.Count}, Removed={removed.Count}"
             });
         }
         catch (Exception ex)
@@ -77,7 +81,7 @@ public class PrepareAAInputTask : IBuildTask
     }
 
     /// <summary>扫描当前 Addressables source 并生成源快照（名称为 Asset GUID）。</summary>
-    public static List<FileDigest> ScanCurrentArtifacts()
+    public static List<FileHelper.FileDigest> ScanCurrentArtifacts()
     {
         var settings = AddressableAssetSettingsDefaultObject.Settings;
         if (settings == null)
@@ -85,9 +89,9 @@ public class PrepareAAInputTask : IBuildTask
         return ScanAddressableSource(settings);
     }
 
-    private static List<FileDigest> ScanAddressableSource(AddressableAssetSettings settings)
+    private static List<FileHelper.FileDigest> ScanAddressableSource(AddressableAssetSettings settings)
     {
-        var result = new List<FileDigest>();
+        var result = new List<FileHelper.FileDigest>();
         foreach (var group in settings.groups)
         {
             if (group == null)
@@ -109,7 +113,7 @@ public class PrepareAAInputTask : IBuildTask
 
                 string metaPath = assetPath + ".meta";
                 long size = GetFileSize(assetPath) + GetFileSize(metaPath);
-                result.Add(new FileDigest(
+                result.Add(new FileHelper.FileDigest(
                     entry.guid,
                     HashGenerator.GenerateCompositeFileHash(assetPath, metaPath),
                     HashGenerator.GenerateCompositeFileCRC(assetPath, metaPath),
@@ -126,13 +130,16 @@ public class PrepareAAInputTask : IBuildTask
         return new System.IO.FileInfo(path).Length;
     }
 
-    private static void LogDiff(FileDiff diff)
+    private static void LogDiff(
+        IReadOnlyList<FileHelper.FileDigest> added,
+        IReadOnlyList<FileHelper.FileDigest> modified,
+        IReadOnlyList<string> removed)
     {
-        for (int i = 0; i < diff.Added.Count; i++)
-            Debug.Log($"[{nameof(PrepareAAInputTask)}] Artifact 新增：{diff.Added[i].Name}");
-        for (int i = 0; i < diff.Modified.Count; i++)
-            Debug.Log($"[{nameof(PrepareAAInputTask)}] Artifact 已修改：{diff.Modified[i].Name}");
-        for (int i = 0; i < diff.Removed.Count; i++)
-            Debug.Log($"[{nameof(PrepareAAInputTask)}] Artifact 已移除：{diff.Removed[i]}");
+        for (int i = 0; i < added.Count; i++)
+            Debug.Log($"[{nameof(PrepareAAInputTask)}] Artifact 新增：{added[i].Name}");
+        for (int i = 0; i < modified.Count; i++)
+            Debug.Log($"[{nameof(PrepareAAInputTask)}] Artifact 已修改：{modified[i].Name}");
+        for (int i = 0; i < removed.Count; i++)
+            Debug.Log($"[{nameof(PrepareAAInputTask)}] Artifact 已移除：{removed[i]}");
     }
 }

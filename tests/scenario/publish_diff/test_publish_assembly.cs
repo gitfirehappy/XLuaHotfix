@@ -3,8 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 
 /// <summary>
-/// T7 完整组装门禁：服务器事实不可用/不可信时，稀疏 Hotfix 必须由本地基准 Full + Hotfix 组装成完整目标包；
-/// 来源不足必须失败且不产生任何副作用；服务器事实可用时只读复用服务器当前包内容。
+/// 完整目标包组装门禁：服务器事实不可用时，稀疏 Hotfix 由本地基准 Full 补齐；来源不足不得产生副作用。
 /// </summary>
 internal static class PublishAssemblyTests
 {
@@ -140,7 +139,7 @@ internal static class PublishAssemblyTests
         baseFull.Seal();
         Check.True(context.Publish(baseFull).Success, "准备阶段：基准 Full 发布应成功");
         // 目标清单声明的摘要取自真正的 Full 制品，随后才构造被篡改的基准目录。
-        FileDigest declaredA = FileFixtures.Digest(baseFull.SourceDir, "bundles/a.bundle");
+        FileHelper.FileDigest declaredA = FileFixtures.Digest(baseFull.SourceDir, "bundles/a.bundle");
 
         // 服务器当前包清单同样损坏：这样未变化内容只能从基准 Full 取。
         File.WriteAllText(

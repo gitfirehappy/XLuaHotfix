@@ -2,11 +2,10 @@ using System;
 using System.Collections.Generic;
 
 /// <summary>
-/// AB 侧配置升级策略：把旧的 AB 主干 Task 顺序列表迁移成自定义 Task 插入槽位。
+/// AB 配置升级：把配置中的自定义 Task 映射到主干插入槽位。
 /// </summary>
 /// <remarks>
-/// 放在独立文件而不是 ABPipelineBackbone：主干定义只描述固定阶段，
-/// 历史 Task 名称属于一次性迁移知识，不应反向污染主干声明。
+/// 固定主干由 ABPipelineBackbone 定义，本类只负责配置转换和已知项目 Task 的默认槽位。
 /// </remarks>
 public static class ABPipelineConfigUpgrade
 {

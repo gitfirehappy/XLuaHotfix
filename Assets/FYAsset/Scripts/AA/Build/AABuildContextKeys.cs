@@ -6,7 +6,7 @@ public static class AABuildContextKeys
 {
     public const string AAManifest = "AAManifest";
 
-    /// <summary>本次构建的 Addressables 源快照（List&lt;FileDigest&gt;，名称为 Asset GUID）；由 PrepareAAInputTask 写入</summary>
+    /// <summary>本次构建的 Addressables 源快照（List&lt;FileHelper.FileDigest&gt;，名称为 Asset GUID）；由 PrepareAAInputTask 写入</summary>
     public const string AASourceScan = "AASourceScan";
 
 }

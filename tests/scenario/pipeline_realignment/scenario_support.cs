@@ -4,9 +4,8 @@ using System.IO;
 using System.Text.RegularExpressions;
 
 /// <summary>
-/// FYAsset 资源管线纠偏计划（T0-T9）的目标契约门禁入口。
-/// 每个门禁对应计划 Code Change Map 的一个批次，锁定该批次的目标结构；
-/// 计划落地前允许门禁失败（RED），落地后必须转绿，之后作为回归保护。
+/// 资源管线契约门禁入口。
+/// 各门禁验证一个独立的结构或行为约束，失败时阻止场景通过，成功后作为回归保护。
 /// </summary>
 internal static class Program
 {
@@ -144,8 +143,7 @@ internal static class RepoSource
 }
 
 /// <summary>
-/// 子契约级执行器。T0 门禁的目的之一是完整暴露现状与目标的差距，
-/// 因此每个子契约独立执行并单独报告 GREEN/RED，最后统一汇总结论。
+/// 子契约独立执行并单独报告结果，最后统一汇总结论。
 /// </summary>
 internal static class GateChecks
 {

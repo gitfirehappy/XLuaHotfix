@@ -7,18 +7,13 @@ using UnityEngine;
 /// 目录型发布目标：把包发布到 `{service root}/{AA|AB}` 目录镜像。
 /// </summary>
 /// <remarks>
-/// 计划 T7：
-/// 1. 本目标具备目录级事实访问能力，因此 BuildPublisher 会在该目录上执行完整发布事务
-///    （读取服务器 PackageIndex/Manifest、复用 Hash 内容、最后写索引），不调用本类的 Push；
-/// 2. Push 仍保留为“已组装负载的直接搬运”能力：把暂存目录就位到服务器并把 PackageIndex 写到目标根，
-///    供无法执行完整事务的调用方使用；
-/// 3. 无论走哪条路径，本类都不会删除其他包目录。
+/// 目录型目标提供完整发布事务所需的事实访问；Push 仅负责搬运已组装负载，不删除其他包目录。
 /// </remarks>
 public sealed class LocalDirectoryPushTarget : IDirectoryPushTarget
 {
     private readonly PushTargetConfig _config;
 
-    public string Id => string.IsNullOrEmpty(_config.Id) ? "local" : _config.Id;
+    public string Id => _config.TargetId;
 
     public LocalDirectoryPushTarget(PushTargetConfig config)
     {

@@ -9,11 +9,13 @@ using UnityEngine;
 /// 在临时目录中安全检查发布隔离与事务行为。
 /// </summary>
 /// <remarks>
-/// 覆盖事实：后端目录隔离、PackageIndex 位置与写法、服务器事实缺失或损坏时的完整上传退化、
-/// 未变内容的复用、发布事务回滚、Wrangler 命令参数。
+/// 覆盖后端目录隔离、PackageIndex 顺序、完整上传退化、内容复用、回滚与 Wrangler 参数构造。
+/// 只操作 Path.GetTempPath() 下的唯一目录和本地目录目标，不执行部署命令、不访问网络。
+/// 批处理入口：-executeMethod HotfixPublishSelfCheck.Run。
 /// </remarks>
 public static class HotfixPublishSelfCheck
 {
+    [MenuItem("FYAsset/Tests/Hotfix Publish Self Check")]
     public static void Run()
     {
         string root = Path.Combine(Path.GetTempPath(), nameof(HotfixPublishSelfCheck) + "_" + Guid.NewGuid().ToString("N"));
@@ -23,7 +25,8 @@ public static class HotfixPublishSelfCheck
             string serviceRoot = Path.Combine(root, "service");
             var config = new PushTargetConfig
             {
-                Id = "self-check",
+                TargetId = "33333333-3333-3333-3333-333333333333",
+                Name = "self-check",
                 Type = PushTargetType.LocalDirectory,
                 Path = serviceRoot,
                 PublicBaseUrl = "http://127.0.0.1:54321/"
@@ -187,7 +190,7 @@ public static class HotfixPublishSelfCheck
         {
             BackendKey = package.BackendKey,
             SourcePackageDir = package.SourceDir,
-            TargetId = config.Id,
+            TargetId = config.TargetId,
             ManifestReader = SelfCheckManifestReader.Create(package.BackendKey),
             PackagesFolderName = FYAssetSettings.Instance.BuildPackagesFolderName,
             Identity = new PackageBuildIdentity
@@ -244,12 +247,10 @@ public static class HotfixPublishSelfCheck
             throw new InvalidOperationException($"{label} mismatch. Expected: {expected}; Actual: {actual}");
     }
 
-    /// <summary>
-    /// 自检用发布包：包根写清单与构建摘要（包身份），内容文件写在 bundles 下。
-    /// </summary>
+    /// <summary>自检用发布包：包根写清单与内容文件，发布身份由请求显式注入。</summary>
     private sealed class SelfCheckPackage
     {
-        private readonly List<FileDigest> _contents = new();
+        private readonly List<FileHelper.FileDigest> _contents = new();
 
         public SelfCheckPackage(string sourceDir, string packageName, string version, string backendKey)
         {
@@ -272,7 +273,7 @@ public static class HotfixPublishSelfCheck
             string relativeName = SelfCheckManifestReader.BundlesDirectoryName + "/" + fileName;
             string path = FYAssetPathUtility.JoinFilePath(SourceDir, relativeName);
             FileHelper.WriteAllTextAtomic(path, content);
-            if (!FileDigest.TryCreate(path, relativeName, out FileDigest digest))
+            if (!FileHelper.TryCreateDigest(path, relativeName, out FileHelper.FileDigest digest))
                 throw new InvalidOperationException("内容摘要计算失败: " + path);
 
             _contents.RemoveAll(item => string.Equals(item.Name, relativeName, StringComparison.Ordinal));
@@ -314,9 +315,9 @@ public static class HotfixPublishSelfCheck
 
         public string ContentDirectoryName => BundlesDirectoryName;
 
-        public bool TryReadContentDigests(string packageDir, out IReadOnlyList<FileDigest> contents, out string error)
+        public bool TryReadContentDigests(string packageDir, out IReadOnlyList<FileHelper.FileDigest> contents, out string error)
         {
-            var result = new List<FileDigest>();
+            var result = new List<FileHelper.FileDigest>();
             contents = result;
             error = string.Empty;
 
@@ -349,19 +350,19 @@ public static class HotfixPublishSelfCheck
                 SelfCheckManifestEntry entry = document.Files[i];
                 if (entry == null || string.IsNullOrEmpty(entry.Name))
                     continue;
-                result.Add(new FileDigest(entry.Name, entry.Hash, entry.Crc, entry.Size));
+                result.Add(new FileHelper.FileDigest(entry.Name, entry.Hash, entry.Crc, entry.Size));
             }
 
             return true;
         }
 
         /// <summary>按自检包内实际内容写出清单（名称为包根相对路径）。</summary>
-        public static void WriteManifest(string packageDir, string backendKey, IReadOnlyList<FileDigest> contents)
+        public static void WriteManifest(string packageDir, string backendKey, IReadOnlyList<FileHelper.FileDigest> contents)
         {
             var document = new SelfCheckManifestDocument { Files = new List<SelfCheckManifestEntry>() };
             for (int i = 0; i < (contents?.Count ?? 0); i++)
             {
-                FileDigest digest = contents[i];
+                FileHelper.FileDigest digest = contents[i];
                 document.Files.Add(new SelfCheckManifestEntry
                 {
                     Name = digest.Name,

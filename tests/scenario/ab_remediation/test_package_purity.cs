@@ -1,7 +1,7 @@
 using System;
 
 /// <summary>
-/// T2 目标契约：Full/Hotfix 只产出独立不可变 Build_* 包，固定累计目录退出，结果面板读取构建事实。
+/// Full/Hotfix 输出独立不可变包，结果面板读取构建事实，包目录不承担累计状态。
 /// </summary>
 internal static class PackagePurityTests
 {
@@ -45,7 +45,7 @@ internal static class PackagePurityTests
     /// <summary>包管理 UI 必须从构建事实（Summary 记录与制品状态）展示历史包，而不是只扫描当前目录。</summary>
     private static void VerifyResultsViewReadsBuildFacts()
     {
-        // API 契约：构建事实读取入口为 BuildSummaryStore（T1 落地），面板必须经它取得历史包与制品状态。
+        // API 契约：构建事实读取入口为 BuildSummaryStore，面板必须经它取得历史包与制品状态。
         GateAssert.Contains(
             RepoSource.ReadCode("Assets/FYAsset/Scripts/Shared/Build/Editor/Manage/BuildPackageResultsView.cs"),
             "BuildSummaryStore",

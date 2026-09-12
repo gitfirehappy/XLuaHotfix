@@ -4,39 +4,28 @@ using System.Threading.Tasks;
 using UnityEngine;
 
 /// <summary>
-/// AB Bundle 加载器 — 负责 AssetBundle 文件的加载、卸载与依赖管理。
-/// 通过 ABManifest 查询依赖并递归加载；Bundle 级缓存 + 引用计数，RefCount=0 时 AssetBundle.Unload(true)。
-/// 所有物理路径都相对当前激活包根 RuntimePathManager.ActivePackageRoot 解析，不做逐文件回退。
-/// 同一 BundleName 的并发物理加载共享 leader 请求（single-flight）。
-/// 由 ABPackageBackend 创建并持有；释放时调用 UnloadBundle，引用计数归零后自动卸载 Bundle 及其依赖。
+/// AssetBundle 加载、依赖管理和引用计数。
 /// </summary>
+/// <remarks>
+/// 物理路径相对 RuntimePathManager.ActivePackageRoot；同名 Bundle 的并发加载共享一次请求，引用归零时卸载。
+/// </remarks>
 public class ABBundleLoader
 {
 
-    /// <summary>
-    /// Bundle 缓存条目 — 记录已加载的 AssetBundle 及其引用状态。
-    /// </summary>
+    /// <summary>已加载 Bundle 的实例、依赖和引用计数。</summary>
     private class BundleCacheEntry
     {
         /// <summary>已加载的 AssetBundle 实例</summary>
         public AssetBundle Bundle;
 
-        /// <summary>
-        /// 引用计数。每次 LoadBundle 时 +1，每次 UnloadBundle 时 -1。
-        /// 降至 0 时执行 AssetBundle.Unload(true) 并移除缓存。
-        /// </summary>
+        /// <summary>引用归零时卸载 Bundle，并递归释放依赖。</summary>
         public int RefCount;
 
-        /// <summary>
-        /// 该 Bundle 的直接依赖 Bundle 名称列表。
-        /// 卸载时需要递归减少依赖 Bundle 的引用计数。
-        /// </summary>
+        /// <summary>该 Bundle 的直接依赖，卸载时递归释放。</summary>
         public string[] DependencyBundleNames;
     }
 
-    /// <summary>
-    /// 正在进行的物理 Bundle 加载。依赖已由 leader 获取；followers 只共享物理请求和最终结果。
-    /// </summary>
+    /// <summary>同名 Bundle 的一次物理加载；followers 共享 leader 的结果。</summary>
     private sealed class BundleLoadOperation
     {
         public int PendingAcquireCount;

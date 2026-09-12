@@ -17,7 +17,7 @@ public static class BuildTestState
     {
         public BackendMode Backend;
         public string AAHotfixUrl;
-        public string ABHotfixUrl;
+        public string ABCurrentTargetId;
     }
 
     public static FYAssetBackendSettings GetBackendSettings()
@@ -323,13 +323,13 @@ public static class BuildTestState
             if (!seen.Add(id))
                 throw new InvalidOperationException("Duplicate target id: " + id);
 
-            PushTargetConfig config = PushTargetConfig.FindById(id);
+            PushTargetConfig config = PushTargetConfig.FindById(id) ?? PushTargetConfig.FindByName(id);
             if (config == null)
-                throw new InvalidOperationException("Unknown target id: " + id);
+                throw new InvalidOperationException("Unknown target id or name: " + id);
             if (string.IsNullOrWhiteSpace(config.Path))
                 throw new InvalidOperationException("Target Path is empty: " + id);
-            if (!FYAssetPathUtility.IsHttpUrl(config.PublicBaseUrl))
-                throw new InvalidOperationException("Target PublicBaseUrl invalid: " + id);
+            if (!config.TryNormalizePublicBaseUrl(out _, out string urlError))
+                throw new InvalidOperationException("Target PublicBaseUrl invalid: " + id + " - " + urlError);
             if (config.Type != PushTargetType.LocalDirectory && config.Type != PushTargetType.CloudflarePages)
                 throw new InvalidOperationException("Unsupported target type: " + id);
 
@@ -345,7 +345,7 @@ public static class BuildTestState
             string runtimeUrl = config.GetHotfixUrl( BackendModeNames.FromBackendMode(ToBackendMode(backend)));
             snapshots.Add(new BuildTestTargetSnapshot
             {
-                TargetId = config.Id,
+                TargetId = config.TargetId,
                 TargetType = config.Type,
                 ServiceRoot = serviceRoot,
                 BackendPublishRoot = config.ResolveBackendRoot(backendName),
@@ -509,7 +509,7 @@ public static class BuildTestState
         {
             BackendKey = BuildTestPaths.BackendSegment(backend),
             SourcePackageDir = sourcePackageDir,
-            TargetId = config.Id,
+            TargetId = config.TargetId,
             ManifestReader = BuildTestAcceptance.ResolveManifestReader(backend),
             PackagesFolderName = FYAssetSettings.Instance.BuildPackagesFolderName,
             Identity = identity,
@@ -734,7 +734,7 @@ public static class BuildTestState
         {
             Backend = GetBackendSettings().Backend,
             AAHotfixUrl = FYAssetAASettings.Instance.HotfixUrl,
-            ABHotfixUrl = FYAssetABSettings.Instance.HotfixUrl
+            ABCurrentTargetId = FYAssetSettings.Instance.CurrentABTargetId
         };
         FileHelper.WriteAllTextAtomic(
             FYAssetPathUtility.JoinFilePath(backup, "settings.json"),
@@ -752,10 +752,10 @@ public static class BuildTestState
         FYAssetBackendSettings backendSettings = GetBackendSettings();
         backendSettings.Backend = snap.Backend;
         FYAssetAASettings.Instance.HotfixUrl = snap.AAHotfixUrl;
-        FYAssetABSettings.Instance.HotfixUrl = snap.ABHotfixUrl;
+        FYAssetSettings.Instance.CurrentABTargetId = snap.ABCurrentTargetId;
         EditorUtility.SetDirty(backendSettings);
         EditorUtility.SetDirty(FYAssetAASettings.Instance);
-        EditorUtility.SetDirty(FYAssetABSettings.Instance);
+        EditorUtility.SetDirty(FYAssetSettings.Instance);
         AssetDatabase.SaveAssets();
     }
 

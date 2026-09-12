@@ -2,19 +2,18 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using UnityEditor;
+using UnityEngine;
 
 /// <summary>
-/// AB 主干第 6 阶段：导出构建输出。
+/// AB 构建管线：导出构建输出。
 /// 1. 计算本次交付的内容集合（Hotfix 为相对作用域最近成功 Full 的变化内容）；
 /// 2. 按构建类型把内容文件放进包目录，写出 ABManifest 与构建摘要，清理临时产物；
 /// 3. 写模式输出（Full/Standalone 的包内 BuildIndex）。
 /// </summary>
 /// <remarks>
-/// 交付语义（计划 T5）：
-/// Full/Standalone 交付整包；Hotfix 以 Summary 作用域最近成功 Full 为基准，与本次 Manifest 做 FileDiff，
-/// 只交付 Added/Modified 的内容（累计语义来自每次直接对 Full 求差，不读取前一个 Hotfix 包）。
-/// 基准解析失败即中止本次构建，不把“没有历史事实”当成“没有变化”。
-/// attempt 布局下只允许写 attempt 根：正式出口由 Runner 在整体成功后提升。
+/// Full/Standalone 输出完整包；Hotfix 以作用域最近成功 Full 为基准，只交付 Added/Modified 内容。
+/// 基准解析失败即中止；attempt 根在整体成功后才提升为正式输出。
 /// </remarks>
 public class ExportABOutputTask : IBuildTask
 {
@@ -156,25 +155,29 @@ public class ExportABOutputTask : IBuildTask
             }
 
             if (!ABPackageManifestReader.Instance.TryReadContentDigests(
-                    baseFullDir, out IReadOnlyList<FileDigest> baseContents, out string readError))
+                    baseFullDir, out IReadOnlyList<FileHelper.FileDigest> baseContents, out string readError))
             {
                 deliveryContents = new List<ManifestContentEntry>();
                 return BuildTaskResult.Fail(BuildErrorCodes.BuildFailed,
                     $"基准 Full Manifest 不可读: {readError}", true);
             }
 
-            List<FileDigest> currentContents = ScanManifestContents(manifest);
-            FileDiff diff = FileDiff.Compute(baseContents, currentContents);
-            deliveryContents = MapChangedContents(manifest, diff);
+            List<FileHelper.FileDigest> currentContents = ScanManifestContents(manifest);
+            FileHelper.ComputeDiff(baseContents, currentContents,
+                out List<FileHelper.FileDigest> added,
+                out List<FileHelper.FileDigest> modified,
+                out List<FileHelper.FileDigest> unchanged,
+                out List<string> removed);
+            deliveryContents = MapChangedContents(manifest, added, modified);
 
             ctx.Set(ABBuildContextKeys.ABDeliveryContents, deliveryContents);
             UnityEngine.Debug.Log($"[{nameof(ExportABOutputTask)}] AB Hotfix 相对 Full 差异完成: Base={baseSummary.BuildId}, "
-                                  + $"Added={diff.Added.Count}, Modified={diff.Modified.Count}, "
-                                  + $"Unchanged={diff.Unchanged.Count}, Delivery={deliveryContents.Count}");
+                                  + $"Added={added.Count}, Modified={modified.Count}, "
+                                  + $"Unchanged={unchanged.Count}, Delivery={deliveryContents.Count}");
             return BuildTaskResult.Ok(new List<string>
             {
-                $"[AB DIFF] base={baseSummary.BuildId} added={diff.Added.Count} modified={diff.Modified.Count} "
-                + $"unchanged={diff.Unchanged.Count} removed={diff.Removed.Count} delivery={deliveryContents.Count}"
+                $"[AB DIFF] base={baseSummary.BuildId} added={added.Count} modified={modified.Count} "
+                + $"unchanged={unchanged.Count} removed={removed.Count} delivery={deliveryContents.Count}"
             });
         }
         catch (Exception ex)
@@ -187,7 +190,10 @@ public class ExportABOutputTask : IBuildTask
     }
 
     /// <summary>把差异集合映射回本次 Manifest 的内容条目；新增/修改名称必须能在本次 Manifest 中找到。</summary>
-    private static List<ManifestContentEntry> MapChangedContents(ABManifest manifest, FileDiff diff)
+    private static List<ManifestContentEntry> MapChangedContents(
+        ABManifest manifest,
+        IReadOnlyList<FileHelper.FileDigest> added,
+        IReadOnlyList<FileHelper.FileDigest> modified)
     {
         var byRelative = new Dictionary<string, ManifestContentEntry>(StringComparer.Ordinal);
         List<ManifestContentEntry> entries = manifest.ContentEntries;
@@ -205,20 +211,20 @@ public class ExportABOutputTask : IBuildTask
             }
         }
 
-        var result = new List<ManifestContentEntry>(diff.Added.Count + diff.Modified.Count);
-        AppendChanged(diff.Added, byRelative, result);
-        AppendChanged(diff.Modified, byRelative, result);
+        var result = new List<ManifestContentEntry>(added.Count + modified.Count);
+        AppendChanged(added, byRelative, result);
+        AppendChanged(modified, byRelative, result);
         return result;
     }
 
     private static void AppendChanged(
-        IReadOnlyList<FileDigest> files,
+        IReadOnlyList<FileHelper.FileDigest> files,
         Dictionary<string, ManifestContentEntry> byRelative,
         List<ManifestContentEntry> result)
     {
         for (int i = 0; i < files.Count; i++)
         {
-            FileDigest file = files[i];
+            FileHelper.FileDigest file = files[i];
             if (byRelative.TryGetValue(file.Name, out ManifestContentEntry entry))
             {
                 result.Add(entry);
@@ -243,7 +249,7 @@ public class ExportABOutputTask : IBuildTask
             : null;
     }
 
-    /// <summary>把交付内容放进 bundle 输出目录：整包模式从 _temp 全量复制，Hotfix 模式按累计计划落地。</summary>
+    /// <summary>把交付内容放进 bundle 输出目录：整包模式全量复制，Hotfix 模式按目标集合落地。</summary>
     private static BuildTaskResult CopyDeliveryContents(
         BuildContext ctx,
         BuildPackageRequest request,
@@ -278,9 +284,9 @@ public class ExportABOutputTask : IBuildTask
     }
 
     /// <summary>本次 Manifest 声明的内容集合（名称为包根相对路径）。</summary>
-    private static List<FileDigest> ScanManifestContents(ABManifest manifest)
+    private static List<FileHelper.FileDigest> ScanManifestContents(ABManifest manifest)
     {
-        var result = new List<FileDigest>();
+        var result = new List<FileHelper.FileDigest>();
         if (manifest?.ContentEntries == null)
             return result;
 
@@ -290,7 +296,7 @@ public class ExportABOutputTask : IBuildTask
             if (entry == null || string.IsNullOrEmpty(entry.FileName))
                 continue;
 
-            result.Add(new FileDigest(
+            result.Add(new FileHelper.FileDigest(
                 ToContentRelativeName(entry.FileName),
                 entry.FileHash,
                 entry.FileCRC,
@@ -377,9 +383,13 @@ public class ExportABOutputTask : IBuildTask
                 packageSize += sizeScope[i] != null ? sizeScope[i].FileSize : 0;
         }
 
-        if (!HotfixPackageSizeGuard.ValidateOrAbort(
-                packageSize, FYAssetABSettings.Instance.MaxHotfixSizeBytes, nameof(ExportABOutputTask)))
+        if (!FileHelper.IsWithinSizeLimit(packageSize, FYAssetABSettings.Instance.MaxHotfixSizeBytes))
         {
+            string message = $"AB 热更包大小超过阈值: {FileHelper.FormatBytes(packageSize)} >= {FileHelper.FormatBytes(FYAssetABSettings.Instance.MaxHotfixSizeBytes)}";
+            Debug.LogWarning($"[{nameof(ExportABOutputTask)}] {message}");
+            if (Application.isBatchMode)
+                throw new InvalidOperationException(message);
+            EditorUtility.DisplayDialog("AB 热更包过大", message, "OK");
             return BuildTaskResult.Fail(BuildErrorCodes.VerificationFailed,
                 "AB 热更包大小超过阈值，Manifest 发布已中止。", true);
         }

@@ -2,11 +2,8 @@ using System;
 using System.Text.RegularExpressions;
 
 /// <summary>
-/// T1「配置与 Collection 精简」目标契约门禁（计划 Code Change Map T1 与 Target Data Model - AB Collection 配置）。
-/// 目标结构：AssetCollectionSetting 直接持有 Groups/AssetOverrides/RawFileRules/SharePolicy；
-/// 删除 AssetCollectionPackage 配置层、Group.Labels、Collector 的 Role/Payload/Rule 名称字段、
-/// 反射规则体系（IFilterRule/IGroupRule/RuleResolver/CollectAll/GroupAll/RuleDropdownHelper）与旧枚举；
-/// 配置资产 CollectorSetting.asset 同步删除对应 YAML 键。
+/// Collection 配置契约门禁。
+/// 验证 AssetCollectionSetting 的持有关系、规则字段、反射规则体系清理和配置资产结构。
 /// </summary>
 internal static class CollectionContractTests
 {
@@ -40,7 +37,7 @@ internal static class CollectionContractTests
 
     /// <summary>
     /// 规则反射体系删除后，「默认脚本 / 程序集 / 元文件 / Editor 目录排除」必须由扫描层保留：
-    /// 计划 T1 明确要求该行为等价保留；失去它会让 .cs 等文件进入采集并争抢同名自动 Address。
+    /// .cs 等文件必须被忽略，否则会进入采集并争抢同名自动 Address。
     /// </summary>
     private static void VerifyCollectionScannerKeepsDefaultExclusions()
     {
@@ -101,7 +98,7 @@ internal static class CollectionContractTests
             "AssetCollectionSetting 必须持有 SharePolicy 字段：SharePolicyConfig 从 Package 级上移到 Setting，成为共享/禁共享策略的唯一来源");
     }
 
-    /// <summary>AddressStyle 与 IgnorePatterns 属于计划明确保留的等价行为。</summary>
+    /// <summary>AddressStyle 与 IgnorePatterns 的行为保持不变。</summary>
     private static void VerifySettingKeepsAddressStyleAndIgnorePatterns()
     {
         string body = SettingBody();
@@ -114,7 +111,7 @@ internal static class CollectionContractTests
     /// <summary>采集器类型、资产角色和强制载荷三个旧枚举必须消失。</summary>
     private static void VerifyCollectorEnumsDropLegacyKinds()
     {
-        // 计划未要求 CollectorEnums.cs 必须存在；该文件被并入其他文件时，旧枚举仍由整树断言拦截。
+        // CollectorEnums.cs 可以并入其他文件，但旧枚举仍由整树断言拦截。
         if (!RepoSource.FileExists(CollectorEnumsPath))
             return;
 
@@ -169,7 +166,7 @@ internal static class CollectionContractTests
             "目标类型 RawFileRules 必须声明 Extensions/FileNames/Folders：RawFile 白名单是 .gitignore 风格的项目级匹配，覆盖后缀、文件名与文件夹三类");
     }
 
-    /// <summary>共享策略配置在 T1 上移到 Setting 后仍需保留两个模式列表。</summary>
+    /// <summary>共享策略配置仍由 Setting 持有两个模式列表。</summary>
     private static void VerifySharePolicyConfigTypeDeclaresSharePatterns()
     {
         AssertTypeDeclaresMembers(AbRoot, "SharePolicyConfig",

@@ -121,10 +121,10 @@ public sealed class BuildTestPanel : BuildPipelineUIToolkitPanel
         for (int i = 0; i < settings.PushTargets.Count; i++)
         {
             PushTargetConfig config = settings.PushTargets[i];
-            if (config == null || string.IsNullOrEmpty(config.Id))
+            if (config == null || string.IsNullOrEmpty(config.TargetId))
                 continue;
-            var toggle = new Toggle($"{config.Id} ({config.Type})") { value = false };
-            toggle.userData = config.Id;
+            var toggle = new Toggle($"{config.Name} ({config.Type})") { value = false };
+            toggle.userData = config.TargetId;
             toggle.RegisterValueChangedCallback(_ => RefreshEnabled());
             _targetToggles.Add(toggle);
             box.Add(toggle);
@@ -215,9 +215,9 @@ public sealed class BuildTestPanel : BuildPipelineUIToolkitPanel
             PushTargetConfig config = configs[i];
             if (config != null
                 && config.Type != PushTargetType.LocalDirectory
-                && selected.Contains(config.Id))
+                && selected.Contains(config.TargetId))
             {
-                external.Add(config.Id);
+                external.Add(config.TargetId);
             }
         }
         return external;

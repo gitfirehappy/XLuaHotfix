@@ -128,12 +128,12 @@
 
 | 组成 | 说明 |
 |---|---|
-| `PushTargetConfig` | `Id` / `Type` / `Path`（服务目录根）/ `PublicBaseUrl`；持久化在 `FYAssetSettings.PushTargets` |
+| `PushTargetConfig` | `TargetId`（稳定 GUID）/ `Name`（唯一显示名）/ `Type` / `Path`（服务目录根）/ `PublicBaseUrl`；持久化在 `FYAssetSettings.PushTargets` |
 | 后端子目录 | 服务根下按后端隔离：`{serviceRoot}/{AA\|AB}`；两个后端不共享根部 `PackageIndex` |
 | `LocalDirectoryPushTarget` | Shared 内置的目录型目标，具备目录级事实访问能力 |
 | `CloudflarePagesPushTarget` | Compat 工厂注入的 CDN 接入：更新本地镜像后执行 Wrangler 部署；旧同名包目录先备份到服务根之外，失败时把包目录、`PackageIndex` 与 `_headers` 原样恢复 |
 
-`PublishTargetPanel` 的 `Apply URL` 是独立显式动作：面板只计算 URL（由 `PublicBaseUrl` + 后端键拼出），由 AA/AB 窗口注入的回调写入各自 Settings；发布本身不修改运行时 URL。
+`PublishTargetPanel` 的 AB 页面把 `CurrentABTargetId` 立即写入 `FYAssetSettings`；TargetId 只用于稳定身份和缓存隔离，Name 只用于显示。AB 页面不再提供 `Apply URL`，也不把 URL 写回 `FYAssetABSettings`。AB runtime 与发布校验共用 TargetId、Name、PublicBaseUrl 的严格解析：缺失目标、重复身份、非法 HTTP/HTTPS 地址、查询字符串或片段都会阻断。AA 页面仍保留自己的 HotfixUrl 配置。
 
 本地镜像服务由 `CommandLine/hotfix_server.py` 提供（只读静态服务，支持 `__fyasset_health` 健康检查与请求日志），默认根目录为 `HotfixPublish/Local/{AA|AB}`。
 

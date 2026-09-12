@@ -6,15 +6,12 @@ using System.Collections.Generic;
 /// 目标包组装计划：本次发布要在服务器上呈现的完整文件集合，以及每个文件的字节来源。
 /// </summary>
 /// <remarks>
-/// 计划 T7 的组装事实（只读产物，不含任何写入动作）：
-/// 1. <see cref="TargetFiles"/> 是“目标包应当包含什么”，它是唯一的内容契约；
-/// 2. <see cref="FileSources"/> 是“每个文件从哪里取字节”，发布事务只按它搬运；
-/// 3. 目标集合大于本地包目录是正常情况：稀疏 Hotfix 的未变化内容来自服务器当前包或基准 Full。
+/// 该对象只描述目标文件集合和每个文件的字节来源，不执行写入；未在本地包中的内容来自服务器当前包或基准 Full。
 /// </remarks>
 public sealed class PackageAssemblyPlan
 {
     /// <summary>目标包必须包含的文件集合：本地包目录文件 + 清单声明但本地缺失的内容</summary>
-    public List<FileDigest> TargetFiles = new();
+    public List<FileHelper.FileDigest> TargetFiles = new();
 
     /// <summary>目标文件的字节来源绝对路径；键为包根相对路径</summary>
     public Dictionary<string, string> FileSources = new(StringComparer.Ordinal);
@@ -45,7 +42,7 @@ public sealed class PackageAssemblyPlan
     }
 
     /// <summary>登记一个目标文件及其字节来源。</summary>
-    public void AddTarget(in FileDigest file, string sourcePath)
+    public void AddTarget(in FileHelper.FileDigest file, string sourcePath)
     {
         if (string.IsNullOrEmpty(file.Name) || string.IsNullOrEmpty(sourcePath))
             return;
@@ -59,13 +56,7 @@ public sealed class PackageAssemblyPlan
 /// 目标包来源决策：把本地包目录与清单声明的目标内容集合合并成完整目标包，并逐文件确定字节来源。
 /// </summary>
 /// <remarks>
-/// 计划 T7 的组装规则（本类只读，不做任何文件写入）：
-/// 1. 本地包目录内的文件全部进目标集合（发布口径与既有一致）；
-/// 2. Hotfix 的清单已经是完整目标清单，因此清单声明而本地缺失的内容必须补齐：
-///    先在服务器当前包内找同摘要内容（只读复用），再从本地基准 Full 包取（Summary.BaseFullSummaryId → ArtifactRelativePath）；
-/// 3. 三处都取不到，或取到的字节与清单声明的 Hash/CRC/Size 不一致 → 返回“来源不足”，
-///    调用方必须失败退出：不得写出部分目标包、不得写 PackageIndex、不得改动服务器旧包；
-/// 4. 非 Hotfix 包（Full/Standalone）自带全部内容，保持既有“本地目录即目标集合”的口径。
+/// 该对象只描述目标文件集合和每个文件的字节来源，不执行写入；未在本地包中的内容来自服务器当前包或基准 Full。
 /// </remarks>
 public static class PackageTargetAssembler
 {
@@ -76,8 +67,8 @@ public static class PackageTargetAssembler
     /// <param name="serverPackageDir">服务器当前包目录；不可用时为空</param>
     public static bool TryCreatePlan(
         PublishRequest request,
-        IReadOnlyList<FileDigest> localFiles,
-        IReadOnlyList<FileDigest> serverFiles,
+        IReadOnlyList<FileHelper.FileDigest> localFiles,
+        IReadOnlyList<FileHelper.FileDigest> serverFiles,
         string serverPackageDir,
         out PackageAssemblyPlan plan,
         out string error)
@@ -97,10 +88,10 @@ public static class PackageTargetAssembler
             return false;
         }
 
-        var localByName = FileDiff.IndexByName(localFiles);
+        var localByName = FileHelper.IndexByName(localFiles);
         for (int i = 0; i < localFiles.Count; i++)
         {
-            FileDigest file = localFiles[i];
+            FileHelper.FileDigest file = localFiles[i];
             if (string.IsNullOrEmpty(file.Name))
                 continue;
 
@@ -121,14 +112,14 @@ public static class PackageTargetAssembler
         }
 
         if (!request.ManifestReader.TryReadContentDigests(
-                request.SourcePackageDir, out IReadOnlyList<FileDigest> declared, out string manifestError))
+                request.SourcePackageDir, out IReadOnlyList<FileHelper.FileDigest> declared, out string manifestError))
         {
             error = $"来源不足: 本地 Hotfix 包清单不可读，无法确定目标内容集合 — {manifestError}";
             return false;
         }
 
-        var serverByName = FileDiff.IndexByName(serverFiles);
-        var serverByHash = FileDiff.IndexByHash(serverFiles);
+        var serverByName = FileHelper.IndexByName(serverFiles);
+        var serverByHash = FileHelper.IndexByHash(serverFiles);
         string baselineDir = string.Empty;
         string baselineError = string.Empty;
         string baselineFileError = string.Empty;
@@ -139,7 +130,7 @@ public static class PackageTargetAssembler
         {
             for (int i = 0; i < declared.Count; i++)
             {
-                FileDigest content = declared[i];
+                FileHelper.FileDigest content = declared[i];
                 if (string.IsNullOrEmpty(content.Name))
                     continue;
 
@@ -204,7 +195,7 @@ public static class PackageTargetAssembler
     }
 
     /// <summary>在同一内容目录内比较 Hash/CRC/Size；名称不参与比较。</summary>
-    private static bool SameContent(in FileDigest left, in FileDigest right)
+    private static bool SameContent(in FileHelper.FileDigest left, in FileHelper.FileDigest right)
     {
         return string.Equals(left.Hash, right.Hash, StringComparison.Ordinal)
                && left.CRC == right.CRC
@@ -213,9 +204,9 @@ public static class PackageTargetAssembler
 
     /// <summary>服务器当前包内能否提供该内容的字节：同名同摘要优先，其次 Hash 命中（名称不同）。</summary>
     private static bool TryFindServerSource(
-        in FileDigest content,
-        Dictionary<string, FileDigest> serverByName,
-        Dictionary<string, FileDigest> serverByHash,
+        in FileHelper.FileDigest content,
+        Dictionary<string, FileHelper.FileDigest> serverByName,
+        Dictionary<string, FileHelper.FileDigest> serverByHash,
         string serverPackageDir,
         out string sourcePath)
     {
@@ -223,20 +214,20 @@ public static class PackageTargetAssembler
         if (string.IsNullOrEmpty(serverPackageDir) || !FileHelper.DirectoryExists(serverPackageDir))
             return false;
 
-        if (serverByName.TryGetValue(content.Name, out FileDigest sameName) && SameContent(sameName, content))
+        if (serverByName.TryGetValue(content.Name, out FileHelper.FileDigest sameName) && SameContent(sameName, content))
         {
             string candidate = FYAssetPathUtility.JoinFilePath(serverPackageDir, sameName.Name);
-            if (FileDigest.TryCreate(candidate, content.Name, out FileDigest digest) && SameContent(digest, content))
+            if (FileHelper.TryCreateDigest(candidate, content.Name, out FileHelper.FileDigest digest) && SameContent(digest, content))
             {
                 sourcePath = candidate;
                 return true;
             }
         }
 
-        if (serverByHash.TryGetValue(FileDiff.HashKey(content.Hash, content.Size), out FileDigest sameHash))
+        if (serverByHash.TryGetValue(FileHelper.HashKey(content.Hash, content.Size), out FileHelper.FileDigest sameHash))
         {
             string candidate = FYAssetPathUtility.JoinFilePath(serverPackageDir, sameHash.Name);
-            if (FileDigest.TryCreate(candidate, sameHash.Name, out FileDigest digest) && SameContent(digest, content))
+            if (FileHelper.TryCreateDigest(candidate, sameHash.Name, out FileHelper.FileDigest digest) && SameContent(digest, content))
             {
                 sourcePath = candidate;
                 return true;
@@ -249,7 +240,7 @@ public static class PackageTargetAssembler
     /// <summary>基准 Full 包内取该内容：必须存在且 Hash/CRC/Size 与清单声明一致。</summary>
     private static bool TryFindBaselineSource(
         string baselineDir,
-        in FileDigest content,
+        in FileHelper.FileDigest content,
         out string sourcePath,
         out string error)
     {
@@ -263,7 +254,7 @@ public static class PackageTargetAssembler
             return false;
         }
 
-        if (!FileDigest.TryCreate(candidate, content.Name, out FileDigest digest))
+        if (!FileHelper.TryCreateDigest(candidate, content.Name, out FileHelper.FileDigest digest))
         {
             error = "文件不可读";
             return false;

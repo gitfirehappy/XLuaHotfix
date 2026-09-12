@@ -58,17 +58,21 @@ public static class PublishCacheStore
     /// <param name="cached">本地缓存的文件集合</param>
     /// <param name="serverFacts">服务器 Manifest 声明的文件集合</param>
     /// <returns>差异描述；一致或无法比较时返回 null</returns>
-    public static string DescribeMismatch(IReadOnlyList<FileDigest> cached, IReadOnlyList<FileDigest> serverFacts)
+    public static string DescribeMismatch(IReadOnlyList<FileHelper.FileDigest> cached, IReadOnlyList<FileHelper.FileDigest> serverFacts)
     {
         if (cached == null || serverFacts == null)
             return null;
 
-        FileDiff diff = FileDiff.Compute(cached, serverFacts);
-        if (diff.IsEmpty)
+        FileHelper.ComputeDiff(cached, serverFacts,
+            out List<FileHelper.FileDigest> added,
+            out List<FileHelper.FileDigest> modified,
+            out List<FileHelper.FileDigest> unchanged,
+            out List<string> removed);
+        if (added.Count == 0 && modified.Count == 0 && unchanged.Count == 0 && removed.Count == 0)
             return null;
 
-        return $"本地发布缓存与服务器事实不一致（以服务器为准）: 新增={diff.Added.Count}, 修改={diff.Modified.Count}, "
-               + $"未变={diff.Unchanged.Count}, 移除={diff.Removed.Count}";
+        return $"本地发布缓存与服务器事实不一致（以服务器为准）: 新增={added.Count}, 修改={modified.Count}, "
+               + $"未变={unchanged.Count}, 移除={removed.Count}";
     }
 
     /// <summary>删除发布缓存文件（维护入口使用）；文件不存在视为成功。</summary>

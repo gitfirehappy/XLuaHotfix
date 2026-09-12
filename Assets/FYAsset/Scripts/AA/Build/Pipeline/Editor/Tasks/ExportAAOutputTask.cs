@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 
 /// <summary>
-/// AA 主干第 5 阶段：导出构建输出。
+/// AA 构建管线：导出构建输出。
 /// 形成完整构建结果（CompleteBuildSummary）、写模式输出（Full/Standalone 的包内 BuildIndex）与源快照。
 /// </summary>
 /// <remarks>
@@ -62,7 +62,7 @@ public class ExportAAOutputTask : IBuildTask
     /// <summary>写出本次构建的 Addressables 源快照（来自 PrepareAAInput 阶段的扫描结果）。</summary>
     private static void WriteSourceScan(BuildContext ctx, string outputDir)
     {
-        List<FileDigest> scan = ctx.Get<List<FileDigest>>(AABuildContextKeys.AASourceScan);
+        List<FileHelper.FileDigest> scan = ctx.Get<List<FileHelper.FileDigest>>(AABuildContextKeys.AASourceScan);
         if (scan == null)
             throw new InvalidOperationException("PrepareAAInput 未写入源快照，无法导出本次构建事实。");
 
@@ -70,9 +70,9 @@ public class ExportAAOutputTask : IBuildTask
     }
 
     /// <summary>本次 Manifest 声明的内容集合（名称为包根相对路径）。</summary>
-    private static List<FileDigest> ScanManifestContents(AAManifest manifest)
+    private static List<FileHelper.FileDigest> ScanManifestContents(AAManifest manifest)
     {
-        var result = new List<FileDigest>();
+        var result = new List<FileHelper.FileDigest>();
         if (manifest?.Bundles == null)
             return result;
 
@@ -82,7 +82,7 @@ public class ExportAAOutputTask : IBuildTask
             if (bundle == null || string.IsNullOrEmpty(bundle.BundleName))
                 continue;
 
-            result.Add(new FileDigest(
+            result.Add(new FileHelper.FileDigest(
                 string.Concat("bundles/", bundle.BundleName),
                 bundle.FileHash,
                 bundle.FileCRC,

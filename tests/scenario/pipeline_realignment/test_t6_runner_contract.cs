@@ -1,11 +1,8 @@
 using System;
 
 /// <summary>
-/// 构建管线 Runner / Composer 与 AA、AB 固定主干契约门禁（计划 T6）。
-/// 目标：Runner 只保留 Run 入口并执行 Composer 产出的 Task 列表，不再提供 whitelist、
-/// stop-after、可编辑主干，也不承担 PackageIndex、baseline、发布和版本回滚职责；
-/// AA 收敛为 5 个固定阶段、AB 收敛为 6 个固定阶段，每个阶段之间允许 0..N 个自定义 Task；
-/// 被并入 Runner 或移出构建的旧 Task 文件必须删除。
+/// 构建管线 Runner、Composer 与 AA/AB 固定主干契约门禁。
+/// Runner 只执行 Composer 产出的 Task 列表，不负责发布、PackageIndex 或版本回滚；固定主干之间允许插入自定义 Task。
 /// </summary>
 internal static class RunnerContractTests
 {
@@ -136,7 +133,7 @@ internal static class RunnerContractTests
         }
     }
 
-    /// <summary>主干槽位类型必须存在：Compose 以 CoreTaskSlot 描述固定阶段序列。</summary>
+    /// <summary>主干槽位类型必须存在：Compose 以 CoreTaskSlot 描述固定执行序列。</summary>
     private static void VerifyCoreTaskSlotTypeDeclared()
     {
         GateAssert.TreeHasSymbol(
@@ -146,7 +143,7 @@ internal static class RunnerContractTests
             + $"{PipelineEditorDir} 树内不存在 CoreTaskSlot 类型");
     }
 
-    /// <summary>AA 主干收敛为 5 个固定阶段。</summary>
+    /// <summary>AA 主干保持固定的五个核心 Task。</summary>
     private static void VerifyAABackboneHasFiveFixedStages()
     {
         GateAssert.FileExists(AABackboneFile, "计划 T6 要求 AA 保留固定主干定义文件，该文件必须存在");
@@ -198,7 +195,7 @@ internal static class RunnerContractTests
         }
     }
 
-    /// <summary>AB 主干收敛为 6 个固定阶段。</summary>
+    /// <summary>AB 主干保持固定的六个核心 Task。</summary>
     private static void VerifyABBackboneHasSixFixedStages()
     {
         GateAssert.FileExists(ABBackboneFile, "计划 T6 要求 AB 保留固定主干定义文件，该文件必须存在");
@@ -275,7 +272,7 @@ internal static class RunnerContractTests
             + "组装校验完成后最后生成并上传，构建期写入 Task 必须删除");
     }
 
-    /// <summary>AB Package Manifest 写入并入 Export 阶段，独立 Task 文件必须删除。</summary>
+    /// <summary>AB Package Manifest 写入由 Export 负责，独立 Task 文件必须删除。</summary>
     private static void VerifyABPackageManifestTaskFileRemoved()
     {
         GateAssert.FileMissing(

@@ -1471,7 +1471,7 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
 
     /// <summary>
     /// 字符串列表编辑器。undoTarget 非空时记录 Undo，用于直接写回磁盘资产的持久字段。
-    /// 持久字段沿用旧的即时清洗；Curate candidate 保留原文本，交由保存前校验报告空项与首尾空白。
+    /// 持久字段执行即时清洗；Curate candidate 保留原文本，保存前校验报告空项与首尾空白。
     /// </summary>
     private VisualElement CreateStringListEditor(string title, List<string> values, Action onChanged, UnityEngine.Object undoTarget = null)
     {

@@ -40,16 +40,12 @@ public sealed class ABBuildPipelineWindow : BuildPipelineWindowBase
                 ABPipelineConfigUpgrade.TryUpgrade,
                 () => BuildProjectRunner.LastSummary),
             new ABReportPanel(),
-            new PublishTargetPanel(BackendModeNames.AB, ApplyHotfixUrl, ABPackageManifestReader.Instance),
+            new PublishTargetPanel(
+                BackendModeNames.AB,
+                () => FYAssetSettings.Instance.CurrentABTargetId,
+                targetId => FYAssetSettings.Instance.CurrentABTargetId = targetId,
+                ABPackageManifestReader.Instance),
             new ABTestMaintenancePanel()
         };
-    }
-
-    private static void ApplyHotfixUrl(string url)
-    {
-        Undo.RecordObject(FYAssetABSettings.Instance, "Apply Hotfix URL");
-        FYAssetABSettings.Instance.HotfixUrl = url;
-        EditorUtility.SetDirty(FYAssetABSettings.Instance);
-        AssetDatabase.SaveAssets();
     }
 }

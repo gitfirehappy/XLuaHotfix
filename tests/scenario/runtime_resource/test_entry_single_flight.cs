@@ -2,8 +2,7 @@ using System.Threading.Tasks;
 using UnityEngine;
 
 /// <summary>
-/// Entry 级加载并发契约（计划 T9）：异步 inflight 时同步 follower 不得产生第二次 Bundle acquisition，
-/// 全部 handle 释放后 Bundle 引用计数必须归零。
+/// Entry 级加载并发契约：异步 inflight 时同步 follower 不得重复获取 Bundle，全部 handle 释放后引用计数必须归零。
 /// </summary>
 internal static class EntrySingleFlightTests
 {

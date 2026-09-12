@@ -2,9 +2,8 @@ using System;
 using System.Collections.Generic;
 
 /// <summary>
-/// T6「Runner、Composer 与模式输出」纯 .NET 场景入口。
-/// 真实链接生产侧 BuildPipelineRunner / BuildPipelineComposer / BuildContext / 结果类型，
-/// 不依赖 UnityEngine/UnityEditor：Runner 需要的编辑器动作全部由场景内的 FakeEnvironment 提供。
+/// Runner、Composer 与模式输出的纯 .NET 场景入口。
+/// 通过 FakeEnvironment 提供编辑器动作，直接验证生产侧 Runner、Composer、Context 和结果类型。
 /// </summary>
 internal static class Program
 {

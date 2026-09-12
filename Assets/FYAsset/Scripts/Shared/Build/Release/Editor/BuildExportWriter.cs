@@ -85,7 +85,7 @@ public static class BuildExportWriter
             if (content == null || string.IsNullOrEmpty(content.FileName))
                 continue;
 
-            summary.AddFile(new FileDigest(content.FileName, content.FileHash, content.FileCRC, content.FileSize));
+            summary.AddFile(new FileHelper.FileDigest(content.FileName, content.FileHash, content.FileCRC, content.FileSize));
         }
     }
 

@@ -26,7 +26,7 @@ public class AABuildBackend : IBuildBackend, IBuiltInPackageHandler
         {
             request = request ?? throw new ArgumentNullException(nameof(request));
 
-            // 一次性把旧的“主干顺序列表”升级成“自定义 Task + 槽位”；已升级配置保持原样。
+            // 确保配置中的自定义 Task 已映射到插入槽位；升级操作必须幂等。
             AAPipelineConfigUpgrade.TryUpgrade(config);
 
             // 主干固定 5 段，自定义 Task 只能插入到合法槽位；组装失败一律致命。

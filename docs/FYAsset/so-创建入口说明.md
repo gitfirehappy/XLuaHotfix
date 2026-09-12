@@ -31,7 +31,7 @@
 
 | SO 类型 | 推荐入口 | 说明 |
 |---|---|---|
-| `FYAssetSettings` | `SettingsPanel` 中的创建按钮 / 自动补齐 | 默认路径为 `Assets/Resources/FYAssetSettings.asset`，保存项目名、构建输出根、BuildIndex 路径和 PushTargets；不再保存后端选择，也没有版本记录路径键 |
+| `FYAssetSettings` | `SettingsPanel` 中的创建按钮 / 自动补齐 | 默认路径为 `Assets/Resources/FYAssetSettings.asset`，保存项目名、构建输出根、BuildIndex 路径、PushTargets 与 `CurrentABTargetId`；AB URL 从当前 Target 的 `PublicBaseUrl` 解析 |
 | `FYAssetBackendSettings` | 使用项目已提交资产 | 默认路径为 `Assets/Build/FYAssetBackendSettings.asset`，保存 Compat 宿主后端选择；`GameLauncher` 通过 Prefab 序列化引用读取 |
 | `FYAssetAASettings` | `AAConfigPanel` 自动创建/编辑 | 默认路径为 `Assets/Resources/FYAssetAASettings.asset`，保存 AA 热更与构建参数 |
 | `FYAssetABSettings` | `ABConfigPanel` 自动创建/编辑 | 默认路径为 `Assets/Resources/FYAssetABSettings.asset`，保存 AB 热更、构建参数与 AssetCollection 配置 |

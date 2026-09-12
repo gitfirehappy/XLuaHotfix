@@ -3,13 +3,11 @@ using System.Collections.Generic;
 using UObject = UnityEngine.Object;
 
 /// <summary>
-/// 句柄所有权契约门禁（计划 T5）。
-/// 目标：一次 Load 或 Retain 对应一个独立 token；重复 Release 幂等；
-/// default 句柄无效；仍有活跃句柄时 Shutdown/Reset 必须拒绝，不能静默丢弃。
+/// 句柄所有权契约门禁。
+/// 验证每次 Load 或 Retain 对应独立 token，重复 Release 幂等；仍有活跃句柄时 Shutdown/Reset 必须拒绝。
 /// </summary>
 /// <remarks>
-/// 本门禁直接链接生产 AssetHandle/HandleRegistry 源码，通过 Registry 分配句柄模拟后端加载。
-/// T5 重写这两个类型后，若分配入口签名变化，只需调整本文件的 <see cref="Load"/> 适配点。
+/// 通过 Registry 分配句柄模拟后端加载，直接验证生产 AssetHandle 与 HandleRegistry。
 /// </remarks>
 internal static class HandleTokenBehaviorTests
 {

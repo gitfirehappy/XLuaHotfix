@@ -17,11 +17,14 @@ MonoBehaviour:
   BuildPackagesFolderName: Packages
   BuildIndexJsonPath: Assets/Build/Bootstrap/BuildIndex.json
   PushTargets:
-  - Id: local
+  - TargetId: 6858a0ae-f917-4cde-be71-871a1b2a21f2
+    Name: local
     Type: 0
     Path: HotfixPublish/Local
     PublicBaseUrl: http://127.0.0.1:54321/
-  - Id: cloudflare
+  - TargetId: 674a7e30-9d78-4c60-a43d-e9708c5eb79d
+    Name: cloudflare
     Type: 1
     Path: HotfixPublish/Cloudflare
     PublicBaseUrl: https://firehappy-cfy.com/
+  CurrentABTargetId: 674a7e30-9d78-4c60-a43d-e9708c5eb79d

@@ -10,9 +10,7 @@ using UnityEngine;
 /// 构建交付验收：从正式 Summary 定位的独立包目录与 StreamingAssets 读取事实并断言构建结果。
 /// </summary>
 /// <remarks>
-/// 事实来源（计划 T2/T5）：包身份只来自 BuildData/Summaries 的正式摘要；
-/// Hotfix 的基准是最近成功 Full 包；Hotfix 包内是完整目标 Manifest 加相对 Full 的变化内容；
-/// PackageIndex 只由发布器写到服务器目标根，构建不产出该文件。
+/// 包身份来自 BuildData/Summaries 的正式摘要；Hotfix 基于最近成功 Full，包内包含完整目标 Manifest 和变化内容。
 /// </remarks>
 public static class BuildTestAcceptance
 {
@@ -45,11 +43,11 @@ public static class BuildTestAcceptance
         /// <summary>基准 Full 包目录（构建前解析，构建后仍指向那次 Full 交付）。</summary>
         public string BaseFullPackageDir;
 
-        public List<FileDigest> PreviousManifestContents = new();
-        public List<FileDigest> AccumulatedContents = new();
+        public List<FileHelper.FileDigest> PreviousManifestContents = new();
+        public List<FileHelper.FileDigest> AccumulatedContents = new();
 
         /// <summary>AA 上次成功构建的源快照（名称为 Asset GUID）；AB 恒为空。</summary>
-        public List<FileDigest> PreviousSourceScan = new();
+        public List<FileHelper.FileDigest> PreviousSourceScan = new();
 
         /// <summary>读取基准事实；缺少上一次成功 Full 交付或其制品时失败。</summary>
         public static HotfixBaselineFacts Capture(BuildTestBackend backend)
@@ -64,7 +62,7 @@ public static class BuildTestAcceptance
                 BaseFullPackageDir = fullPackageDir
             };
 
-            if (!reader.TryReadContentDigests(fullPackageDir, out IReadOnlyList<FileDigest> previous, out string manifestError))
+            if (!reader.TryReadContentDigests(fullPackageDir, out IReadOnlyList<FileHelper.FileDigest> previous, out string manifestError))
                 throw new InvalidOperationException("基准 Full 包的 Manifest 不可用: " + manifestError);
             if (previous.Count == 0)
                 throw new InvalidOperationException("基准 Full 包的 Manifest 未声明任何内容: " + fullPackageDir);
@@ -75,7 +73,7 @@ public static class BuildTestAcceptance
             // AA 的变化资源判定依赖基准 Full 包内的源快照；缺失时无法计算本次变化集合。
             if (backend == BuildTestBackend.AA)
             {
-                if (!AASourceScanFile.TryRead(fullPackageDir, out List<FileDigest> scan, out string scanReadError))
+                if (!AASourceScanFile.TryRead(fullPackageDir, out List<FileHelper.FileDigest> scan, out string scanReadError))
                     throw new InvalidOperationException("AA 基准 Full 包的源快照不可用: " + scanReadError);
                 if (scan.Count == 0)
                     throw new InvalidOperationException("AA 基准 Full 包的源快照没有资源条目: " + fullPackageDir);
@@ -162,7 +160,7 @@ public static class BuildTestAcceptance
     }
 
     /// <summary>扫描包内内容目录，结果名称为包根相对路径。</summary>
-    private static void ScanPackageContents(string packageDir, string contentDirectoryName, List<FileDigest> result)
+    private static void ScanPackageContents(string packageDir, string contentDirectoryName, List<FileHelper.FileDigest> result)
     {
         string contentDir = FYAssetPathUtility.JoinFilePath(packageDir, contentDirectoryName);
         if (!FileHelper.DirectoryExists(contentDir))
@@ -172,7 +170,7 @@ public static class BuildTestAcceptance
         for (int i = 0; i < files.Length; i++)
         {
             string name = string.Concat(contentDirectoryName, "/", Path.GetFileName(files[i]));
-            if (FileDigest.TryCreate(files[i], name, out FileDigest digest))
+            if (FileHelper.TryCreateDigest(files[i], name, out FileHelper.FileDigest digest))
                 result.Add(digest);
         }
     }
@@ -202,7 +200,7 @@ public static class BuildTestAcceptance
         string packageDir = BuildPathManager.GetPackageDir(identity.PackageName);
         RequireNoLocalPackageIndex(identity.PackageName);
         RequireNoPackageIndex(packageDir, "Full 包目录");
-        List<FileDigest> manifestContents = RequireManifestContents(reader, packageDir, "Full 包目录");
+        List<FileHelper.FileDigest> manifestContents = RequireManifestContents(reader, packageDir, "Full 包目录");
 
         ValidatePackageOnDisk(ctx, packageDir, manifestContents, result);
         ValidateStreamingAssetsBaseline(result);
@@ -232,13 +230,19 @@ public static class BuildTestAcceptance
                 $"Hotfix 基准版本不匹配。Expected={ctx.ExpectedCumulativeBaseVersion}, Actual={baseVersion}");
 
         IPackageManifestReader reader = ResolveManifestReader(ctx.Backend);
-        List<FileDigest> currentContents = RequireManifestContents(reader, packageDir, "Hotfix 包目录");
-        FileDiff diff = FileDiff.Compute(ctx.CumulativeBase.PreviousManifestContents, currentContents);
+        List<FileHelper.FileDigest> currentContents = RequireManifestContents(reader, packageDir, "Hotfix 包目录");
+        FileHelper.ComputeDiff(
+            ctx.CumulativeBase.PreviousManifestContents,
+            currentContents,
+            out List<FileHelper.FileDigest> added,
+            out List<FileHelper.FileDigest> modified,
+            out _,
+            out _);
 
         RequireNoLocalPackageIndex(identity.PackageName);
         RequireNoPackageIndex(packageDir, "Hotfix 包目录");
-        ValidateHotfixDeliveryContents(packageDir, reader, diff, result);
-        ValidateHotfixDelta(diff, ctx);
+        ValidateHotfixDeliveryContents(packageDir, reader, added, modified, result);
+        ValidateHotfixDelta(added, modified, ctx);
         if (ctx.Backend == BuildTestBackend.AA)
             ValidateAASourceScanDelta(ctx.CumulativeBase, packageDir);
         ValidateStreamingAssetsUnchangedFromFull(result);
@@ -309,16 +313,16 @@ public static class BuildTestAcceptance
     }
 
     /// <summary>交付目录必须携带完整 Manifest，且内容集合非空。</summary>
-    private static List<FileDigest> RequireManifestContents(
+    private static List<FileHelper.FileDigest> RequireManifestContents(
         IPackageManifestReader reader,
         string packageDir,
         string label)
     {
-        if (!reader.TryReadContentDigests(packageDir, out IReadOnlyList<FileDigest> contents, out string error))
+        if (!reader.TryReadContentDigests(packageDir, out IReadOnlyList<FileHelper.FileDigest> contents, out string error))
             throw new InvalidOperationException($"{label}的 Manifest 不可用: {error}");
         if (contents.Count == 0)
             throw new InvalidOperationException($"{label}的 Manifest 未声明任何内容: " + packageDir);
-        return new List<FileDigest>(contents);
+        return new List<FileHelper.FileDigest>(contents);
     }
 
     /// <summary>交付目录不得携带 PackageIndex；该文件只由发布器在发布事务最后写到服务器目标根。</summary>
@@ -365,26 +369,27 @@ public static class BuildTestAcceptance
     private static void ValidateHotfixDeliveryContents(
         string packageDir,
         IPackageManifestReader reader,
-        FileDiff diff,
+        IReadOnlyList<FileHelper.FileDigest> added,
+        IReadOnlyList<FileHelper.FileDigest> modified,
         BuildTestResult result)
     {
-        var expectedContents = new List<FileDigest>(diff.Added.Count + diff.Modified.Count);
-        expectedContents.AddRange(diff.Added);
-        expectedContents.AddRange(diff.Modified);
-        Dictionary<string, FileDigest> expected = FileDiff.IndexByName(expectedContents);
+        var expectedContents = new List<FileHelper.FileDigest>(added.Count + modified.Count);
+        expectedContents.AddRange(added);
+        expectedContents.AddRange(modified);
+        Dictionary<string, FileHelper.FileDigest> expected = FileHelper.IndexByName(expectedContents);
 
-        var actualContents = new List<FileDigest>();
+        var actualContents = new List<FileHelper.FileDigest>();
         ScanPackageContents(packageDir, reader.ContentDirectoryName, actualContents);
-        Dictionary<string, FileDigest> actual = FileDiff.IndexByName(actualContents);
+        Dictionary<string, FileHelper.FileDigest> actual = FileHelper.IndexByName(actualContents);
 
         if (actual.Count != expected.Count)
             throw new InvalidOperationException(
                 $"Hotfix 包内容数量与相对 Full 的差异集合不一致: 实际={actual.Count}, 期望={expected.Count}");
 
         long bytes = 0;
-        foreach (KeyValuePair<string, FileDigest> pair in expected)
+        foreach (KeyValuePair<string, FileHelper.FileDigest> pair in expected)
         {
-            if (!actual.TryGetValue(pair.Key, out FileDigest delivered))
+            if (!actual.TryGetValue(pair.Key, out FileHelper.FileDigest delivered))
                 throw new InvalidOperationException("Hotfix 包缺少差异集合内的内容: " + pair.Key);
             if (!delivered.Matches(pair.Value))
                 throw new InvalidOperationException("Hotfix 包内容摘要与差异集合不一致: " + pair.Key);
@@ -400,7 +405,7 @@ public static class BuildTestAcceptance
     private static void ValidatePackageOnDisk(
         AcceptanceContext ctx,
         string packageDir,
-        List<FileDigest> manifestContents,
+        List<FileHelper.FileDigest> manifestContents,
         BuildTestResult result)
     {
         if (!FileHelper.DirectoryExists(packageDir))
@@ -459,9 +464,9 @@ public static class BuildTestAcceptance
         long bytes = 0;
         for (int i = 0; i < manifestContents.Count; i++)
         {
-            FileDigest declared = manifestContents[i];
+            FileHelper.FileDigest declared = manifestContents[i];
             string path = FYAssetPathUtility.JoinFilePath(packageDir, declared.Name);
-            if (!FileDigest.TryCreate(path, declared.Name, out FileDigest actual))
+            if (!FileHelper.TryCreateDigest(path, declared.Name, out FileHelper.FileDigest actual))
                 throw new InvalidOperationException("包目录缺少 Manifest 声明的内容: " + declared.Name);
             if (!actual.Matches(declared))
                 throw new InvalidOperationException("包目录内容与 Manifest 声明不一致: " + declared.Name);
@@ -527,11 +532,14 @@ public static class BuildTestAcceptance
     /// AA 的 Bundle 名来自 Addressables 分组名，被改动资源会迁入 HotfixGroup，
     /// 因此 AA 的 payload 级事实由 <see cref="ValidateAASourceScanDelta"/> 单独断言。
     /// </remarks>
-    private static void ValidateHotfixDelta(FileDiff diff, AcceptanceContext ctx)
+    private static void ValidateHotfixDelta(
+        IReadOnlyList<FileHelper.FileDigest> added,
+        IReadOnlyList<FileHelper.FileDigest> modified,
+        AcceptanceContext ctx)
     {
         var changed = new List<string>();
-        CollectNames(diff.Added, changed);
-        CollectNames(diff.Modified, changed);
+        CollectNames(added, changed);
+        CollectNames(modified, changed);
         if (changed.Count == 0)
             throw new InvalidOperationException("Hotfix 相对基准 Full 没有任何内容变化。");
 
@@ -549,7 +557,7 @@ public static class BuildTestAcceptance
     /// </summary>
     private static void ValidateAASourceScanDelta(HotfixBaselineFacts baseFacts, string packageDir)
     {
-        if (!AASourceScanFile.TryRead(packageDir, out List<FileDigest> current, out string error))
+        if (!AASourceScanFile.TryRead(packageDir, out List<FileHelper.FileDigest> current, out string error))
             throw new InvalidOperationException("AA Hotfix 包缺少本次构建的源快照: " + error);
 
         string fixturePath = BuildTestFixtures.GetHotfixFixturePath(BuildTestBackend.AA);
@@ -557,18 +565,24 @@ public static class BuildTestAcceptance
         if (string.IsNullOrEmpty(fixtureGuid))
             throw new InvalidOperationException("AA 夹具缺少 Asset GUID: " + fixturePath);
 
-        FileDiff diff = FileDiff.Compute(baseFacts.PreviousSourceScan, current);
+        FileHelper.ComputeDiff(
+            baseFacts.PreviousSourceScan,
+            current,
+            out List<FileHelper.FileDigest> added,
+            out List<FileHelper.FileDigest> modified,
+            out _,
+            out List<string> removed);
         var changed = new List<string>();
-        CollectNames(diff.Added, changed);
-        CollectNames(diff.Modified, changed);
+        CollectNames(added, changed);
+        CollectNames(modified, changed);
 
         if (changed.Count != 1 || !string.Equals(changed[0], fixtureGuid, StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException(
                 "AA Hotfix 源快照变化集合必须恰好是被改动夹具。Expected=" + fixtureGuid
                 + ", Actual=" + string.Join(",", changed));
-        if (diff.Removed.Count > 0)
+        if (removed.Count > 0)
             throw new InvalidOperationException(
-                "AA Hotfix 源快照出现被移除的资源: " + string.Join(",", diff.Removed));
+                "AA Hotfix 源快照出现被移除的资源: " + string.Join(",", removed));
     }
 
     /// <summary>AA 的内容变化必须包含被改动资源迁入 HotfixGroup 后产出的 Bundle。</summary>
@@ -639,7 +653,7 @@ public static class BuildTestAcceptance
                 "AB Hotfix delta contains unrelated payload artifact changes. Count=" + nonFixturePayload);
     }
 
-    private static void CollectNames(List<FileDigest> list, List<string> names)
+    private static void CollectNames(IReadOnlyList<FileHelper.FileDigest> list, List<string> names)
     {
         if (list == null)
             return;

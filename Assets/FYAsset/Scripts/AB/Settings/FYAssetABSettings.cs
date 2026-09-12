@@ -10,7 +10,6 @@ public sealed class FYAssetABSettings : ScriptableObject
     public EPlayMode PlayMode = EPlayMode.Runtime;
 
     [Header("Hotfix")]
-    public string HotfixUrl = string.Empty;
     public int HotfixMaxRetryCount = 3;
     public float HotfixRetryBaseDelaySeconds = 1f;
     public int HotfixMetadataTimeoutSeconds = 15;

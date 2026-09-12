@@ -5,10 +5,8 @@ using System;
 /// 单次构建包请求。包名与最终输出路径只在创建时计算一次；后端和 Task 只消费，不重新计算。
 /// </summary>
 /// <remarks>
-/// 输出语义（计划 T2）：
-/// 1. Full / Hotfix / Standalone 都交付到按包名隔离的独立不可变目录，包名即目录名；
-/// 2. Hotfix 包内是“完整目标 Manifest + 相对作用域最近成功 Full 的变化内容”，不依赖前一个 Hotfix 包；
-/// 3. 构建不写 PackageIndex：PackageIndex 由发布器在发布事务最后生成并上传。
+/// Full、Hotfix 和 Standalone 都输出独立包目录；Hotfix 包含完整目标 Manifest 及相对 Full 的变化内容。
+/// PackageIndex 由发布器在发布事务最后生成并上传。
 /// </remarks>
 public sealed class BuildPackageRequest
 {
@@ -65,8 +63,7 @@ public sealed class BuildPackageRequest
     }
 
     /// <summary>
-    /// 派生一份“已交付”请求：OutputDir 指向最终出口、不再是 attempt 布局。
-    /// 仅 Runner finalize 在 promote 成功后使用，供本地数据导出 / 报表等消费者读取最终路径。
+    /// 生成指向最终出口的构建请求，供导出和报表读取。
     /// </summary>
     public BuildPackageRequest WithPromotedOutput()
     {

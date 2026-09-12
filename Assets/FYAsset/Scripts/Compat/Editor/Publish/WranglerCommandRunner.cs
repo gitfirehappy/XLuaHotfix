@@ -30,8 +30,7 @@ public readonly struct WranglerCommandResult
 /// Wrangler CLI 调用接缝：把可执行文件定位与进程调用抽出，使发布门禁能注入部署失败场景。
 /// </summary>
 /// <remarks>
-/// 计划 T7 的 Cloudflare 补偿要求验证“Wrangler 部署失败后旧 PackageIndex 与旧服务根镜像恢复”，
-/// 该行为在纯 .NET 场景工程内只能由替身驱动，因此进程边界抽象为本接口。
+/// Cloudflare 失败时需要恢复旧 PackageIndex 和旧服务根镜像；进程边界抽象为本接口，便于纯逻辑测试注入替身。
 /// 生产实现见 <see cref="ProcessWranglerCommandRunner"/>。
 /// </remarks>
 public interface IWranglerCommandRunner

@@ -1,7 +1,7 @@
 using System;
 
 /// <summary>
-/// T1/T2 目标契约：构建事实落在 BuildData/Summaries，包目录只含发布内容，版本状态由 Summary Index 承载。
+/// 构建事实、摘要索引和发布包之间的所有权契约。
 /// </summary>
 internal static class SummaryOwnershipTests
 {
@@ -23,7 +23,7 @@ internal static class SummaryOwnershipTests
         GateAssert.Contains(source, "Summaries", "构建侧必须声明 BuildData/Summaries 摘要存储路径");
     }
 
-    /// <summary>Summary Index 承载项目版本与作用域最新 Summary 引用，字段名属于计划契约。</summary>
+    /// <summary>Summary Index 承载项目版本与作用域内最新 Summary 引用。</summary>
     private static void VerifySummaryIndexDeclared()
     {
         string source = RepoSource.RawTreeText("Assets/FYAsset/Scripts/Shared/Build");

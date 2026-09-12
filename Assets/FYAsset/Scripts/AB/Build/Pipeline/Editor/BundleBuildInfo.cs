@@ -35,7 +35,7 @@ public class BundleBuildInfo
 
     /// <summary>
     /// 内容级直接依赖的输出文件名集合；事实来源是 Unity AssetBundleManifest，复用内容取缓存回放。
-    /// 构建计划图只作预期诊断，不作为依赖下标的事实来源。
+    /// 依赖预期图只作预期诊断，不作为依赖下标的事实来源。
     /// </summary>
     public List<string> DependencyFileNames = new();
 }

@@ -2,12 +2,8 @@ using System;
 using System.Reflection;
 
 /// <summary>
-/// T8 目标契约：损坏本地包必须立即回退 BuiltIn 候选；同包修复必须在独立 staging 中完成。
+/// 损坏本地包的候选回退和同包修复契约：损坏内容回退到 BuiltIn，修复始终在独立 staging 中完成。
 /// </summary>
-/// <remarks>
-/// 本门禁在 T0 阶段锁定决策输入与 FlowBase 写入根的目标形态（当前实现无法表达损坏回退、
-/// 且以“目标根等于当前根”为前提原地写入）。T8 落地后需在同一契约下补充流程级行为验证。
-/// </remarks>
 internal static class HotfixCandidateTests
 {
     public static void Run()
@@ -20,7 +16,7 @@ internal static class HotfixCandidateTests
     }
 
     /// <summary>
-    /// 参数契约（T8）：<c>DecideCurrentContent(localPointerTrusted, localIsBuiltInIdentity, localPackageComplete)</c>。
+    /// 参数契约：<c>DecideCurrentContent(localPointerTrusted, localIsBuiltInIdentity, localPackageComplete)</c>。
     /// 指针可信但包损坏时必须返回 BuiltIn；当前签名只有两个 bool，无法表达完整性。
     /// </summary>
     private static void VerifyCompletenessInput()

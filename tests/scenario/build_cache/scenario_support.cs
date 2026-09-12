@@ -5,8 +5,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 
 /// <summary>
-/// T4「Summary 驱动的构建复用」纯 .NET 场景入口：验证历史制品按 Summary 索引复用的命中与失效矩阵、
-/// 依赖事实回放、依赖闭合裁剪、指纹稳定性与内容逻辑名规则，不依赖 Unity。
+/// Summary 驱动的构建复用场景入口：验证历史制品命中与失效、依赖事实回放、依赖闭合、指纹稳定性和内容命名规则。
 /// </summary>
 internal static class Program
 {
@@ -209,11 +208,11 @@ internal static class ReuseFixture
     }
 
     /// <summary>在默认历史包目录内写入一个制品，返回其磁盘摘要。</summary>
-    public static FileDigest WriteArtifact(TempWorkspace workspace, string fileName, byte[] content)
+    public static FileHelper.FileDigest WriteArtifact(TempWorkspace workspace, string fileName, byte[] content)
         => WriteArtifact(workspace, PackageRelativePath, fileName, content);
 
     /// <summary>在指定历史包目录内写入一个制品，返回其磁盘摘要。</summary>
-    public static FileDigest WriteArtifact(
+    public static FileHelper.FileDigest WriteArtifact(
         TempWorkspace workspace,
         string packageRelativePath,
         string fileName,
@@ -223,7 +222,7 @@ internal static class ReuseFixture
             string.Concat(packageRelativePath, "/", FYAssetSettings.BUNDLES_DIRECTORY_NAME, "/", fileName));
         Directory.CreateDirectory(Path.GetDirectoryName(path));
         File.WriteAllBytes(path, content);
-        Check.True(FileDigest.TryCreate(path, fileName, out FileDigest digest), "夹具无法计算历史制品摘要");
+        Check.True(FileHelper.TryCreateDigest(path, fileName, out FileHelper.FileDigest digest), "夹具无法计算历史制品摘要");
         return digest;
     }
 
@@ -231,7 +230,7 @@ internal static class ReuseFixture
     public static SummaryContentFact Content(
         string contentIdentity,
         string inputFingerprint,
-        in FileDigest digest,
+        in FileHelper.FileDigest digest,
         params string[] dependencyFileNames)
     {
         return new SummaryContentFact
@@ -296,7 +295,7 @@ internal static class ReuseFixture
         string inputFingerprint,
         string targetDirectory,
         out string fileName,
-        out FileDigest digest,
+        out FileHelper.FileDigest digest,
         out List<string> dependencyFileNames,
         out string reason)
     {

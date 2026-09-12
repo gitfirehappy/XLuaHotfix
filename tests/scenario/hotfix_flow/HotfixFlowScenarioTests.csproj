@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AssemblyName>HotfixFlowScenarioTests</AssemblyName>
+    <RootNamespace>HotfixFlowScenarioTests</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="scenario_stubs.cs" />
+    <Compile Include="HotfixFlowScenarioTests.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Hotfix/HotfixFlowBase.cs" Link="Production/HotfixFlowBase.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Hotfix/HotfixContext.cs" Link="Production/HotfixContext.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Hotfix/HotfixContentState.cs" Link="Production/HotfixContentState.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Hotfix/HotfixStateDecider.cs" Link="Production/HotfixStateDecider.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Hotfix/HotfixPackageInspection.cs" Link="Production/HotfixPackageInspection.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Hotfix/HotfixPackageValidator.cs" Link="Production/HotfixPackageValidator.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Hotfix/HotfixStepResult.cs" Link="Production/HotfixStepResult.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Hotfix/HotfixRuntimeUpdate.cs" Link="Production/HotfixRuntimeUpdate.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Hotfix/HotfixVersionInfo.cs" Link="Production/HotfixVersionInfo.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Hotfix/BundleDownloadItem.cs" Link="Production/BundleDownloadItem.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Hotfix/IHotfixPipeline.cs" Link="Production/IHotfixPipeline.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Hotfix/ClientUpdateRequiredInfo.cs" Link="Production/ClientUpdateRequiredInfo.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Hotfix/HotfixFatalException.cs" Link="Production/HotfixFatalException.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Runtime/RuntimePathManager.cs" Link="Production/RuntimePathManager.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Runtime/RuntimeMode.cs" Link="Production/RuntimeMode.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Runtime/RuntimeMessage.cs" Link="Production/RuntimeMessage.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Runtime/BuildIndexData.cs" Link="Production/BuildIndexData.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Runtime/PackageIndex.cs" Link="Production/PackageIndex.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Versioning/VersionNumber.cs" Link="Production/VersionNumber.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Helpers/FYAssetPathUtility.cs" Link="Production/FYAssetPathUtility.cs" />
+    <Compile Include="../../../Assets/Tools/Scripts/FileHelper.cs" Link="Production/FileHelper.cs" />
+    <Compile Include="../../../Assets/Tools/Scripts/HashGenerator.cs" Link="Production/HashGenerator.cs" />
+    <Compile Include="../../../Assets/Tools/Scripts/Serialization/BinarySerializableAttribute.cs" Link="Production/BinarySerializableAttribute.cs" />
+  </ItemGroup>
+</Project>

@@ -32,10 +32,8 @@
     <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Editor/Summary/BuildSummaryStore.cs" Link="Production/BuildSummaryStore.cs" />
     <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Editor/CompleteBuildSummary.cs" Link="Production/CompleteBuildSummary.cs" />
     <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Editor/Common/BuildMessage.cs" Link="Production/BuildMessage.cs" />
-    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/FileDigest.cs" Link="Production/FileDigest.cs" />
-    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/FileDiff.cs" Link="Production/FileDiff.cs" />
-    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Helpers/FYAssetPathUtility.cs" Link="Production/FYAssetPathUtility.cs" />
     <Compile Include="../../../Assets/Tools/Scripts/FileHelper.cs" Link="Production/FileHelper.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Helpers/FYAssetPathUtility.cs" Link="Production/FYAssetPathUtility.cs" />
     <Compile Include="stubs/summary_stubs.cs" />
   </ItemGroup>
 </Project>

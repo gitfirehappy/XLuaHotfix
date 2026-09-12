@@ -5,8 +5,7 @@ using System.Collections.Generic;
 /// 构建后端的结构化执行结果。Success 为 true 时 Error 为 null。
 /// </summary>
 /// <remarks>
-/// 职责边界（计划 T7）：结果只承载构建事实（管线结果、请求、摘要），
-/// 不再承载 Repository/baseline 交付清单或差异结论；差异与发布由 FileDiff 与 BuildPublisher 独立承担。
+/// 结果只承载构建事实；发布差异和交付由独立发布模块负责。
 /// </remarks>
 public class BuildBackendResult
 {

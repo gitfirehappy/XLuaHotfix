@@ -1,11 +1,10 @@
 using System.Collections.Generic;
 
 /// <summary>
-/// T5 契约：Hotfix 交付集合永远由「本次构建内容 vs 作用域最近成功 Full」直接求差得到。
+/// Hotfix 交付集合由本次构建内容与作用域最近成功 Full 直接比较得到。
 /// </summary>
 /// <remarks>
-/// 覆盖事实：H1 与 H2 各自独立地对 Full 求差，因此 H2 不依赖 H1 是否仍存在；
-/// 内容恢复到 Full 版本后不再出现在交付集合中。Windows 流程级证据属于 T11 实测范围。
+/// H1 与 H2 都直接对 Full 求差，因此 H2 不依赖 H1 是否仍存在；内容恢复到 Full 后不再进入交付集合。
 /// </remarks>
 internal static class HotfixDeliveryTests
 {
@@ -22,29 +21,29 @@ internal static class HotfixDeliveryTests
     /// </summary>
     private static void VerifyDirectDiffAgainstFullBaseline()
     {
-        List<FileDigest> full = Contents(("a.content", "a0"), ("b.content", "b0"), ("c.content", "c0"));
-        List<FileDigest> h1 = Contents(("a.content", "a1"), ("b.content", "b0"), ("c.content", "c0"));
-        List<FileDigest> h2 = Contents(("a.content", "a1"), ("b.content", "b1"), ("c.content", "c0"));
-        List<FileDigest> restored = Contents(("a.content", "a0"), ("b.content", "b1"), ("c.content", "c0"));
+        List<FileHelper.FileDigest> full = Contents(("a.content", "a0"), ("b.content", "b0"), ("c.content", "c0"));
+        List<FileHelper.FileDigest> h1 = Contents(("a.content", "a1"), ("b.content", "b0"), ("c.content", "c0"));
+        List<FileHelper.FileDigest> h2 = Contents(("a.content", "a1"), ("b.content", "b1"), ("c.content", "c0"));
+        List<FileHelper.FileDigest> restored = Contents(("a.content", "a0"), ("b.content", "b1"), ("c.content", "c0"));
 
-        HashSet<string> h1Delivery = FileDiff.Compute(full, h1).CollectChangedNames();
+        HashSet<string> h1Delivery = Changed(full, h1);
         GateAssert.Equal(1, h1Delivery.Count, "H1 相对 Full 只交付被修改的内容");
         GateAssert.True(h1Delivery.Contains("a.content"), "H1 必须交付被修改的 a");
 
-        HashSet<string> h2Delivery = FileDiff.Compute(full, h2).CollectChangedNames();
+        HashSet<string> h2Delivery = Changed(full, h2);
         GateAssert.Equal(2, h2Delivery.Count, "H2 相对 Full 必须得到累计的两个变化内容");
         GateAssert.True(
             h2Delivery.Contains("a.content") && h2Delivery.Contains("b.content"),
             "H2 必须得到 A+B 的累计交付集合");
 
-        HashSet<string> restoredDelivery = FileDiff.Compute(full, restored).CollectChangedNames();
+        HashSet<string> restoredDelivery = Changed(full, restored);
         GateAssert.Equal(1, restoredDelivery.Count, "内容恢复为 Full 版本后交付集合只剩余一个变化内容");
         GateAssert.True(restoredDelivery.Contains("b.content"), "恢复后的交付集合必须只剩下 B");
         GateAssert.False(restoredDelivery.Contains("a.content"), "恢复为 Full 内容后不得再交付该内容");
 
         // 基准是 Full 而不是前一个 Hotfix：删除 H1 不改变 H2 的求差输入。
         GateAssert.Equal(
-            2, FileDiff.Compute(full, h2).CollectChangedNames().Count,
+            2, Changed(full, h2).Count,
             "删除 H1 后 H2 仍必须能相对 Full 得到完整累计集合");
     }
 
@@ -80,12 +79,24 @@ internal static class HotfixDeliveryTests
             "Hotfix 交付不得依赖固定累计输出目录");
     }
 
-    private static List<FileDigest> Contents(params (string Name, string Hash)[] entries)
+    private static HashSet<string> Changed(
+        IReadOnlyList<FileHelper.FileDigest> previous,
+        IReadOnlyList<FileHelper.FileDigest> current)
     {
-        var contents = new List<FileDigest>();
+        FileHelper.ComputeDiff(previous, current,
+            out List<FileHelper.FileDigest> added,
+            out List<FileHelper.FileDigest> modified,
+            out _,
+            out _);
+        return FileHelper.CollectChangedNames(added, modified);
+    }
+
+    private static List<FileHelper.FileDigest> Contents(params (string Name, string Hash)[] entries)
+    {
+        var contents = new List<FileHelper.FileDigest>();
         for (int i = 0; i < entries.Length; i++)
         {
-            contents.Add(new FileDigest(entries[i].Name, entries[i].Hash, 0u, entries[i].Hash.Length));
+            contents.Add(new FileHelper.FileDigest(entries[i].Name, entries[i].Hash, 0u, entries[i].Hash.Length));
         }
 
         return contents;

@@ -1,7 +1,7 @@
 using System.Text.RegularExpressions;
 
 /// <summary>
-/// T3 目标契约：物理文件名由兼容逻辑名的可读段与 12 位身份哈希构成，人工命名风格配置全部退出。
+/// 物理文件名由兼容逻辑名的可读段与 12 位身份哈希构成，不使用人工命名风格配置。
 /// </summary>
 internal static class PhysicalNamingTests
 {

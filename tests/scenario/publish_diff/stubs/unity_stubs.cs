@@ -39,6 +39,7 @@ public class FYAssetSettings
     public string ProjectName = "PublishDiffTestProject";
 
     public List<PushTargetConfig> PushTargets = new List<PushTargetConfig>();
+    public string CurrentABTargetId = string.Empty;
 
     private static FYAssetSettings _instance;
 

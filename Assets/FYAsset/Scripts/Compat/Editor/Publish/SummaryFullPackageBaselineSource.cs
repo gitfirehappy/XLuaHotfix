@@ -5,11 +5,7 @@ using UnityEditor;
 /// 编辑器侧基准 Full 解析：按发布包身份读取正式 Summary，再按 BaseFullSummaryId → ArtifactRelativePath 定位包目录。
 /// </summary>
 /// <remarks>
-/// 计划 T7 的本地 Full fallback 事实链（只读，不扫描目录猜测身份）：
-/// 1. 正式摘要的 BuildId 即包名，因此用发布包身份就能读到本次 Hotfix 的摘要；
-/// 2. Hotfix 摘要的 BaseFullSummaryId 指向基准 Full 摘要（请求显式提供时优先使用该事实）；
-/// 3. 基准 Full 摘要的 ArtifactRelativePath 是项目根下的制品路径，摘要/路径/目录任一不可用即视为来源不足；
-/// 4. 编辑器加载时自注册到 <see cref="FullPackageBaselineSourceRegistry"/>，发布入口无需改动即可获得补齐能力。
+/// 按发布包身份读取正式 Summary，并通过基准 Summary 的 ArtifactRelativePath 定位目录；不扫描目录猜测包身份。
 /// </remarks>
 public sealed class SummaryFullPackageBaselineSource : IFullPackageBaselineSource
 {

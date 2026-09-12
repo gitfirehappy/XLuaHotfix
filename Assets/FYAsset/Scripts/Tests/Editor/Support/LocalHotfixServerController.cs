@@ -145,7 +145,7 @@ public static class LocalHotfixServerController
 
     private static PushTargetConfig FindLocalTarget()
     {
-        PushTargetConfig named = PushTargetConfig.FindById("local");
+        PushTargetConfig named = PushTargetConfig.FindByName("local");
         if (named != null && named.Type == PushTargetType.LocalDirectory)
             return named;
 

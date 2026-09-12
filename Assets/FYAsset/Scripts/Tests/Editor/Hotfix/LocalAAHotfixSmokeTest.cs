@@ -277,7 +277,7 @@ public static class LocalAAHotfixSmokeTest
         }
         else
         {
-            PushTargetConfig config = PushTargetConfig.FindById(targetId)
+            PushTargetConfig config = PushTargetConfig.FindByName(targetId)
                                       ?? throw new InvalidOperationException($"Push target is missing: {targetId}");
             backendRoot = FYAssetPathUtility.JoinFilePath(
                 config.ResolveServiceRoot(),

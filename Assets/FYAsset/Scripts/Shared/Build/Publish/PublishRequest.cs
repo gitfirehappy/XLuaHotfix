@@ -5,10 +5,7 @@ using System.Collections.Generic;
 /// 一次发布请求的完整输入事实：发布哪个包、发布到哪、按哪份清单校验。
 /// </summary>
 /// <remarks>
-/// 计划 T6 要求发布只依赖显式事实：
-/// 1. <see cref="SourcePackageDir"/> 由调用方给出（来自所选正式 Summary 的制品路径）；
-/// 2. 包身份由调用方从正式 Summary 解析后注入，不在包目录或源目录中推断；
-/// 3. 服务器事实（PackageIndex 与其指向的 Manifest）由发布事务自己读取，本类型只携带访问入口。
+/// 发布请求只依赖明确的包身份、来源和目标配置；服务器 PackageIndex 与 Manifest 由发布事务读取。
 /// </remarks>
 public sealed class PublishRequest
 {

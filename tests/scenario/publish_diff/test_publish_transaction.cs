@@ -141,7 +141,7 @@ internal static class PublishTransactionTests
         second.WriteContent("a.bundle", "content-a");
         second.WriteContent("b.bundle", "content-b");
         second.Seal(manifestTamper: digest =>
-            new FileDigest(digest.Name, "tampered-hash", digest.CRC, digest.Size));
+            new FileHelper.FileDigest(digest.Name, "tampered-hash", digest.CRC, digest.Size));
 
         PushReceipt receipt = context.Publish(second);
 

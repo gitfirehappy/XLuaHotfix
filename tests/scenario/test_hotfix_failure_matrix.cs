@@ -1,8 +1,8 @@
 using System;
 
 /// <summary>
-/// 热更失败矩阵（计划 T8 "失败矩阵"）的纯逻辑断言。
-/// 每行对应矩阵的一条条件与决策，只调用 HotfixStateDecider，不触碰文件系统与 Unity。
+/// 热更失败矩阵的纯逻辑断言。
+/// 每行验证一个状态条件与决策，只调用 HotfixStateDecider，不触碰文件系统与 Unity。
 /// </summary>
 internal static class HotfixFailureMatrixTests
 {

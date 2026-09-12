@@ -129,7 +129,7 @@ public class BuildABContentTask : IBuildTask
             if (!BuildArtifactReuseService.TryReuse(
                     summaryStore, cfg.BackendKey, platformToken, recipeFingerprint,
                     plan.ContentName, fingerprint, tempDir,
-                    out _, out FileDigest reusedDigest, out List<string> reusedDependencies,
+                    out _, out FileHelper.FileDigest reusedDigest, out List<string> reusedDependencies,
                     out string reuseReason))
             {
                 AddWarning(warnings, $"内容 '{plan.ContentName}' 未复用历史制品: {reuseReason}");
@@ -187,7 +187,7 @@ public class BuildABContentTask : IBuildTask
             }
         }
 
-        if (!TryCollectUnityOutputs(unityManifest, tempDir, out Dictionary<string, FileDigest> unityOutputs, out BuildTaskResult outputError))
+        if (!TryCollectUnityOutputs(unityManifest, tempDir, out Dictionary<string, FileHelper.FileDigest> unityOutputs, out BuildTaskResult outputError))
             return outputError;
 
         // 依赖事实分两路收集后合并：本次交给 Unity 的内容由 AssetBundleManifest 报告，
@@ -232,7 +232,7 @@ public class BuildABContentTask : IBuildTask
                         $"文件拷贝失败 '{rawAssetPath}' -> '{destPath}': {ex.Message}", true);
                 }
 
-                if (!FileDigest.TryCreate(destPath, plan.PhysicalName, out FileDigest rawDigest))
+                if (!FileHelper.TryCreateDigest(destPath, plan.PhysicalName, out FileHelper.FileDigest rawDigest))
                 {
                     return BuildTaskResult.Fail(BuildErrorCodes.RawfileCopyFailed,
                         $"RawFile 产物不可读: '{destPath}'。", true);
@@ -244,11 +244,11 @@ public class BuildABContentTask : IBuildTask
                 continue;
             }
 
-            var produced = new List<FileDigest>(plan.OutputNames.Count);
+            var produced = new List<FileHelper.FileDigest>(plan.OutputNames.Count);
             for (int o = 0; o < plan.OutputNames.Count; o++)
             {
                 string outputName = plan.OutputNames[o];
-                if (!TryTakeUnityOutput(unityOutputs, outputName, processedOutputs, out FileDigest digest))
+                if (!TryTakeUnityOutput(unityOutputs, outputName, processedOutputs, out FileHelper.FileDigest digest))
                 {
                     return BuildTaskResult.Fail(BuildErrorCodes.BundleFileNotFound,
                         $"内容 '{plan.ContentName}' 的 Unity 构建产物缺失: 期望 '{outputName}'，实际产出 '{string.Join(", ", unityOutputs.Keys)}'。", true);
@@ -273,7 +273,7 @@ public class BuildABContentTask : IBuildTask
     }
 
     /// <summary>
-    /// 把不再是复用候选的内容退回重建：删除它已复制到本次输出目录的制品，避免留下孤儿文件。
+    /// 把已失去复用资格的内容退回重建：删除已复制到本次输出目录的制品，避免留下孤儿文件。
     /// </summary>
     private static void DropReusedArtifactIfNotCandidate(ContentPlan plan, string tempDir)
     {
@@ -460,10 +460,10 @@ public class BuildABContentTask : IBuildTask
     private static bool TryCollectUnityOutputs(
         AssetBundleManifest unityManifest,
         string tempDir,
-        out Dictionary<string, FileDigest> outputs,
+        out Dictionary<string, FileHelper.FileDigest> outputs,
         out BuildTaskResult error)
     {
-        outputs = new Dictionary<string, FileDigest>(StringComparer.OrdinalIgnoreCase);
+        outputs = new Dictionary<string, FileHelper.FileDigest>(StringComparer.OrdinalIgnoreCase);
         error = null;
         if (unityManifest == null)
             return true;
@@ -473,7 +473,7 @@ public class BuildABContentTask : IBuildTask
         {
             string outputName = allBundles[i];
             string filePath = FYAssetPathUtility.JoinFilePath(tempDir, outputName);
-            if (!FileDigest.TryCreate(filePath, outputName, out FileDigest digest))
+            if (!FileHelper.TryCreateDigest(filePath, outputName, out FileHelper.FileDigest digest))
             {
                 error = BuildTaskResult.Fail(BuildErrorCodes.BundleFileNotFound,
                     $"Unity 构建产物不可读: '{filePath}'。", true);
@@ -488,13 +488,13 @@ public class BuildABContentTask : IBuildTask
 
     /// <summary>按预期输出名取本次构建产物；名称不匹配即视为内容缺失，避免把别的产物错配给该内容。</summary>
     private static bool TryTakeUnityOutput(
-        Dictionary<string, FileDigest> unityOutputs,
+        Dictionary<string, FileHelper.FileDigest> unityOutputs,
         string expectedName,
         HashSet<string> usedOutputs,
-        out FileDigest digest)
+        out FileHelper.FileDigest digest)
     {
         digest = default;
-        if (!unityOutputs.TryGetValue(expectedName, out FileDigest found))
+        if (!unityOutputs.TryGetValue(expectedName, out FileHelper.FileDigest found))
             return false;
 
         if (usedOutputs.Contains(found.Name))
@@ -504,7 +504,7 @@ public class BuildABContentTask : IBuildTask
         return true;
     }
 
-    private static BundleBuildInfo CreateBuildInfo(ContentPlan plan, in FileDigest digest)
+    private static BundleBuildInfo CreateBuildInfo(ContentPlan plan, in FileHelper.FileDigest digest)
     {
         return new BundleBuildInfo
         {
@@ -677,7 +677,7 @@ public class BuildABContentTask : IBuildTask
         return BuildTaskResult.Ok();
     }
 
-    /// <summary>单个内容的构建计划：成员、构建路线、输入指纹与本次产物。</summary>
+    /// <summary>单个内容的构建输入、路线和产物事实。</summary>
     private sealed class ContentPlan
     {
         public string ContentName;
@@ -711,7 +711,7 @@ public class BuildABContentTask : IBuildTask
         public bool CacheCandidate;
 
         /// <summary>复用命中的历史制品摘要（名称与 Hash/CRC/Size 均来自复制后的重新校验）</summary>
-        public FileDigest? ReusedOutput;
+        public FileHelper.FileDigest? ReusedOutput;
 
         /// <summary>Summary 回放的依赖输出文件名；仅复用候选阶段有效</summary>
         public List<string> CachedDependencyFileNames;

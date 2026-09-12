@@ -138,7 +138,7 @@ public static class ABBuildContentFingerprint
             return string.Empty;
 
         string fullPath = FYAssetPathUtility.ResolveFilePath(BuildPathManager.ProjectRoot, assetPath);
-        return FileDigest.TryCreate(fullPath, Path.GetFileName(assetPath), out FileDigest digest)
+        return FileHelper.TryCreateDigest(fullPath, Path.GetFileName(assetPath), out FileHelper.FileDigest digest)
             ? digest.Hash
             : string.Empty;
     }

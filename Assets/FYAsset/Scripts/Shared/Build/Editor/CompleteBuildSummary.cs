@@ -60,7 +60,7 @@ public sealed class SummaryContentFact
 /// </summary>
 /// <remarks>
 /// 摘要只描述一次构建的结果，不拥有生命周期，也不被缓存或发布流程引用；
-/// 构建缓存、发布缓存和摘要三者复用 FileDigest，但文件与生命周期严格分离。
+/// 构建缓存、发布缓存和摘要三者复用 FileHelper.FileDigest，但文件与生命周期严格分离。
 /// 落盘时通过 <see cref="ToDocument"/> 转成 Unity 可序列化的 DTO：
 /// DateTime/TimeSpan/readonly struct 不在 Unity 序列化范围内，直接写字段会静默丢数据。
 /// </remarks>
@@ -80,10 +80,10 @@ public sealed class CompleteBuildSummary
     /// <summary>Hotfix 的基准 Full 摘要标识；Full/Standalone 为空。</summary>
     public string BaseFullSummaryId;
 
-    /// <summary>构建配方指纹（T4 构建复用用）；生成时为可复现的稳定字符串。</summary>
+    /// <summary>构建配方指纹；用于判断历史制品是否可复用。</summary>
     public string BuildRecipeFingerprint;
 
-    /// <summary>采集事实指纹（T4 构建复用用）；生成时为可复现的稳定字符串。</summary>
+    /// <summary>采集事实指纹；用于判断历史制品是否可复用。</summary>
     public string CollectionFingerprint;
 
     /// <summary>后端标识（AA/AB）</summary>
@@ -114,7 +114,7 @@ public sealed class CompleteBuildSummary
     public bool Success;
 
     /// <summary>本次构建产出的文件摘要</summary>
-    public List<FileDigest> Files = new();
+    public List<FileHelper.FileDigest> Files = new();
 
     /// <summary>本次构建产出的内容复用事实；按制品逐条记录，供后续构建按内容身份与输入指纹复用历史包</summary>
     public List<SummaryContentFact> Contents = new();
@@ -132,7 +132,7 @@ public sealed class CompleteBuildSummary
     }
 
     /// <summary>追加一条文件摘要并同步统计计数与总字节数。</summary>
-    public void AddFile(in FileDigest digest)
+    public void AddFile(in FileHelper.FileDigest digest)
     {
         if (!digest.IsComplete)
             return;
@@ -198,7 +198,7 @@ public sealed class CompleteBuildSummary
 
         for (int i = 0; i < Files.Count; i++)
         {
-            FileDigest file = Files[i];
+            FileHelper.FileDigest file = Files[i];
             document.Files.Add(new SummaryFile
             {
                 Name = file.Name ?? string.Empty,

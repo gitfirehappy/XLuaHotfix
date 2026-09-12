@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 
 /// <summary>
-/// T1 目标契约：版本候选规则、摘要不可变、Index 重建与损坏恢复。
+/// 版本候选、摘要不可变、索引重建与损坏恢复契约。
 /// </summary>
 internal static class SummaryTransactionTests
 {

@@ -43,9 +43,9 @@ public sealed class AAPackageManifestReader : IPackageManifestReader
 
     public string ContentDirectoryName => FYAssetSettings.BUNDLES_DIRECTORY_NAME;
 
-    public bool TryReadContentDigests(string packageDir, out IReadOnlyList<FileDigest> contents, out string error)
+    public bool TryReadContentDigests(string packageDir, out IReadOnlyList<FileHelper.FileDigest> contents, out string error)
     {
-        contents = new List<FileDigest>();
+        contents = new List<FileHelper.FileDigest>();
         error = string.Empty;
 
         if (string.IsNullOrEmpty(packageDir) || !FileHelper.DirectoryExists(packageDir))
@@ -77,7 +77,7 @@ public sealed class AAPackageManifestReader : IPackageManifestReader
             return false;
         }
 
-        var result = new List<FileDigest>();
+        var result = new List<FileHelper.FileDigest>();
         List<BundleInfo> bundles = manifest.Bundles;
         if (bundles == null)
         {
@@ -97,7 +97,7 @@ public sealed class AAPackageManifestReader : IPackageManifestReader
                 return false;
             }
 
-            result.Add(new FileDigest(
+            result.Add(new FileHelper.FileDigest(
                 string.Concat(ContentDirectoryName, "/", bundle.BundleName),
                 bundle.FileHash,
                 bundle.FileCRC,

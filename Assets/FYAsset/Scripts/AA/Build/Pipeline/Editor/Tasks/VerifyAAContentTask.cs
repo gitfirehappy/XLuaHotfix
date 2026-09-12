@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 
 /// <summary>
-/// AA 主干第 4 阶段：校验 catalog、AAManifest 与内容文件集合。
+/// AA 构建管线：校验 catalog、AAManifest 与内容文件集合。
 /// 校验口径与 AABuildBackend.RequiredManifestFileNames 一致：catalog 与按设置选定的清单格式。
 /// Error → 构建中止；Warning → 继续执行（孤儿文件、异常大小等）。
 /// </summary>

@@ -9,9 +9,7 @@ using UnityEngine;
 /// 在 BuildABContent 之后、VerifyABContent 之前执行。
 /// </summary>
 /// <remarks>
-/// 文件事实（文件名、Hash、CRC、大小）全部来自实际输出文件，不采信构建过程中的中间值；
-/// 依赖下标来自 BundleBuildInfo.DependencyFileNames（Unity AssetBundleManifest 的直接依赖，
-/// 复用内容由构建缓存回放）。构建计划图只用于诊断比对，差异只产生 Warning。
+/// 构建输出的文件事实来自磁盘；依赖下标来自 Unity 构建报告或复用摘要回放，预期依赖图只用于诊断。
 /// </remarks>
 public class GenerateABManifestTask : IBuildTask
 {
@@ -162,7 +160,7 @@ public class GenerateABManifestTask : IBuildTask
     {
         error = null;
 
-        // 归属的事实来源是构建结果里的实际成员列表，计划归属只作预期诊断
+        // 归属事实来自构建结果的实际成员列表，预期归属只用于诊断。
         var membership = new Dictionary<BuildMembershipKey, int>(BuildMembershipKey.Comparer);
         for (int contentIndex = 0; contentIndex < buildResults.Count; contentIndex++)
         {
@@ -225,7 +223,7 @@ public class GenerateABManifestTask : IBuildTask
     }
 
     /// <summary>
-    /// 比对构建计划图与 Unity 实际依赖：计划图只描述预期，差异只产生诊断信息，不改写依赖下标。
+    /// 比对预期依赖与 Unity 实际依赖，只输出诊断，不改写依赖下标。
     /// </summary>
     private static List<string> CollectDependencyDiagnostics(
         BundleDependencyGraph depGraph,
@@ -257,7 +255,7 @@ public class GenerateABManifestTask : IBuildTask
                 if (actual.Count > 0)
                 {
                     diagnostics.Add(
-                        $"[DEPENDENCY] 内容 '{contentName}' 的实际依赖未出现在构建计划图中: [{string.Join(", ", actual)}]");
+                        $"[DEPENDENCY] 内容 '{contentName}' 的实际依赖未出现在预期依赖图中: [{string.Join(", ", actual)}]");
                 }
 
                 continue;
@@ -280,8 +278,8 @@ public class GenerateABManifestTask : IBuildTask
             if (missing.Count > 0 || unexpected.Count > 0)
             {
                 diagnostics.Add(
-                    $"[DEPENDENCY] 内容 '{contentName}' 的实际依赖与计划图不一致。" +
-                    $"计划图缺少实际依赖: [{string.Join(", ", unexpected)}]；实际缺少计划依赖: [{string.Join(", ", missing)}]。" +
+                    $"[DEPENDENCY] 内容 '{contentName}' 的实际依赖与预期依赖图不一致。" +
+                    $"预期依赖图缺少实际依赖: [{string.Join(", ", unexpected)}]；实际缺少预期依赖: [{string.Join(", ", missing)}]。" +
                     "依赖下标以 Unity AssetBundleManifest 为准，本条只是诊断。");
             }
         }

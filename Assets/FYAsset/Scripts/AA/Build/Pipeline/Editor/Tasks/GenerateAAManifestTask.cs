@@ -1,12 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using UnityEditor;
 using UnityEditor.AddressableAssets;
 using UnityEditor.AddressableAssets.Settings;
 using UnityEngine;
 
 /// <summary>
-/// AA 主干第 3 阶段：生成 AA 清单。
+/// AA 构建管线：生成 AA 清单。
 /// 先把 Addressables 直接写入的 catalog 规范化为 catalog.json，
 /// 再扫描最终包目录中的 bundle 事实，写出 AAManifest（JSON / Binary 按设置）。
 /// </summary>
@@ -76,9 +77,16 @@ public class GenerateAAManifestTask : IBuildTask
             manifest.TotalSize += bundleInfo.FileSize;
         }
 
-        if (!HotfixPackageSizeGuard.ValidateOrAbort(manifest.TotalSize, FYAssetAASettings.Instance.MaxHotfixSizeBytes, nameof(GenerateAAManifestTask)))
+        if (!FileHelper.IsWithinSizeLimit(manifest.TotalSize, FYAssetAASettings.Instance.MaxHotfixSizeBytes))
+        {
+            string message = $"AA 热更包大小超过阈值: {FileHelper.FormatBytes(manifest.TotalSize)} >= {FileHelper.FormatBytes(FYAssetAASettings.Instance.MaxHotfixSizeBytes)}";
+            Debug.LogWarning($"[{nameof(GenerateAAManifestTask)}] {message}");
+            if (Application.isBatchMode)
+                throw new InvalidOperationException(message);
+            EditorUtility.DisplayDialog("AA 热更包过大", message, "OK");
             return BuildTaskResult.Fail(BuildErrorCodes.VerificationFailed,
                 "AA 热更包大小超过阈值，Manifest 发布已中止。", true);
+        }
 
         string jsonSavePath = FYAssetPathUtility.JoinFilePath(request.OutputDir, FYAssetSettings.AA_MANIFEST_FILE_NAME);
         string binSavePath = FYAssetPathUtility.JoinFilePath(request.OutputDir, FYAssetSettings.AA_MANIFEST_FILE_NAME_BIN);

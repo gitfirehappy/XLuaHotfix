@@ -16,11 +16,11 @@
     <Compile Include="test_cloudflare_rollback.cs" />
     <Compile Include="test_publish_containment.cs" />
     <Compile Include="test_publish_identity_source.cs" />
+    <Compile Include="test_publish_target_contract.cs" />
     <Compile Include="test_publish_maintenance.cs" />
     <Compile Include="stubs/*.cs" />
     <!-- 生产源码：无状态 Diff、累计计划与发布事务均为纯逻辑，只依赖 System 与 FileHelper -->
-    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/FileDigest.cs" Link="Production/FileDigest.cs" />
-    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/FileDiff.cs" Link="Production/FileDiff.cs" />
+
     <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Publish/PackageFileNames.cs" Link="Production/PackageFileNames.cs" />
     <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Publish/IPackageManifestReader.cs" Link="Production/IPackageManifestReader.cs" />
     <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Publish/PackageBuildIdentity.cs" Link="Production/PackageBuildIdentity.cs" />
@@ -31,6 +31,7 @@
     <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Publish/PackageFileScanner.cs" Link="Production/PackageFileScanner.cs" />
     <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Publish/IFullPackageBaselineSource.cs" Link="Production/IFullPackageBaselineSource.cs" />
     <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Publish/PackageTargetAssembler.cs" Link="Production/PackageTargetAssembler.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/AB/Hotfix/ABHotfixTargetResolver.cs" Link="Production/ABHotfixTargetResolver.cs" />
     <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Publish/PushTargetConfig.cs" Link="Production/PushTargetConfig.cs" />
     <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Publish/LocalDirectoryPushTarget.cs" Link="Production/LocalDirectoryPushTarget.cs" />
     <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Publish/PublishPlan.cs" Link="Production/PublishPlan.cs" />
@@ -39,11 +40,12 @@
     <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Publish/PublishMaintenance.cs" Link="Production/PublishMaintenance.cs" />
     <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Publish/PushModels.cs" Link="Production/PushModels.cs" />
     <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Versioning/VersionNumber.cs" Link="Production/VersionNumber.cs" />
-    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Runtime/Manifests/PackageIndex.cs" Link="Production/PackageIndex.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Runtime/PackageIndex.cs" Link="Production/PackageIndex.cs" />
     <!-- Cloudflare 发布目标与 Wrangler 调用接缝：进程边界由测试替身驱动，不访问网络 -->
     <Compile Include="../../../Assets/FYAsset/Scripts/Compat/Editor/Publish/WranglerCommandRunner.cs" Link="Production/WranglerCommandRunner.cs" />
     <Compile Include="../../../Assets/FYAsset/Scripts/Compat/Editor/Publish/CloudflarePagesPushTarget.cs" Link="Production/CloudflarePagesPushTarget.cs" />
     <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Helpers/FYAssetPathUtility.cs" Link="Production/FYAssetPathUtility.cs" />
+
     <Compile Include="../../../Assets/Tools/Scripts/FileHelper.cs" Link="Production/FileHelper.cs" />
     <Compile Include="../../../Assets/Tools/Scripts/HashGenerator.cs" Link="Production/HashGenerator.cs" />
     <Compile Include="../../../Assets/Tools/Scripts/Serialization/BinarySerializableAttribute.cs" Link="Production/BinarySerializableAttribute.cs" />

@@ -4,7 +4,7 @@ using UnityEditor;
 using UnityEngine;
 
 /// <summary>
-/// AB 主干第 1 阶段：收集构建输入。
+/// AB 构建管线：收集构建输入。
 /// 执行 AssetCollectionSetting 扫描（排除规则、RawFile 白名单、Address/Labels 覆盖），
 /// 再补入框架内置内容（全项目 Shader 与 Assets/Resources），统一写入 CollectedAssets / SharePolicy。
 /// </summary>

@@ -4,13 +4,8 @@ using System;
 /// 基准 Full 包解析接缝：发布流程用它把稀疏 Hotfix 补齐成完整目标包。
 /// </summary>
 /// <remarks>
-/// 计划 T7 的本地 Full fallback：
-/// 1. Hotfix 包只携带“目标清单 + 相对基准 Full 的变化内容”，服务器事实不可用时必须回到本地基准 Full 取字节；
-/// 2. 基准只能由构建事实（Summary 的 BaseFullSummaryId → ArtifactRelativePath）推导，
-///    不得靠扫描目录猜测身份；解析失败即视为来源不足，发布必须失败；
-/// 3. Shared 侧不引用 Summary/Runner，因此编辑器实现（读取 BuildSummaryStore）在 Compat 侧注入本接口；
-/// 4. 本文件与 IPackageManifestReader 同样不带 UNITY_EDITOR 包裹：发布请求是运行时可见的数据持有者，
-///    它引用的接缝类型也必须运行时可见。
+/// 稀疏 Hotfix 缺少服务器事实时，基准只能由构建 Summary 的明确路径解析；解析失败即拒绝发布。
+/// Shared 不读取 Summary，由编辑器侧实现注入。
 /// </remarks>
 public interface IFullPackageBaselineSource
 {

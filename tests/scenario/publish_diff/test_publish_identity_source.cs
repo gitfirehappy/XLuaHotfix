@@ -1,5 +1,5 @@
 /// <summary>
-/// T6 契约：发布身份只能由正式 Summary 注入，任何发布入口都不得从包目录或目录名推断身份。
+/// 发布身份契约：发布身份只能由正式 Summary 注入，任何发布入口都不得从包目录或目录名推断身份。
 /// </summary>
 /// <remarks>
 /// 覆盖事实：编辑器发布面板与自动化发布路径都必须在构造 PublishRequest 时显式注入 Identity；
@@ -13,8 +13,12 @@ internal static class PublishIdentitySourceTests
             "Assets/FYAsset/Scripts/Shared/Build/Editor/UI/PublishTargetPanel.cs");
         Check.Contains(
             panel,
-            "TryReadSummaryDocument(",
-            "发布面板必须从正式 Summary 读取包身份");
+            "PublishSourceCatalog.Read(",
+            "发布面板必须从正式 Summary 目录器读取候选");
+        Check.Contains(
+            panel,
+            "source.Document",
+            "发布面板必须使用已验证候选携带的 Summary 身份");
         Check.Contains(
             panel,
             "Identity = new PackageBuildIdentity",
@@ -22,6 +26,17 @@ internal static class PublishIdentitySourceTests
         Check.True(
             !panel.Contains("TryReadFromPackageDir"),
             "发布面板不得从包目录推断身份");
+
+        Check.True(
+            !panel.Contains("BuildPathManager.PackagesDir"),
+            "发布面板不得扫描裸 Build_* 目录作为发布源");
+
+        string catalog = PublishIdentitySourceReader.ReadCode(
+            "Assets/FYAsset/Scripts/Shared/Build/Editor/Summary/PublishSourceCatalog.cs");
+        Check.Contains(catalog, "Directory.GetFiles(", "目录器必须枚举正式 Summary 文件");
+        Check.Contains(catalog, "ArtifactRelativePath", "目录器必须按 Summary 制品路径定位包");
+        Check.Contains(catalog, "TryReadContentDigests(", "目录器必须校验后端清单");
+        Check.Contains(catalog, "TryScanContentDirectory(", "目录器必须核对清单与物理内容");
 
         string automation = PublishIdentitySourceReader.ReadCode(
             "Assets/FYAsset/Scripts/Tests/Editor/Build/BuildTestState.cs");

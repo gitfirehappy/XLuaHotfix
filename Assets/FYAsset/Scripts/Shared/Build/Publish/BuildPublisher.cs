@@ -8,18 +8,7 @@ using UnityEngine;
 /// 发布器：本地组装并校验新的隔离包目录，最后生成并上传 PackageIndex。
 /// </summary>
 /// <remarks>
-/// 计划 T7 的发布步骤（目录型目标）：
-/// 1. 读取服务器 PackageIndex；
-/// 2. 读取其指向的 Manifest；
-/// 3. 与本次包文件集合做无状态 FileDigest Diff；
-/// 4. 在新隔离目录复用服务器已有 Hash 内容，其余从本地包复制；
-/// 5. 上传缺失/变化内容与完整 Manifest（目录型目标即复制到服务器根下的隔离目录）；
-/// 6. 校验新目录逻辑完整性；
-/// 7. 本地生成并**最后**上传新 PackageIndex。
-/// 服务器查询失败或 Manifest 损坏时退化为完整上传；
-/// 此时稀疏 Hotfix 不得直接上传包目录（那会得到一个不完整的目标包），
-/// 而应由本地 Hotfix + 本地基准 Full 与服务器当前包组装出完整目标包；来源不足则拒绝发布。
-/// 发布不删除任何旧包。
+/// 服务器查询失败或清单不可用时，发布器会退化为完整上传；稀疏 Hotfix 必须先用本地基准 Full 组装成完整目标包。
 /// </remarks>
 public static class BuildPublisher
 {
@@ -119,7 +108,7 @@ public static class BuildPublisher
         if (!identity.IsSafePackageName())
             return Fail(target.Id, $"包名不是合法目录名: '{identity.PackageName}'");
 
-        if (!PackageFileScanner.TryScan(request.SourcePackageDir, out List<FileDigest> localFiles, out string scanError))
+        if (!PackageFileScanner.TryScan(request.SourcePackageDir, out List<FileHelper.FileDigest> localFiles, out string scanError))
             return Fail(target.Id, $"本地包目录扫描失败: {scanError}");
 
         // 服务器事实不可读：目标集合只能由本地包目录与清单声明（必要时基准 Full）组装。
@@ -145,14 +134,14 @@ public static class BuildPublisher
             FileHelper.EnsureDirectory(stagedDir);
             for (int i = 0; i < assembly.TargetFiles.Count; i++)
             {
-                FileDigest file = assembly.TargetFiles[i];
+                FileHelper.FileDigest file = assembly.TargetFiles[i];
                 if (!assembly.FileSources.TryGetValue(file.Name, out string source) || string.IsNullOrEmpty(source))
                     return Fail(target.Id, $"来源不足: 目标文件没有可用字节来源: {file.Name}");
 
                 string destination = FYAssetPathUtility.JoinFilePath(stagedDir, file.Name);
                 FileHelper.CopyFile(source, destination, true);
 
-                if (!FileDigest.TryCreate(destination, file.Name, out FileDigest copied) || !copied.Matches(file))
+                if (!FileHelper.TryCreateDigest(destination, file.Name, out FileHelper.FileDigest copied) || !copied.Matches(file))
                     return Fail(target.Id, $"完整上传暂存校验失败: {file.Name}（来源={source}）");
             }
 

@@ -4,11 +4,7 @@ using System.Collections.Generic;
 /// 后端清单读取契约：发布流程需要知道“服务器上那个包有哪些内容文件”。
 /// </summary>
 /// <remarks>
-/// 职责边界（计划 T7）：
-/// 1. Shared 不引用 AAManifest/ABManifest/Catalog 等后端类型，清单解析由后端实现本接口后注入；
-/// 2. 返回的文件摘要名称是“包根相对路径”（例如 bundles/xxx），与本地目录扫描口径一致，
-///    这样同一个 FileDigest 集合才能直接做无状态 Diff；
-/// 3. 清单缺失或损坏时返回 false，发布流程据此退化为完整上传，而不是把损坏事实当成“没有变化”。
+/// Shared 不依赖具体后端清单类型；返回的摘要名称统一为包根相对路径，清单不可用时由调用方决定是否完整上传。
 /// </remarks>
 public interface IPackageManifestReader
 {
@@ -28,5 +24,5 @@ public interface IPackageManifestReader
     /// 读取包目录清单声明的内容文件摘要。
     /// 返回 false 表示清单缺失、不可解析或与目录不匹配；<paramref name="error"/> 说明原因。
     /// </summary>
-    bool TryReadContentDigests(string packageDir, out IReadOnlyList<FileDigest> contents, out string error);
+    bool TryReadContentDigests(string packageDir, out IReadOnlyList<FileHelper.FileDigest> contents, out string error);
 }

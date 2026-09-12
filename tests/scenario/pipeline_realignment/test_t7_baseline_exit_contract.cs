@@ -1,11 +1,7 @@
 using System;
 
 /// <summary>
-/// Repository / baseline 退出与无状态 Diff、发布契约门禁（计划 T7）。
-/// 目标：BuildBaseline / BuildBaselineStore / LatestFull / baseline.json 与正式 Repository 命名
-/// 全部从 Assets/FYAsset/Scripts 消失；比较能力只剩 FileDigest + FileDiff 这一套无状态实现；
-/// 构建缓存、发布缓存与构建摘要类型独立存在；PackageIndex 只由 Publisher 在发布事务末尾生成，
-/// 构建 Runner 不写 PackageIndex。
+/// 文件摘要和比较能力集中在 FileHelper。
 /// </summary>
 internal static class BaselineExitContractTests
 {
@@ -34,7 +30,7 @@ internal static class BaselineExitContractTests
             ("BaselineJsonLiteralRemoved", VerifyBaselineJsonLiteralRemoved),
             ("BaselineHandlerFileRemoved", VerifyBaselineHandlerFileRemoved),
             ("RepositoryPreviewFilesRemoved", VerifyRepositoryPreviewFilesRemoved),
-            ("FileDigestAndFileDiffDeclared", VerifyFileDigestAndFileDiffDeclared),
+            ("FileHelperComparisonDeclared", VerifyFileHelperComparisonDeclared),
             ("BuildSummaryAndCacheTypesDeclared", VerifyBuildSummaryAndCacheTypesDeclared),
             ("PublisherOwnsPackageIndex", VerifyPublisherOwnsPackageIndex),
             ("RunnerDoesNotWritePackageIndex", VerifyRunnerDoesNotWritePackageIndex));
@@ -54,8 +50,7 @@ internal static class BaselineExitContractTests
     {
         GateAssert.DirectoryMissing(
             SnapshotsDir,
-            "计划 T7 要求 FileDigest + FileDiff 成为唯一无状态比较能力，"
-            + "ArtifactDelta/ArtifactDiffer 所在快照目录必须删除");
+            "无状态文件比较直接由 FileHelper 提供，旧的独立比较类型不得保留");
     }
 
     /// <summary>正式 Repository 命名删除：HEAD/Commit/Repair/PushHistory 残留不得保留。</summary>
@@ -104,7 +99,7 @@ internal static class BaselineExitContractTests
         GateAssert.TreeHasNoSymbol(
             ScriptsDir,
             "ArtifactDelta",
-            "计划 T7 要求 ArtifactDelta 删除，文件差异只由无状态的 FileDiff 表达");
+            "无状态文件比较直接由 FileHelper 提供，旧的独立比较类型不得保留");
         GateAssert.TreeHasNoSymbol(
             ScriptsDir,
             "ArtifactDiffer",
@@ -112,7 +107,7 @@ internal static class BaselineExitContractTests
         GateAssert.TreeHasNoSymbol(
             ScriptsDir,
             "BuildDiffEntry",
-            "计划 T7 要求 BuildDiffEntry 删除，差异条目统一用 FileDigest 表达");
+            "无状态文件事实统一由 FileHelper.FileDigest 表达");
         GateAssert.TreeHasNoSymbol(
             ScriptsDir,
             "BuildRepositoryCLI",
@@ -158,46 +153,46 @@ internal static class BaselineExitContractTests
             "计划 T7 要求删除 AA Repository Preview，仓库不再提供基线预览入口");
     }
 
-    /// <summary>无状态比较能力由 FileDigest 与 FileDiff 承担，两者必须存在。</summary>
-    private static void VerifyFileDigestAndFileDiffDeclared()
+    /// <summary>文件摘要和比较能力集中在 FileHelper。</summary>
+    private static void VerifyFileHelperComparisonDeclared()
     {
         GateAssert.TreeHasSymbol(
             ScriptsDir,
-            "FileDigest",
-            "计划 T7 要求 FileDigest（Name/Hash/CRC/Size）作为构建缓存、发布缓存、摘要和 Diff 共用的物理摘要类型");
-        GateAssert.TreeHasSymbol(
+            "FileHelper.FileDigest",
+            "FileHelper 应提供摘要和直接差异比较能力");
+        GateAssert.TreeHasNoSymbol(
             ScriptsDir,
-            "FileDiff",
-            "计划 T7 要求 FileDiff（Added/Modified/Unchanged/Removed）成为唯一无状态比较能力");
+            "public sealed class FileDiff",
+            "旧的独立差异类型不得保留");
+        GateAssert.TreeHasNoSymbol(
+            ScriptsDir,
+            "class FileDiff",
+            "旧的独立差异类型不得保留");
     }
 
     /// <summary>
-    /// 构建摘要与发布缓存类型必须存在且职责独立；计划 T4 之后不存在独立 Bundle 制品缓存，
-    /// 历史制品复用由 Summary 承载（内容身份 + 输入指纹 + 制品摘要）。
-    /// 说明：计划只要求三类缓存与摘要职责分离，未规定必须落在 Shared/Build
-    /// （复用索引归 AB 构建侧），因此这里在 Assets/FYAsset/Scripts 整树内断言类型存在。
+    /// 构建摘要与发布缓存类型必须存在且职责独立；不存在独立的 Bundle 制品缓存，
+    /// 历史制品复用由 Summary 承载（内容身份、输入指纹和制品摘要）。
+    /// 类型位置不作为契约，复用索引归 AB 构建侧。
     /// </summary>
     private static void VerifyBuildSummaryAndCacheTypesDeclared()
     {
         GateAssert.TreeHasSymbol(
             ScriptsDir,
             "CompleteBuildSummary",
-            "计划 T7 要求 CompleteBuildSummary 作为构建结果面板唯一数据源，并作为无状态 Diff 的输入；"
-            + $"当前 {ScriptsDir} 树内不存在该类型");
+            "构建摘要应作为构建结果数据源");
         GateAssert.TreeHasSymbol(
             ScriptsDir,
             "SummaryContentFact",
-            "计划 T4 要求复用索引按内容记录内容身份、InputFingerprint 与制品 FileDigest；"
-            + $"当前 {ScriptsDir} 树内不存在该类型");
+            "Summary 应记录内容身份、输入指纹与制品摘要");
         GateAssert.TreeHasNoSymbol(
             ScriptsDir,
             "BundleBuildCacheEntry",
-            "计划 T4 删除了独立 Bundle 制品缓存，复用索引只由正式 Summary 承载；不得再出现独立缓存条目类型");
+            "独立制品缓存条目类型不得再出现");
         GateAssert.TreeHasSymbol(
             ScriptsDir,
             "PublishCache",
-            "计划 T7 要求发布缓存独立存储（BackendId/TargetId/Files），只作辅助而不能替代服务器事实；"
-            + $"发布缓存类型不存在于 {ScriptsDir}");
+            "发布缓存应独立存储，只作服务器事实的辅助");
     }
 
     /// <summary>Publisher 负责组装新隔离目录并在最后生成上传 PackageIndex。</summary>

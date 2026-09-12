@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEditor;
 
 /// <summary>
-/// 一次性配置升级策略：由各后端提供，声明合法主干槽位之外还需要的默认落点与已知自定义 Task 的槽位。
+/// 配置升级策略：由各后端提供默认落点和已知自定义 Task 的槽位映射。
 /// </summary>
 public sealed class BuildPipelineConfigUpgradePolicy
 {
@@ -16,16 +16,11 @@ public sealed class BuildPipelineConfigUpgradePolicy
 }
 
 /// <summary>
-/// BuildPipelineConfig 的一次性升级器：把旧的“主干 Task 顺序列表”迁移成“自定义 Task + 插入槽位”。
+/// BuildPipelineConfig 升级器：把未带槽位的 Task 条目转换为自定义 Task 插入槽位。
 /// </summary>
 /// <remarks>
-/// 迁移规则（T6）：
-/// 1. Slot 已填写的条目原样保留，因此对已升级配置重复调用不产生任何改动（幂等）；
-/// 2. Slot 为空的条目视为旧形状：能解析到自定义 Task 实现的，按已知映射写槽，
-///    未知名称落 DefaultSlot 并 Warning；解析不到的旧主干/已删除条目直接丢弃并 Warning；
-/// 3. TaskName 为空的条目丢弃；同名条目只保留第一条；
-/// 4. 只要有改动就立即保存资产，保证升级结果落盘。
-/// 主干阶段本身不存在“缺失”概念：它由后端 PipelineBackbone 固定提供，不由配置声明。
+/// 升级会保留已有槽位；无槽位的旧条目按已知映射或默认槽位处理，无法解析和重复条目会被丢弃并告警。
+/// 只在配置实际变化时保存。固定主干由后端提供，不由配置声明。
 /// </remarks>
 public static class BuildPipelineConfigUpgrader
 {

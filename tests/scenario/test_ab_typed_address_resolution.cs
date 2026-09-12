@@ -77,7 +77,7 @@ internal sealed class UniqueConfigSO : UnityEngine.ScriptableObject { }
 internal sealed class FacadeAsset : UnityEngine.Object { }
 
 /// <summary>
-/// AB Address 解析契约（计划 T5 后的语义）。
+/// <summary>AB Address 解析契约。</summary>
 /// 公共 Address 在单包内大小写不敏感且唯一，因此解析不再做 Type 消歧、也没有 Object 回退分支；
 /// 地址命中的条目还必须与请求的内容类型一致（SerializedObject / RawFile / Scene）。
 /// </summary>

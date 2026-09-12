@@ -66,8 +66,24 @@ public static class ABHotfixManager
 
     private sealed class ABHotfixFlow : HotfixFlowBase
     {
-        protected override string HotfixUrl => FYAssetABSettings.Instance.HotfixUrl;
+        protected override string HotfixUrl
+        {
+            get
+            {
+                if (ABHotfixTargetResolver.TryResolveUrl(out string url, out _))
+                    return url;
+                return string.Empty;
+            }
+        }
         protected override string BackendModeName => "AB";
+        protected override string HotfixConfigurationError
+        {
+            get
+            {
+                ABHotfixTargetResolver.TryResolveUrl(out _, out string error);
+                return string.IsNullOrEmpty(error) ? "AB 当前发布目标不可用。" : error;
+            }
+        }
         protected override int HotfixMaxRetryCount => FYAssetABSettings.Instance.HotfixMaxRetryCount;
         protected override float HotfixRetryBaseDelaySeconds => FYAssetABSettings.Instance.HotfixRetryBaseDelaySeconds;
         protected override int HotfixMetadataTimeoutSeconds => FYAssetABSettings.Instance.HotfixMetadataTimeoutSeconds;

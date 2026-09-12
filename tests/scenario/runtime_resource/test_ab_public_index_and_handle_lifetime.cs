@@ -4,9 +4,8 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 
 /// <summary>
-/// AB 公共索引与句柄类别契约（计划 T5）。
-/// 覆盖：只有 Public 条目进入 Address/Type/Label 查询、Address 大小写不敏感且唯一、
-/// 重复 Address 让索引初始化失败、Scene token 计入统一门禁并让 Reset 拒绝执行。
+/// AB 公共索引与句柄类别契约。
+/// 验证 Public 条目筛选、Address 唯一性、重复 Address 失败，以及 Scene token 参与统一门禁。
 /// </summary>
 internal static class ABPublicIndexAndHandleTests
 {

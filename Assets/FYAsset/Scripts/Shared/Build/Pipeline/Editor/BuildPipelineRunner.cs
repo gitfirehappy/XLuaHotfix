@@ -5,14 +5,7 @@ using System.Collections.Generic;
 /// 构建管线执行器：顺序执行 Composer 产出的 Task 序列，管理 Context 与 attempt，成功后提升正式输出。
 /// </summary>
 /// <remarks>
-/// 职责边界（计划 T6）：
-/// 1. 只接受已经组装好的 Task 列表，不读配置、不认识后端、不解析主干；
-/// 2. 通过 <see cref="IBuildRunEnvironment"/> 建立 Context 标准键与 attempt 中间目录；
-/// 3. 逐个执行并按 Pending/Running/Success|Failed/Skipped 报状态；
-/// 4. 首个失败即停：非致命失败同样中止，因为后续 Task 会消费不完整的 Context；
-/// 5. 成功后调用环境完成 attempt→正式输出的提升，并把交付 token 交给调用方结算；
-/// 6. 不做差异、发布、PackageIndex、baseline、版本回滚和 UI 操作。
-/// 不提供 whitelist、stop-after、可编辑主干或生产管线截断式预览。
+/// Runner 只执行 Composer 生成的 Task 序列，管理 Context、attempt 和成功后的输出提升；不处理差异、发布或版本回滚。
 /// </remarks>
 public static class BuildPipelineRunner
 {

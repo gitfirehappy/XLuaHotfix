@@ -5,8 +5,8 @@ current status table. Plan bodies contain their own specifications, decisions, t
 
 ## Current Queue
 
-- `plan-fyasset-windows-ab-remediation-20260911.md` - Implemented / awaiting sign-off（执行已批准 2026-09-11）：T0–T11 全部落地；纯 .NET 全矩阵绿、Windows Unity/Player 四项 exit 0、docs 对齐、F01–F16 逐条处置（见 disposition）。遗留：F08 Android、AA 完整矩阵、生成物 HTML 重跑、T8 流程探针入库。
-- `plan-fyasset-ab-publish-target-cleanup-20260912.md` - Draft / implementation not approved：汇总 2026-09-12 grill 的 34 条收敛决策；AB-only Target/URL ownership、Summary-driven Publish、采集配置预转换、测试与文档整理。执行前需单独批准。
+- `plan-fyasset-windows-ab-remediation-20260911.md` - Implemented / awaiting sign-off（执行已批准 2026-09-11）：T0–T11 全部落地；纯 .NET 全矩阵绿、Windows Unity/Player 四项 exit 0、docs 对齐、F01–F16 逐条处置（见 disposition）。遗留：F08 Android、AA 完整矩阵、生成物 HTML 重跑。热更流程事务场景测试已入库为 `tests/scenario/hotfix_flow`，不再使用历史任务编号命名。
+- `plan-fyasset-ab-publish-target-cleanup-20260912.md` - Implementation complete / awaiting developer review（执行已批准 2026-09-12）：AB-only Target/URL ownership、Summary-driven Publish、采集配置短 Address 保留、测试与文档整理已落地；纯 .NET 全矩阵和 8 场景/55 断言热更流程事务测试通过。`fyasset-modeling.html` 归档与 Unity Editor/Player 本轮复验仍是明确边界。
 
 ## Drafts
 

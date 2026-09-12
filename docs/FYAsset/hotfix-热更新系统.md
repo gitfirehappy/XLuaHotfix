@@ -135,7 +135,7 @@ flowchart TD
 
 框架**不负责**弹窗、UI、场景跳转、停止业务协程或强制释放 Handle：`Apply` 被门禁拒绝时只返回结构化错误，由业务自行释放后重试。
 
-`CheckAsync` 在以下情况返回不可准备结果：启动流程未完成、Standalone、后端或 `HotfixUrl` 不可用、远端 PackageIndex 不可用。
+`CheckAsync` 在以下情况返回不可准备结果：启动流程未完成、Standalone、后端不可用、AB 当前 Target 缺失/非法、AA HotfixUrl 不可用、远端 PackageIndex 不可用。
 
 ---
 
@@ -143,7 +143,7 @@ flowchart TD
 
 | 规则 | 实现 |
 |---|---|
-| 重试 | `HotfixUrl`、最大重试次数与基础退避时间来自当前后端设置（AA 读 `FYAssetAASettings`，AB 读 `FYAssetABSettings`）；失败后按基础退避时间指数等待 |
+| 重试 | AA 的 `HotfixUrl` 来自 `FYAssetAASettings`；AB 的地址由 `FYAssetSettings.CurrentABTargetId` 解析到 Target 的 `PublicBaseUrl` 后拼接 `/AB/`；最大重试次数与基础退避时间来自对应后端设置 |
 | 原子落地 | 网络下载先写 `{bundleName}.tmp`，只有下载完成且 CRC 校验通过才替换目标文件；本地复用同样先复制到 `.tmp` 再校验 |
 | 残留清理 | 下载前清理目标 bundles 目录中的 stale `.tmp` |
 | 元数据校验 | `FileCRC == 0` 视为 Manifest 损坏；大小与 CRC 必须同时通过（`HotfixPackageValidator`） |
@@ -166,9 +166,8 @@ flowchart TD
 
 ## URL 与本地路径规范
 
-- 远端路径统一通过 `FYAssetPathUtility.JoinUrl(...)` 生成，包括 `PackageIndex.json`、包体根、manifest、`catalog.json` 与 bundle 下载 URL；`HotfixUrl` 带不带尾斜杠都得到相同的单斜杠 URL。
-- 发布 Target 使用服务总根，并把 AA/AB 分别放在 `/AA/` 与 `/AB/`。因此 AA `HotfixUrl` 必须指向含 `AA/PackageIndex.json` 的 `/AA/` 根，AB 同理指向 `/AB/`。
-- `PublishTargetPanel` 的 `Apply URL` 根据 Target 的 `PublicBaseUrl` 显式更新后端设置；Push 不自动切换客户端 URL。
+- 远端路径统一通过 `FYAssetPathUtility.JoinUrl(...)` 生成。AA 使用 `FYAssetAASettings.HotfixUrl`；AB 使用当前 Publish Target 的 `PublicBaseUrl + /AB/`。两者都得到稳定的单斜杠 URL。
+- Publish Target 使用服务总根，并把 AA/AB 分别放在 `/AA/` 与 `/AB/`。AB 不再把 URL 复制到 `FYAssetABSettings`，也没有 `Apply URL` 写回动作。
 - 本地热更目录、目标包体目录、bundle 保存路径、manifest 写入路径和本地 `PackageIndex.json` 使用本地文件系统路径规则拼接。
 - Unity `StreamingAssets` 读取路径通过共享路径工具拼接，但 Android `jar:` URI-like 路径保持 `/` 分隔符，不会被规范化成 Windows 本地路径。
 - `bundles`、`catalog.json`、`BuildIndex.json` 等跨模块目录/文件名来自 `FYAssetSettings` 常量，不在热更主链路中重复写字符串字面量。

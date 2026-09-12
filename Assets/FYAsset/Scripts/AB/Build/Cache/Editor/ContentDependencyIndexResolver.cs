@@ -5,11 +5,8 @@ using System.Collections.Generic;
 /// 内容级依赖事实 → Manifest 依赖下标的唯一换算入口。
 /// </summary>
 /// <remarks>
-/// 依赖下标的事实来源只有一个：Unity 构建后的 AssetBundleManifest 报告的直接依赖（内容级），
-/// 复用历史制品的内容则从正式 Summary 回放同一份事实。构建计划图只用于诊断，不参与换算。
-/// 本类同时服务「全量构建」与「复用 + 重建混合构建」两条路径，是两者产出相同下标的保证：
-/// 混合构建先把两条来源合并成一份完整依赖事实，再用同一套换算得到下标。
-/// 纯 .NET 实现，不依赖 UnityEngine/UnityEditor，便于脱离 Unity 验证等价性。
+/// 依赖下标来自 Unity 构建报告或正式 Summary 回放的内容级依赖事实；预期依赖图只用于诊断。
+/// 全量构建与混合复用构建最终使用同一套换算逻辑。
 /// </remarks>
 public static class ContentDependencyIndexResolver
 {

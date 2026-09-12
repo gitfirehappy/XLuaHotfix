@@ -692,7 +692,7 @@ public static class E2ETestEngine
 
         BackendMode oldBackend = BuildTestState.GetBackendSettings().Backend;
         string oldAaUrl = FYAssetAASettings.Instance.HotfixUrl;
-        string oldAbUrl = FYAssetABSettings.Instance.HotfixUrl;
+        string oldAbTargetId = FYAssetSettings.Instance.CurrentABTargetId;
         string oldProjectName = FYAssetSettings.Instance.ProjectName;
         string defines = PlayerSettings.GetScriptingDefineSymbolsForGroup(BuildTargetGroup.Standalone);
         bool added = false;
@@ -703,12 +703,12 @@ public static class E2ETestEngine
                 : BackendMode.AA;
             FYAssetSettings.Instance.ProjectName = isolatedProjectName;
             if (backend == BuildTestBackend.AB)
-                FYAssetABSettings.Instance.HotfixUrl = target.RuntimeUrl;
+                FYAssetSettings.Instance.CurrentABTargetId = target.TargetId;
             else
                 FYAssetAASettings.Instance.HotfixUrl = target.RuntimeUrl;
             EditorUtility.SetDirty(BuildTestState.GetBackendSettings());
             EditorUtility.SetDirty(FYAssetAASettings.Instance);
-            EditorUtility.SetDirty(FYAssetABSettings.Instance);
+            EditorUtility.SetDirty(FYAssetSettings.Instance);
             AssetDatabase.SaveAssets();
 
             if (defines.IndexOf(CoordinatorDefine, StringComparison.Ordinal) < 0)
@@ -748,11 +748,11 @@ public static class E2ETestEngine
 
             BuildTestState.GetBackendSettings().Backend = oldBackend;
             FYAssetSettings.Instance.ProjectName = oldProjectName;
+            FYAssetSettings.Instance.CurrentABTargetId = oldAbTargetId;
             FYAssetAASettings.Instance.HotfixUrl = oldAaUrl;
-            FYAssetABSettings.Instance.HotfixUrl = oldAbUrl;
             EditorUtility.SetDirty(BuildTestState.GetBackendSettings());
             EditorUtility.SetDirty(FYAssetAASettings.Instance);
-            EditorUtility.SetDirty(FYAssetABSettings.Instance);
+            EditorUtility.SetDirty(FYAssetSettings.Instance);
             AssetDatabase.SaveAssets();
         }
 

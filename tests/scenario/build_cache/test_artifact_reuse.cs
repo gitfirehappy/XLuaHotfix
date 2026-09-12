@@ -38,7 +38,7 @@ internal static class ArtifactReuseTests
         using var workspace = new TempWorkspace("reuse-hit");
         BuildSummaryStore store = ReuseFixture.CreateStore(workspace);
         byte[] content = ReuseFixture.Bytes(11, 2048);
-        FileDigest digest = ReuseFixture.WriteArtifact(workspace, "ui.bundle", content);
+        FileHelper.FileDigest digest = ReuseFixture.WriteArtifact(workspace, "ui.bundle", content);
         ReuseFixture.Publish(store, ReuseFixture.Summary(
             "build-1",
             DateTime.UtcNow,
@@ -48,7 +48,7 @@ internal static class ArtifactReuseTests
         Check.True(
             ReuseFixture.TryReuse(
                 store, ReuseFixture.Platform, ReuseFixture.Recipe, ReuseFixture.ContentName, ReuseFixture.Fingerprint,
-                targetDirectory, out string fileName, out FileDigest copied, out List<string> dependencies, out string reason),
+                targetDirectory, out string fileName, out FileHelper.FileDigest copied, out List<string> dependencies, out string reason),
             $"同身份、同指纹、制品摘要一致时必须命中（原因={reason}）");
 
         Check.Equal("ui.bundle", fileName, "复用命中的文件名必须沿用历史包内的物理名");
@@ -69,8 +69,8 @@ internal static class ArtifactReuseTests
     {
         using var workspace = new TempWorkspace("reuse-newest");
         BuildSummaryStore store = ReuseFixture.CreateStore(workspace);
-        FileDigest older = ReuseFixture.WriteArtifact(workspace, "newer-probe.bundle", ReuseFixture.Bytes(12, 128));
-        FileDigest newest = ReuseFixture.WriteArtifact(workspace, "newest.bundle", ReuseFixture.Bytes(13, 256));
+        FileHelper.FileDigest older = ReuseFixture.WriteArtifact(workspace, "newer-probe.bundle", ReuseFixture.Bytes(12, 128));
+        FileHelper.FileDigest newest = ReuseFixture.WriteArtifact(workspace, "newest.bundle", ReuseFixture.Bytes(13, 256));
 
         ReuseFixture.Publish(store, ReuseFixture.Summary(
             "build-old", new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
@@ -91,7 +91,7 @@ internal static class ArtifactReuseTests
     {
         using var workspace = new TempWorkspace("reuse-fallback");
         BuildSummaryStore store = ReuseFixture.CreateStore(workspace);
-        FileDigest older = ReuseFixture.WriteArtifact(workspace, "older.bundle", ReuseFixture.Bytes(14, 128));
+        FileHelper.FileDigest older = ReuseFixture.WriteArtifact(workspace, "older.bundle", ReuseFixture.Bytes(14, 128));
 
         // 最新的 Summary 指向并不存在的制品；复用的失败只损失优化，应继续尝试更早的候选。
         var missing = new SummaryContentFact
@@ -122,7 +122,7 @@ internal static class ArtifactReuseTests
         using var workspace = new TempWorkspace("reuse-reverify");
         BuildSummaryStore store = ReuseFixture.CreateStore(workspace);
         byte[] content = ReuseFixture.Bytes(15, 4096);
-        FileDigest digest = ReuseFixture.WriteArtifact(workspace, "shared.bundle", content);
+        FileHelper.FileDigest digest = ReuseFixture.WriteArtifact(workspace, "shared.bundle", content);
         ReuseFixture.Publish(store, ReuseFixture.Summary(
             "build-1", DateTime.UtcNow,
             ReuseFixture.Content("shared_content", ReuseFixture.Fingerprint, digest)));
@@ -130,7 +130,7 @@ internal static class ArtifactReuseTests
         Check.True(
             ReuseFixture.TryReuse(
                 store, ReuseFixture.Platform, ReuseFixture.Recipe, "shared_content", ReuseFixture.Fingerprint,
-                workspace.Resolve("out/reverify"), out _, out FileDigest copied, out List<string> dependencies, out string reason),
+                workspace.Resolve("out/reverify"), out _, out FileHelper.FileDigest copied, out List<string> dependencies, out string reason),
             $"命中必须返回复制后的校验结果（原因={reason}）");
 
         byte[] copiedBytes = File.ReadAllBytes(Path.Combine(workspace.Resolve("out/reverify"), copied.Name));
@@ -144,7 +144,7 @@ internal static class ArtifactReuseTests
     {
         using var workspace = new TempWorkspace("reuse-identity");
         BuildSummaryStore store = ReuseFixture.CreateStore(workspace);
-        FileDigest digest = ReuseFixture.WriteArtifact(workspace, "ui.bundle", ReuseFixture.Bytes(16, 256));
+        FileHelper.FileDigest digest = ReuseFixture.WriteArtifact(workspace, "ui.bundle", ReuseFixture.Bytes(16, 256));
         ReuseFixture.Publish(store, ReuseFixture.Summary(
             "build-1", DateTime.UtcNow,
             ReuseFixture.Content("other_content", ReuseFixture.Fingerprint, digest)));
@@ -163,7 +163,7 @@ internal static class ArtifactReuseTests
     {
         using var workspace = new TempWorkspace("reuse-fingerprint");
         BuildSummaryStore store = ReuseFixture.CreateStore(workspace);
-        FileDigest digest = ReuseFixture.WriteArtifact(workspace, "ui.bundle", ReuseFixture.Bytes(17, 256));
+        FileHelper.FileDigest digest = ReuseFixture.WriteArtifact(workspace, "ui.bundle", ReuseFixture.Bytes(17, 256));
         ReuseFixture.Publish(store, ReuseFixture.Summary(
             "build-1", DateTime.UtcNow,
             ReuseFixture.Content(ReuseFixture.ContentName, "fp-old", digest)));
@@ -180,7 +180,7 @@ internal static class ArtifactReuseTests
     {
         using var workspace = new TempWorkspace("reuse-recipe");
         BuildSummaryStore store = ReuseFixture.CreateStore(workspace);
-        FileDigest digest = ReuseFixture.WriteArtifact(workspace, "ui.bundle", ReuseFixture.Bytes(18, 256));
+        FileHelper.FileDigest digest = ReuseFixture.WriteArtifact(workspace, "ui.bundle", ReuseFixture.Bytes(18, 256));
         ReuseFixture.Publish(store, ReuseFixture.Summary(
             "build-1", ReuseFixture.Platform, "recipe-other", DateTime.UtcNow,
             true, ReuseFixture.Content(ReuseFixture.ContentName, ReuseFixture.Fingerprint, digest)));
@@ -197,7 +197,7 @@ internal static class ArtifactReuseTests
     {
         using var workspace = new TempWorkspace("reuse-platform");
         BuildSummaryStore store = ReuseFixture.CreateStore(workspace);
-        FileDigest digest = ReuseFixture.WriteArtifact(workspace, "ui.bundle", ReuseFixture.Bytes(19, 256));
+        FileHelper.FileDigest digest = ReuseFixture.WriteArtifact(workspace, "ui.bundle", ReuseFixture.Bytes(19, 256));
         ReuseFixture.Publish(store, ReuseFixture.Summary(
             "build-1", ReuseFixture.OtherPlatform, ReuseFixture.Recipe, DateTime.UtcNow,
             true, ReuseFixture.Content(ReuseFixture.ContentName, ReuseFixture.Fingerprint, digest)));
@@ -214,7 +214,7 @@ internal static class ArtifactReuseTests
     {
         using var workspace = new TempWorkspace("reuse-failed");
         BuildSummaryStore store = ReuseFixture.CreateStore(workspace);
-        FileDigest digest = ReuseFixture.WriteArtifact(workspace, "ui.bundle", ReuseFixture.Bytes(20, 256));
+        FileHelper.FileDigest digest = ReuseFixture.WriteArtifact(workspace, "ui.bundle", ReuseFixture.Bytes(20, 256));
         ReuseFixture.Publish(store, ReuseFixture.Summary(
             "build-1", ReuseFixture.Platform, ReuseFixture.Recipe, DateTime.UtcNow,
             false, ReuseFixture.Content(ReuseFixture.ContentName, ReuseFixture.Fingerprint, digest)));
@@ -232,7 +232,7 @@ internal static class ArtifactReuseTests
         using var workspace = new TempWorkspace("reuse-missing-artifact");
         BuildSummaryStore store = ReuseFixture.CreateStore(workspace);
         byte[] content = ReuseFixture.Bytes(21, 512);
-        FileDigest digest = ReuseFixture.WriteArtifact(workspace, "ui.bundle", content);
+        FileHelper.FileDigest digest = ReuseFixture.WriteArtifact(workspace, "ui.bundle", content);
         ReuseFixture.Publish(store, ReuseFixture.Summary(
             "build-1", DateTime.UtcNow,
             ReuseFixture.Content(ReuseFixture.ContentName, ReuseFixture.Fingerprint, digest)));
@@ -251,7 +251,7 @@ internal static class ArtifactReuseTests
     {
         using var workspace = new TempWorkspace("reuse-truncated");
         BuildSummaryStore store = ReuseFixture.CreateStore(workspace);
-        FileDigest digest = ReuseFixture.WriteArtifact(workspace, "ui.bundle", ReuseFixture.Bytes(22, 4096));
+        FileHelper.FileDigest digest = ReuseFixture.WriteArtifact(workspace, "ui.bundle", ReuseFixture.Bytes(22, 4096));
         ReuseFixture.Publish(store, ReuseFixture.Summary(
             "build-1", DateTime.UtcNow,
             ReuseFixture.Content(ReuseFixture.ContentName, ReuseFixture.Fingerprint, digest)));
@@ -273,7 +273,7 @@ internal static class ArtifactReuseTests
     {
         using var workspace = new TempWorkspace("reuse-digest-mismatch");
         BuildSummaryStore store = ReuseFixture.CreateStore(workspace);
-        FileDigest digest = ReuseFixture.WriteArtifact(workspace, "ui.bundle", ReuseFixture.Bytes(23, 1024));
+        FileHelper.FileDigest digest = ReuseFixture.WriteArtifact(workspace, "ui.bundle", ReuseFixture.Bytes(23, 1024));
         ReuseFixture.Publish(store, ReuseFixture.Summary(
             "build-1", DateTime.UtcNow,
             ReuseFixture.Content(ReuseFixture.ContentName, ReuseFixture.Fingerprint, digest)));
@@ -294,11 +294,11 @@ internal static class ArtifactReuseTests
     {
         using var workspace = new TempWorkspace("reuse-incomplete-record");
         BuildSummaryStore store = ReuseFixture.CreateStore(workspace);
-        FileDigest digest = ReuseFixture.WriteArtifact(workspace, "ui.bundle", ReuseFixture.Bytes(25, 256));
+        FileHelper.FileDigest digest = ReuseFixture.WriteArtifact(workspace, "ui.bundle", ReuseFixture.Bytes(25, 256));
         ReuseFixture.Publish(store, ReuseFixture.Summary(
             "build-1", DateTime.UtcNow,
             ReuseFixture.Content(ReuseFixture.ContentName, ReuseFixture.Fingerprint,
-                new FileDigest(digest.Name, string.Empty, digest.CRC, digest.Size))));
+                new FileHelper.FileDigest(digest.Name, string.Empty, digest.CRC, digest.Size))));
 
         Check.False(
             ReuseFixture.TryReuse(
@@ -312,7 +312,7 @@ internal static class ArtifactReuseTests
     {
         using var workspace = new TempWorkspace("reuse-no-dependency-facts");
         BuildSummaryStore store = ReuseFixture.CreateStore(workspace);
-        FileDigest digest = ReuseFixture.WriteArtifact(workspace, "ui.bundle", ReuseFixture.Bytes(31, 256));
+        FileHelper.FileDigest digest = ReuseFixture.WriteArtifact(workspace, "ui.bundle", ReuseFixture.Bytes(31, 256));
 
         SummaryContentFact fact = ReuseFixture.Content(
             ReuseFixture.ContentName, ReuseFixture.Fingerprint, digest, "dep.bundle");
@@ -331,7 +331,7 @@ internal static class ArtifactReuseTests
     {
         using var workspace = new TempWorkspace("reuse-no-artifact-path");
         BuildSummaryStore store = ReuseFixture.CreateStore(workspace);
-        FileDigest digest = ReuseFixture.WriteArtifact(workspace, "ui.bundle", ReuseFixture.Bytes(26, 256));
+        FileHelper.FileDigest digest = ReuseFixture.WriteArtifact(workspace, "ui.bundle", ReuseFixture.Bytes(26, 256));
 
         CompleteBuildSummary summary = ReuseFixture.Summary(
             "build-1", DateTime.UtcNow,
@@ -351,8 +351,8 @@ internal static class ArtifactReuseTests
     {
         using var workspace = new TempWorkspace("reuse-multi-record");
         BuildSummaryStore store = ReuseFixture.CreateStore(workspace);
-        FileDigest first = ReuseFixture.WriteArtifact(workspace, "a.bundle", ReuseFixture.Bytes(27, 128));
-        FileDigest second = ReuseFixture.WriteArtifact(workspace, "b.bundle", ReuseFixture.Bytes(28, 128));
+        FileHelper.FileDigest first = ReuseFixture.WriteArtifact(workspace, "a.bundle", ReuseFixture.Bytes(27, 128));
+        FileHelper.FileDigest second = ReuseFixture.WriteArtifact(workspace, "b.bundle", ReuseFixture.Bytes(28, 128));
         ReuseFixture.Publish(store, ReuseFixture.Summary(
             "build-1", DateTime.UtcNow,
             ReuseFixture.Content(ReuseFixture.ContentName, ReuseFixture.Fingerprint, first),
@@ -383,7 +383,7 @@ internal static class ArtifactReuseTests
     {
         using var workspace = new TempWorkspace("reuse-corrupt-summary");
         BuildSummaryStore store = ReuseFixture.CreateStore(workspace);
-        FileDigest digest = ReuseFixture.WriteArtifact(workspace, "ui.bundle", ReuseFixture.Bytes(29, 256));
+        FileHelper.FileDigest digest = ReuseFixture.WriteArtifact(workspace, "ui.bundle", ReuseFixture.Bytes(29, 256));
         ReuseFixture.Publish(store, ReuseFixture.Summary(
             "build-1", DateTime.UtcNow,
             ReuseFixture.Content(ReuseFixture.ContentName, ReuseFixture.Fingerprint, digest)));
@@ -413,7 +413,7 @@ internal static class ArtifactReuseTests
     {
         using var workspace = new TempWorkspace("reuse-no-copy");
         BuildSummaryStore store = ReuseFixture.CreateStore(workspace);
-        FileDigest digest = ReuseFixture.WriteArtifact(workspace, "ui.bundle", ReuseFixture.Bytes(30, 256));
+        FileHelper.FileDigest digest = ReuseFixture.WriteArtifact(workspace, "ui.bundle", ReuseFixture.Bytes(30, 256));
         ReuseFixture.Publish(store, ReuseFixture.Summary(
             "build-1", ReuseFixture.Platform, "recipe-other", DateTime.UtcNow,
             true, ReuseFixture.Content(ReuseFixture.ContentName, ReuseFixture.Fingerprint, digest)));

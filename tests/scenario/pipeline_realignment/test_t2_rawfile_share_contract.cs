@@ -2,11 +2,8 @@ using System;
 using System.Text.RegularExpressions;
 
 /// <summary>
-/// T2「RawFile 与共享依赖」目标契约门禁（计划 Code Change Map T2、Confirmed Decisions - AB 依赖和共享 / RawFile）。
-/// 目标结构：内容类型由 EPayloadKind 改为 AssetContentType（SerializedObject/Scene/RawFile）；
-/// 依赖来源改用 AssetDependencyOrigin（Explicit/Implicit）；分类器消费项目级 RawFileRules 白名单；
-/// 依赖分析只消费 ForceSharePatterns/NoSharePatterns，删除 MinReferenceCount/MinAssetSizeBytes；
-/// CollectedAssetInfo 用 ContentType/DependencyOrigin/IsPublic/ContentName 表达构建中间模型。
+/// RawFile 与共享依赖契约门禁。
+/// 验证内容类型、依赖来源、RawFile 白名单、共享策略和构建中间模型的当前字段边界。
 /// </summary>
 internal static class RawFileShareContractTests
 {

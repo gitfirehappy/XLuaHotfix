@@ -2,50 +2,36 @@ using System.IO;
 using UnityEngine;
 
 /// <summary>
-/// 运行时路径管理。
-/// 管理 persistentDataPath 下的热更、缓存、存档和日志目录，以及当前激活的资源包根目录。
+/// 运行时路径和当前激活包根的唯一持有者。
 /// </summary>
 /// <remarks>
-/// 包根语义：一次运行时上下文只读取 <see cref="ActivePackageRoot"/> 一个包根。
-/// 内置包根与本地热更包根互斥，由激活流程显式切换，加载器不得自行推导或逐文件回退。
+/// 运行时上下文只读取 <see cref="ActivePackageRoot"/>。内置包根与本地热更包根由激活流程显式切换，加载器不自行回退。
 /// </remarks>
 public static class RuntimePathManager
 {
     public static string PersistentRoot => FYAssetPathUtility.JoinFilePath(Application.persistentDataPath, FYAssetSettings.Instance.ProjectName);
     
-    // 运行时动态决定的路径
-    public static string EnvRoot { get; private set; }    // .../[Platform]/[Debug]
-    public static string CurrentGUIDRoot { get; private set; } // .../[Platform]/[Debug]/Hotfix/[GUID]
-    public static string HotfixRoot { get; private set; } // .../[Platform]/[Debug]/Hotfix
+    // 运行时根据 BuildIndex 计算的目录。
+    public static string EnvRoot { get; private set; }
+    public static string CurrentGUIDRoot { get; private set; }
+    public static string HotfixRoot { get; private set; }
    
     public static string CacheRoot { get; private set; }
     public static string SaveRoot { get; private set; }
     public static string LogRoot { get; private set; }
 
-    /// <summary>
-    /// 内置完整包根：安装包内 StreamingAssets 下的资源目录。
-    /// 单机（Standalone）构建把整包放在隔离子目录 <c>StreamingAssets/Standalone/</c>，
-    /// 与在线模式的 <c>StreamingAssets/</c> 内置包隔离。
-    /// </summary>
-    /// <remarks>
-    /// 是否包含 Standalone 隔离子目录由 <see cref="Mode"/> 决定，而 <see cref="Mode"/> 来自
-    /// BuildIndex.RuntimeMode（<see cref="Initialize"/> 写入）。本属性是该推导的唯一入口。
-    /// </remarks>
+    /// <summary>安装包内置完整包根；Standalone 模式使用隔离子目录。</summary>
     public static string BuiltInPackageRoot => Mode == RuntimeMode.Standalone
         ? FYAssetPathUtility.JoinFilePath(
             Application.streamingAssetsPath,
             FYAssetSettings.STANDALONE_DIRECTORY_NAME)
         : Application.streamingAssetsPath;
 
-    /// <summary>
-    /// 当前运行模式，取自 BuildIndex.RuntimeMode；Initialize 之前为 Online。
-    /// </summary>
+    /// <summary>当前运行模式；初始化前默认为 Online。</summary>
     public static RuntimeMode Mode { get; private set; }
 
     /// <summary>
-    /// 当前激活的资源包根：所有运行时资源读取（Manifest、Bundle、RawFile）的唯一根目录。
-    /// 由 <see cref="ActivateBuiltInPackage"/> 与 <see cref="SwitchToNewBuild"/> 显式切换，
-    /// 加载器不得再按文件回退到别的目录。
+    /// 当前激活的资源包根；Manifest、Bundle 和 RawFile 都从这里读取。
     /// </summary>
     public static string ActivePackageRoot { get; private set; }
 
@@ -60,7 +46,7 @@ public static class RuntimePathManager
         string envDir = buildIndex.IsDebug ? "Debug" : "Release";
         string guidDir = buildIndex.BuildGUID;
 
-        // 运行模式只由 BuildIndex 承载：后续 BuiltInPackageRoot 与热更状态机都读它
+        // RuntimeMode 是后续包根推导和热更决策的唯一来源。
         Mode = buildIndex.RuntimeMode;
 
         // .../ProjectName/[Platform]/Release
@@ -69,11 +55,8 @@ public static class RuntimePathManager
         // .../ProjectName/[Platform]/Release/Hotfix
         HotfixRoot = FYAssetPathUtility.JoinFilePath(EnvRoot, "Hotfix");
         
-        // .../ProjectName/[Platform]/Release/Hotfix/Build_xxx (当前生效目录)
-        // buildIndex.BuildGUID 可能是完整目录名或仅 GUID 段，统一补 Build_ 前缀
+        // 当前包身份和读取根在激活时同步更新。
         CurrentGUIDRoot = GetHotfixPackageRoot(guidDir);
-
-        // 初始化后默认以本地热更包为激活根；内置包由激活流程通过 ActivateBuiltInPackage 显式指定
         ActivePackageRoot = CurrentGUIDRoot;
         
         CacheRoot = FYAssetPathUtility.JoinFilePath(EnvRoot, "Cache");
@@ -186,7 +169,7 @@ public static class RuntimePathManager
         FileHelper.EnsureDirectory(PersistentRoot);
         FileHelper.EnsureDirectory(HotfixRoot);
         FileHelper.EnsureDirectory(CurrentGUIDRoot);
-        // Bundles 目录由热更下载或构建流程创建，这里不创建
+        // Bundles 目录由热更下载或构建流程按需创建。
         
         FileHelper.EnsureDirectory(CacheRoot);
         FileHelper.EnsureDirectory(SaveRoot);

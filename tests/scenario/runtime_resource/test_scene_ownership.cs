@@ -2,7 +2,7 @@ using System.Threading.Tasks;
 using UnityEngine.SceneManagement;
 
 /// <summary>
-/// SceneHandle 所有权契约（计划 T9）：卸载失败保留可重试 token；只有最后一个所有者能触发物理卸载。
+/// SceneHandle 所有权契约：卸载失败保留可重试 token，只有最后一个所有者能触发物理卸载。
 /// </summary>
 internal static class SceneOwnershipTests
 {

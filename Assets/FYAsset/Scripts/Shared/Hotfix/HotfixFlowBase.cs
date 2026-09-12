@@ -10,16 +10,15 @@ using UnityEngine;
 /// AA 与 AB 共用的确定性热更状态机：启动检查与运行中 Check / Prepare / Apply。
 /// </summary>
 /// <remarks>
-/// 职责边界：本类只处理通用状态决策、文件摘要校验、隔离目录、下载与错误分类；
-/// 后端特定的清单解析、下载项映射、元数据持久化与激活由 IHotfixPipeline 实现承担，Shared 不感知后端类型。
-/// 包根只有一个：所有运行时读取都相对 RuntimePathManager.ActivePackageRoot，
-/// 由激活流程显式切换，不存在 Manifest 来自 Local、单个内容文件回退内置包的混合读取。
-/// 目标包只在隔离 staging 根准备；Apply 先换入正式 Build_* 路径再激活，换入前不碰当前包目录。
+/// Shared 负责状态决策、摘要校验、隔离目录、下载和错误分类；后端实现负责清单、下载项、元数据和激活。
+/// 所有运行时读取都相对 ActivePackageRoot。目标包先写 staging，Apply 成功换入正式 Build_* 后才激活。
 /// </remarks>
 public abstract class HotfixFlowBase
 {
     protected abstract string HotfixUrl { get; }
     protected abstract string BackendModeName { get; }
+    protected virtual string HotfixConfigurationError =>
+        $"{BackendModeName} HotfixUrl 未配置，请先在对应 Settings 资产中填写热更根地址。";
     protected abstract int HotfixMaxRetryCount { get; }
     protected abstract float HotfixRetryBaseDelaySeconds { get; }
     protected abstract int HotfixMetadataTimeoutSeconds { get; }
@@ -132,7 +131,7 @@ public abstract class HotfixFlowBase
         }
 
         if (string.IsNullOrWhiteSpace(HotfixUrl))
-            ThrowFatal($"[HotfixManager] {BackendModeName} HotfixUrl 未配置，请先在对应 Settings 资产中填写热更根地址。");
+            ThrowFatal("[HotfixManager] " + HotfixConfigurationError);
 
         await InitializeBackendAsync(pipeline);
         await InspectCurrentPackageAsync(pipeline, ctx);
@@ -204,12 +203,7 @@ public abstract class HotfixFlowBase
 
     #region 运行中 Check / Prepare / Apply
 
-    /// <summary>
-    /// 运行中检查是否存在可接受更新：只读取远端 PackageIndex 并做版本决策，不下载内容、不切换包根。
-    /// </summary>
-    /// <remarks>
-    /// 单机模式、启动未完成或远端不可用时返回不可准备的结果，调用方据此跳过 Prepare。
-    /// </remarks>
+    /// <summary>运行中检查远端 PackageIndex 并做版本决策，不下载内容或切换包根。</summary>
     public async Task<HotfixCheckResult> CheckAsync()
     {
         CurrentPhase = HotfixPhase.Check;
@@ -226,7 +220,7 @@ public abstract class HotfixFlowBase
                 "单机模式只使用内置完整包，不检查远端更新。");
 
         if (_pipeline == null || string.IsNullOrWhiteSpace(HotfixUrl))
-            return BlockedCheck("热更后端或 HotfixUrl 不可用，无法检查更新。");
+            return BlockedCheck("热更后端不可用，或" + HotfixConfigurationError);
 
         PackageIndex remoteIndex = await DownloadRemotePackageIndexAsync();
         if (remoteIndex == null)
@@ -299,12 +293,7 @@ public abstract class HotfixFlowBase
         }
     }
 
-    /// <summary>
-    /// 运行中准备目标包：当前包继续运行，只在隔离目录内复制同 Hash 内容、下载剩余内容并完整校验。
-    /// </summary>
-    /// <remarks>
-    /// 成功后可继续使用当前包；失败时删除目标目录，当前完整包不受影响。
-    /// </remarks>
+    /// <summary>运行中在 staging 内准备目标包，当前包继续运行；失败时当前包不受影响。</summary>
     public async Task<HotfixStepResult> PrepareAsync()
     {
         CurrentPhase = HotfixPhase.Prepare;
@@ -334,12 +323,9 @@ public abstract class HotfixFlowBase
         return result;
     }
 
-    /// <summary>
-    /// 运行中应用已准备的目标包：业务回到安全入口并释放全部 Handle 后关闭旧管理器、切换包根并重新初始化。
-    /// </summary>
+    /// <summary>运行中应用已准备目标：释放 Handle 后切换包根并重新初始化。</summary>
     /// <remarks>
-    /// 存在活跃 Asset 或 Scene Handle 时拒绝切换，不强制释放句柄；
-    /// 激活或初始化失败时不写本地 PackageIndex，并恢复此前完整包，恢复失败则返回阻断错误。
+    /// 活跃 Handle 会阻止切换且不会被强制释放；切换或初始化失败时恢复此前完整包，并保留失败 staging。
     /// </remarks>
     public async Task<HotfixStepResult> ApplyAsync()
     {

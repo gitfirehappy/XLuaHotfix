@@ -18,22 +18,16 @@ internal enum HandleKind
 }
 
 /// <summary>
-/// 句柄 token 槽位表 —— 一个 token 一个槽位，没有引用计数。
+/// 句柄 token 槽位表。
 /// </summary>
 /// <remarks>
-/// 语义约定：
-/// 1. 一次 Load 或一次 Retain 都分配一个独立 token；token 的重复 Release 幂等。
-/// 2. tokenId 从 1 开始，0 保留给 default 与失败句柄，任何有效 token 都不会占用 0。
-/// 3. 槽位回收时 Generation 只增不减，因此过期句柄的 (tokenId, Generation) 不会再次命中。
-/// 4. 同一 EntryId 的活跃 token 计数归零时才触发释放回调；Scene 槽位的回调为 null。
-/// 5. 由 ABPackageManager、AssetHandle{T}、SceneHandle 在主线程使用，不提供并发保护。
+/// 每次 Load/Retain 分配独立 token；重复 Release 幂等。槽位回收只递增 Generation，避免过期句柄再次命中。
+/// Asset 在最后一个 token 释放时回调卸载，Scene 等真实卸载后由场景加载器释放；仅主线程使用。
 /// </remarks>
 internal static class HandleRegistry
 {
 
-    /// <summary>
-    /// 槽位 —— 一个 token 的完整生命周期状态。
-    /// </summary>
+    /// <summary>一个 token 的完整生命周期状态。</summary>
     private struct Slot
     {
         /// <summary>世代号。回收（Release 或 Reset）时递增，只增不减。</summary>

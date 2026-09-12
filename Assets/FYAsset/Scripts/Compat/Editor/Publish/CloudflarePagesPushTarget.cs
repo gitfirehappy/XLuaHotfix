@@ -24,7 +24,7 @@ public sealed class CloudflarePagesPushTarget : IPushTarget
     private readonly PushTargetConfig _config;
     private readonly IWranglerCommandRunner _runner;
 
-    public string Id => string.IsNullOrEmpty(_config.Id) ? "cloudflare" : _config.Id;
+    public string Id => _config.TargetId;
 
     public CloudflarePagesPushTarget(PushTargetConfig config)
         : this(config, ProcessWranglerCommandRunner.Instance)

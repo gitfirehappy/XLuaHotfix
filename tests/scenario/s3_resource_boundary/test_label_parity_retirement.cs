@@ -4,8 +4,8 @@ using System.IO;
 
 internal static class LabelParityRetirementTests
 {
-    // RawFile 直发是 AB 独占的 E2E 夹具（FYAssetPipelineRaw.fyraw 刻意无 importer），
-    // AA（Addressables）无等价物，不参与业务标签对等断言。
+    /// RawFile 直发是 AB 独占的 E2E 夹具（FYAssetPipelineRaw.fyraw 刻意无 importer），
+    /// AA（Addressables）无等价物，不参与业务标签对等断言。
     private static readonly HashSet<string> AbE2EFixtureAddresses = new(StringComparer.Ordinal)
     {
         "FYAssetPipelineRaw",
@@ -148,10 +148,8 @@ internal static class LabelParityRetirementTests
     }
 
     /// <summary>
-    /// 逐资产标签表：T1 起 CollectorSetting.asset 的 AssetEntries 改名为 AssetOverrides。
-    /// 未配置覆盖的条目直接省略 Address 键（Unity YAML 的空串会留下行尾空格），
-    /// 语义等同「沿用 Setting.AddressStyle 自动生成」，因此这里由 GUID 反查资产路径补出实际 Address，
-    /// 保持 label → address 的对等比较。
+    /// 逐资产标签表：CollectorSetting.asset 使用 AssetOverrides。
+    /// 未配置覆盖的条目沿用 Setting.AddressStyle 自动生成的 Address。
     /// </summary>
     private static Dictionary<string, HashSet<string>> ParseABLabelQueries()
     {
@@ -167,7 +165,7 @@ internal static class LabelParityRetirementTests
         for (int i = 0; i < lines.Length; i++)
         {
             string line = lines[i];
-            // T1 起逐资产标签表改名为 AssetOverrides，条目结构与字段语义保持不变。
+            // AssetOverrides 由 GUID 关联资产元数据，字段结构保持与配置资产一致。
             if (line == "  AssetOverrides:")
             {
                 inEntries = true;

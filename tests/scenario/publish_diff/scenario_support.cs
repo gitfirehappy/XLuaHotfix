@@ -12,12 +12,13 @@ internal static class Program
     {
         var suites = new (string Name, Action Run)[]
         {
-            ("FileDiffClassification", FileDiffTests.Run),
+            ("FileHelperComparison", FileHelperComparisonTests.Run),
             ("PublishTransactionDecisions", PublishTransactionTests.Run),
             ("PublishAssemblyDecisions", PublishAssemblyTests.Run),
             ("CloudflarePublishDecisions", CloudflareRollbackTests.Run),
             ("PublishContainmentRules", PublishContainmentTests.Run),
             ("PublishIdentitySources", PublishIdentitySourceTests.Run),
+            ("PublishTargetContract", PublishTargetContractTests.Run),
             ("PublishMaintenanceRules", PublishMaintenanceTests.Run)
         };
 
@@ -109,11 +110,11 @@ internal sealed class TempWorkspace : IDisposable
     }
 }
 
-/// <summary>测试用文件集合：提供写文件、计算摘要与构造 FileDigest 的便捷方法。</summary>
+/// <summary>测试用文件集合：提供写文件、计算摘要与构造 FileHelper.FileDigest 的便捷方法。</summary>
 internal static class FileFixtures
 {
     /// <summary>写入文件并返回它的摘要（名称为包根相对路径）。</summary>
-    public static FileDigest Write(string rootDir, string relativeName, string content)
+    public static FileHelper.FileDigest Write(string rootDir, string relativeName, string content)
     {
         string path = System.IO.Path.Combine(rootDir, relativeName.Replace('/', System.IO.Path.DirectorySeparatorChar));
         Directory.CreateDirectory(System.IO.Path.GetDirectoryName(path));
@@ -122,17 +123,17 @@ internal static class FileFixtures
     }
 
     /// <summary>计算已存在文件的摘要。</summary>
-    public static FileDigest Digest(string rootDir, string relativeName)
+    public static FileHelper.FileDigest Digest(string rootDir, string relativeName)
     {
         string path = System.IO.Path.Combine(rootDir, relativeName.Replace('/', System.IO.Path.DirectorySeparatorChar));
-        if (!FileDigest.TryCreate(path, relativeName, out FileDigest digest))
+        if (!FileHelper.TryCreateDigest(path, relativeName, out FileHelper.FileDigest digest))
             throw new InvalidOperationException($"无法计算摘要: {path}");
         return digest;
     }
 
     /// <summary>构造一个只有名称与 Hash 的摘要，用于纯分类断言。</summary>
-    public static FileDigest Fake(string name, string hash, uint crc = 1, long size = 10) =>
-        new FileDigest(name, hash, crc, size);
+    public static FileHelper.FileDigest Fake(string name, string hash, uint crc = 1, long size = 10) =>
+        new FileHelper.FileDigest(name, hash, crc, size);
 
     /// <summary>读取文件文本。</summary>
     public static string ReadText(string rootDir, string relativeName) =>

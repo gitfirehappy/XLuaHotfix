@@ -61,4 +61,4 @@
 3. **规则下拉框不适用**：本项目已删除 `IFilterRule` / `IGroupRule` / `RuleResolver` 反射规则体系与对应的反射下拉控件（`RuleDropdownHelper`），扫描行为是固定的可验证流程；Collector 只保存 `CollectPath` 与 `CollectPathType`。不要按 YooAsset 的 Rule/Filter/Pack 下拉设计新的采集字段。
 4. **Address / Packing 归属**：Address 样式是项目级 `AssetAddressStyle`，打包粒度是 Group 级 `BundlePackingMode`，都在 Setting/Group 上编辑，不存在 Collector 级 Rule 名或逐资产 Role/Payload 下拉。
 5. **实时校验**：路径缺失、命名非法、同路径冲突等以结构化 `BuildMessage` 输出，可在面板内展示并定位到配置项；这与 Addressables 的校验红标体验目标一致。
-6. **窗口与面板**：AA/AB 各自一个构建窗口，不含统一的 Repository/Diff 管理页；发布目标面板只处理发布与 `Apply URL`。
+6. **窗口与面板**：AA/AB 各自一个构建窗口，不含统一的 Repository/Diff 管理页；发布面板只处理发布与目标选择。AB 选择写入 `CurrentABTargetId`，不提供 `Apply URL`；规则名单统一在 AB Collection 面板编辑。

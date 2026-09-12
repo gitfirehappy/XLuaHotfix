@@ -132,7 +132,7 @@ internal static class DependencyIndexEquivalenceTests
     {
         using var workspace = new TempWorkspace("deps-summary-round-trip");
         BuildSummaryStore store = ReuseFixture.CreateStore(workspace);
-        FileDigest digest = ReuseFixture.WriteArtifact(workspace, "ui.bundle", ReuseFixture.Bytes(32, 256));
+        FileHelper.FileDigest digest = ReuseFixture.WriteArtifact(workspace, "ui.bundle", ReuseFixture.Bytes(32, 256));
         ReuseFixture.Publish(store, ReuseFixture.Summary(
             "build-1", DateTime.UtcNow,
             ReuseFixture.Content("ui_content", "fp-1", digest, "z.bundle", "a.bundle")));

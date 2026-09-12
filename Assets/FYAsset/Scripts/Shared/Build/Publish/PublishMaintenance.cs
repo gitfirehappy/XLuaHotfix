@@ -8,11 +8,7 @@ using UnityEngine;
 /// 发布侧的独立维护入口：清理服务器上的旧包目录。
 /// </summary>
 /// <remarks>
-/// 计划 T7：旧包清理与发布事务解耦。
-/// 1. 发布本身永不删除旧包；
-/// 2. 本入口只删除服务器包目录中**不被当前 PackageIndex 指向**的包；
-/// 3. 当前 PackageIndex 无法读取时拒绝清理——无法确定当前包时宁可不动；
-/// 4. 只处理形如 `Build_*` 的直接子目录，不递归、不跟随符号链接、不触碰其他文件。
+/// 发布不会删除旧包。本入口只删除当前 PackageIndex 未指向的直接 `Build_*` 子目录；无法读取当前索引时拒绝清理。
 /// </remarks>
 public static class PublishMaintenance
 {

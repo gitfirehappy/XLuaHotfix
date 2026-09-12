@@ -276,10 +276,8 @@ internal static class ExportBoundaryTests
         RepoAssert.Contains(abConfig, "TaskName: LuaScriptsIndexBuildTask",
             "AB config must inject LuaScriptsIndexBuildTask");
 
-        // T6 起主干阶段由后端 PipelineBackbone 固定定义，配置只能声明自定义 Task 的插入槽位。
-        // 因此这里断言两件事的等价物：
-        // 1) 配置里的自定义 Task 必须声明合法 Slot；
-        // 2) LuaScriptsIndexBuildTask 的插入点不得晚于内容构建阶段（Slot 语义为“插入到该槽主干任务之前”）。
+        // 主干由 PipelineBackbone 固定定义，配置只声明自定义 Task 的插入槽位。
+        // 这里检查自定义 Task 的槽位合法，且插入位置不晚于内容构建阶段。
         string aaSlot = ExtractTaskSlot(aaConfig, "LuaScriptsIndexBuildTask");
         string abSlot = ExtractTaskSlot(abConfig, "LuaScriptsIndexBuildTask");
         RepoAssert.True(IndexOfSlot(AaSlotOrder, aaSlot) >= 0,

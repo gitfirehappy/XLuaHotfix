@@ -9,7 +9,7 @@ using System.Collections.Generic;
 /// 事实来源：该文件写在包根，Full 与 Hotfix 都随包交付；
 /// 下一次 Hotfix 通过读取<b>作用域最近成功 Full 包</b>内这份文件得到“上次成功构建事实”，
 /// 据此决定哪些资源需要临时移入 HotfixGroup，因此不再依赖独立 baseline 指针文件。
-/// FileDigest 是 readonly struct，Unity 序列化不覆盖，落盘使用可序列化 DTO。
+/// FileHelper.FileDigest 是 readonly struct，Unity 序列化不覆盖，落盘使用可序列化 DTO。
 /// </remarks>
 public static class AASourceScanFile
 {
@@ -20,9 +20,9 @@ public static class AASourceScanFile
         FYAssetPathUtility.JoinFilePath(packageDir, FileName);
 
     /// <summary>读取源快照；文件缺失或损坏时返回 false。</summary>
-    public static bool TryRead(string packageDir, out List<FileDigest> files, out string error)
+    public static bool TryRead(string packageDir, out List<FileHelper.FileDigest> files, out string error)
     {
-        files = new List<FileDigest>();
+        files = new List<FileHelper.FileDigest>();
         error = string.Empty;
 
         string path = ResolvePath(packageDir);
@@ -55,21 +55,21 @@ public static class AASourceScanFile
             if (entry == null || string.IsNullOrEmpty(entry.Name))
                 continue;
 
-            files.Add(new FileDigest(entry.Name, entry.Hash, entry.Crc, entry.Size));
+            files.Add(new FileHelper.FileDigest(entry.Name, entry.Hash, entry.Crc, entry.Size));
         }
 
         return true;
     }
 
     /// <summary>写入源快照；供 ExportAAOutputTask 在包根落盘。</summary>
-    public static void Write(string packageDir, IReadOnlyList<FileDigest> files)
+    public static void Write(string packageDir, IReadOnlyList<FileHelper.FileDigest> files)
     {
         var document = new SourceScanDocument { Files = new List<SourceEntry>() };
         if (files != null)
         {
             for (int i = 0; i < files.Count; i++)
             {
-                FileDigest file = files[i];
+                FileHelper.FileDigest file = files[i];
                 if (!file.IsComplete)
                     continue;
 

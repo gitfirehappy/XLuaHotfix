@@ -2,8 +2,7 @@ using System;
 using System.IO;
 
 /// <summary>
-/// 发布输入边界契约（计划 T6）：包名与包集合名必须是受控单段目录名，发布时间戳与版本严格可解析，
-/// 任何组装、就位与索引路径都不得越出声明的服务器根。
+/// 发布输入边界契约：包名和包集合名必须是受控单段目录名，时间戳、版本和所有路径都必须严格受约束。
 /// </summary>
 internal static class PublishContainmentTests
 {

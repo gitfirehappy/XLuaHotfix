@@ -3,10 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 
 /// <summary>
-/// T7 Cloudflare 发布门禁（F09）：
-/// 1. Wrangler 部署失败必须完整回滚——旧 PackageIndex 字节恢复、旧服务根镜像恢复，
-///    且已存在的旧同名包目录绝不能被删掉；
-/// 2. 非目录型目标读不到服务器事实，因此稀疏 Hotfix 必须先由本地基准 Full 补齐成完整目标包再上传。
+/// Cloudflare 发布回滚门禁：部署失败恢复旧索引和服务根镜像，稀疏 Hotfix 在上传前由本地基准 Full 补齐。
 /// </summary>
 internal static class CloudflareRollbackTests
 {
@@ -85,7 +82,7 @@ internal static class CloudflareRollbackTests
 
         string hotfixDir = workspace.CreateDir("local/" + hotfixName);
         FileFixtures.Write(hotfixDir, "bundles/b.bundle", "content-b");
-        TestManifestReader.WriteManifest(hotfixDir, new List<FileDigest>
+        TestManifestReader.WriteManifest(hotfixDir, new List<FileHelper.FileDigest>
         {
             FileFixtures.Digest(baseFullDir, "bundles/a.bundle"),
             FileFixtures.Digest(hotfixDir, "bundles/b.bundle")
@@ -194,7 +191,8 @@ internal sealed class CloudflarePushFixture
         ServiceRoot = workspace.CreateDir("service");
         _config = new PushTargetConfig
         {
-            Id = "cloudflare-test",
+            TargetId = "cloudflare-test",
+            Name = "cloudflare-test",
             Type = PushTargetType.CloudflarePages,
             Path = ServiceRoot,
             PublicBaseUrl = "https://example.test"
@@ -238,7 +236,7 @@ internal sealed class CloudflarePushFixture
         {
             BackendKey = BackendKey,
             SourcePackageDir = stagedDir,
-            TargetId = _config.Id,
+            TargetId = _config.TargetId,
             ManifestReader = new TestManifestReader(),
             Identity = new PackageBuildIdentity
             {
@@ -270,7 +268,7 @@ internal sealed class CloudflarePushFixture
         {
             BackendKey = BackendKey,
             SourcePackageDir = sourcePackageDir,
-            TargetId = _config.Id,
+            TargetId = _config.TargetId,
             ManifestReader = new TestManifestReader(),
             FullPackageBaselineSource = baselineSource,
             Identity = new PackageBuildIdentity

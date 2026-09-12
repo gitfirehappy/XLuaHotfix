@@ -7,25 +7,15 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 
 /// <summary>
-/// Scene 加载与卸载控制器 —— 按 Unity 2022.3 的场景 Bundle 约束实现。
+/// Scene 加载与卸载控制器。
 /// </summary>
 /// <remarks>
-/// 官方约束与对应实现：
-/// 1. 场景 Bundle 只能通过 <see cref="AssetBundle.GetAllScenePaths"/> 取得完整场景路径，
-///    再交给 <see cref="SceneManager.LoadSceneAsync(string, LoadSceneMode)"/>；本类用条目 SourcePath 的文件名比对校验。
-/// 2. <see cref="SceneManager.UnloadSceneAsync(Scene)"/> 不释放 AssetBundle 引用，因此内容引用由本类持有，
-///    只在场景确认卸载后调用 ABBundleLoader.UnloadBundle。
-/// 3. Additive 场景由调用方 UnloadAsync 卸载；Single 模式在新场景激活并确认旧场景卸载后结算旧 SceneHandle。
-/// 4. allowSceneActivation=false 不允许无限等待：预载窗口有帧数上限，窗口结束即激活，
-///    避免把 AsyncOperation 长期停在队列里，也避免返回调用方无法激活的悬空句柄。
-/// 5. Resources.UnloadUnusedAssets 只在场景切换这类安全入口显式调用，不放在每次 Handle 释放里。
+/// 场景路径来自 Bundle 的完整场景路径；场景卸载确认后才释放 Bundle 引用。Single 模式切换和预载等待都有帧数上限。
 /// </remarks>
 internal sealed class ABSceneLoader : IABSceneUnloadSink
 {
 
-    /// <summary>
-    /// 已加载场景的记账。一个场景路径对应一条记录，持有内容引用与创建它的 token。
-    /// </summary>
+    /// <summary>按场景路径记账 Bundle 引用和创建它的 token。</summary>
     private sealed class SceneRecord
     {
         /// <summary>AssetBundle.GetAllScenePaths() 给出的完整场景路径（字典键）</summary>
@@ -72,7 +62,7 @@ internal sealed class ABSceneLoader : IABSceneUnloadSink
     /// </summary>
     /// <param name="entry">已解析的公共 Scene 条目</param>
     /// <param name="mode">Single 会替换当前场景；Additive 由调用方另行卸载</param>
-    /// <param name="activateOnLoad">true 直接激活；false 先做有界预载再激活（见类型注释第 4 条）</param>
+    /// <param name="activateOnLoad">true 直接激活；false 先做有界预载再激活</param>
     public async Task<SceneHandle> LoadSceneAsync(
         RuntimeAssetEntry entry,
         LoadSceneMode mode,

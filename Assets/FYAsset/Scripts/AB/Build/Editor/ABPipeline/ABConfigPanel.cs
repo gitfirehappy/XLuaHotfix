@@ -70,7 +70,6 @@ public sealed class ABConfigPanel : IBuildPipelinePanel
 
         VisualElement card = BuildPipelineUI.Card();
         card.Add(BuildPipelineUI.Header("AB Settings"));
-        card.Add(new PropertyField(_buildSettingsSo.FindProperty(nameof(FYAssetABSettings.HotfixUrl))));
         card.Add(new PropertyField(_buildSettingsSo.FindProperty(nameof(FYAssetABSettings.HotfixMaxRetryCount))));
         card.Add(new PropertyField(_buildSettingsSo.FindProperty(nameof(FYAssetABSettings.HotfixRetryBaseDelaySeconds))));
         card.Add(BuildPipelineUI.PathField(_buildSettingsSo.FindProperty(nameof(FYAssetABSettings.BuildPipelineConfigPath)), "Pipeline Config Path", BuildPipelineUI.PathPickerMode.AssetFile));

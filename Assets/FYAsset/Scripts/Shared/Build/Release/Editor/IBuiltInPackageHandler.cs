@@ -5,10 +5,7 @@ using System.Collections.Generic;
 /// 内置包（StreamingAssets 启动数据）staging / 校验 / 应用的后端契约。
 /// </summary>
 /// <remarks>
-/// 定位（计划 T7）：Full / Standalone 构建需要把后端清单与内容落到 StreamingAssets，
-/// 由各构建后端实现本接口，LocalBuildDataExporter 只持有中性的导出流程。
-/// 这里描述的是“安装包内置的完整包”，与历史 baseline 指针语义无关：
-/// 本接口不保存版本指针、不记录历史交付清单，也不参与发布。
+/// 内置包导出只描述安装包中的完整内容；Shared 流程负责通用目录处理，后端实现负责自己的清单文件。
 /// </remarks>
 public interface IBuiltInPackageHandler
 {

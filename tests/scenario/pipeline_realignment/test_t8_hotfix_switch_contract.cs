@@ -1,11 +1,8 @@
 using System;
 
 /// <summary>
-/// 热更状态机契约门禁（计划 T8）。
-/// 目标：激活热更包后一个运行时上下文只读取一个包根目录，禁止逐文件回退 StreamingAssets；
-/// BuildIndex.RuntimeMode 成为 Online 与 Standalone 的唯一运行时事实来源；
-/// 热更状态只表达 BuiltIn / Local / RemoteTarget / Blocked，baseline 命名全部清除；
-/// 并新增运行中 Check / Prepare / Apply 三阶段。
+/// 热更状态机契约门禁。
+/// 验证运行时只读取当前激活包根，RuntimeMode 是在线/单机模式事实来源，并覆盖 Check、Prepare、Apply 行为。
 /// </summary>
 internal static class HotfixSwitchContractTests
 {
@@ -147,7 +144,7 @@ internal static class HotfixSwitchContractTests
         }
     }
 
-    /// <summary>运行中热更必须提供 Check / Prepare / Apply 三阶段。</summary>
+    /// <summary>运行中热更必须提供 Check / Prepare / Apply 操作。</summary>
     private static void VerifyHotfixSupportsRuntimeCheckPrepareApply()
     {
         GateAssert.TreeHasSymbol(
