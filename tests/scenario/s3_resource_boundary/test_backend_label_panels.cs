@@ -18,18 +18,23 @@ internal static class BackendLabelPanelTests
         RepoAssert.NotContains(aa, "ProjectSelectionLabelPanel", "AA uses native Addressables editing");
         RepoAssert.NotContains(ab, "ProjectSelectionLabelPanel", "AB uses Collection editing");
 
-        // 标签只由 AssetOverrides 承载：标签编辑只改 Curate candidate，只有 Save 才落盘，
-        // 不再断言已删除的 AssetEntries / 批量标签入口。
         string source = RepoSource.Read(root + "AB/Build/Editor/ABPipeline/AssetsCollectionPanel.cs");
-        string overrides = Between(source, "private void DrawAssetOverridesEditor(", "private static Label CreateColumnLabel(");
-        RepoAssert.Contains(overrides, "_curateSetting", "Labels require an editable candidate");
-        RepoAssert.Contains(overrides, "GetOrCreateAssetOverride", "Labels update candidate metadata");
-        RepoAssert.NotContains(overrides, "SaveAssets", "Batch editing must not persist independently");
-        RepoAssert.NotContains(overrides, "_setting.", "Batch editing must not write saved settings");
+        RepoAssert.Contains(source, "DrawAssetEditor", "Asset Details owns Address and Labels editing");
+        RepoAssert.Contains(source, "UpdateAssetAddressEntry", "Details writes candidate metadata");
+        RepoAssert.Contains(source, "AssetAddressEntries", "Save uses the new address entry collection");
+        RepoAssert.Contains(source, "RegisterAddressContextMenu", "Address has a context menu for short and long names");
+        RepoAssert.Contains(source, "RegisterGroupContextMenu", "Group has a context menu for short and long names");
+        RepoAssert.NotContains(source, "DrawAssetOverridesEditor", "Standalone Asset Overrides view is removed");
+        RepoAssert.NotContains(source, "AddAddressOperationButtons", "Inline Apply Address buttons are removed");
+        RepoAssert.NotContains(source, "ValidateCurate", "Manual Validate entry is removed");
+        RepoAssert.NotContains(source, "setting.AddressStyle", "Collection Setting has no global AddressStyle");
+        RepoAssert.NotContains(source, "ExcludedAssets", "Collection Setting has no ExcludedAssets editor");
+        RepoAssert.NotContains(source, "Address Override", "Details uses Address directly");
+        RepoAssert.NotContains(source, "Labels Override", "Details uses Labels directly");
         RepoAssert.NotContains(source, "AddressableAsset", "AB must not write AA metadata");
 
         string save = Between(source, "private void SaveCollectors()", "private bool HasValidationError()");
-        RepoAssert.Contains(save, "CloneAssetOverrides(_curateSetting.AssetOverrides)", "Save copies candidate entries");
+        RepoAssert.Contains(save, "CloneAssetAddressEntries(_curateSetting.AssetAddressEntries)", "Save copies candidate entries");
         RepoAssert.Contains(save, "AssetDatabase.SaveAssets()", "Save owns persistence");
         string cancel = Between(source, "private void CancelCurate()", "private void RenderPreviewTree(");
         RepoAssert.Contains(cancel, "CloneSetting(_setting)", "Cancel reloads saved state");

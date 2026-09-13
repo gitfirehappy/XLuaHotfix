@@ -148,8 +148,8 @@ internal static class LabelParityRetirementTests
     }
 
     /// <summary>
-    /// 逐资产标签表：CollectorSetting.asset 使用 AssetOverrides。
-    /// 未配置覆盖的条目沿用 Setting.AddressStyle 自动生成的 Address。
+    /// 逐资产标签表：CollectorSetting.asset 使用 AssetAddressEntries。
+    /// 未配置显式 Address 的条目使用完整 Assets 路径自动地址。
     /// </summary>
     private static Dictionary<string, HashSet<string>> ParseABLabelQueries()
     {
@@ -165,8 +165,7 @@ internal static class LabelParityRetirementTests
         for (int i = 0; i < lines.Length; i++)
         {
             string line = lines[i];
-            // AssetOverrides 由 GUID 关联资产元数据，字段结构保持与配置资产一致。
-            if (line == "  AssetOverrides:")
+            if (line == "  AssetAddressEntries:")
             {
                 inEntries = true;
                 continue;
@@ -178,7 +177,7 @@ internal static class LabelParityRetirementTests
                 guid = line.Substring("  - AssetGUID: ".Length);
                 inEntry = true;
                 inLabels = false;
-                // 缺省即自动地址：先按自动规则补出，若随后出现显式 Address 键再覆盖。
+                // 缺省即完整 Assets 路径自动地址，若随后出现显式 Address 键再覆盖。
                 address = ResolveAutoAddress(guid, assetPathByGuid);
                 if (address != null && AbE2EFixtureAddresses.Contains(address))
                     address = null;
@@ -241,13 +240,13 @@ internal static class LabelParityRetirementTests
         addresses.Add(address);
     }
 
-    /// <summary>空 Address 的覆盖条目按 Setting.AddressStyle（ShortName）生成地址。</summary>
+    /// <summary>空 Address 的条目使用完整 Assets 路径自动地址。</summary>
     private static string ResolveAutoAddress(string guid, Dictionary<string, string> assetPathByGuid)
     {
         if (string.IsNullOrEmpty(guid) || !assetPathByGuid.TryGetValue(guid, out string assetPath))
             return null;
 
-        return Path.GetFileNameWithoutExtension(assetPath);
+        return assetPath.Replace('\\', '/');
     }
 
     /// <summary>扫描 Assets 下的 .meta，建立 GUID → 资产路径映射，用于解析空 Address 的自动地址。</summary>

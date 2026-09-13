@@ -45,7 +45,7 @@ public class CollectABAssetsTask : IBuildTask
             return result;
         }
 
-        ScanResult scanResult = CollectionScanner.Scan(setting, CollectionScanOptions.FromSetting(setting));
+        ScanResult scanResult = CollectionScanner.Scan(setting);
         if (AppendMessages(scanResult.Messages, warnings))
         {
             BuildTaskResult result = BuildTaskResult.Fail(
@@ -106,7 +106,7 @@ public class CollectABAssetsTask : IBuildTask
                 {
                     AssetPath = path,
                     AssetGUID = guid,
-                    Address = AssetAddressGenerator.GenerateAddress(path, primaryType, AssetAddressStyle.ShortName),
+                    Address = AssetAddressGenerator.GenerateAddress(path, primaryType, AssetAddressStyle.LongAssetPath),
                     PrimaryType = primaryType,
                     Labels = new List<string>(),
                     GroupName = SystemIdentifiers.SharedGroupName,

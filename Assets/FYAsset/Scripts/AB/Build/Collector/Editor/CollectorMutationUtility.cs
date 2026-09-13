@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEditor;
 
 /// <summary>
-/// Collector 归属关系和配置级资源排除的共享 Editor 修改入口。
+/// Collector 归属关系和 Ignore 规则的共享 Editor 修改入口。
 /// </summary>
 public static class CollectorMutationUtility
 {
@@ -12,7 +12,7 @@ public static class CollectorMutationUtility
         Uncollected,
         DirectCollector,
         CoveredByFolderCollector,
-        Excluded
+        Ignored
     }
 
     public sealed class MembershipInfo
@@ -30,10 +30,7 @@ public static class CollectorMutationUtility
 
     public static AssetCollectionSetting LoadSetting()
     {
-        AssetCollectionSetting setting = AssetDatabase.LoadAssetAtPath<AssetCollectionSetting>(FYAssetABSettings.Instance.AssetCollectionSettingPath);
-        if (setting != null && setting.RefreshExcludedAssetPaths())
-            SaveSetting(setting);
-        return setting;
+        return AssetDatabase.LoadAssetAtPath<AssetCollectionSetting>(FYAssetABSettings.Instance.AssetCollectionSettingPath);
     }
 
     public static MembershipInfo GetMembership(string assetPath)
@@ -41,16 +38,16 @@ public static class CollectorMutationUtility
         string normalized = CollectorPathUtility.NormalizePath(assetPath);
         string guid = AssetDatabase.AssetPathToGUID(normalized);
         bool isFolder = AssetDatabase.IsValidFolder(normalized);
+        AssetCollectionSetting setting = LoadSetting();
 
         var info = new MembershipInfo
         {
             AssetPath = normalized,
             AssetGuid = guid,
             IsFolder = isFolder,
-            State = IsExcludedGuid(guid) ? CollectionState.Excluded : CollectionState.Uncollected
+            State = IsIgnoredPath(setting, normalized) ? CollectionState.Ignored : CollectionState.Uncollected
         };
 
-        AssetCollectionSetting setting = LoadSetting();
         if (setting == null || !CollectorReverseIndex.Instance.TryGetCollector(normalized, out CollectorReverseIndex.CollectorRef collectorRef))
             return info;
 
@@ -62,15 +59,12 @@ public static class CollectorMutationUtility
 
         bool directMatch = IsDirectMatch(info.Collector, normalized, isFolder);
         info.State = directMatch ? CollectionState.DirectCollector : CollectionState.CoveredByFolderCollector;
-        if (!isFolder && IsExcludedGuid(guid))
-            info.State = CollectionState.Excluded;
+        if (!isFolder && IsIgnoredPath(setting, normalized))
+            info.State = CollectionState.Ignored;
 
         return info;
     }
 
-    /// <summary>
-    /// 把资产路径加入目标 Group。已排除的资产优先恢复采集，不重复新增 Collector。
-    /// </summary>
     public static bool AddToGroup(AssetCollectionSetting setting, AssetCollectionGroup group, string assetPath)
     {
         if (setting == null || group == null)
@@ -80,9 +74,9 @@ public static class CollectorMutationUtility
         if (string.IsNullOrEmpty(normalized) || string.IsNullOrEmpty(AssetDatabase.AssetPathToGUID(normalized)))
             return false;
 
-        string guid = AssetDatabase.AssetPathToGUID(normalized);
-        if (RemoveExcludedAsset(setting, guid))
+        if (RemoveIgnorePattern(setting, normalized))
         {
+            SaveSetting(setting);
             NotifyChanged();
             return true;
         }
@@ -99,17 +93,16 @@ public static class CollectorMutationUtility
             CollectPathType = isFolder ? ECollectPathType.Folder : ECollectPathType.File
         });
 
-        EditorUtility.SetDirty(setting);
-        AssetDatabase.SaveAssets();
+        SaveSetting(setting);
         NotifyChanged();
         return true;
     }
 
-    public static bool RemoveOrExclude(string assetPath)
+    public static bool RemoveOrIgnore(string assetPath)
     {
         string normalized = CollectorPathUtility.NormalizePath(assetPath);
         MembershipInfo info = GetMembership(normalized);
-        if (info.State == CollectionState.Excluded)
+        if (info.State == CollectionState.Ignored)
             return false;
 
         AssetCollectionSetting setting = LoadSetting();
@@ -122,17 +115,17 @@ public static class CollectorMutationUtility
             if (!RemoveCollector(setting, info.CollectorRef))
                 return false;
 
-            EditorUtility.SetDirty(setting);
-            AssetDatabase.SaveAssets();
+            SaveSetting(setting);
             NotifyChanged();
             return true;
         }
 
         if (!info.IsFolder && info.State == CollectionState.CoveredByFolderCollector)
         {
-            if (!AddExcludedAsset(setting, normalized))
+            if (!AddIgnorePattern(setting, normalized))
                 return false;
 
+            SaveSetting(setting);
             NotifyChanged();
             return true;
         }
@@ -140,24 +133,25 @@ public static class CollectorMutationUtility
         return false;
     }
 
-    public static bool RestoreExcluded(string assetPath)
+    public static bool RestoreIgnored(string assetPath)
     {
-        string guid = AssetDatabase.AssetPathToGUID(CollectorPathUtility.NormalizePath(assetPath));
+        string normalized = CollectorPathUtility.NormalizePath(assetPath);
         AssetCollectionSetting setting = LoadSetting();
-        if (!RemoveExcludedAsset(setting, guid))
+        if (!RemoveIgnorePattern(setting, normalized))
             return false;
 
+        SaveSetting(setting);
         NotifyChanged();
         return true;
     }
 
-    public static bool IsExcludedGuid(string guid)
+    public static bool IsIgnoredGuid(string guid)
     {
         if (string.IsNullOrEmpty(guid))
             return false;
 
-        AssetCollectionSetting setting = LoadSetting();
-        return setting != null && setting.IsExcludedAssetGuid(guid);
+        string assetPath = CollectorPathUtility.NormalizePath(AssetDatabase.GUIDToAssetPath(guid));
+        return IsIgnoredPath(LoadSetting(), assetPath);
     }
 
     public static void NotifyChanged()
@@ -165,6 +159,46 @@ public static class CollectorMutationUtility
         CollectorReverseIndex.Instance.MarkDirty();
         Changed?.Invoke();
         UnityEditorInternal.InternalEditorUtility.RepaintAllViews();
+    }
+
+    private static bool IsIgnoredPath(AssetCollectionSetting setting, string assetPath)
+    {
+        return setting != null && GitIgnoreMatcher.Evaluate(assetPath, setting.GetEffectiveIgnorePatterns());
+    }
+
+    private static bool AddIgnorePattern(AssetCollectionSetting setting, string assetPath)
+    {
+        if (setting == null || string.IsNullOrEmpty(assetPath))
+            return false;
+
+        setting.IgnorePatterns ??= new List<string>();
+        for (int i = 0; i < setting.IgnorePatterns.Count; i++)
+        {
+            if (string.Equals(setting.IgnorePatterns[i], assetPath, StringComparison.OrdinalIgnoreCase))
+                return false;
+        }
+
+        Undo.RecordObject(setting, "Ignore Asset");
+        setting.IgnorePatterns.Add(assetPath);
+        return true;
+    }
+
+    private static bool RemoveIgnorePattern(AssetCollectionSetting setting, string assetPath)
+    {
+        if (setting?.IgnorePatterns == null || string.IsNullOrEmpty(assetPath))
+            return false;
+
+        bool removed = false;
+        for (int i = setting.IgnorePatterns.Count - 1; i >= 0; i--)
+        {
+            if (!string.Equals(setting.IgnorePatterns[i], assetPath, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            setting.IgnorePatterns.RemoveAt(i);
+            removed = true;
+        }
+
+        return removed;
     }
 
     private static AssetCollectionGroup GetGroup(AssetCollectionSetting setting, CollectorReverseIndex.CollectorRef collectorRef)
@@ -206,36 +240,9 @@ public static class CollectorMutationUtility
                string.Equals(CollectorPathUtility.NormalizePath(collector.CollectPath), assetPath, StringComparison.OrdinalIgnoreCase);
     }
 
-    private static bool AddExcludedAsset(AssetCollectionSetting setting, string assetPath)
-    {
-        if (setting == null || string.IsNullOrEmpty(assetPath))
-            return false;
-
-        string guid = AssetDatabase.AssetPathToGUID(assetPath);
-        if (string.IsNullOrEmpty(guid) || setting.IsExcludedAssetGuid(guid))
-            return false;
-
-        Undo.RecordObject(setting, "Exclude Asset From Collector");
-        setting.AddExcludedAsset(guid, assetPath);
-        SaveSetting(setting);
-        return true;
-    }
-
-    private static bool RemoveExcludedAsset(AssetCollectionSetting setting, string guid)
-    {
-        if (setting == null || string.IsNullOrEmpty(guid) || !setting.IsExcludedAssetGuid(guid))
-            return false;
-
-        Undo.RecordObject(setting, "Restore Asset To Collector");
-        setting.RemoveExcludedAsset(guid);
-        SaveSetting(setting);
-        return true;
-    }
-
     private static void SaveSetting(AssetCollectionSetting setting)
     {
         EditorUtility.SetDirty(setting);
         AssetDatabase.SaveAssets();
     }
-
 }

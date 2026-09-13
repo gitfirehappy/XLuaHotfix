@@ -19,14 +19,14 @@ internal static class CollectionContractTests
     {
         GateChecks.RunAll(
             ("SettingDeclaresGroupsInsteadOfPackages", VerifySettingDeclaresGroupsInsteadOfPackages),
-            ("SettingDeclaresAssetOverridesInsteadOfAssetEntries", VerifySettingDeclaresAssetOverridesInsteadOfAssetEntries),
+            ("SettingDeclaresAssetAddressEntries", VerifySettingDeclaresAssetAddressEntries),
             ("SettingOwnsRawFileRulesAndSharePolicy", VerifySettingOwnsRawFileRulesAndSharePolicy),
-            ("SettingKeepsAddressStyleAndIgnorePatterns", VerifySettingKeepsAddressStyleAndIgnorePatterns),
+            ("SettingDropsGlobalAddressStyleAndKeepsIgnorePatterns", VerifySettingDropsGlobalAddressStyleAndKeepsIgnorePatterns),
             ("CollectorEnumsDropLegacyKinds", VerifyCollectorEnumsDropLegacyKinds),
             ("CollectionGroupDropsLabelsField", VerifyCollectionGroupDropsLabelsField),
             ("CollectorKeepsOnlyPathFields", VerifyCollectorKeepsOnlyPathFields),
-            ("AssetOverrideTypeDeclaresOverrideFields", VerifyAssetOverrideTypeDeclaresOverrideFields),
-            ("RawFileRulesTypeDeclaresWhitelistFields", VerifyRawFileRulesTypeDeclaresWhitelistFields),
+            ("AssetAddressEntryTypeDeclaresAddressFields", VerifyAssetAddressEntryTypeDeclaresAddressFields),
+            ("RawFileRulesTypeDeclaresPatterns", VerifyRawFileRulesTypeDeclaresPatterns),
             ("SharePolicyConfigTypeDeclaresSharePatterns", VerifySharePolicyConfigTypeDeclaresSharePatterns),
             ("ReflectionRuleFilesAndDirectoryRemoved", VerifyReflectionRuleFilesAndDirectoryRemoved),
             ("ReflectionRuleSymbolsRemovedFromScripts", VerifyReflectionRuleSymbolsRemovedFromScripts),
@@ -79,13 +79,15 @@ internal static class CollectionContractTests
     }
 
     /// <summary>资产级元数据从自动表改为人工覆盖表。</summary>
-    private static void VerifySettingDeclaresAssetOverridesInsteadOfAssetEntries()
+    private static void VerifySettingDeclaresAssetAddressEntries()
     {
         string body = SettingBody();
-        GateAssert.HasSymbol(body, "AssetOverrides",
-            "AssetCollectionSetting 必须持有 AssetOverrides：计划把自动生成的 AssetEntries 表改为逐资产人工覆盖表");
+        GateAssert.HasSymbol(body, "AssetAddressEntries",
+            "AssetCollectionSetting 必须持有 AssetAddressEntries：资源 Address/Labels 只保存用户明确编辑的数据");
+        GateAssert.NoSymbol(body, "AssetOverrides",
+            "AssetCollectionSetting 不得保留 AssetOverrides 旧设计名称");
         GateAssert.NoSymbol(body, "AssetEntries",
-            "AssetCollectionSetting 不得再含 AssetEntries：自动资产表取消后，地址与标签只由 AssetOverrides 覆盖");
+            "AssetCollectionSetting 不得再含 AssetEntries");
     }
 
     /// <summary>项目级 RawFile 规则与共享策略都上移到 Setting。</summary>
@@ -98,14 +100,13 @@ internal static class CollectionContractTests
             "AssetCollectionSetting 必须持有 SharePolicy 字段：SharePolicyConfig 从 Package 级上移到 Setting，成为共享/禁共享策略的唯一来源");
     }
 
-    /// <summary>AddressStyle 与 IgnorePatterns 的行为保持不变。</summary>
-    private static void VerifySettingKeepsAddressStyleAndIgnorePatterns()
+    private static void VerifySettingDropsGlobalAddressStyleAndKeepsIgnorePatterns()
     {
         string body = SettingBody();
-        GateAssert.HasSymbol(body, "AddressStyle",
-            "AssetCollectionSetting 必须保留 AddressStyle：自动 Address 的项目级默认样式属于必须保留的等价行为");
+        GateAssert.NoSymbol(body, "AddressStyle",
+            "AssetCollectionSetting 不得持有全局 AddressStyle：地址样式改为逐资产 Details 操作");
         GateAssert.HasSymbol(body, "IgnorePatterns",
-            "AssetCollectionSetting 必须保留 IgnorePatterns：全局排除规则（默认脚本/程序集/Editor 排除）属于必须保留的等价行为");
+            "AssetCollectionSetting 必须保留 IgnorePatterns：全局排除规则仍是 Collection 输入");
     }
 
     /// <summary>采集器类型、资产角色和强制载荷三个旧枚举必须消失。</summary>
@@ -150,20 +151,24 @@ internal static class CollectionContractTests
             "Collector 不得再含 GroupRuleName：序列化规则名随反射规则体系一起删除");
     }
 
-    /// <summary>AssetOverride 取代 AssetEntry 自动表。</summary>
-    private static void VerifyAssetOverrideTypeDeclaresOverrideFields()
+    private static void VerifyAssetAddressEntryTypeDeclaresAddressFields()
     {
-        AssertTypeDeclaresMembers(AbRoot, "AssetOverride",
+        AssertTypeDeclaresMembers(AbRoot, "AssetAddressEntry",
             new[] { "AssetGUID", "Address", "Labels" },
-            "目标类型 AssetOverride 必须声明 AssetGUID/Address/Labels：它是 AssetEntries 自动表删除后唯一的逐资产覆盖入口");
+            "目标类型 AssetAddressEntry 必须声明 AssetGUID/Address/Labels");
+        GateAssert.TreeHasNoSymbol(AbRoot, "AssetOverride",
+            "AssetOverride 旧类型必须从 AB 脚本树消失");
     }
 
-    /// <summary>项目级 RawFile 白名单类型。</summary>
-    private static void VerifyRawFileRulesTypeDeclaresWhitelistFields()
+    private static void VerifyRawFileRulesTypeDeclaresPatterns()
     {
         AssertTypeDeclaresMembers(AbRoot, "RawFileRules",
-            new[] { "Extensions", "FileNames", "Folders" },
-            "目标类型 RawFileRules 必须声明 Extensions/FileNames/Folders：RawFile 白名单是 .gitignore 风格的项目级匹配，覆盖后缀、文件名与文件夹三类");
+            new[] { "Patterns" },
+            "目标类型 RawFileRules 只保留与 Ignore 共用 gitignore 语义的 Patterns 列表");
+        string code = RepoSource.ReadCode("Assets/FYAsset/Scripts/AB/Build/Collector/RawFileRules.cs");
+        GateAssert.NoSymbol(code, "Extensions", "RawFileRules 不得保留 Extensions 字段");
+        GateAssert.NoSymbol(code, "FileNames", "RawFileRules 不得保留 FileNames 字段");
+        GateAssert.NoSymbol(code, "Folders", "RawFileRules 不得保留 Folders 字段");
     }
 
     /// <summary>共享策略配置仍由 Setting 持有两个模式列表。</summary>

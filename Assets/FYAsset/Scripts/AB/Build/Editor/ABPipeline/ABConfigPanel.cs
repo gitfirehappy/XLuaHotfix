@@ -77,7 +77,11 @@ public sealed class ABConfigPanel : IBuildPipelinePanel
         card.Add(BuildPipelineUI.ByteSizeField(_buildSettingsSo.FindProperty(nameof(FYAssetABSettings.MaxHotfixSizeBytes)), "Max Hotfix Size"));
         card.Add(BuildPipelineUI.PathField(_buildSettingsSo.FindProperty(nameof(FYAssetABSettings.AssetCollectionDataFolder)), "Asset Collection Data Folder", BuildPipelineUI.PathPickerMode.AssetFolder));
         card.Add(BuildPipelineUI.PathField(_buildSettingsSo.FindProperty(nameof(FYAssetABSettings.AssetCollectionSettingPath)), "AssetCollectionSetting Path", BuildPipelineUI.PathPickerMode.AssetFile));
-        card.Add(new PropertyField(_buildSettingsSo.FindProperty(nameof(FYAssetABSettings.DependencyFilterExtensions)), "Dependency Filter Extensions"));
+        PropertyField dependencyFilter = new PropertyField(
+            _buildSettingsSo.FindProperty(nameof(FYAssetABSettings.DependencyFilterExtensions)),
+            "Dependency Filter Extensions");
+        dependencyFilter.tooltip = "依赖分析展开时跳过这些扩展名，不会把它们作为运行时资源继续展开。";
+        card.Add(dependencyFilter);
         card.Bind(_buildSettingsSo);
         _root.Add(card);
 

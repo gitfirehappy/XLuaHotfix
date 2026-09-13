@@ -252,12 +252,12 @@ public static class BuildTestFixtures
         if (string.IsNullOrEmpty(guid))
             throw new InvalidOperationException("Missing GUID for " + assetPath);
 
-        AssetOverride entry = setting.FindAssetOverride(guid);
+        AssetAddressEntry entry = setting.FindAssetAddressEntry(guid);
         if (entry == null)
         {
-            entry = new AssetOverride { AssetGUID = guid };
-            setting.AssetOverrides ??= new List<AssetOverride>();
-            setting.AssetOverrides.Add(entry);
+            entry = new AssetAddressEntry { AssetGUID = guid };
+            setting.AssetAddressEntries ??= new List<AssetAddressEntry>();
+            setting.AssetAddressEntries.Add(entry);
         }
 
         entry.Address = address;
@@ -369,7 +369,7 @@ public static class BuildTestFixtures
     private static void AssertABAddress(AssetCollectionSetting setting, string path, string address)
     {
         string guid = AssetDatabase.AssetPathToGUID(path);
-        AssetOverride entry = setting.FindAssetOverride(guid);
+        AssetAddressEntry entry = setting.FindAssetAddressEntry(guid);
         if (entry == null || !string.Equals(entry.Address, address, StringComparison.Ordinal))
             throw new InvalidOperationException($"AB fixed address missing for {path} -> {address}");
     }

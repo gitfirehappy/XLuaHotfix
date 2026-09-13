@@ -43,7 +43,6 @@ public sealed class BuildPackageResultsView
         _root.Clear();
 
         var toolbar = BuildPipelineUI.Toolbar();
-        toolbar.Add(BuildPipelineUI.ToolbarButton("Refresh", Refresh, 70f));
         toolbar.Add(BuildPipelineUI.ToolbarButton("Packages Folder", RevealPackagesFolder, 110f));
         toolbar.Add(BuildPipelineUI.ToolbarButton("Delete Selected", DeleteSelected, 118f));
         toolbar.Add(BuildPipelineUI.Spacer());

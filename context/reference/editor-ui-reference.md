@@ -59,6 +59,6 @@
 1. **层级**：AB 采集配置只有 `AssetCollectionSetting → Group → Collector` 三层，没有 YooAsset 的 `Package` 层，也没有独立 Project Labels 页面。照搬 YooAsset 的 `Package → Group → Collector` 树会引入本项目已删除的配置层。
 2. **左右分栏与拖拽**：左右分栏、可拖拽分割线、`CollectPath` 接收 Project 目录拖入事件这类交互与本项目 Collection 面板一致，属于可继续沿用的模式。
 3. **规则下拉框不适用**：本项目已删除 `IFilterRule` / `IGroupRule` / `RuleResolver` 反射规则体系与对应的反射下拉控件（`RuleDropdownHelper`），扫描行为是固定的可验证流程；Collector 只保存 `CollectPath` 与 `CollectPathType`。不要按 YooAsset 的 Rule/Filter/Pack 下拉设计新的采集字段。
-4. **Address / Packing 归属**：Address 样式是项目级 `AssetAddressStyle`，打包粒度是 Group 级 `BundlePackingMode`，都在 Setting/Group 上编辑，不存在 Collector 级 Rule 名或逐资产 Role/Payload 下拉。
+4. **Address / Packing 归属**：Address 默认是每个资源的完整长路径；Details 可直接编辑，左侧 Group 或 Asset 行右键可选择短名/长路径。打包粒度仍由 Group 级 `BundlePackingMode` 控制。
 5. **实时校验**：路径缺失、命名非法、同路径冲突等以结构化 `BuildMessage` 输出，可在面板内展示并定位到配置项；这与 Addressables 的校验红标体验目标一致。
-6. **窗口与面板**：AA/AB 各自一个构建窗口，不含统一的 Repository/Diff 管理页；发布面板只处理发布与目标选择。AB 选择写入 `CurrentABTargetId`，不提供 `Apply URL`；规则名单统一在 AB Collection 面板编辑。
+6. **窗口与面板**：AA/AB 各自一个构建窗口，不含统一的 Repository/Diff 管理页；发布面板只处理发布与目标选择。AB 选择写入 `CurrentABTargetId`，不提供 `Apply URL`；Collection 面板左侧编辑 Group、Collector 和 Asset，右侧顶部用三个互斥按钮切换 Details、Scan、Settings；Ignore、RawFileRules、SharePolicy 在 Settings 中编辑工作副本。

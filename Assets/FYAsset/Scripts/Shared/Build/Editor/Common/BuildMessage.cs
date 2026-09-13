@@ -27,8 +27,8 @@ public static class BuildErrorCodes
     /// <summary>GroupName 在同一 Setting 内重复（保存时校验）</summary>
     public const string DuplicateGroupName = "DUPLICATE_GROUP_NAME";
 
-    /// <summary>AssetOverride 的 AssetGUID 为空或已失效（保存时校验）</summary>
-    public const string InvalidAssetOverrideGuid = "INVALID_ASSET_OVERRIDE_GUID";
+    /// <summary>AssetAddressEntry 的 AssetGUID 为空或已失效（保存时校验）</summary>
+    public const string InvalidAssetAddressEntryGuid = "INVALID_ASSET_ADDRESS_ENTRY_GUID";
 
     /// <summary>配置列表中的字符串项为空或含首尾空白（保存时校验）</summary>
     public const string BlankConfigEntry = "BLANK_CONFIG_ENTRY";
@@ -271,11 +271,11 @@ public class BuildMessage
         => Warning(BuildErrorCodes.DuplicateGroupName,
             string.Concat("Duplicate GroupName '", groupName, "' in AssetCollectionSetting."), source);
 
-    public static BuildMessage InvalidAssetOverrideGuid(string assetGuid, string source)
-        => Error(BuildErrorCodes.InvalidAssetOverrideGuid,
+    public static BuildMessage InvalidAssetAddressEntryGuid(string assetGuid, string source)
+        => Error(BuildErrorCodes.InvalidAssetAddressEntryGuid,
             string.IsNullOrEmpty(assetGuid)
-                ? "AssetOverride has an empty AssetGUID."
-                : string.Concat("AssetOverride AssetGUID '", assetGuid, "' does not resolve to a project asset."),
+                ? "AssetAddressEntry has an empty AssetGUID."
+                : string.Concat("AssetAddressEntry AssetGUID '", assetGuid, "' does not resolve to a project asset."),
             source);
 
     /// <summary>

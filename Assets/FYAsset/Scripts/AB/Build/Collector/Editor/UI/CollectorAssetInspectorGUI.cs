@@ -33,7 +33,7 @@ public static class CollectorAssetInspectorGUI
         CollectorMutationUtility.MembershipInfo membership = CollectorMutationUtility.GetMembership(assetPath);
         bool isCollected = membership.State == CollectorMutationUtility.CollectionState.DirectCollector ||
                            membership.State == CollectorMutationUtility.CollectionState.CoveredByFolderCollector;
-        bool isExcluded = membership.State == CollectorMutationUtility.CollectionState.Excluded;
+        bool isIgnored = membership.State == CollectorMutationUtility.CollectionState.Ignored;
         bool canToggleOff = membership.State == CollectorMutationUtility.CollectionState.DirectCollector ||
                             (!isFolder && membership.State == CollectorMutationUtility.CollectionState.CoveredByFolderCollector);
 
@@ -42,7 +42,7 @@ public static class CollectorAssetInspectorGUI
 
         Rect rowRect = EditorGUILayout.GetControlRect(false, 20f);
         EditorGUI.BeginDisabledGroup(isCollected && !canToggleOff);
-        bool newState = EditorGUI.ToggleLeft(rowRect, isExcluded ? "Collected (Excluded)" : "Collected", isCollected, EditorStyles.boldLabel);
+        bool newState = EditorGUI.ToggleLeft(rowRect, isIgnored ? "Collected (Ignored)" : "Collected", isCollected, EditorStyles.boldLabel);
         EditorGUI.EndDisabledGroup();
 
         if (isCollected)
@@ -52,15 +52,15 @@ public static class CollectorAssetInspectorGUI
 
             if (membership.State == CollectorMutationUtility.CollectionState.CoveredByFolderCollector)
             {
-                string hint = isFolder
+                    string hint = isFolder
                     ? "Covered by a parent Folder collector."
-                    : "Covered by a parent Folder collector. Toggle off to exclude this asset by GUID.";
+                    : "Covered by a parent Folder collector. Toggle off to add this asset path to Ignore.";
                 EditorGUILayout.LabelField(hint, EditorStyles.wordWrappedMiniLabel);
             }
         }
-        else if (isExcluded)
+        else if (isIgnored)
         {
-            EditorGUILayout.LabelField("Excluded from a parent Folder collector. Toggle on to restore collection.", EditorStyles.wordWrappedMiniLabel);
+            EditorGUILayout.LabelField("Ignored by a Collection rule. Toggle on to remove the exact path rule.", EditorStyles.wordWrappedMiniLabel);
         }
         else
         {
@@ -74,9 +74,9 @@ public static class CollectorAssetInspectorGUI
         {
             if (newState)
             {
-                if (isExcluded)
+                if (isIgnored)
                 {
-                    CollectorMutationUtility.RestoreExcluded(assetPath);
+                    CollectorMutationUtility.RestoreIgnored(assetPath);
                 }
                 else
                 {
@@ -85,7 +85,7 @@ public static class CollectorAssetInspectorGUI
             }
             else if (canToggleOff)
             {
-                CollectorMutationUtility.RemoveOrExclude(assetPath);
+                CollectorMutationUtility.RemoveOrIgnore(assetPath);
             }
         }
 

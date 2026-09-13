@@ -45,8 +45,8 @@ public static class DependencyAnalyzer
 
         // 忽略路径资产不进入共享决策：单引用时随引用方物理带入，多引用时由 Unity 各自带入引用方内容，
         // 两种情况都不产生 manifest 条目。
-        HashSet<string> effectiveIgnorePatterns = ignorePatterns != null
-            ? new HashSet<string>(ignorePatterns, StringComparer.OrdinalIgnoreCase)
+        List<string> effectiveIgnorePatterns = ignorePatterns != null
+            ? new List<string>(ignorePatterns)
             : null;
 
         AnalyzeAssets(
@@ -67,7 +67,7 @@ public static class DependencyAnalyzer
         SharePolicyConfig policy,
         RawFileRules rawFileRules,
         HashSet<string> filterExtensions,
-        HashSet<string> ignorePatterns,
+        IList<string> ignorePatterns,
         BundleDependencyGraph graph,
         List<BuildMessage> messages,
         List<CollectedAssetInfo> result)
@@ -330,16 +330,9 @@ public static class DependencyAnalyzer
         }
     }
 
-    private static bool IsIgnoredPath(string assetPath, HashSet<string> ignorePatterns)
+    private static bool IsIgnoredPath(string assetPath, IList<string> ignorePatterns)
     {
-        if (string.IsNullOrEmpty(assetPath) || ignorePatterns == null || ignorePatterns.Count == 0)
-            return false;
-        foreach (var pattern in ignorePatterns)
-        {
-            if (GlobMatcher.IsMatch(assetPath, pattern))
-                return true;
-        }
-        return false;
+        return GitIgnoreMatcher.Evaluate(assetPath, ignorePatterns);
     }
 
     private static CollectedAssetInfo CreateImplicitEntry(
@@ -418,15 +411,7 @@ public static class DependencyAnalyzer
 
     private static bool IsGlobMatch(string assetPath, List<string> patterns)
     {
-        if (patterns == null || patterns.Count == 0)
-            return false;
-
-        foreach (var pattern in patterns)
-        {
-            if (GlobMatcher.IsMatch(assetPath, pattern))
-                return true;
-        }
-        return false;
+        return GitIgnoreMatcher.Evaluate(assetPath, patterns);
     }
 
     private class ImplicitCandidate

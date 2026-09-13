@@ -35,7 +35,7 @@ public static class CollectorContextMenu
         bool changed = false;
 
         for (int i = 0; i < assetPaths.Length; i++)
-            changed |= CollectorMutationUtility.RemoveOrExclude(assetPaths[i]);
+            changed |= CollectorMutationUtility.RemoveOrIgnore(assetPaths[i]);
 
         if (changed)
             CollectorMutationUtility.NotifyChanged();

@@ -15,7 +15,9 @@
     <Compile Include="test_t6_runner_contract.cs" />
     <Compile Include="test_t7_baseline_exit_contract.cs" />
     <Compile Include="test_t8_hotfix_switch_contract.cs" />
+    <Compile Include="test_gitignore_matcher.cs" />
     <Compile Include="stubs/unity_runtime_stubs.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/AB/Build/Collector/GitIgnoreMatcher.cs" Link="Production/GitIgnoreMatcher.cs" />
     <Compile Include="../../../Assets/FYAsset/Scripts/AB/Runtime/AssetHandle.cs" Link="Production/AssetHandle.cs" />
     <Compile Include="../../../Assets/FYAsset/Scripts/AB/Runtime/HandleRegistry.cs" Link="Production/HandleRegistry.cs" />
     <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Runtime/RuntimeMessage.cs" Link="Production/RuntimeMessage.cs" />

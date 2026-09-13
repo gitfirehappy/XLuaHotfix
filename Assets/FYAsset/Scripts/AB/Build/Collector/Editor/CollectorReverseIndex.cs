@@ -158,9 +158,6 @@ public sealed class CollectorReverseIndex
         if (!IsValidFileCollectPath(collectPath))
             return;
 
-        if (IsExcludedAsset(setting, collectPath))
-            return;
-
         AddIfMissing(collectPath, collectorRef);
     }
 
@@ -189,10 +186,6 @@ public sealed class CollectorReverseIndex
                 continue;
             }
 
-            // 采集范围之外的资产由 CollectionScanner 在扫描时过滤，此处不再重复规则判断。
-            if (IsExcludedAsset(setting, assetPath))
-                continue;
-
             AddIfMissing(assetPath, collectorRef);
         }
     }
@@ -200,15 +193,6 @@ public sealed class CollectorReverseIndex
     private static AssetCollectionSetting LoadSetting()
     {
         return CollectorMutationUtility.LoadSetting();
-    }
-
-    private static bool IsExcludedAsset(AssetCollectionSetting setting, string assetPath)
-    {
-        string guid = AssetDatabase.AssetPathToGUID(assetPath);
-        if (string.IsNullOrEmpty(guid))
-            return false;
-
-        return setting != null && setting.IsExcludedAssetGuid(guid);
     }
 
     private void AddIfMissing(string assetPath, CollectorRef collectorRef)

@@ -15,14 +15,7 @@ public static class CollectionScanner
     /// <summary>扫描 AssetCollectionSetting 中配置的所有 Group/Collector，返回采集结果。</summary>
     public static ScanResult Scan(AssetCollectionSetting setting)
     {
-        return Scan(setting, CollectionScanOptions.None);
-    }
-
-    /// <summary>扫描 AssetCollectionSetting 中配置的所有 Group/Collector，返回采集结果。</summary>
-    public static ScanResult Scan(AssetCollectionSetting setting, CollectionScanOptions options)
-    {
         ScanResult result = new ScanResult();
-        options ??= CollectionScanOptions.None;
 
         if (setting == null)
         {
@@ -73,7 +66,6 @@ public static class CollectionScanner
         {
             CollectorContext ctx = contexts[ci];
             ctx.Setting = setting;
-            ctx.Options = options;
             ctx.IgnorePatterns = effectiveIgnorePatterns;
             if (!ScanCollector(ctx, result, collectedAssets))
                 break;
@@ -216,9 +208,6 @@ public static class CollectionScanner
         if (string.IsNullOrEmpty(guid))
             return true;
 
-        if (ctx.Options != null && ctx.Options.IsExcludedAssetGuid(guid))
-            return true;
-
         if (IsExcludedByOwnership(assetPath, ctx.ExcludedPaths))
             return true;
 
@@ -241,9 +230,6 @@ public static class CollectionScanner
             return true;
         }
 
-        if (CollectorPathUtility.MatchesIgnorePattern(assetPath, collectPath, ctx.IgnorePatterns))
-            return true;
-
         if (AssetClassifier.IsUnsupportedAssetBundleEntry(assetPath, out string unsupportedReason))
         {
             result.Messages.Add(BuildMessage.UnsupportedBundleEntryAsset(assetPath, unsupportedReason, assetPath));
@@ -255,14 +241,14 @@ public static class CollectionScanner
         AssetContentType contentType = AssetClassifier.ClassifyContentType(assetPath, ctx.Setting.RawFileRules);
 
         string primaryType = GetPrimaryTypeName(assetPath);
-        string generatedAddress = AssetAddressGenerator.GenerateAddress(assetPath, primaryType, ctx.Setting.AddressStyle);
-        AssetOverride assetOverride = ctx.Setting.FindAssetOverride(guid);
+        string generatedAddress = AssetAddressGenerator.GenerateAddress(assetPath, primaryType, AssetAddressStyle.LongAssetPath);
+        AssetAddressEntry addressEntry = ctx.Setting.FindAssetAddressEntry(guid);
 
-        string address = assetOverride != null && !string.IsNullOrEmpty(assetOverride.Address)
-            ? assetOverride.Address
+        string address = addressEntry != null && !string.IsNullOrEmpty(addressEntry.Address)
+            ? addressEntry.Address
             : generatedAddress;
 
-        List<string> labels = CopyLabels(assetOverride?.Labels);
+        List<string> labels = CopyLabels(addressEntry?.Labels);
 
         string targetGroupName = ctx.ParentGroupName;
         BundlePackingMode packingMode = ResolvePackingMode(ctx.ParentGroup, contentType);
@@ -422,45 +408,11 @@ public static class CollectionScanner
     private class CollectorContext
     {
         public AssetCollectionSetting Setting;
-        public CollectionScanOptions Options;
         public Collector Collector;
         public string ParentGroupName;
         public AssetCollectionGroup ParentGroup;
         public string SourceLabel;
         public List<string> IgnorePatterns;
         public List<string> ExcludedPaths = new();
-    }
-}
-
-/// <summary>
-/// 不修改 AssetCollectionSetting、仅影响采集扫描的可选输入。
-/// </summary>
-public sealed class CollectionScanOptions
-{
-    public static readonly CollectionScanOptions None = new CollectionScanOptions(null);
-
-    private readonly HashSet<string> _excludedAssetGuids;
-
-    public CollectionScanOptions(IReadOnlyCollection<AssetExclusion> excludedAssets)
-    {
-        _excludedAssetGuids = new HashSet<string>(StringComparer.Ordinal);
-        if (excludedAssets == null)
-            return;
-
-        foreach (AssetExclusion exclusion in excludedAssets)
-        {
-            if (!string.IsNullOrEmpty(exclusion?.AssetGUID))
-                _excludedAssetGuids.Add(exclusion.AssetGUID);
-        }
-    }
-
-    public bool IsExcludedAssetGuid(string guid)
-    {
-        return !string.IsNullOrEmpty(guid) && _excludedAssetGuids.Contains(guid);
-    }
-
-    public static CollectionScanOptions FromSetting(AssetCollectionSetting setting)
-    {
-        return new CollectionScanOptions(setting?.ExcludedAssets);
     }
 }

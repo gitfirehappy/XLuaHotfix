@@ -63,8 +63,8 @@ public class SettingsPanel : IBuildPipelinePanel
         _scrollView = new ScrollView();
         _scrollView.style.flexGrow = 1f;
 
-        DrawSection(_so, "Project", "ProjectName");
-        DrawSection(_so, "Build", "BuildOutputRoot", "BuildPackagesFolderName", "BuildIndexJsonPath");
+        DrawSection(_so, "General", "ProjectName");
+        DrawSection(_so, "Output", "BuildOutputRoot", "BuildPackagesFolderName", "BuildIndexJsonPath");
 
         _root.Add(_scrollView);
     }

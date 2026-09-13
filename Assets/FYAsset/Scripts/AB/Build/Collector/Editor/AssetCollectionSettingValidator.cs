@@ -5,15 +5,8 @@ using UnityEditor;
 /// <summary>
 /// AssetCollectionSetting 保存时校验器。
 /// </summary>
-/// <remarks>
-/// 配置层级只有 Setting -> Group -> Collector，资产级人工覆盖按 GUID 独立存储；
-/// 校验只做配置自身的完整性检查，不读取构建产物。
-/// </remarks>
 public static class AssetCollectionSettingValidator
 {
-    /// <summary>
-    /// 校验整个 Setting，返回全部诊断消息。存在 Error 级别消息时调用方应阻断保存。
-    /// </summary>
     public static List<BuildMessage> Validate(AssetCollectionSetting setting)
     {
         var messages = new List<BuildMessage>();
@@ -31,11 +24,10 @@ public static class AssetCollectionSettingValidator
         }
 
         ValidateGroups(setting, messages);
-        ValidateAssetOverrides(setting, messages);
+        ValidateAssetAddressEntries(setting, messages);
         ValidateStringList(setting.IgnorePatterns, "Setting.IgnorePatterns", messages);
         ValidateRawFileRules(setting.RawFileRules, messages);
         ValidateSharePolicy(setting.SharePolicy, messages);
-
         return messages;
     }
 
@@ -81,9 +73,7 @@ public static class AssetCollectionSettingValidator
                     continue;
                 }
 
-                string normalized = CollectorPathUtility.NormalizePath(collector.CollectPath);
-                collectPaths.Add((normalized, collectorSrc));
-
+                collectPaths.Add((CollectorPathUtility.NormalizePath(collector.CollectPath), collectorSrc));
                 if (!CollectPathExists(collector))
                     messages.Add(BuildMessage.PathNotFound(collector.CollectPath, collectorSrc));
             }
@@ -92,25 +82,23 @@ public static class AssetCollectionSettingValidator
         CheckSamePathConflicts(collectPaths, messages);
     }
 
-    private static void ValidateAssetOverrides(AssetCollectionSetting setting, List<BuildMessage> messages)
+    private static void ValidateAssetAddressEntries(AssetCollectionSetting setting, List<BuildMessage> messages)
     {
-        if (setting.AssetOverrides == null)
+        if (setting.AssetAddressEntries == null)
             return;
 
         HashSet<string> seenGuids = new HashSet<string>(StringComparer.Ordinal);
-        for (int i = 0; i < setting.AssetOverrides.Count; i++)
+        for (int i = 0; i < setting.AssetAddressEntries.Count; i++)
         {
-            AssetOverride entry = setting.AssetOverrides[i];
+            AssetAddressEntry entry = setting.AssetAddressEntries[i];
             if (entry == null)
                 continue;
 
-            string src = string.Concat("AssetOverrides[", i, "]");
-
-            // GUID 是覆盖条目的唯一权威键：为空或指向已失效资产都必须阻断，否则覆盖不会被任何资产命中。
+            string src = string.Concat("AssetAddressEntries[", i, "]");
             if (string.IsNullOrEmpty(entry.AssetGUID)
                 || string.IsNullOrEmpty(AssetDatabase.GUIDToAssetPath(entry.AssetGUID)))
             {
-                messages.Add(BuildMessage.InvalidAssetOverrideGuid(entry.AssetGUID, src));
+                messages.Add(BuildMessage.InvalidAssetAddressEntryGuid(entry.AssetGUID, src));
                 continue;
             }
 
@@ -123,12 +111,8 @@ public static class AssetCollectionSettingValidator
 
     private static void ValidateRawFileRules(RawFileRules rules, List<BuildMessage> messages)
     {
-        if (rules == null)
-            return;
-
-        ValidateStringList(rules.Extensions, "Setting.RawFileRules.Extensions", messages);
-        ValidateStringList(rules.FileNames, "Setting.RawFileRules.FileNames", messages);
-        ValidateStringList(rules.Folders, "Setting.RawFileRules.Folders", messages);
+        if (rules != null)
+            ValidateStringList(rules.Patterns, "Setting.RawFileRules.Patterns", messages);
     }
 
     private static void ValidateSharePolicy(SharePolicyConfig policy, List<BuildMessage> messages)

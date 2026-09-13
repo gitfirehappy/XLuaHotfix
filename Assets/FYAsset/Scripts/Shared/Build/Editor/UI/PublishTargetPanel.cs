@@ -260,7 +260,7 @@ public sealed class PublishTargetPanel : IBuildPipelinePanel, IBuildPipelinePane
         });
         row.Add(typeField);
 
-        Button remove = BuildPipelineUI.ToolbarButton("Remove", () => RemovePushTarget(index), 64f);
+        Button remove = BuildPipelineUI.ToolbarButton("Delete", () => RemovePushTarget(index), 64f);
         remove.style.marginLeft = 6f;
         row.Add(remove);
         container.Add(row);
@@ -519,15 +519,23 @@ public sealed class PublishTargetPanel : IBuildPipelinePanel, IBuildPipelinePane
             return;
 
         PushTargetConfig target = settings.PushTargets[index];
+        if (!EditorUtility.DisplayDialog(
+                "Delete Push Target",
+                $"Delete Push Target '{target?.Name ?? "(unnamed)"}'? This only removes the configuration; published files are unchanged.",
+                "Delete",
+                "Cancel"))
+        {
+            return;
+        }
+
+        Undo.RecordObject(settings, "Delete Push Target");
         if (_getCurrentTargetId != null
             && target != null
             && string.Equals(_getCurrentTargetId(), target.TargetId, StringComparison.OrdinalIgnoreCase))
         {
-            SetFeedback("Remove Refused", "当前 AB Target 必须先切换或清空选择。", new Color(0.65f, 0.20f, 0.16f));
-            return;
+            _setCurrentTargetId(string.Empty);
         }
 
-        Undo.RecordObject(settings, "Remove Push Target");
         settings.PushTargets.RemoveAt(index);
         SaveSettings();
         Rebuild();

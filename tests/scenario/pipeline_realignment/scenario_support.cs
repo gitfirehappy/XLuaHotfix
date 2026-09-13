@@ -14,6 +14,7 @@ internal static class Program
         var gates = new (string Name, Action Run)[]
         {
             ("HandleTokenBehavior", HandleTokenBehaviorTests.Run),
+            ("GitIgnoreMatcher", GitIgnoreMatcherTests.Run),
             ("T1CollectionContract", CollectionContractTests.Run),
             ("T2RawFileShareContract", RawFileShareContractTests.Run),
             ("T4ManifestContract", ManifestContractTests.Run),
