@@ -51,9 +51,8 @@ public static class BundleBuildInputFingerprint
 {
     /// <summary>
     /// 指纹算法版本；输入组成或产物命名契约变化时必须递增，使旧缓存自然失效。
-    /// 版本 2：物理内容文件名改为逻辑名的短哈希派生，旧缓存里的长名产物不再兼容。
+    /// 指纹格式版本；物理命名规则变化（12 位身份哈希 + 可读段）后已提升。
     /// </summary>
-    /// <summary>指纹格式版本；物理命名规则变化（12 位身份哈希 + 可读段）后已提升。</summary>
     public const int FormatVersion = 3;
 
     /// <summary>

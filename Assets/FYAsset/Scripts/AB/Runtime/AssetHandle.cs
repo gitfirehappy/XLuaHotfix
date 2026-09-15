@@ -13,7 +13,6 @@ using UnityEngine;
 /// </remarks>
 public struct AssetHandle<T> where T : UnityEngine.Object
 {
-
     /// <summary>Registry tokenId。0 表示 default 或失败句柄，不占用槽位。</summary>
     internal int HandleId;
 

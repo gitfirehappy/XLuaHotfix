@@ -1,6 +1,4 @@
-/// <summary>
-/// 解析状态、选中条目和可选诊断。
-/// </summary>
+/// <summary> 解析状态、选中条目和可选诊断。</summary>
 public class ResolveResult
 {
 

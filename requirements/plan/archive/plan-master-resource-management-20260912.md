@@ -1,0 +1,369 @@
+# Refactor Plan: XLuaHotfix Full Resource Management System Overhaul — Master Plan
+
+> **Status**: Implemented, awaiting developer sign-off. `plan-fyasset-windows-ab-remediation-20260911.md` (T0–T11) is complete: fresh pure-.NET matrix green, Windows Unity/Player matrix (`ab build full` / `ab build hotfix` / `ab e2e standalone` / `ab e2e full`) all exit 0, docs aligned and findings dispositioned. Residual items are recorded in `review/disposition-fyasset-windows-ab-remediation-20260911.md`. The superseded T0–T9 plan remains archived as acceptance-failure evidence. The follow-up AB publish/Target cleanup in `plan/plan-fyasset-ab-publish-target-cleanup-20260912.md` is now executing.
+
+> **Ultimate Goal**: Keep AA and custom AB as independent concrete frameworks; a real project directly selects exactly one backend, while Shared contains no backend-specific fields or compatibility routing.
+> **Created**: 2026-03-16
+> **Updated**: 2026-09-11 - T0–T9 resource-pipeline realignment failed acceptance and was archived; Windows AB remediation (T0–T11) is implemented with fresh gate and Unity/Player evidence, awaiting developer sign-off.
+
+
+---
+
+## Core Principles (Apply to All Sub-Plans)
+
+1. **No unnecessary changes** — Only refactor explicitly listed parts; leave other files untouched
+2. **No added complexity** — New abstraction layers must not introduce more indirection than existing implementation
+3. **Preserve existing logic** — Each direction has explicit Invariants that must pass
+4. **No paradigm shifts** — XLua bridge system / SO configuration approach preserved; hotfix build pipeline replaced incrementally
+5. **Incremental replacement** — Addressable API migrated step by step, no big-bang switch
+6. **Explain first** — Code comments must explain rationale when refactoring complex logic
+7. **Comments** — Follow `context/conventions/csharp-comments.md`; XML comments and region separators are not mandatory for every file.
+
+---
+
+## Execution Protocol (Mandatory)
+
+```
+1. Developer approves sub-plan (confirms approval checklist)
+   |
+2. Execute sub-plan (implement tasks step by step)
+   |
+3. Execution complete -> explain changes -> request developer sign-off
+   |
+4. Developer may ask questions at any time; executor must explain
+   |
+5. After sign-off -> ask whether to start next sub-plan
+   |
+6. Not satisfied -> refine current sub-plan (back to step 2)
+```
+
+**No code changes without explicit developer approval.**
+
+---
+
+## Full Roadmap
+
+### Phase Overview
+
+```
+Phase 1: Runtime Abstraction Layer (completed)
+  B1 IAssetIndex -> B2 IPackageBackend -> B3 DialogueDataManager
+
+Phase 2: Runtime Contract Layer (B5-1/B5-2 done, B5-3 cancelled, B5-4 deferred)
+  B5-1 Entry Model -> B5-2 Resolve/Load/Handle -> B5-3 CANCELLED -> B5-4 Deferred
+
+Phase 3: Runtime Implementation Layer <- Phase 3 COMPLETE
+  B6 ABAssetIndex impl (DONE) -> B7 ABPackageBackend impl (DONE) -> B8 AssetHandle + ref-count pool (DONE)
+
+Phase S: Serialization Infrastructure (cross-cutting, before Phase 4) <- Phase S COMPLETE
+  S1 Interface + JsonCodec (DONE) -> S2 BinaryCodec + code generator (DONE) -> S3 ABManifest binary (DONE) -> S4 Runtime integration (DONE)
+
+Phase 4: Hotfix Core Pipeline (B4+B9 merged)
+  IHotfixPipeline interface + ABHotfixBackend + LegacyHotfixBackend + orchestrator refactor
+
+Phase 5: Build-Time - Asset Collection & Indexing (ref. YooAsset)
+  E1 Collector framework -> E2 Packing rules -> E3 CANCELLED (absorbed by E1-3)
+
+Phase 6: Build-Time - Build Pipeline
+  E4 Dependency analysis -> E5 Build pipeline engine -> E6 ABManifest build export -> E7 Diff snapshot adaptation
+
+Phase 7: Delivery & Download Strategy
+  F1 Offline built-in package -> F2 Background download -> F3 A/B test variant download
+
+Phase 8: Editor Tools (incremental — inserted after each phase, no standalone G-series)
+
+Phase 9: Advanced Runtime
+  H1 AsyncOp priority scheduler (TBD) -> H2 LRU/LFU cache strategy (deferred)
+
+Phase 10: Assembly Splitting (last)
+  D0~D4 Modular splitting + glue layer
+```
+
+### Key Dependencies
+
+```
+Phase 1 --> Phase 2 --> Phase 3 --> Phase S --> Phase 4
+  (abstraction) (contract)  (impl)  (serialization) (hotfix core)
+                 |                      |               |
+                 | entry model format   | unified I/O   | ABManifest format
+                 v                      v               v
+              Phase 5 --> Phase 6 --------------------------> Phase 7
+              (build collect) (build pipeline, uses S2/S3)   (special assets)
+                              |
+                              v
+                          Phase 8 (editor tools)
+                              |
+                              v
+                          Phase 9 (advanced runtime)
+                              |
+                              v
+                          Phase 10 (assembly splitting)
+```
+
+**Note**: Phase 3 and Phase 5 can partially run in parallel (sharing entry model format defined in Phase 2).
+Phase 4 and Phase 6 must be coordinated (ABManifest runtime consumption + build-time output must align).
+
+---
+
+## Sub-Plan File Index by Phase
+
+### Phase 1: Runtime Abstraction Layer (completed)
+
+| File | Content | Status |
+|------|---------|--------|
+| plan-B1.md | B1: IAssetIndex asset index layer | DONE |
+| plan-B2.md | B2: IPackageBackend asset loading layer | DONE |
+| plan-B3.md | B3: DialogueDataManager dual mode | DONE |
+
+### Phase 2: Runtime Contract Layer (B5-1/B5-2 done, B5-3 cancelled, B5-4 deferred)
+
+| File | Content | Status |
+|------|---------|--------|
+| plan-B5.md | B5 Overview | Approved |
+| plan-B5-1.md | B5-1: Runtime entry model | DONE |
+| plan-B5-2.md | B5-2: Resolve/Load API + AssetHandle | DONE |
+| plan-B5-3.md | B5-3: Validation/diagnostics tools | CANCELLED (belongs to Phase 6 build pipeline) |
+| plan-B5-4.md | B5-4: Migration path & legacy API deprecation | Deferred (evolves naturally with implementation) |
+
+### Phase 3: Runtime Implementation Layer
+
+| ID | Content | Status |
+|----|---------|--------|
+| plan-B6.md | B6: ABAssetIndex implementation (custom index replacing AddressableLabelsConfig runtime role) | DONE |
+| plan-B6-manifest.md | ABManifest data layer specification | DONE |
+| plan-B7.md | B7: ABPackageBackend overview (custom AB runtime loading backend replacing AddressablesBackend) | DONE |
+| plan-B7-1.md | B7-1: ABBundleLoader — Bundle file I/O + dependency resolution + bundle cache | DONE |
+| plan-B7-2.md | B7-2: ABPackageBackend — IPackageBackend impl + asset cache + AssetPackageManager integration | DONE |
+| plan-B8.md | B8: AssetHandle<T> struct redesign + HandleRegistry + error propagation unification: (1) AssetHandle<T> changed from class to **struct** (value semantic, 0 GC) with HandleId+Generation + HandleRegistry pattern. (2) AssetLoadError.Code expansion (BundleNotFound, BundleLoadFailed, DependencyFailed, AssetExtractionFailed). (3) ABBundleLoader returns `(AssetBundle, AssetLoadError)` tuple (internal API). (4) ABPackageBackend internal tuple API `LoadAssetTupleAsync/Sync`. (5) AssetPackageManager 4 LoadByXxx methods integrated with HandleRegistry.Alloc. IPackageBackend/AddressablesBackend unchanged | DONE |
+
+### Phase 4: Hotfix Core Pipeline
+
+| File | Content | Status |
+|------|---------|--------|
+| plan-B4.md | B4: Catalog/Locator replacement (original concept doc, superseded by plan-B4B9.md) | Superseded |
+| plan-B4B9.md | B4+B9 merged: IHotfixPipeline interface separation + ABHotfixBackend + LegacyHotfixBackend + orchestrator refactor + NetworkDownloader relocation. Constants.USE_AB_BACKEND global switch | DONE |
+
+### Phase S: Serialization Infrastructure (cross-cutting)
+
+| File | Content | Status |
+|------|---------|--------|
+| plan-serialization.md | Serialization master plan (overview + 4-phase roadmap) | Draft |
+| plan-S1.md | S1: ISerializationCodec + JsonCodec + SerializationUtility + replace 10 call sites | DONE |
+| plan-S2.md | S2: BinaryCodec infrastructure: [BinarySerializable]/[BinaryField] attributes + BinaryHeader read/write + Editor code generator | DONE |
+| plan-S3S4.md | S3: ABManifest data class annotation + code generation + Magic registration; S4: ManifestLoader .bin/.json auto-detect + build-side dual export | DONE |
+
+### Cross-Cutting Utilities
+
+| File | Content | Status |
+|------|---------|--------|
+| plan-filehelper.md | FileHelper: cross-platform file I/O utility (8 methods: +Exists). Fixes Android StreamingAssets read bug + adds atomic write + unified delete semantics. 1 new file, 3 modified | DONE |
+| plan-R1.md | R1: Unified error handling architecture — BuildMessage (Editor) + RuntimeMessage (Runtime) separated types, string Code with const files (BuildErrorCodes/RuntimeErrorCodes), Severity on both sides, factory-only construction, AssetLoadError/ScanMessage renamed, PATH_NOT_FOUND fixed to Warning | DONE |
+| plan-R2.md | R2: Runtime Correctness + Error Contract Unification + Dedup — HandleRegistry._entryActiveCounts + ABPackageBackend error contract unified + code dedup | DONE |
+
+The temporary 2026-05-18 folder-cleanup records were merged into `requirements/progress.txt` and their layouts were
+later superseded by the active strict `AA/AB/Shared` split. They are no longer authoritative plan entries.
+
+### Review-Driven Fixes
+
+| File | Content | Status |
+|------|---------|--------|
+| plan-review-fix-20260506.md | 2026-05-06 E4 editor code quality review: 7 fixes — DependencyAnalyzer HashSet O(1) + catch log + method split + warning simplify + TreeView dead code + RuleResolver.GetRule<T> + DAGScheduler.BuildAdjacencyGraph. net -30 lines | DONE |
+| plan-review-fix-20260509.md | 2026-05-09 Three-dimension GPT review fix: 11 tasks — RuntimeAssetEntry Labels guard + IAssetIndex legacy cut + Manager self-cache + CollectorPathUtility extraction + CollectorRef/AssetClassification value semantics + ABAssetIndex zero-alloc + typo fixes + PascalCase convention | **Executed** |
+| plan-naming-unification.md | 2026-05-09 Old-pipeline field naming PascalCase unification: VersionState/BundleInfo/Manifest camelCase→PascalCase (9 fields). Complements review-fix T9/T10/T11 | **Executed** |
+
+### Recent Archived Shared Plans
+
+| File | Content | Status |
+|------|---------|--------|
+| plan-build-repo-diff-module-20260523.md | Build Repository Plan 1/2: artifact diff module extraction and AA transition boundary | Archived |
+| plan-build-repository-core-20260523.md | Build Repository Plan 2/2: filesystem JSON repository, automatic build commits, status, and read-only diff preview | Archived |
+| plan-build-repository-release-20260523.md | Build Repository Plan 3: AB Push, IPushTarget, PushHistory, Repository CLI, and ConfirmRelease cleanup | Archived |
+| plan-hotfix-diff-task-20260524.md | AA/AB current-vs-HEAD diff unified under DAG stop-after flow; PackageIndex writing moved into AA/AB DAG | Archived |
+| plan-comment-debug-coverage-20260524.md | Build/repository/hotfix task comments and direct Debug log coverage improved without behavior changes | Archived |
+| plan-dag-staged-write-order-fix-20260601.md | DAG staged-write and AB task order fix: remove legacy W-W fatal validation for staged `CollectedAssets` updates, reorder AB builtin collection before dependency analysis, and align BuildGraph data-flow display | Archived | DONE / Signed off |
+| plan-build-repository-aa-push-20260603.md | Build Repository AA Push completion: make AA Push a basic build-pipeline capability before E7 closure, reusing existing whole-package `IPushTarget` and `PushHistory` semantics | Archived / Signed off |
+| plan-address-generation-conflict-policy-20260604.md | Explicit Address generation policy, style-based asset/group operations, and automatic conflict-upgrade removal | Archived / Signed off |
+| plan-assets-collection-settings-cleanup-20260605.md | AssetsCollection add/remove/exclude workflow, Scene collector shape cleanup, BuildPipeline Sequential removal, and three-settings ownership cleanup | Archived / Signed off |
+| plan-assets-collection-followup-20260605.md | AssetsCollection acceptance follow-up: Scene-only folder scan, long-path Address extension, and setting-owned exclusion UI | Archived / Signed off |
+| plan-ab-cumulative-hotfix-delivery-20260605.md | AB cumulative hotfix package delivery: complete runtime manifest plus delivery bundle list relative to the Full baseline | Archived / Signed off |
+| plan-review-build-chain-blockers-20260607.md | Review build-chain blockers: Collections package pin, git-style empty-baseline Changes, separate AB Delivery preview, importer-first payload Auto, AB sidecar verification, transactional version increment, and preview diagnostics | Archived / Signed off |
+| plan-ab-build-report-panel-20260606.md | AB Build Result report panel: editor-only AB report JSON under `BuildData/Reports/AB/`, Addressables-style Summary/Explore/Potential Issues UI, AB-only scope with AA left on Unity Addressables Report | Archived / Signed off |
+| plan-repository-git-style-diff-20260606.md | Repository git-style commit diff and GitHub Desktop-style Changes/History layout: persist per-commit parent delta, keep staging diff as current preview output vs HEAD, and remove editable Push From/To from the Repository panel | Archived / Signed off |
+| plan-fyasset-bundle-identity-rawfile-root-fix-20260611.md | FYAsset bundle identity + RawFile root fix: payload/type-separated bundle buckets, scanner RawFile PackSeparately normalization, manifest membership from `BundleBuildInfo.AssetPaths`, ABManifest schema v3, and direct RawFile bytes/text API | Archived / Signed off |
+| plan-hotfix-url-publish-20260712.md | Backend-isolated Local/Cloudflare publish roots, explicit Hotfix URL application, Editor-controlled localhost server, and verified AA 4.0.0 Pages delivery | Archived / Signed off |
+| plan-build-state-cleanup-tools-20260707.md | Version reset, package/report deletion, and channel-scoped test reset | Executed / Archived; acceptance in consolidated draft |
+| plan-hotfix-progress-steps-20260709.md | Table-driven Hotfix progress steps | Executed / Verified / Archived |
+| plan-linear-build-pipeline-runner-20260709.md | Linear `BuildPipelineRunner` replacing DAG scheduling | Executed / Verified / Archived |
+| plan-pipeline-sequence-list-editor-20260709.md | Task sequence list replacing GraphView | Executed / Verified / Archived |
+| plan-repository-slim-20260709.md | Repository Repair/quarantine/persistent PushHistory removal | Executed / Verified / Archived |
+| plan-aa-ab-shared-split-20260709.md | Strict AA/AB/Shared ownership and editor split | Executed / Archived; acceptance in consolidated draft |
+| plan-build-panel-task-slim-20260711.md | Build panel, report, and task-contract simplification | Executed / Archived; acceptance in consolidated draft |
+| plan-hotfix-windows-state-machine-20260713.md | Windows baseline/pointer/forward-update state-machine convergence | Executed / Verified scenarios / Archived; current review remains open |
+| plan-lua-resource-boundary-separation-20260719.md | Lua index publication, strict AA/AB runtime ownership, upper loading facade, and backend-specific label tooling | Signed off / Archived |
+| plan-build-test-pipeline-20260721.md | AA/AB Build Full/Hotfix/Chain with explicit Targets, publish/restore, fixtures, and disk verification | Completed / Verified / Archived |
+| plan-e2e-test-pipeline-20260722.md | AA/AB E2E Full/Hotfix/Chain with per-Target Player and coordinator smoke | Completed / Verified / Archived |
+| plan-standalone-offline-20260724.md | AB Standalone offline package output and runtime short-circuit | Completed / Verified / Archived |
+
+### Active Shared Plans
+
+- [plan-fyasset-windows-ab-remediation-20260911.md](plan/plan-fyasset-windows-ab-remediation-20260911.md): Implemented / awaiting developer sign-off 2026-09-11。T0–T11 全部落地，纯 .NET 全矩阵绿、Windows Unity/Player 四项 exit 0、F01–F16 逐条处置（disposition）。执行效果复查见 [review-execution-audit-20260911.md](review/review-fyasset-windows-ab-remediation-execution-audit-20260911.md)。遗留项已转入下方 AB follow-up plan 或保持独立延期：F08 Android、AA 完整矩阵。
+- [plan-fyasset-ab-publish-target-cleanup-20260912.md](plan/plan-fyasset-ab-publish-target-cleanup-20260912.md): Implementation complete / awaiting developer review。执行批准已于 2026-09-12 收到。AB-only Target/URL ownership、Summary-driven Publish、公共短 Address 保留、测试和文档整理已完成；纯 .NET 全矩阵与 hotfix_flow 8 场景/55 断言通过。`fyasset-modeling.html` 归档与 Unity Editor/Player 本轮复验未执行，作为审查边界保留。
+
+### September Superseded Plans
+
+| File | Content | Status |
+|------|---------|--------|
+| [plan-fyasset-resource-pipeline-realignment-20260909.md](plan/archive/plan-fyasset-resource-pipeline-realignment-20260909.md) | 四段资源管线 T0–T9 整体重构 | Superseded / acceptance failed 2026-09-11；由 Windows AB remediation 接管 |
+
+### September Executed Plans
+
+| File | Content | Status |
+|------|---------|--------|
+| [plan-fyasset-editor-tools-modeling-20260907.md](plan/archive/plan-fyasset-editor-tools-modeling-20260907.md) | Editor、serialization、value models、comments、docs、HTML 与 AA/AB Local Chain 收口 | Executed / verified / developer signed off 2026-09-09 |
+| [plan-fyasset-ab-structure-comment-cleanup-20260906.md](plan/archive/plan-fyasset-ab-structure-comment-cleanup-20260906.md) | AB 主路线结构简化、配置归位与注释治理 | Executed / archived 2026-09-07；后续由 editor-tools-modeling 计划接续 |
+| [2026-09-04-pipeline-custom-tasks.md](plan/archive/2026-09-04-pipeline-custom-tasks.md) | Existing ordered task list reused; LuaScriptsIndex moved to Compat glue task | Executed / archived 2026-09-05; ACCEPT-01 pending |
+| [2026-09-04-backend-selection-decoupling.md](plan/archive/2026-09-04-backend-selection-decoupling.md) | Backend selection moved from FYAssetSettings into Compat host settings | Executed / archived 2026-09-05; ACCEPT-02 pending |
+
+### Open Acceptance And Audit
+
+| ID | Required work | Status / evidence boundary |
+|----|---------------|----------------------------|
+| ACCEPT-01 | Unity AA/AB builds through editor and direct backend API preserve Lua index and package output semantics | Pending; scenario gates do not prove build-artifact isomorphism |
+| ACCEPT-02 | Unity Editor confirms GameLauncher Prefab references FYAssetBackendSettings and AB startup reaches ready | Pending; batch compilation does not prove runtime acceptance |
+| ACCEPT-03 | Execute production BuildPipelineRunner/BuildTaskResolver malformed-task and ordering scenarios required by the custom-task plan | Missing executable coverage found by T08 in the current audit; not covered by existing lexical gates |
+| AUDIT-20260905 | [Detailed current-tree review](review/review-xluaframework-fyasset-20260905.md): 39 findings (10 P1, 28 P2, 1 P3), plus 15 explicitly unverified candidates | Review delivered / findings open; no production fixes performed. Fresh scenarios/solution pass, but independent RED probes expose untested failures |
+| HISTORY-20260905 | [Archived regrouping record](plan/archive/2026-09-05-history-regrouping.md): 66 commits / 737 endpoint paths / 17 content units + no-ff merge | Executed; endpoint tree preserved exactly, main worktree clean, backup ref/bundle retained, no push performed |
+
+### Phase 5: Build-Time - Asset Collection & Indexing
+
+| ID | Content | Reference | Status |
+|----|---------|-----------|--------|
+| plan-E1-1.md | E1-1: Collector data model — CollectorSetting SO hierarchy (Setting→Package→Group→Collector) + enums (ECollectorType/EPayloadKind/EAssetRole) + AssetClassification struct + rule interfaces (IAddressRule/IPackRule/IFilterRule) + CollectedAssetInfo + RuleResolver. Runtime/Editor assembly split | YooAsset | DONE |
+| plan-E1-2.md | E1-2: Classifier (PayloadKind auto-inference + AssetRole mapping) + default rules (AddressByFileName, CollectAll, PackByCollectPath) + EForcePayloadKind enum | YooAsset | DONE |
+| plan-E1-3.md | E1-3: Collection scan engine — CollectionScanner static utility (AssetDatabase.FindAssets), Package-scoped deepest-path ownership dedup, IgnorePatterns (simplified gitignore subset: *.ext/dirname//*keyword*), FilterRule→IgnorePatterns execution order, GlobMatcher utility, ScanResult error reporting (7 conditions), Tags merge, PackKey→BundleNameBuilder bundle logical name assembly, GUID uniqueness validation. Depends on E1-1 + E1-2 + E2 (GetPackKey contract + PackRuleContext.Labels + BundleNameBuilder) | YooAsset | DONE |
+| plan-E1-4.md | E1-4: Editor UI — BuildPipelineWindow shell (sidebar 5-area routing) + CollectorPanel (IMGUI TreeView 3-level tree, drag reorder, right-click menus) + CollectorPropertyPanel (Package/Group/Collector field editors, rule dropdown via RuleDropdownHelper) + CollectorSettingValidator (9-rule save-time validation). 8 new files, 1 modified | YooAsset | DONE |
+| plan-E1-4-rework.md | E1-4 rework: repair landed Collector editor UI (layout overlap, bounded inspector rendering, empty-state hierarchy, Scan Preview tab) while keeping IMGUI and existing data/scan contracts | Internal follow-up | DONE |
+| plan-E2.md | E2: PackRule implementations (PackSeparately/PackByDirectory/PackByLabel) + BundleNameBuilder framework utility (3-segment logical name assembly: pkg_group_key) + IPackRule interface change (GetBundleName→GetPackKey, grouping key only) + PackRuleContext Labels field + separator convention (_ between segments, - between labels) + E1-2 PackByCollectPath semantic change (return collectDirName only) + E1-3 scan pipeline sync (labels before PackRule, PackRuleContext struct, BundleNameBuilder.Build). 4 new files, 5 modified (incl. E1-1/E1-2 plan updates + E1-3 scan pipeline sync) | YooAsset | DONE |
+| plan-collector-asset-metadata-bundle-packing-20260531.md | Collector asset metadata and bundle packing refactor: replace CollectorSetting with AssetCollectionSetting, move Address/Labels/Role/Payload authority to GUID-keyed AssetEntry, keep Collector as editor-time collector/analyzer, replace AddressRule/PackRule with Group BundlePackingMode and mode-specific bundle naming | Internal follow-up | DONE / Signed off |
+| E3 | CANCELLED — All content absorbed by E1-3 (deepest-path dedup, IgnorePatterns, conflict detection). Dev/CI severity policy deferred to E5 build pipeline fail-fast design | YooAsset | CANCELLED |
+
+### Phase 6: Build-Time - Build Pipeline
+
+| ID | Content | Status |
+|----|---------|--------|
+| E4 | Dependency analysis + shared extraction (BFS + SharePolicy) | **Realized** (plan-E4.md) |
+| E5-1 | Build pipeline core engine — IBuildTask + BuildContext + BuildTaskResult + BuildPipelineConfig SO + BuildTaskResolver + linear `BuildPipelineRunner` validation/execution. Earlier `DAGScheduler` topology/batch execution was removed by `plan-linear-build-pipeline-runner-20260709.md`; `DependsOn` is now validated as earlier-in-list ordering, not used for topological sorting. | **Realized / simplified 2026-07-09** (plan-E5-1.md) |
+| E5-2a | Backbone Tasks Phase 1 — TaskPrepareContext / TaskCollectBuiltins / TaskBuildBundles + BundleBuildInfo + BundleCompression. **2026-05-07 review fixes: scene output collapse + folder guard + rawfile multi-file** | **Realized** (plan-E5-2a.md) |
+| E5-2b | Backbone Tasks Phase 2 — TaskVerifyBuildResult (6 checks) / TaskOrganizeOutput (copy+serialize+summary+cleanup). Includes HashGenerator unification (CRC32 merge + enum) + BuildVerificationResult type | **Realized** (plan-E5-2b.md) |
+| E6 | ABManifest build export — TaskGenerateManifest + CRC32Helper + BundleType int→string | **Realized** (plan-E6.md) |
+| E7 | Historical Build Repository replaced by two-slot build baselines | **Superseded / current baseline mechanism implemented** - Latest/LatestFull in one `BuildData/Baselines/.../baseline.json`; repository objects/HEAD/repair/persistent PushHistory/provider removed by the 2026-09-03 decoupling round. AA/AB preview and whole-package publication remain active. Current audit B01/B03/B07 flags finalization atomicity, format metadata, and failed rollback; implementation status does not imply these contracts are verified. |
+| E9 | VersionNumber SemVer+Build extension (Major.Minor.Patch + Build + Channel, IComparable, Parse/TryParse, operator overloads). Prerequisite for E7 | **Realized** (plan-E9-version.md) |
+| E10 | BuildProjectManager dual-backend split — `IBuildBackend` + `LegacyAddressableBuildBackend` + `ABBuildBackend` + orchestrator-style `BuildProjectManager`. `BuildCommandLine` kept on the same public API path. AB output layout aligned to `{PackageRoot}/bundles/` to match hotfix/runtime contracts | **Realized** (plan-E10-buildbackend.md) |
+| E11 | FYAssetSettings SO — new `FYAssetSettings` ScriptableObject (Runtime assembly) replaces `FYAssetConstants`; configurable fields become SO instance fields; `static const` members preserved on SO type; `BuildPipelineConfig.DefaultBackendMode` removed; `SettingsPanel` added; `BuildPipelineWindow` sidebar reorganized to SETTINGS → AB PIPELINE → MANAGE; `FYAssetConstants.cs` deleted. **2026-06-05 correction: active settings are now split into `FYAssetSettings`, `FYAssetAASettings`, and `FYAssetABSettings`; backend hotfix URL/retry fields live on AA/AB settings. Backend selection is tracked separately by the 2026-09-04 Compat host-settings plan.** | **Realized** (plan-E11-settings.md) |
+| E12 | PipelinePanel build execution editor. Historical E12 GraphView implementation was removed by `plan-pipeline-sequence-list-editor-20260709.md`; active AA/AB build panels now show a vertical Task sequence list with status lights and validation details. **2026-06-06 correction: active layout removes the historical Builder entry; AA/AB each have a build result placeholder, and concrete build report implementation is deferred to a separate plan.** | **Realized / simplified 2026-07-09** (plan-E12-buildgraph-editor.md) |
+| E13 | Legacy/sidebar restructuring history. **2026-06-06 supersession: active BuildPipelineWindow structure is Settings; AA(Config/Build/Build Result/Repository); AB(Config/AssetsCollection/Build/Build Result/Repository); Manage(Version).** | **Superseded by current AA/AB split** (plan-E13-legacy-sidebar.md) |
+
+### Phase 7: Delivery & Download Strategy
+
+| ID | Content | Status |
+|----|---------|--------|
+| F1 | Offline built-in package (DeliveryMode: Streamed/Builtin/Hybrid) | Ideas (plan-F-ideas.md) |
+| F2 | Background download (BackgroundDownloadManager + Bundle Tags) | Ideas (plan-F-ideas.md) |
+| F3 | A/B test variant download (VariantIndex + ABTestManager) | Ideas (plan-F-ideas.md) |
+| AB cumulative hotfix delivery | Complete AB runtime manifest plus Full-baseline cumulative delivery bundle list | Signed off / Archived (plan-ab-cumulative-hotfix-delivery-20260605.md) |
+
+> **Note**: Original F1 (RawFile Bundle) / F2 (SpriteAtlas) / F3 (Platform compression) absorbed into unified pipeline + 5 extension points (see plan-E-draft.md F-series convergence). RawFile handled via PayloadKind routing + IPackageBackend.LoadRawFile; SpriteAtlas via E4 dependency analysis; compression via IAssetImportRule.
+
+### Phase 8: Editor Tools
+
+> **Strategy**: Editor tools are built incrementally as validation closure for each phase — not a standalone G-series. Insertion points by phase completion:
+>
+> | After | Editor Delivery |
+> |-------|----------------|
+> | Phase 5 (E1-1~E1-4 + E2 complete) | Collector panel (E1-4, Approved) + scan result preview |
+> | Phase 6 E5-1/E5-2 | PipelinePanel Task sequence list editor and build controls. Historical E12 GraphView and graph right-click task creation were removed after the linear runner simplification. |
+> | Phase 6 E4+E6 | Inspector panel (Bundle table + asset search) |
+> | Phase 6 closed | Settings panel finalization |
+>
+> Each insertion point produces its own precise sub-plan at that time. No empty G1/G2/G3 plan files.
+
+### Phase 9: Advanced Runtime
+
+| ID | Content | Status |
+|----|---------|--------|
+| H1 | AsyncOperation priority scheduler + CancellationToken support (load cancellation for scene switch/timeout/lifecycle) + IProgress<float> progress callbacks. Note: Unity AssetBundle.LoadFromFileAsync doesn't support native cancellation — "cancel" means "stop caring about result", bundle still loads then discards. CancellationToken + refcount rollback interaction is the main complexity source | TBD |
+| H2 | LRU/LFU cache strategy | Deferred |
+
+### Phase 10: Assembly Splitting
+
+| File | Content | Status |
+|------|---------|--------|
+| plan-D.md | D0~D4: Modular splitting + glue layer | Pending approval (execute last) |
+
+---
+
+## Completed Items (Non-Resource-Management)
+
+| File | Content | Status |
+|------|---------|--------|
+| plan-C.md | Lua script directory auto-management | DONE (C1+C2), C3 after Plan-B |
+| plan-A.md | UI framework optimization | DONE |
+
+---
+
+## Change Log
+
+| Date | Change |
+|------|--------|
+| 2026-03-16 | Initial version: three-direction refactoring |
+| 2026-03-16 | Added UIAnimation configurable fade-in/fade-out duration |
+| 2026-03-16 | plan-B expanded: group labels + catalog mechanism, split into B1-B4 stages |
+| 2026-03-16 | DialogueDataManager kept as independent dual-mode (Standalone default) |
+| 2026-03-16 | plan-A added multi-Canvas coordination notes + DynamicGroup responsibility extension |
+| 2026-03-16 | New rule: must explain rationale when refactoring complex logic; developer can ask questions |
+| 2026-03-17 | Approval complete: Plan-C/A/B1/B2 all passed. A3 ViewModel deferred; DynamicGroup not extended, only clarified responsibilities |
+| 2026-03-17 | Plan-B2 addendum: must support async loading (LoadFromFileAsync); path strategy is hotfix dir first + fallback StreamingAssets |
+| 2026-03-17 | Plan-C addendum: adopted Option 2 (SO separation + config mapping), LuaAutoSyncConfig added outputDirectory field |
+| 2026-03-29 | New Plan-B5: stabilize runtime entry model, Resolve/Load contract, Handle, validation & migration strategy before B4 |
+| 2026-03-30 | **Roadmap expansion**: Upgraded from three-system refactoring to full custom resource management system. Added Phase 3-10 covering runtime impl, build-time overhaul (ref. YooAsset), RawFile, editor tools, advanced runtime, assembly splitting. Plan-D moved to last. LRU/LFU deferred, AsyncOp scheduler TBD |
+| 2026-04-01 | YooAsset knowledge base (5 module files) written to context/dependencies/. B6 design review completed (7 review points). B6 coded: ABAssetIndex 237 lines + ManifestLoader 84 lines + AssetPackageManager integration |
+| 2026-04-07 | B7 plan drafted: split into B7-1 (ABBundleLoader: bundle I/O + deps + cache) + B7-2 (ABPackageBackend: IPackageBackend impl + asset cache + integration). Old-vs-new architecture comparison completed. 8 design decisions documented. Awaiting approval |
+| 2026-04-07 | ManifestBundleEntry field extension decisions: BundleType (reserved serialized field, default 0, assigned by Phase 6 build pipeline) + ReferencedByBundleIndices (runtime-only, built in Initialize() step 7). Tags semantics clarified as bundle-level download strategy tags. IsImplicitDependency deferred to Phase 5 E1 Collector framework. E1 description updated to include IsImplicitDependency |
+| 2026-04-07 | FormatVersion field removed from ABManifest — no consumer in single-project context (Manifest format tied to APP version). Constants.MANIFEST_FORMAT_VERSION also removed |
+| 2026-04-07 | Error handling & load state decisions: (1) B8 scope expanded to include error propagation unification (AssetLoadError.Code expansion + ABBundleLoader structured errors + ABPackageBackend returns AssetHandle<T> for sync/async). (2) CancellationToken/cancellation deferred to H1 (AsyncOp scheduler, Phase 9) — Unity ABLoadFromFileAsync not natively cancellable + refcount rollback complexity. (3) Retry strategy placed in B9 at HotfixManager/download layer. (4) Load progress callbacks in H1 |
+| 2026-04-07 | B8 AssetHandle struct redesign confirmed: AssetHandle<T> from class to struct (value semantic, 0 GC, ref. Addressables pattern). struct Handle (version + operationId) + HandleRegistry. No Pool for struct itself. Internal API convention: ValueTuple. External API convention: AssetHandle<T> struct. Research prerequisite: Addressables AsyncOperationHandle.cs (local) + YooAsset OperationHandleBase (GitHub) |
+| 2026-04-08 | Plan synchronization update: aligned plan-B / plan-B5* / plan-B7* execution status with progress log and added plan-B8.md to sub-plan index |
+| 2026-04-18 | **Serialization infrastructure added**: New Phase S (cross-cutting, before Phase 4). Technical route: zero-dependency custom binary + editor code generator. S1 (interface + JsonCodec) plan written. Key decisions: lightweight binary header (Magic 4B + SchemaVersion 2B + Flags 2B), auto format detection (Magic → binary, else → JSON fallback), per-type independent Magic values, old backend artifacts (version_state/BuildIndex) not binary-ized — natural retirement |
+| 2026-04-18 | **Phase 4 B4+B9 merged**: IHotfixPipeline interface separation + AB/Legacy dual backend. Key decisions: (1) Interface+backend pattern matching AssetPackageManager. (2) 5-method fine-grained interface (InitBackend/LoadLocalVersion/FetchRemoteVersion/GetBundleDownloadList/PostDownload). (3) HotfixManager stays static, refactored to orchestrator. (4) Constants.USE_AB_BACKEND global switch replaces per-class USE_AB_INDEX. (5) VersionState retires with Legacy backend. (6) NetworkDownloader relocated to Helpers/. (7) AB backend downloads ABManifest.bin/json instead of version_state+catalog (1 fewer network request) |
+| 2026-04-18 | **E1-3 plan written**: CollectionScanner static utility + Package-scoped deepest-path ownership + IgnorePatterns simplified gitignore subset (*.ext/dirname//*keyword*) + GlobMatcher + ScanResult error reporting (7 conditions). Key decisions: (1) AssetDatabase.FindAssets for discovery. (2) Cross-Package overlap = error, Package-internal deepest-path dedup. (3) IgnorePatterns as List\<string\> on Collector (not interface). (4) Execution order: FindAssets→exclude sub-paths→FilterRule→IgnorePatterns→Classify/Address/Pack/Tags. (5) Full scan each time, no incremental cache
+| 2026-04-19 | **Phase S complete**: Serialization infrastructure operational. S1 (ISerializationCodec + JsonCodec + SerializationUtility) → S2 (BinaryCodec + code generator + attributes) → S3 (ABManifest binary annotation + 4 serializers generated + Magic registration) → S4 (ManifestLoader .bin/.json auto-detect + LocalStatusExporter dual export + ABManifest.DeserializeFromFile). Key deliverables: zero-dependency binary serialization, auto format detection, round-trip verified |
+| 2026-04-21 | **review-fix-01 completed**: Repaired 4 runtime review findings. ABBundleLoader now reads bundles from `CurrentGUIDRoot/bundles` + `StreamingAssets/bundles` and fails fast on dependency cycles. ABPackageBackend now uses EntryId as cache/release identity (Address remains query input only). Legacy `AssetHandle.Release()` restored pre-interface behavior by releasing via resolved address. |
+| 2026-04-23 | **E1-4 plan written**: BuildPipelineWindow shell (sidebar 5-area routing, only Collector implemented) + CollectorPanel (IMGUI TreeView 3-level tree, same-level drag reorder, right-click Add/Delete/Duplicate) + CollectorPropertyPanel (Package/Group/Collector field editors, RuleDropdownHelper reflection-based rule dropdown) + CollectorSettingValidator (9-rule save-time validation with bottom-area display). Key decisions: (1) Full shell Option A — future panels fill into existing framework. (2) IMGUI TreeView — consistent with project style. (3) Same-level drag only, cross-level via copy+delete. (4) Rule dropdown auto-scans implementations. (5) Save-time validation via ApplyModifiedProperties. 8 new files, 1 modified |
+| 2026-04-23 | **E2 plan written + rev2 sync fix**: PackRule implementations (PackSeparately/PackByDirectory/PackByLabel) + BundleNameBuilder framework utility. Key decisions: (1) IPackRule interface change GetBundleName→GetPackKey — PackRule outputs grouping key only, framework assembles name. (2) BundleNameBuilder 3-segment format: pkg_group_key, all lowercase, SanitizeSegment. (3) Separator convention: `_` between segments, `-` between labels. (4) PackRuleContext gains Labels field. (5) PackByLabel: sorted lowercase labels joined by hyphen, empty→`unlabeled`. (6) PackByDirectory: sub-dir name, root fallback to CollectPath last segment. (7) RawFile unified naming. (8) Hash/extension deferred to E5. (9) Risk upgraded to Low-Medium with compatibility boundary (new pipeline only, no Addressables impact). Cross-plan sync: E1-2 PackByCollectPath semantic change (return collectDirName only, not full name); E1-3 scan pipeline steps reordered (labels before PackRule) + call signature aligned to PackRuleContext struct + BundleNameBuilder.Build. 4 new files, 5 modified (including E1-1/E1-2 plan updates + E1-3 scan pipeline sync) |
+| 2026-04-23 | **E3 CANCELLED**: Gap analysis confirmed 11/12 E3 items fully absorbed by E1-3 (deepest-path dedup, IgnorePatterns, CROSS_PACKAGE_OVERLAP/SAME_PATH_CONFLICT, excludedPaths, unique attribution). Sole uncovered item (Dev/CI conflict severity policy) deferred to E5 build pipeline fail-fast design — severity differentiation is a build-task caller decision, not Scanner internal logic |
+| 2026-04-25 | **E1-1 completed**: Implemented Collector foundation under `Assets/FYAsset/Scripts/AB/Build/Collector/` — runtime data model (`CollectorSetting`, `CollectorPackage`, `CollectorGroup`, `Collector`, enums, `AssetClassification`) + editor rule contracts (`IAddressRule`, `IPackRule.GetPackKey`, `IFilterRule`, `CollectedAssetInfo`, `RuleResolver`). `Constants.cs` gained collector asset path + built-in rule name constants. Verification also synced `Assembly-CSharp.csproj` / `Assembly-CSharp-Editor.csproj` so `dotnet build XLuaHotfix.sln` compiles the new files. Build passed with 0 errors, existing warnings only |
+| 2026-04-25 | **E1-2 completed**: Implemented `AssetClassifier` + three default rules (`AddressByFileName`, `CollectAll`, `PackByCollectPath`) under `Assets/FYAsset/Scripts/AB/Build/Collector/Editor/`. External verification updated `Assembly-CSharp-Editor.csproj` to include the new editor files, and `dotnet build XLuaHotfix.sln` passed with 0 errors, existing warnings only. **2026-06-06 correction: unused `GenerateShortAddress` compatibility API was removed; current address generation uses `AssetAddressGenerator.GenerateAddress(assetPath, primaryType, style)`.** |
+| 2026-04-28 | **Plan gap convergence**: (1) E7 precise sub-plan written (plan-E7.md): IDiffPipeline 5-method interface + LegacyDiffBackend/ABDiffBackend separation + BundleDigestList .bin/.json persistence + head.json per-version snapshot history + each backend produces own delta type. 10 design decisions, 12 tasks, 8 new files. (2) F-series renumbered: F1/F2/F3 now cover offline package / background download / A/B test. Original RawFile/SpriteAtlas/Compression absorbed into unified pipeline extension points. (3) G-series replaced with incremental insertion point strategy — editor tools built as validation closure after each phase, not a standalone series. (4) YooAsset gap analysis resolved: all 11 decision items closed. #1 Shader→TaskCollectBuiltins, #2 Verify→TaskVerifyBuildResult, #3 Tags→E6 union aggregation, #4 Cleanup→PackageCleaner already covered, #5 Report→TaskOrganizeOutput already covered, #6 Naming→E5-1 BundleFileNameStyle enum, #7 Toggle→E1-4 CollectorGroup.Enabled, #8 Retry→deferred to mobile testing |
+| 2026-05-07 | **E5-2b realized + E5 pipeline fully landed**: TaskVerifyBuildResult (6 checks) + TaskOrganizeOutput + HashGenerator unification (CRC32 merge + HashAlgorithmType enum) + BuildVerificationResult type. E6 review fixes applied (BuildVersion removed from ReadKeys, CRC32 file-missing→fail-fast, Tags comment updated) |
+| 2026-05-08 | **E7+E9 audit fixes**: External review identified 8 findings (6 valid, 1 partial, 1 non-issue). E7: added T9 (TaskBuildBundles reads BundleDelta for incremental rebuild), T11 (DAGScheduler→BuildCommandLine integration), fixed DiffResult description, added ConfirmRelease history-overwrite guard. E9: corrected version format to SemVer 2.0 (`X.Y.Z-channel+build`), clarified binary compat (no fallback, delete old .bin), added T6 (TaskPrepareContext writes VersionNumber), added Expected Consumers table |
+| 2026-05-09 | **Three-dimension GPT review fix plan approved**: 11 tasks covering data-structure hardening (RuntimeAssetEntry Labels guard + CollectorRef/AssetClassification value semantics + ABAssetIndex zero-alloc), architecture redundancy removal (IAssetIndex legacy cut + Manager self-cache + CollectorPathUtility extraction), naming stabilization (typo fixes + PascalCase convention). 22 files affected. Awaiting execution approval |
+| 2026-05-09 | **E9 VersionNumber approved**: 6 tasks, ~80 lines net. SemVer 2.0 format (Major.Minor.Patch-channel+build), IComparable, Parse/TryParse, operators |
+| 2026-05-09 | **naming-unification plan promoted**: drafts→plan, 5 tasks, 6 files. VersionState/BundleInfo/Manifest camelCase→PascalCase |
+| 2026-05-11 | **E10 executed**: `BuildProjectManager` split into orchestrator + `IBuildBackend` implementations (`LegacyAddressableBuildBackend` / `ABBuildBackend`), `BuildCommandLine` kept on unchanged public API path, AB package layout aligned to runtime `bundles/` contract. Sandbox blocked external `dotnet build` confirmation because access to `C:\Users\cfy\AppData\Local\Microsoft SDKs` was denied |
+| 2026-05-13 | **E12 BuildGraph editor approved**: promoted `draft-buildgraph-visualization.md` to `plan-E12-buildgraph-editor.md`; first executable slice is read-only BuilderPanel DAG visualization + Validate only. Editing and build-trigger phases require separate approval |
+| 2026-05-14 | **E12-1 executed**: `BuildGraphView` + `BuildTaskNode` + `BuildGraphLayoutEngine` + `BuildGraphToolbar` + `EdgeStyle` created; initial implementation placed DAG in BuilderPanel; `Assembly-CSharp-Editor.csproj` synced; `dotnet build` passed 0 errors; `context/`, `docs` HTML, `progress.txt` aligned |
+| 2026-05-14 | **E12-1 reworked**: DAG moved from BuilderPanel to PipelinePanel; Pipeline top bar owns build options; Task list is no longer exposed as a normal inspector list and optional tasks are created from the graph right-click menu with backbone tasks excluded; BuilderPanel no longer hosts the DAG; `dotnet build` passed 0 errors. **2026-06-05 update**: `SequentialMode` was removed from those build options. |
+| 2026-05-14 | **E12-2 executed**: Pipeline top bar gained `Build Mode` + `Build`; build trigger validates first and routes through `BuildProjectManager`; `BuildExecutionOptions` / `BuildTaskExecutionEvent` / `BuildTaskExecutionStatus` carry DAGScheduler status events into BuildGraph nodes; unused `BuildGraphToolbar` removed; Builder report/query remains deferred until after E7 |
+| 2026-05-24 | **Requirements cleanup**: recent standalone requirement plans were archived into `requirements/plan/archive/`, standalone progress was summarized into `requirements/progress.txt` while preserving original requirement-local logs, and new independent per-requirement plan files/folders are disallowed unless explicitly requested by the developer |
+| 2026-07-09 | **FYAsset architecture simplification plans promoted**: A10 Hotfix progress steps, A2 linear BuildPipelineRunner, A4 Repository slim, and A1/A3/A5+A9 AA/AB/Shared split moved from architecture draft into active approved plans. A0/A12 preview cache, A6 HandleRegistry simplification, and A8 incremental build remain deferred. |
+| 2026-07-09 | **FYAsset architecture simplification implemented and verified**: A10/A2/A4/A1+A3+A5+A9 active plans are implemented, `dotnet build XLuaHotfix.sln --no-restore` exits 0 with existing `System.Net.Http` warnings only, and `git diff --check` exits 0 with LF/CRLF working-copy warnings only. Plans remain active pending developer sign-off. |
+| 2026-07-09 | **Pipeline sequence list editor implemented and verified**: Added A2 follow-up plan to remove PipelinePanel GraphView, remove SO-level Task dependencies, and keep build status feedback through a direct vertical Task list. `dotnet build XLuaHotfix.sln --no-restore` exits 0 with existing `System.Net.Http` warnings only; `git diff --check` exits 0 with LF/CRLF working-copy warnings only. |
+| 2026-07-09 | **Pipeline Enabled cleanup implemented and verified**: Removed `TaskEntry.Enabled` and tracked Task `Enabled:` entries as leftover graph-era optional-task state. Pipeline rows now expose only dynamic Resolved/Unresolved diagnostics, while Collector group `Enabled` remains unrelated and untouched. |
+| 2026-07-09 | **Build state cleanup tools implemented and verified**: Version metadata is read-only in `VersionPanel`, test reset restores `1.0.0` build metadata, package output deletion is scoped under `BuildPathManager.PackagesDir`, and repository channel test reset clears current-channel state with optional destructive cleanup disabled by default. |
+| 2026-07-11 | **AB package/report deletion synchronized**: deleting selected AB package folders now deletes only reports with matching normalized `Header.PackagePath`, refreshes the report dropdown, and exposes stale successful-report conflicts with explicit cleanup. Shared package UI receives AB behavior through optional delegates so AA remains independent. Static build verification passes; the temporary-directory Unity self-check is pending because the project is open in another Editor instance. |
+| 2026-07-11 | **AB report cleanup expanded**: the report toolbar now exposes `Delete Report` for every selected report, including failed builds and abandoned reports without package output. The action deletes only the report JSON after confirmation and reloads the dropdown; package directories are unchanged. |
+| 2026-07-11 | **AA/AB build editor ownership completed**: AA and AB now open as independent Build Pipeline windows over one shared shell; `UseABBackend` no longer disables concrete editor build pages. Repository uses two native draggable splitters and backend-specific persisted pane widths. |
+| 2026-07-11 | **AA Repository recovery follow-up implemented**: AA Changes and History resolve persisted GUID identities to Address plus asset path without changing repository identity; AA Repository hosts a separate HotfixGroup recovery panel, preserves unresolved undo records, and supports explicit record-only discard. |
+| 2026-07-20 | **Lua resource-boundary S2 checkpoint**: Implemented active-path AB dependency traversal, typed AB resolution, concrete AA/AB runtime ownership, strict facade binding, and structured startup errors. Static suites, Unity compile, AA Full/Player, and AB Full/Player build/main-ready paths were verified from independent `1.0.0 / Build 0` resets. AB clean-runtime acceptance remains blocked by a reproducible same-Bundle concurrent-load error; no bundle-lifecycle fix or S3 work was started. |
+| 2026-07-22 | **Build/E2E test pipeline plans refined**: `plan-build-test-pipeline-20260721.md` expanded with mandatory explicit Targets, always-restore publication, multi-Target policy, permanent `FYAssetPipeline` fixtures, and fixture physical-artifact Delta. Companion `plan-e2e-test-pipeline-20260722.md` added for same-run Player/coordinator acceptance. |
+| 2026-07-22 | **Workspace cleanup and plan approval**: Developer approved both Build/E2E test plans pending execution. Archived executed/outdated plans and reviews, reset VersionRecord to `1.0.0/Build 0`, cleared repositories/BuildData/StreamingAssets exports/HotfixOutput/HotfixPublish/TDD archives, and deployed an empty Cloudflare service root so public AA/AB PackageIndex returns 404. |

@@ -11,7 +11,6 @@ using UnityEngine;
 /// </remarks>
 public class ABBundleLoader
 {
-
     /// <summary>已加载 Bundle 的实例、依赖和引用计数。</summary>
     private class BundleCacheEntry
     {
@@ -47,6 +46,8 @@ public class ABBundleLoader
 
     /// <summary>ABManifest 引用，用于查询 Bundle 依赖关系</summary>
     private readonly ABManifest _manifest;
+
+    #region Public
 
     /// <summary>
     /// 创建 ABBundleLoader 实例。
@@ -174,12 +175,13 @@ public class ABBundleLoader
         _bundleCache.Clear();
     }
 
+    #endregion
+
     /// <summary>
     /// 解析 Bundle 文件的物理路径。
     /// 只在当前激活包根下查找；找不到返回 null，调用方按结构化错误处理，不再回退其他目录。
     /// 跨平台：通过 FileHelper.Exists 判定文件是否存在。
     /// </summary>
-    /// <param name="bundleName">Bundle 文件名</param>
     /// <returns>存在的文件路径，找不到返回 null</returns>
     private static string ResolveBundlePath(string bundleName)
     {

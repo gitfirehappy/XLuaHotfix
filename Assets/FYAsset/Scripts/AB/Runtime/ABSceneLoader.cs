@@ -45,6 +45,8 @@ internal sealed class ABSceneLoader : IABSceneUnloadSink
     private readonly Dictionary<string, SceneRecord> _records =
         new(StringComparer.OrdinalIgnoreCase);
 
+    #region Public
+
     /// <summary>
     /// 创建场景加载器。
     /// </summary>
@@ -209,6 +211,8 @@ internal sealed class ABSceneLoader : IABSceneUnloadSink
 
         _records.Clear();
     }
+
+    #endregion
 
     /// <summary>
     /// 按条目 SourcePath 的文件名校验并返回 Bundle 内的完整场景路径。

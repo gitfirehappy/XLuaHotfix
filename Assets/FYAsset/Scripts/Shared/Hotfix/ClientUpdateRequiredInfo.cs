@@ -5,8 +5,10 @@ public sealed class ClientUpdateRequiredInfo
 {
     /// <summary>当前客户端版本。</summary>
     public VersionNumber ClientVersion { get; }
+
     /// <summary>远端目标版本。</summary>
     public VersionNumber RemoteVersion { get; }
+
     /// <summary>远端目标包名。</summary>
     public string TargetPackageName { get; }
 

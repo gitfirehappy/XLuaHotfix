@@ -13,14 +13,10 @@ using System.Collections.Generic;
 public class RuntimeAssetEntry
 {
 
-    /// <summary>
-    /// Unity GUID，用作缓存和句柄身份。
-    /// </summary>
+    /// <summary> Unity GUID，用作缓存和句柄身份。</summary>
     public string EntryId;
 
-    /// <summary>
-    /// 公共查询键；隐式依赖条目为空。
-    /// </summary>
+    /// <summary> 公共查询键；隐式依赖条目为空。</summary>
     public string Address;
 
     /// <summary>
@@ -88,9 +84,7 @@ public class RuntimeAssetEntry
         _normalizedLabelsCache = null;
     }
 
-    /// <summary>
-    /// 按大小写不敏感匹配非空 Label。
-    /// </summary>
+    /// <summary> 按大小写不敏感匹配非空 Label。</summary>
     public bool HasLabel(string label)
     {
         if (string.IsNullOrEmpty(label)) return false;
@@ -103,9 +97,7 @@ public class RuntimeAssetEntry
         return false;
     }
 
-    /// <summary>
-    /// 按大小写不敏感匹配全部 Labels；空过滤匹配所有条目。
-    /// </summary>
+    /// <summary> 按大小写不敏感匹配全部 Labels；空过滤匹配所有条目。</summary>
     public bool HasAllLabels(IReadOnlyList<string> labels)
     {
         if (labels == null || labels.Count == 0) return true;
