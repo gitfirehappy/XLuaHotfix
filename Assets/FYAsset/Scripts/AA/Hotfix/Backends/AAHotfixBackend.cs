@@ -44,7 +44,10 @@ public sealed class AAHotfixBackend : IHotfixPipeline
         {
             AAManifest manifest = await AAManifestLoader.LoadFromDirectoryAsync(packageRoot);
             HotfixVersionInfo info = ToHotfixVersionInfo(manifest);
-            bool hasCatalog = HasRequiredMetadata(packageRoot);
+            string catalogPath = FYAssetPathUtility.JoinFilePath(
+                packageRoot,
+                FYAssetSettings.ADDRESSABLES_CATALOG_FILE_NAME);
+            bool hasCatalog = FileHelper.Exists(catalogPath);
             return HotfixPackageInspection.Inspect(
                 packageRoot,
                 expectedIndex,
@@ -102,20 +105,11 @@ public sealed class AAHotfixBackend : IHotfixPipeline
         return remoteInfo?.Bundles ?? Array.Empty<BundleDownloadItem>();
     }
 
-    public bool HasRequiredMetadata(string packageRoot)
-    {
-        string path = FYAssetPathUtility.JoinFilePath(
-            packageRoot,
-            FYAssetSettings.ADDRESSABLES_CATALOG_FILE_NAME);
-        return FileHelper.Exists(path);
-    }
-
     public async Task<HotfixStepResult> PersistRemoteMetadataAsync(
         HotfixContext ctx,
         int timeoutSeconds,
         int maxRetryCount,
-        float retryBaseDelaySeconds,
-        bool refreshRequiredMetadata)
+        float retryBaseDelaySeconds)
     {
         if (_remoteManifestData == null || _remoteManifestData.Length == 0 || _remoteManifest == null)
         {
@@ -126,7 +120,7 @@ public sealed class AAHotfixBackend : IHotfixPipeline
         string catalogPath = FYAssetPathUtility.JoinFilePath(
             ctx.TargetGUIDRoot,
             FYAssetSettings.ADDRESSABLES_CATALOG_FILE_NAME);
-        if (refreshRequiredMetadata)
+        if (!FileHelper.Exists(catalogPath))
         {
             string catalogUrl = FYAssetPathUtility.JoinUrl(
                 ctx.RemoteUrlRoot,

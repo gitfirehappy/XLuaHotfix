@@ -264,8 +264,8 @@ internal static class PipelineRunTests
         Check.Null(result.DeliveryToken, "无 attempt 时不产生交付 token");
     }
 
-    private static BuildRequest Request(FakeRunEnvironment environment, BuildExecutionOptions options = null)
+    private static BuildPipelineRequest Request(FakeRunEnvironment environment, BuildExecutionOptions options = null)
     {
-        return new BuildRequest(new BuildPackageRequest(), options, environment);
+        return new BuildPipelineRequest(new BuildRequest(), options, environment);
     }
 }

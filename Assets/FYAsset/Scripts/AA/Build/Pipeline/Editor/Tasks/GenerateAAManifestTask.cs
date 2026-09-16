@@ -22,7 +22,7 @@ public class GenerateAAManifestTask : IBuildTask
 
     public BuildTaskResult Execute(BuildContext ctx)
     {
-        var request = ctx.Require<BuildPackageRequest>(BuildContextKeys.BuildPackageRequest);
+        var request = ctx.Require<BuildRequest>(BuildContextKeys.BuildRequest);
 
         try
         {

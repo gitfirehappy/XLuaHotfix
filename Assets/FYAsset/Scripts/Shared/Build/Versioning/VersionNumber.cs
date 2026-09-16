@@ -3,7 +3,6 @@ using System.Text;
 
 /// <summary>
 /// 发布版本值，格式为 Major.Minor.Patch[-Channel]。
-/// Build 单独存储，不参与排序和相等性比较。
 /// </summary>
 [Serializable]
 [BinarySerializable]
@@ -12,8 +11,7 @@ public struct VersionNumber : IComparable<VersionNumber>, IEquatable<VersionNumb
     [BinaryField(0)] public int Major;
     [BinaryField(1)] public int Minor;
     [BinaryField(2)] public int Patch;
-    [BinaryField(3)] public int Build;
-    [BinaryField(4)] public string Channel;
+    [BinaryField(3)] public string Channel;
 
     public string GetReleaseVersionString()
     {
@@ -140,7 +138,6 @@ public struct VersionNumber : IComparable<VersionNumber>, IEquatable<VersionNumb
             Major = major,
             Minor = minor,
             Patch = patch,
-            Build = 0,
             Channel = channel
         };
         return true;

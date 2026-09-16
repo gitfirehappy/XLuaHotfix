@@ -57,28 +57,28 @@ public static class ABBuildContentFingerprint
     /// </summary>
     public static bool TryCompute(
         string contentName,
-        IReadOnlyList<CollectedAssetInfo> members,
+        IReadOnlyList<string> assetPaths,
         string platform,
         string compression,
         string buildFormat,
         out string fingerprint)
     {
         fingerprint = null;
-        if (members == null || members.Count == 0)
+        if (assetPaths == null || assetPaths.Count == 0)
             return false;
 
         var memberGuids = new HashSet<string>(StringComparer.Ordinal);
-        var memberPaths = new List<string>(members.Count);
-        for (int i = 0; i < members.Count; i++)
+        var memberPaths = new List<string>(assetPaths.Count);
+        for (int i = 0; i < assetPaths.Count; i++)
         {
-            string assetPath = members[i]?.AssetPath;
+            string assetPath = assetPaths[i];
             memberPaths.Add(assetPath);
             string guid = GetGuid(assetPath);
             if (guid.Length > 0)
                 memberGuids.Add(guid);
         }
 
-        var inputs = new List<BundleBuildInputMember>(members.Count);
+        var inputs = new List<BundleBuildInputMember>(memberPaths.Count);
         bool hasAnyInput = false;
         for (int i = 0; i < memberPaths.Count; i++)
         {

@@ -18,7 +18,7 @@
     <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Pipeline/Editor/BuildPipelineException.cs" Link="Production/BuildPipelineException.cs" />
     <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Pipeline/Editor/Tasks/CoreTaskSlot.cs" Link="Production/CoreTaskSlot.cs" />
     <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Pipeline/Editor/Tasks/CustomTaskEntry.cs" Link="Production/CustomTaskEntry.cs" />
-    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Pipeline/Editor/BuildRequest.cs" Link="Production/BuildRequest.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Pipeline/Editor/BuildPipelineRequest.cs" Link="Production/BuildPipelineRequest.cs" />
     <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Pipeline/Editor/BuildRunResult.cs" Link="Production/BuildRunResult.cs" />
     <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Pipeline/Editor/IBuildRunEnvironment.cs" Link="Production/IBuildRunEnvironment.cs" />
     <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Pipeline/Editor/BuildContext.cs" Link="Production/BuildContext.cs" />

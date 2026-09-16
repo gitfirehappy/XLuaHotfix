@@ -20,8 +20,6 @@ public sealed class BuildSummaryScope
 public sealed class BuildSummaryProjectVersion
 {
     public string CurrentSuccessfulVersion;
-    public string LastBuildDate;
-    public int DailyBuildCount;
 }
 
 /// <summary>
@@ -139,8 +137,6 @@ public sealed class BuildSummaryIndex
         if (highestDocument != null)
         {
             index.ProjectVersion.CurrentSuccessfulVersion = highestDocument.Version;
-            index.ProjectVersion.DailyBuildCount = highestVersion.Build;
-            index.ProjectVersion.LastBuildDate = ParseDatePart(highestDocument.StartedAtUtc);
         }
 
         return index;

@@ -90,9 +90,9 @@ public sealed class ABPackageManifestReader : IPackageManifestReader
 
             result.Add(new FileHelper.FileDigest(
                 string.Concat(ContentDirectoryName, "/", entry.FileName),
-                entry.FileHash,
-                entry.FileCRC,
-                entry.FileSize));
+                entry.Hash,
+                entry.CRC,
+                entry.Size));
         }
 
         contents = result;

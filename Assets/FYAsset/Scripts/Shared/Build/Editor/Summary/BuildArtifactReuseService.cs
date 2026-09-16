@@ -21,7 +21,7 @@ public static class BuildArtifactReuseService
     /// <param name="backendKey">后端标识（AA/AB）；决定只在同后端的历史 Summary 中查找。</param>
     /// <param name="platform">目标平台标识；与 Summary 记录的平台必须逐字符一致。</param>
     /// <param name="buildRecipeFingerprint">构建配方指纹；与 Summary 记录的配方必须逐字符一致。</param>
-    /// <param name="contentIdentity">内容逻辑名；与 Summary 记录的 ContentIdentity 对应。</param>
+    /// <param name="contentIdentity">内容逻辑名；与 Summary 记录的 ContentName 对应。</param>
     /// <param name="inputFingerprint">本次构建计算的输入指纹；覆盖所有影响产物的事实。</param>
     /// <param name="targetDirectory">本次构建的产物目录（attempt 布局下为 `_temp`）。</param>
     /// <param name="fileName">命中时输出制品物理文件名（沿用历史包内的名称）。</param>
@@ -116,17 +116,17 @@ public static class BuildArtifactReuseService
                 continue;
             }
 
-            if (document.Contents == null || document.Contents.Count == 0)
+            if (document.ContentReuseRecords == null || document.ContentReuseRecords.Count == 0)
                 continue;
 
-            SummaryContentFact fact = null;
+            ContentReuseRecord fact = null;
             bool identitySeen = false;
             bool multipleArtifacts = false;
-            for (int c = 0; c < document.Contents.Count; c++)
+            for (int c = 0; c < document.ContentReuseRecords.Count; c++)
             {
-                SummaryContentFact candidate = document.Contents[c];
+                ContentReuseRecord candidate = document.ContentReuseRecords[c];
                 if (candidate == null
-                    || !string.Equals(candidate.ContentIdentity, contentIdentity, StringComparison.Ordinal))
+                    || !string.Equals(candidate.ContentName, contentIdentity, StringComparison.Ordinal))
                 {
                     continue;
                 }
@@ -168,7 +168,7 @@ public static class BuildArtifactReuseService
                 continue;
             }
 
-            var recorded = new FileHelper.FileDigest(fact.FileName, fact.FileHash, fact.FileCRC, fact.FileSize);
+            var recorded = new FileHelper.FileDigest(fact.FileName, fact.Hash, fact.CRC, fact.Size);
             if (!recorded.IsComplete)
             {
                 missReason = $"历史 Summary 记录的制品摘要不完整（{document.BuildId}）";

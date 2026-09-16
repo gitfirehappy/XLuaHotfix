@@ -10,7 +10,7 @@ using UnityEditor;
 public static class ABBuildReportBuilder
 {
     public static ABBuildReport Build(
-        BuildPackageRequest request,
+        BuildRequest request,
         BuildRunResult runResult,
         BuildContext context,
         Stopwatch stopwatch,
@@ -38,7 +38,7 @@ public static class ABBuildReportBuilder
 
     private static void FillHeader(
         ABBuildReport report,
-        BuildPackageRequest request,
+        BuildRequest request,
         BuildRunResult runResult,
         Stopwatch stopwatch,
         BuildMessage backendError)
@@ -263,23 +263,23 @@ public static class ABBuildReportBuilder
 
             string contentName = GetContentName(contentNames, asset.ContentIndex);
             bool isDelivered = delivered.Contains(contentName);
+            string contentType = GetContentType(manifest, asset.ContentIndex);
             if (asset.ContentIndex >= 0 && asset.ContentIndex < assetCountByContent.Length)
                 assetCountByContent[asset.ContentIndex]++;
 
             report.Assets.Add(new ABBuildReportAsset
             {
-                EntryId = asset.EntryId,
-                SourcePath = asset.SourcePath,
+                AssetPath = asset.AssetPath,
                 Address = asset.Address,
-                PrimaryType = asset.PrimaryType,
-                IsPublic = asset.IsPublic,
-                ContentType = asset.ContentType.ToString(),
+                AssetType = asset.AssetType,
+                IsPublic = true,
+                ContentType = contentType,
                 Labels = JoinList(asset.Labels),
                 BundleName = contentName,
                 Delivered = isDelivered
             });
 
-            GetStats(contentTypeStats, asset.ContentType.ToString()).AssetCount++;
+            GetStats(contentTypeStats, contentType).AssetCount++;
             if (asset.Labels == null)
                 continue;
 
@@ -313,10 +313,10 @@ public static class ABBuildReportBuilder
             if (isDelivered)
             {
                 report.Summary.DeliveryBundleCount++;
-                report.Summary.DeliveryBundleSize += content.FileSize;
+                report.Summary.DeliveryBundleSize += content.Size;
             }
 
-            report.Summary.TotalBundleSize += content.FileSize;
+            report.Summary.TotalBundleSize += content.Size;
 
             List<string> dependencies = BuildDependencyNames(contentNames, content.DependencyIndices);
             List<string> assets = BuildContentAssetPaths(manifest, i);
@@ -324,9 +324,9 @@ public static class ABBuildReportBuilder
             report.Bundles.Add(new ABBuildReportBundle
             {
                 BundleName = content.FileName,
-                FileHash = content.FileHash,
-                FileCRC = content.FileCRC,
-                FileSize = content.FileSize,
+                FileHash = content.Hash,
+                FileCRC = content.CRC,
+                FileSize = content.Size,
                 ContentType = content.ContentType.ToString(),
                 AssetCount = i < assetCountByContent.Length ? assetCountByContent[i] : assets.Count,
                 DependencyCount = dependencies.Count,
@@ -338,7 +338,7 @@ public static class ABBuildReportBuilder
             AggregateStats contentStats = GetStats(contentTypeStats, content.ContentType.ToString());
             contentStats.BundleCount++;
             contentStats.BundleNames.Add(content.FileName);
-            contentStats.TotalSize += content.FileSize;
+            contentStats.TotalSize += content.Size;
 
             AddContentToLabelStats(manifest, i, content, labelStats);
         }
@@ -369,7 +369,7 @@ public static class ABBuildReportBuilder
                 AggregateStats stats = GetStats(labelStats, label);
                 stats.BundleCount++;
                 stats.BundleNames.Add(content.FileName);
-                stats.TotalSize += content.FileSize;
+                stats.TotalSize += content.Size;
             }
         }
     }
@@ -433,10 +433,17 @@ public static class ABBuildReportBuilder
             ManifestAssetEntry asset = manifest.AssetEntries[i];
             if (asset == null || asset.ContentIndex != contentIndex)
                 continue;
-            result.Add(string.IsNullOrEmpty(asset.SourcePath) ? asset.Address : asset.SourcePath);
+            result.Add(string.IsNullOrEmpty(asset.AssetPath) ? asset.Address : asset.AssetPath);
         }
 
         return result;
+    }
+
+    private static string GetContentType(ABManifest manifest, int index)
+    {
+        return manifest?.ContentEntries != null && index >= 0 && index < manifest.ContentEntries.Count
+            ? manifest.ContentEntries[index]?.ContentType.ToString() ?? string.Empty
+            : string.Empty;
     }
 
     private static string GetContentName(List<string> contentNames, int index)

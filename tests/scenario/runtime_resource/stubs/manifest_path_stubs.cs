@@ -50,12 +50,12 @@ public sealed class ABManifest
         return this;
     }
 
-    /// <summary>按 EntryId 定位资源条目；ABPackageBackend 以此为唯一定位入口。</summary>
-    public bool TryGetAssetByEntryId(string entryId, out ManifestAssetEntry result)
+    /// <summary>按 Address 定位资源条目。</summary>
+    public bool TryGetAssetByAddress(string address, out ManifestAssetEntry result)
     {
         for (int i = 0; i < AssetEntries.Count; i++)
         {
-            if (string.Equals(AssetEntries[i].EntryId, entryId, StringComparison.Ordinal))
+            if (string.Equals(AssetEntries[i].Address, address, StringComparison.OrdinalIgnoreCase))
             {
                 result = AssetEntries[i];
                 return true;

@@ -240,7 +240,7 @@ public static class CollectionScanner
         // Unity 无法识别的文件按白名单兜底为 RawFile，不再作为 Bundle 入口被跳过。
         AssetContentType contentType = AssetClassifier.ClassifyContentType(assetPath, ctx.Setting.RawFileRules);
 
-        string primaryType = GetPrimaryTypeName(assetPath);
+        string primaryType = GetAssetTypeName(assetPath);
         string generatedAddress = AssetAddressGenerator.GenerateAddress(assetPath, primaryType, AssetAddressStyle.LongAssetPath);
         AssetAddressEntry addressEntry = ctx.Setting.FindAssetAddressEntry(guid);
 
@@ -279,7 +279,7 @@ public static class CollectionScanner
             AssetPath = assetPath,
             AssetGUID = guid,
             Address = address,
-            PrimaryType = primaryType,
+            AssetType = primaryType,
             Labels = labels,
             GroupName = targetGroupName,
             SourceGroupName = ctx.ParentGroupName,
@@ -380,10 +380,10 @@ public static class CollectionScanner
         return targetGroup != null ? targetGroup.BundlePackingMode : BundlePackingMode.PackTogetherByLabel;
     }
 
-    private static string GetPrimaryTypeName(string assetPath)
+    private static string GetAssetTypeName(string assetPath)
     {
         Type type = AssetDatabase.GetMainAssetTypeAtPath(assetPath);
-        return type != null ? type.Name : "Unknown";
+        return AssetTypeKey.FromType(type);
     }
 
     private static bool CheckGuidUniqueness(List<CollectedAssetInfo> assets, ScanResult result)

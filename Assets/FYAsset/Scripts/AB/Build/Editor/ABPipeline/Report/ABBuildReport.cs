@@ -88,9 +88,9 @@ public class ABBuildReportBundle
 public class ABBuildReportAsset
 {
     public string EntryId;
-    public string SourcePath;
+    public string AssetPath;
     public string Address;
-    public string PrimaryType;
+    public string AssetType;
     public bool IsPublic;
     public string ContentType;
     public string Labels;

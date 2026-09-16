@@ -38,7 +38,7 @@ public abstract class HotfixFlowBase
     public event Action<float, string> OnProgress;
     public event Action<string> OnWarning;
     public event Action<string> OnError;
-    public event Action<ClientUpdateRequiredInfo> OnClientUpdateRequired;
+    public event Action<(VersionNumber ClientVersion, VersionNumber RemoteVersion, string TargetPackageName)> OnClientUpdateRequired;
     public event Action OnFinished;
 
     private readonly string[] _stepNames =
@@ -68,9 +68,11 @@ public abstract class HotfixFlowBase
     public string CurrentStepName => _currentStepName;
     public float CurrentProgressValue { get; private set; }
 
-    /// <summary>当前使用的内容归属；启动流程尚未建立上下文时为 Blocked。</summary>
-    public HotfixContentState CurrentContent =>
-        _context?.CurrentContent ?? HotfixContentState.Blocked;
+    /// <summary>当前流程选中的包根；来源由它与内置包根的比较确定。</summary>
+    public string CurrentPackageRoot => _context?.CurrentPackageRoot ?? string.Empty;
+
+    /// <summary>安装包内置完整包根。</summary>
+    public string BuiltInPackageRoot => _context?.BuiltInPackageRoot ?? string.Empty;
 
     /// <summary>最近一次执行的运行中热更阶段，供业务展示进度或决定是否继续操作。</summary>
     public HotfixPhase CurrentPhase { get; private set; }
@@ -201,6 +203,8 @@ public abstract class HotfixFlowBase
 
     #endregion
 
+
+
     #region 运行中 Check / Prepare / Apply
 
     /// <summary>运行中检查远端 PackageIndex 并做版本决策，不下载内容或切换包根。</summary>
@@ -214,7 +218,6 @@ public abstract class HotfixFlowBase
         if (HotfixStateDecider.IsStandalone(ctx.RuntimeMode))
             return new HotfixCheckResult(
                 HotfixStateAction.KeepCurrent,
-                ctx.CurrentContent,
                 string.Empty,
                 default,
                 "单机模式只使用内置完整包，不检查远端更新。");
@@ -226,7 +229,6 @@ public abstract class HotfixFlowBase
         if (remoteIndex == null)
             return new HotfixCheckResult(
                 HotfixStateAction.KeepCurrent,
-                ctx.CurrentContent,
                 string.Empty,
                 default,
                 "远端 PackageIndex 不可用，保持当前完整包。");
@@ -239,16 +241,15 @@ public abstract class HotfixFlowBase
             bool remoteIsNewer = remoteIndex.LatestVersion.Major > ctx.BuildIndex.Version.Major;
             if (remoteIsNewer)
             {
-                OnClientUpdateRequired?.Invoke(new ClientUpdateRequiredInfo(
-                    ctx.BuildIndex.Version,
-                    remoteIndex.LatestVersion,
-                    remoteIndex.LatestPackage));
+                OnClientUpdateRequired?.Invoke((
+                    ClientVersion: ctx.BuildIndex.Version,
+                    RemoteVersion: remoteIndex.LatestVersion,
+                    TargetPackageName: remoteIndex.LatestPackage));
             }
 
             ctx.PendingAction = HotfixStateAction.KeepCurrent;
             return new HotfixCheckResult(
                 HotfixStateAction.KeepCurrent,
-                ctx.CurrentContent,
                 remoteIndex.LatestPackage,
                 remoteIndex.LatestVersion,
                 remoteIsNewer
@@ -265,28 +266,24 @@ public abstract class HotfixFlowBase
             case HotfixStateAction.PrepareTarget:
                 return new HotfixCheckResult(
                     decision.Action,
-                    decision.ContentState,
                     remoteIndex.LatestPackage,
                     remoteIndex.LatestVersion,
                     "存在同 Major 前向目标包，可以准备。");
             case HotfixStateAction.RepairPackage:
                 return new HotfixCheckResult(
                     decision.Action,
-                    decision.ContentState,
                     remoteIndex.LatestPackage,
                     remoteIndex.LatestVersion,
                     "本地包损坏且远端是同版本同包，可以准备修复。");
             case HotfixStateAction.RejectRemote:
                 return new HotfixCheckResult(
                     decision.Action,
-                    decision.ContentState,
                     remoteIndex.LatestPackage,
                     remoteIndex.LatestVersion,
                     "远端目标是同版本换包或降级，拒绝自动切换。");
             default:
                 return new HotfixCheckResult(
                     decision.Action,
-                    decision.ContentState,
                     remoteIndex.LatestPackage,
                     remoteIndex.LatestVersion,
                     "当前内容已是最新，无需准备。");
@@ -387,11 +384,8 @@ public abstract class HotfixFlowBase
             ThrowFatal(
                 $"[HotfixManager] 内置完整包缺失或不完整：{ctx.BuiltInPackageInspection?.FailureReason}");
         }
-
-        ctx.CurrentContent = HotfixContentState.BuiltIn;
         ctx.CurrentPackageRoot = ctx.BuiltInPackageRoot;
         ctx.CurrentPackageIndex = ctx.BuiltInPackageIndex;
-        ctx.CurrentPackageInspection = ctx.BuiltInPackageInspection;
         ctx.CurrentPointerTrusted = false;
         CompleteStep();
     }
@@ -444,12 +438,11 @@ public abstract class HotfixFlowBase
         // 指针文件存在但无法解析：它同样不能继续被本次或下次启动当作可用指针
         bool localPointerUnreadable = trustedIndex == null && localIndexExists;
 
-        ctx.CurrentPointerTrusted = pointerTrusted;
-        ctx.CurrentContent = HotfixStateDecider.DecideCurrentContent(
+        bool useLocalPackage = HotfixStateDecider.ShouldUseLocalPackage(
             pointerTrusted,
             localIsBuiltInIdentity,
             localPackageComplete);
-        if (ctx.CurrentContent == HotfixContentState.Local)
+        if (useLocalPackage)
         {
             ctx.CurrentPackageIndex = trustedIndex;
             ctx.CurrentPackageRoot = RuntimePathManager.GetHotfixPackageRoot(trustedIndex.LatestPackage);
@@ -469,7 +462,6 @@ public abstract class HotfixFlowBase
             }
 
             // 损坏包不得继续作为当前内容：候选及其身份、包根、检查结果全部重置为已验证内置包
-            ctx.CurrentContent = HotfixContentState.BuiltIn;
             ctx.CurrentPackageIndex = ctx.BuiltInPackageIndex;
             ctx.CurrentPackageRoot = ctx.BuiltInPackageRoot;
             ctx.CurrentPackageInspection = ctx.BuiltInPackageInspection;
@@ -529,7 +521,7 @@ public abstract class HotfixFlowBase
         HotfixFallbackDecision fallback = HotfixStateDecider.DecideRemoteFailure(
             ctx.RuntimeMode,
             ctx.CurrentPackageInspection?.IsComplete == true,
-            ctx.CurrentContent);
+            IsCurrentBuiltIn(ctx));
         if (fallback.DegradedToBuiltIn)
         {
             // 退化只影响本次读取根，不修改 RuntimeMode：下次启动照常按 Online 检查远端。
@@ -578,15 +570,14 @@ public abstract class HotfixFlowBase
         HotfixStateDecision decision = HotfixStateDecider.DecideMajorMismatch(
             clientMajor,
             remoteMajor,
-            ctx.CurrentPackageInspection?.IsComplete == true,
-            ctx.CurrentContent);
+            ctx.CurrentPackageInspection?.IsComplete == true);
         ctx.PendingAction = decision.Action;
         if (decision.NotifyClientUpdate)
         {
-            OnClientUpdateRequired?.Invoke(new ClientUpdateRequiredInfo(
-                ctx.BuildIndex.Version,
-                ctx.RemotePackageIndex.LatestVersion,
-                ctx.RemotePackageIndex.LatestPackage));
+            OnClientUpdateRequired?.Invoke((
+                ClientVersion: ctx.BuildIndex.Version,
+                RemoteVersion: ctx.RemotePackageIndex.LatestVersion,
+                TargetPackageName: ctx.RemotePackageIndex.LatestPackage));
         }
 
         string message = remoteMajor > clientMajor
@@ -611,7 +602,7 @@ public abstract class HotfixFlowBase
         BeginStep("应用更新");
         bool activated = await ActivatePackageRootAsync(
             pipeline,
-            ctx.CurrentContent,
+            IsCurrentBuiltIn(ctx),
             ctx.CurrentPackageRoot,
             ctx.CurrentPackageIndex?.LatestPackage,
             activateCatalog);
@@ -621,7 +612,7 @@ public abstract class HotfixFlowBase
 
         await FinalizeInitializationAsync(
             packageIndexToPersist,
-            ctx.CurrentContent == HotfixContentState.Local ? ctx.CurrentPackageRoot : null,
+            !IsCurrentBuiltIn(ctx) ? ctx.CurrentPackageRoot : null,
             ctx.TargetDiagnosticRoot);
     }
 
@@ -675,14 +666,12 @@ public abstract class HotfixFlowBase
                 RuntimeErrorCodes.BundleNotFound, "一个或多个包内 Bundle 准备失败。"));
         }
 
-        bool refreshRequiredMetadata = !pipeline.HasRequiredMetadata(ctx.TargetGUIDRoot);
         BeginStep("处理下载结果");
         HotfixStepResult metadataResult = await pipeline.PersistRemoteMetadataAsync(
             ctx,
             HotfixMetadataTimeoutSeconds,
             HotfixMaxRetryCount,
-            HotfixRetryBaseDelaySeconds,
-            refreshRequiredMetadata);
+            HotfixRetryBaseDelaySeconds);
         if (!metadataResult.Success)
         {
             return HotfixStepResult.Fail(RuntimeMessage.Error(
@@ -739,12 +728,12 @@ public abstract class HotfixFlowBase
     /// </summary>
     private async Task<bool> ActivatePackageRootAsync(
         IHotfixPipeline pipeline,
-        HotfixContentState contentState,
+        bool isBuiltIn,
         string packageRoot,
         string packageName,
         bool activateCatalog = true)
     {
-        if (contentState == HotfixContentState.BuiltIn)
+        if (isBuiltIn)
         {
             // 内置包根由激活流程显式决定；CurrentGUIDRoot 仍记录本地包身份，不参与读取
             RuntimePathManager.ActivateBuiltInPackage();
@@ -807,7 +796,7 @@ public abstract class HotfixFlowBase
             return HotfixStepResult.Fail(shutdownError);
         }
 
-        HotfixContentState previousContent = ctx.CurrentContent;
+        bool previousIsBuiltIn = IsCurrentBuiltIn(ctx);
         string previousRoot = ctx.CurrentPackageRoot;
         string previousName = ctx.CurrentPackageIndex?.LatestPackage;
 
@@ -815,22 +804,20 @@ public abstract class HotfixFlowBase
         string finalRoot = RuntimePathManager.GetHotfixPackageRoot(ctx.TargetPackageName);
         if (!TryPromoteStagingToTargetRoot(ctx, finalRoot, out string promoteError))
         {
-            bool promoteRestored = await RollbackToCurrentAsync(
-                pipeline, previousContent, previousRoot, previousName);
+            bool promoteRestored = await RollbackToCurrentAsync(pipeline, ctx, previousIsBuiltIn, previousRoot, previousName);
             return ActivationFailure($"目标包换入失败：{promoteError}", promoteRestored);
         }
 
         bool activated = await ActivatePackageRootAsync(
             pipeline,
-            HotfixContentState.RemoteTarget,
+            false,
             finalRoot,
             ctx.TargetPackageName);
         if (!activated)
         {
             // 换入已发生：先把正式路径还原为换入前的内容，再恢复运行根
             RestoreTargetRoot(ctx);
-            bool restored = await RollbackToCurrentAsync(
-                pipeline, previousContent, previousRoot, previousName);
+            bool restored = await RollbackToCurrentAsync(pipeline, ctx, previousIsBuiltIn, previousRoot, previousName);
             return ActivationFailure("目标包激活失败", restored);
         }
 
@@ -839,8 +826,7 @@ public abstract class HotfixFlowBase
         if (!initialized)
         {
             RestoreTargetRoot(ctx);
-            bool restored = await RollbackToCurrentAsync(
-                pipeline, previousContent, previousRoot, previousName);
+            bool restored = await RollbackToCurrentAsync(pipeline, ctx, previousIsBuiltIn, previousRoot, previousName);
             return ActivationFailure("目标 PackageManager 初始化失败", restored);
         }
 
@@ -848,8 +834,7 @@ public abstract class HotfixFlowBase
         if (bindError != null)
         {
             RestoreTargetRoot(ctx);
-            bool restored = await RollbackToCurrentAsync(
-                pipeline, previousContent, previousRoot, previousName);
+            bool restored = await RollbackToCurrentAsync(pipeline, ctx, previousIsBuiltIn, previousRoot, previousName);
             return ActivationFailure($"目标后端绑定失败：{bindError}", restored);
         }
 
@@ -864,8 +849,6 @@ public abstract class HotfixFlowBase
         ctx.TargetRootBackedUp = false;
         DiscardTargetBackup(ctx);
         CleanupInactivePackages(finalRoot);
-
-        ctx.CurrentContent = HotfixContentState.Local;
         ctx.CurrentPackageRoot = finalRoot;
         ctx.TargetGUIDRoot = finalRoot;
         ctx.CurrentPackageIndex = ctx.RemotePackageIndex;
@@ -876,7 +859,7 @@ public abstract class HotfixFlowBase
 
         // 启动路径在这里补齐启动完成事件；运行中 Apply 不重复广播，完成信号就是本方法的返回值
         RaiseInitializationCompleted();
-        Debug.Log($"[HotfixManager] 热更内容已激活：{ctx.TargetPackageName}，来源={ctx.CurrentContent}。");
+        Debug.Log($"[HotfixManager] 热更内容已激活：{ctx.TargetPackageName}，来源={(IsCurrentBuiltIn(ctx) ? "内置" : "本地")}。");
         return HotfixStepResult.Ok;
     }
 
@@ -886,7 +869,8 @@ public abstract class HotfixFlowBase
     /// <returns>true 表示已恢复到此前完整包；false 表示恢复失败，调用方应阻断。</returns>
     private async Task<bool> RollbackToCurrentAsync(
         IHotfixPipeline pipeline,
-        HotfixContentState previousContent,
+        HotfixContext ctx,
+        bool previousIsBuiltIn,
         string previousRoot,
         string previousName)
     {
@@ -897,7 +881,7 @@ public abstract class HotfixFlowBase
         {
             activated = await ActivatePackageRootAsync(
                 pipeline,
-                previousContent,
+                previousIsBuiltIn,
                 previousRoot,
                 previousName);
         }
@@ -911,7 +895,10 @@ public abstract class HotfixFlowBase
 
         try
         {
-            return await FinishHotfix();
+            bool initialized = await FinishHotfix();
+            if (initialized)
+                ctx.CurrentPackageRoot = previousRoot;
+            return initialized;
         }
         catch (Exception ex)
         {
@@ -995,7 +982,7 @@ public abstract class HotfixFlowBase
             ctx.CurrentPackageIndex.LatestVersion,
             ctx.CurrentPackageInspection?.IsComplete == true,
             ctx.CurrentPointerTrusted,
-            ctx.CurrentContent,
+            IsCurrentBuiltIn(ctx),
             remoteIndex.LatestPackage,
             remoteIndex.LatestVersion);
     }
@@ -1530,6 +1517,8 @@ public abstract class HotfixFlowBase
     /// <summary>
     /// 合并步骤错误消息与异常信息
     /// </summary>
+    private static bool IsCurrentBuiltIn(HotfixContext ctx) => ctx != null && string.Equals(ctx.CurrentPackageRoot, ctx.BuiltInPackageRoot, StringComparison.Ordinal);
+
     private static string FormatError(HotfixStepResult result)
     {
         return result.Error != null ? result.Error.ToString() : "未知错误";
@@ -1539,7 +1528,6 @@ public abstract class HotfixFlowBase
     {
         return new HotfixCheckResult(
             HotfixStateAction.Block,
-            HotfixContentState.Blocked,
             string.Empty,
             default,
             message);

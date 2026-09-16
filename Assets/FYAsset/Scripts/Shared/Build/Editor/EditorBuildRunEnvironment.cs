@@ -16,11 +16,11 @@ using UnityEngine;
 public sealed class EditorBuildRunEnvironment : IBuildRunEnvironment
 {
     /// <summary>写入后端请求、构建类型与 BuildConfig（CLI/平台/输出解析、版本兜底）。</summary>
-    public void PrepareContext(BuildContext context, BuildRequest request)
+    public void PrepareContext(BuildContext context, BuildPipelineRequest request)
     {
-        BuildPackageRequest package = request.Package;
+        BuildRequest package = request.Package;
 
-        context.Set(BuildContextKeys.BuildPackageRequest, package);
+        context.Set(BuildContextKeys.BuildRequest, package);
         context.Set(BuildContextKeys.BuildType, package.BuildType);
         context.Set(BuildContextKeys.DeferPackagePublication, true);
 
@@ -34,7 +34,7 @@ public sealed class EditorBuildRunEnvironment : IBuildRunEnvironment
     }
 
     /// <summary>attempt 布局返回中间目录事务；直接写正式输出的布局返回 null。</summary>
-    public IBuildAttempt BeginAttempt(BuildContext context, BuildRequest request)
+    public IBuildAttempt BeginAttempt(BuildContext context, BuildPipelineRequest request)
     {
         if (!request.Package.IsAttemptLayout)
             return null;
@@ -42,7 +42,7 @@ public sealed class EditorBuildRunEnvironment : IBuildRunEnvironment
         return new EditorBuildAttempt(request.Package);
     }
 
-    private static BuildConfig CreateBuildConfig(BuildPackageRequest package)
+    private static BuildConfig CreateBuildConfig(BuildRequest package)
     {
         // BuildVersionString 只用于构建摘要与日志：CLI --version 优先，否则取当前时间戳。
         string buildVersionString = GetCommandLineArg("--version")
@@ -91,9 +91,9 @@ public sealed class EditorBuildRunEnvironment : IBuildRunEnvironment
     /// </summary>
     private sealed class EditorBuildAttempt : IBuildAttempt
     {
-        private readonly BuildPackageRequest _package;
+        private readonly BuildRequest _package;
 
-        public EditorBuildAttempt(BuildPackageRequest package)
+        public EditorBuildAttempt(BuildRequest package)
         {
             _package = package;
             PrepareAttemptDirectory();
@@ -144,7 +144,7 @@ public sealed class EditorBuildRunEnvironment : IBuildRunEnvironment
             FileHelper.EnsureDirectory(_package.OutputDir);
         }
 
-        private static void ValidateAttemptPackage(BuildPackageRequest package)
+        private static void ValidateAttemptPackage(BuildRequest package)
         {
             if (!FileHelper.DirectoryExists(package.OutputDir))
                 throw new DirectoryNotFoundException($"attempt 包目录不存在: {package.OutputDir}");

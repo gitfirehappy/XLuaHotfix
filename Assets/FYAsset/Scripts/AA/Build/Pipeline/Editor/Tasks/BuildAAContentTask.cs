@@ -17,7 +17,7 @@ public class BuildAAContentTask : IBuildTask
 
     public BuildTaskResult Execute(BuildContext ctx)
     {
-        var request = ctx.Require<BuildPackageRequest>(BuildContextKeys.BuildPackageRequest);
+        var request = ctx.Require<BuildRequest>(BuildContextKeys.BuildRequest);
 
         var settings = AddressableAssetSettingsDefaultObject.Settings;
         if (settings == null)
@@ -48,7 +48,7 @@ public class BuildAAContentTask : IBuildTask
         }
     }
 
-    private static void ConfigureBasicSettings(AddressableAssetSettings settings, BuildPackageRequest request)
+    private static void ConfigureBasicSettings(AddressableAssetSettings settings, BuildRequest request)
     {
         settings.BuildRemoteCatalog = true;
         settings.OverridePlayerVersion = "addressables_content_state";

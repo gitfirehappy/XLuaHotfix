@@ -29,7 +29,7 @@ public sealed class PackageBuildIdentity
                && string.Equals(BackendId, backendKey, StringComparison.OrdinalIgnoreCase);
     }
 
-    /// <summary>生产包名前缀与时间戳格式；与 BuildPackageRequest 的命名契约一致。</summary>
+    /// <summary>生产包名前缀与时间戳格式；与 BuildRequest 的命名契约一致。</summary>
     public const string PackageNamePrefix = "Build_";
     public const string PackageTimestampFormat = "yyyyMMddHHmmss";
 

@@ -20,9 +20,9 @@ public sealed class LuaScriptsIndexBuildTask : IBuildTask
 
     public BuildTaskResult Execute(BuildContext ctx)
     {
-        var request = ctx.Get<BuildPackageRequest>(BuildContextKeys.BuildPackageRequest);
+        var request = ctx.Get<BuildRequest>(BuildContextKeys.BuildRequest);
         if (request == null)
-            return BuildTaskResult.Fail(BuildErrorCodes.BuildFailed, "BuildPackageRequest is null.", true);
+            return BuildTaskResult.Fail(BuildErrorCodes.BuildFailed, "BuildRequest is null.", true);
 
         try
         {
@@ -71,7 +71,7 @@ public sealed class LuaScriptsIndexBuildTask : IBuildTask
         for (int i = 0; i < assets.Count; i++)
         {
             CollectedAssetInfo asset = assets[i];
-            if (!string.Equals(asset.PrimaryType, nameof(LuaScriptContainer), StringComparison.Ordinal))
+            if (!string.Equals(asset.AssetType, nameof(LuaScriptContainer), StringComparison.Ordinal))
                 continue;
             containerAddresses[asset.AssetPath] = asset.Address;
         }
@@ -226,7 +226,7 @@ public sealed class LuaScriptsIndexBuildTask : IBuildTask
             AssetPath = LuaScriptsIndex.EditorAssetPath,
             AssetGUID = guid,
             Address = LuaScriptsIndex.AssetAddress,
-            PrimaryType = primaryType,
+            AssetType = primaryType,
             Labels = new List<string> { LuaScriptsIndex.AssetAddress },
             GroupName = SystemIdentifiers.SharedGroupName,
             ContentName = BundleNameBuilder.BuildShared(
@@ -251,7 +251,7 @@ public sealed class LuaScriptsIndexBuildTask : IBuildTask
             CollectedAssetInfo asset = assets[i];
             publishedAssets.Add(new LuaScriptsIndexPublishedAsset(
                 asset.Address,
-                asset.PrimaryType,
+                asset.AssetType,
                 asset.AssetPath));
         }
 

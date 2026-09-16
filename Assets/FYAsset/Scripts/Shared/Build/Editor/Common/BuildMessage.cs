@@ -78,8 +78,8 @@ public static class BuildErrorCodes
     /// <summary>同一个 Bundle 构建组混入多种内容类型（AssetContentType）</summary>
     public const string MixedPayloadBundle = "MIXED_PAYLOAD_BUNDLE";
 
-    /// <summary>同一个 Bundle 构建组混入多种 PrimaryType</summary>
-    public const string MixedPrimaryTypeBundle = "MIXED_PRIMARY_TYPE_BUNDLE";
+    /// <summary>同一个 Bundle 构建组混入多种 AssetType</summary>
+    public const string MixedAssetTypeBundle = "MIXED_PRIMARY_TYPE_BUNDLE";
 
     /// <summary>RawFile 模式下单个文件产生多个 Asset（内部逻辑错误）</summary>
     public const string RawfileMultiAsset = "RAWFILE_MULTI_ASSET";
@@ -96,10 +96,10 @@ public static class BuildErrorCodes
     /// <summary>构建结果中同一个资产与逻辑 Bundle 的实际归属重复</summary>
     public const string DuplicateManifestMembership = "DUPLICATE_MANIFEST_MEMBERSHIP";
 
-    /// <summary>CollectedAssetInfo 无法在实际 BundleBuildInfo.AssetPaths 中找到归属</summary>
+    /// <summary>CollectedAssetInfo 无法在实际 ContentBuildResult.AssetPaths 中找到归属</summary>
     public const string ManifestMembershipMissing = "MANIFEST_MEMBERSHIP_MISSING";
 
-    /// <summary>CollectedAssetInfo 与实际 BundleBuildInfo 的内容类型不一致</summary>
+    /// <summary>CollectedAssetInfo 与实际 ContentBuildResult 的内容类型不一致</summary>
     public const string ManifestPayloadMismatch = "MANIFEST_PAYLOAD_MISMATCH";
 
     /// <summary>ABManifest 初始化失败（数据为空或格式错误）</summary>

@@ -19,11 +19,11 @@ public static class ABBuildReportStore
     public static string ReportsDirectory =>
         FYAssetPathUtility.JoinFilePath(BuildPathManager.ProjectRoot, ReportsRootSegment, ReportsFolderSegment, BackendFolderSegment);
 
-    public static string CreateReportPath(BuildPackageRequest request)
+    public static string CreateReportPath(BuildRequest request)
     {
         string packageName = request != null && !string.IsNullOrEmpty(request.PackageName)
             ? request.PackageName
-            : "UnknownPackage_" + DateTime.UtcNow.ToString(BuildPackageRequest.PackageTimestampFormat);
+            : "UnknownPackage_" + DateTime.UtcNow.ToString(BuildRequest.PackageTimestampFormat);
 
         string fileName = packageName + "_ABBuildReport" + ReportFileExtension;
         return FYAssetPathUtility.JoinFilePath(ReportsDirectory, fileName);

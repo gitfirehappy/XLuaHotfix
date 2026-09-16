@@ -14,7 +14,7 @@ public static class BuildPipelineRunner
     /// </summary>
     /// <param name="request">运行请求；Environment 为 null 时只执行任务，不建 Context 标准键、不提升</param>
     /// <param name="tasks">Composer 产出的 Task 序列，顺序即执行顺序</param>
-    public static BuildRunResult Run(BuildRequest request, IReadOnlyList<IBuildTask> tasks)
+    public static BuildRunResult Run(BuildPipelineRequest request, IReadOnlyList<IBuildTask> tasks)
     {
         if (request == null)
             throw new ArgumentNullException(nameof(request));

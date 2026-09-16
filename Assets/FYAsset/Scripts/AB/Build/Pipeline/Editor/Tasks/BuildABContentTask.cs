@@ -56,14 +56,14 @@ public class BuildABContentTask : IBuildTask
             list.Add(assets[i]);
         }
 
-        var plans = new List<ContentPlan>(groups.Count);
+        var plans = new List<ContentBuildItem>(groups.Count);
         foreach (var kv in groups)
         {
             var validation = ValidateBundleGroup(kv.Key, kv.Value);
             if (!validation.Success)
                 return validation;
 
-            if (!TryCreatePlan(kv.Key, kv.Value, out ContentPlan plan, out BuildTaskResult planError))
+            if (!TryCreatePlan(kv.Key, kv.Value, out ContentBuildItem plan, out BuildTaskResult planError))
                 return planError;
 
             plans.Add(plan);
@@ -80,10 +80,7 @@ public class BuildABContentTask : IBuildTask
 
         var plannedFileNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         for (int i = 0; i < plans.Count; i++)
-        {
-            for (int o = 0; o < plans[i].OutputNames.Count; o++)
-                plannedFileNames.Add(plans[i].OutputNames[o]);
-        }
+            plannedFileNames.Add(plans[i].PhysicalName);
 
         // 复用来源只有两处事实：正式 Summary（复用索引）与历史 Build_* 包（唯一物理字节来源）。
         // 存储不可用只损失优化，不得阻断构建。
@@ -107,16 +104,9 @@ public class BuildABContentTask : IBuildTask
 
         for (int i = 0; i < plans.Count; i++)
         {
-            ContentPlan plan = plans[i];
-            if (plan.OutputNames.Count != 1)
-            {
-                AddWarning(warnings,
-                    $"内容 '{plan.ContentName}' 产出 {plan.OutputNames.Count} 个物理文件，不参与历史制品复用。");
-                continue;
-            }
-
+            ContentBuildItem plan = plans[i];
             if (!ABBuildContentFingerprint.TryCompute(
-                    plan.ContentName, plan.Members, platformToken, compressionToken, buildFormatToken,
+                    plan.ContentName, plan.AssetPaths, platformToken, compressionToken, buildFormatToken,
                     out string fingerprint))
             {
                 AddWarning(warnings,
@@ -137,24 +127,22 @@ public class BuildABContentTask : IBuildTask
             }
 
             plan.ReusedOutput = reusedDigest;
-            plan.CachedDependencyFileNames = reusedDependencies;
-            plan.CacheCandidate = true;
+            plan.DependencyFileNames = reusedDependencies;
         }
 
         // 复用内容必须带可解析的依赖事实，否则依赖下标会与全量构建不一致，此时退回重建。
         for (int i = 0; i < plans.Count; i++)
         {
-            ContentPlan plan = plans[i];
-            if (!plan.CacheCandidate)
+            ContentBuildItem plan = plans[i];
+            if (!plan.ReusedOutput.HasValue)
                 continue;
 
-            if (!ContentDependencyIndexResolver.AreDependenciesResolvable(
-                    plan.ContentName, plan.CachedDependencyFileNames, plannedFileNames, out string dependencyReason))
+            if (!AreDependenciesResolvable(
+                    plan.ContentName, plan.DependencyFileNames, plannedFileNames, out string dependencyReason))
             {
                 AddWarning(warnings,
                     $"内容 '{plan.ContentName}' 的复用候选缺少可解析的依赖事实，本次重新构建: {dependencyReason}");
-                plan.CacheCandidate = false;
-                DropReusedArtifactIfNotCandidate(plan, tempDir);
+                InvalidateReuse(plan, tempDir);
             }
         }
 
@@ -196,13 +184,13 @@ public class BuildABContentTask : IBuildTask
         if (dependencyMergeError != null)
             return dependencyMergeError;
 
-        var results = new List<BundleBuildInfo>(plans.Count);
+        var results = new List<ContentBuildResult>(plans.Count);
         var processedOutputs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         int builtCount = 0;
 
         for (int i = 0; i < plans.Count; i++)
         {
-            ContentPlan plan = plans[i];
+            ContentBuildItem plan = plans[i];
 
             if (plan.ReusedOutput.HasValue)
             {
@@ -213,8 +201,8 @@ public class BuildABContentTask : IBuildTask
 
             if (plan.ContentType == AssetContentType.RawFile)
             {
-                string rawAssetPath = plan.Members[0].AssetPath;
-                if (unityOutputs.ContainsKey(plan.ContentName) || processedOutputs.Contains(plan.ContentName))
+                string rawAssetPath = plan.AssetPaths[0];
+                if (unityOutputs.ContainsKey(plan.PhysicalName) || processedOutputs.Contains(plan.PhysicalName))
                 {
                     return BuildTaskResult.Fail(BuildErrorCodes.RawfilePayloadConflict,
                         $"Bundle '{plan.ContentName}' 同时包含 RawFile 与 Serialized/Scene 输出路线。RawFile Asset '{rawAssetPath}' " +
@@ -244,21 +232,17 @@ public class BuildABContentTask : IBuildTask
                 continue;
             }
 
-            var produced = new List<FileHelper.FileDigest>(plan.OutputNames.Count);
-            for (int o = 0; o < plan.OutputNames.Count; o++)
+            var produced = new List<FileHelper.FileDigest>(1);
+            string outputName = plan.PhysicalName;
+            if (!TryTakeUnityOutput(unityOutputs, outputName, processedOutputs, out FileHelper.FileDigest digest))
             {
-                string outputName = plan.OutputNames[o];
-                if (!TryTakeUnityOutput(unityOutputs, outputName, processedOutputs, out FileHelper.FileDigest digest))
-                {
-                    return BuildTaskResult.Fail(BuildErrorCodes.BundleFileNotFound,
-                        $"内容 '{plan.ContentName}' 的 Unity 构建产物缺失: 期望 '{outputName}'，实际产出 '{string.Join(", ", unityOutputs.Keys)}'。", true);
-                }
-
-                produced.Add(digest);
-                results.Add(CreateBuildInfo(plan, digest));
-                processedOutputs.Add(digest.Name);
+                return BuildTaskResult.Fail(BuildErrorCodes.BundleFileNotFound,
+                    $"内容 '{plan.ContentName}' 的 Unity 构建产物缺失: 期望 '{outputName}'，实际产出 '{string.Join(", ", unityOutputs.Keys)}'。", true);
             }
 
+            produced.Add(digest);
+            results.Add(CreateBuildInfo(plan, digest));
+            processedOutputs.Add(digest.Name);
             builtCount++;
         }
 
@@ -272,17 +256,29 @@ public class BuildABContentTask : IBuildTask
         return BuildTaskResult.Ok(messages);
     }
 
-    /// <summary>
-    /// 把已失去复用资格的内容退回重建：删除已复制到本次输出目录的制品，避免留下孤儿文件。
-    /// </summary>
-    private static void DropReusedArtifactIfNotCandidate(ContentPlan plan, string tempDir)
+    private static void DropReusedArtifactIfNotCandidate(ContentBuildItem plan, string tempDir)
     {
-        if (plan.CacheCandidate || !plan.ReusedOutput.HasValue)
+        if (plan == null || plan.ReusedOutput.HasValue)
+            return;
+        FileHelper.TryDelete(FYAssetPathUtility.JoinFilePath(tempDir, plan.PhysicalName));
+    }
+
+    private static void InvalidateReuse(ContentBuildItem plan, string tempDir)
+    {
+        if (plan == null || !plan.ReusedOutput.HasValue)
             return;
 
         FileHelper.TryDelete(FYAssetPathUtility.JoinFilePath(tempDir, plan.ReusedOutput.Value.Name));
         plan.ReusedOutput = null;
-        plan.CachedDependencyFileNames = null;
+        plan.DependencyFileNames = null;
+    }
+
+    private static void InvalidateReuseIfDropped(ContentBuildItem plan, string tempDir)
+    {
+        if (plan == null || plan.ReusedOutput.HasValue)
+            return;
+
+        plan.DependencyFileNames = null;
     }
 
     /// <summary>
@@ -290,7 +286,7 @@ public class BuildABContentTask : IBuildTask
     /// 复用历史制品的内容取 Summary 回放的依赖。合并失败即阻断，避免写出与全量构建不同的依赖下标。
     /// </summary>
     private static BuildTaskResult TryApplyDependencyFacts(
-        List<ContentPlan> plans,
+        List<ContentBuildItem> plans,
         AssetBundleManifest unityManifest)
     {
         var rebuiltDependencies = new Dictionary<string, IList<string>>(StringComparer.Ordinal);
@@ -298,11 +294,11 @@ public class BuildABContentTask : IBuildTask
 
         for (int i = 0; i < plans.Count; i++)
         {
-            ContentPlan plan = plans[i];
+            ContentBuildItem plan = plans[i];
             if (plan.ReusedOutput.HasValue)
             {
                 reusedDependencies[plan.ContentName] =
-                    new List<string>(plan.CachedDependencyFileNames ?? new List<string>(0));
+                    new List<string>(plan.DependencyFileNames ?? new List<string>(0));
                 continue;
             }
 
@@ -314,15 +310,11 @@ public class BuildABContentTask : IBuildTask
             }
 
             var dependencies = new List<string>();
-            for (int o = 0; o < plan.OutputNames.Count; o++)
+            string[] direct = unityManifest != null
+                ? unityManifest.GetDirectDependencies(plan.PhysicalName)
+                : null;
+            if (direct != null)
             {
-                string outputName = plan.OutputNames[o];
-                string[] direct = unityManifest != null
-                    ? unityManifest.GetDirectDependencies(outputName)
-                    : null;
-                if (direct == null)
-                    continue;
-
                 for (int d = 0; d < direct.Length; d++)
                 {
                     string dependencyName = direct[d];
@@ -335,7 +327,7 @@ public class BuildABContentTask : IBuildTask
             rebuiltDependencies[plan.ContentName] = dependencies;
         }
 
-        if (!ContentDependencyIndexResolver.TryMergeDependencyNames(
+        if (!TryMergeDependencyNames(
                 rebuiltDependencies, reusedDependencies, out Dictionary<string, List<string>> merged, out List<string> problems))
         {
             return BuildTaskResult.Fail(BuildErrorCodes.ManifestDependencyConflict,
@@ -344,7 +336,7 @@ public class BuildABContentTask : IBuildTask
 
         for (int i = 0; i < plans.Count; i++)
         {
-            ContentPlan plan = plans[i];
+            ContentBuildItem plan = plans[i];
             if (!merged.TryGetValue(plan.ContentName, out List<string> dependencies))
             {
                 return BuildTaskResult.Fail(BuildErrorCodes.ManifestDependencyConflict,
@@ -357,19 +349,159 @@ public class BuildABContentTask : IBuildTask
         return null;
     }
 
-    /// <summary>
-    /// 按依赖闭合撤销不安全的复用，返回被撤销的内容数。
-    /// Unity 只把显式列入本次构建的资产写入内容，未被显式分配的依赖资产会被复制进引用它的每个内容，
-    /// 因此被重建内容依赖到的复用内容必须一起重建，否则重建产物与全量构建不一致。
-    /// </summary>
-    private static int DropReuseViolatingDependencyClosure(List<ContentPlan> plans, BuildContext ctx, List<string> warnings)
+    private static bool AreDependenciesResolvable(
+        string contentName,
+        IReadOnlyList<string> dependencyFileNames,
+        IReadOnlyCollection<string> knownFileNames,
+        out string failureReason)
+    {
+        failureReason = null;
+        if (dependencyFileNames == null)
+        {
+            failureReason = $"内容 '{contentName}' 缺少依赖事实";
+            return false;
+        }
+
+        if (dependencyFileNames.Count == 0 || knownFileNames == null)
+            return true;
+
+        var known = new HashSet<string>(knownFileNames, StringComparer.OrdinalIgnoreCase);
+        for (int i = 0; i < dependencyFileNames.Count; i++)
+        {
+            string dependency = dependencyFileNames[i];
+            if (string.IsNullOrEmpty(dependency)
+                || string.Equals(dependency, contentName, StringComparison.OrdinalIgnoreCase))
+                continue;
+            if (!known.Contains(dependency))
+            {
+                failureReason = $"内容 '{contentName}' 的缓存依赖 '{dependency}' 不在本次构建内容集合中";
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool TryMergeDependencyNames(
+        IReadOnlyDictionary<string, IList<string>> rebuiltDependencies,
+        IReadOnlyDictionary<string, IList<string>> reusedDependencies,
+        out Dictionary<string, List<string>> merged,
+        out List<string> problems)
+    {
+        merged = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+        problems = new List<string>();
+        AppendDependencies(merged, problems, reusedDependencies, "缓存复用");
+        AppendDependencies(merged, problems, rebuiltDependencies, "本次重建");
+        return problems.Count == 0;
+    }
+
+    private static void AppendDependencies(
+        Dictionary<string, List<string>> merged,
+        List<string> problems,
+        IReadOnlyDictionary<string, IList<string>> source,
+        string sourceLabel)
+    {
+        if (source == null)
+            return;
+
+        foreach (var pair in source)
+        {
+            if (string.IsNullOrEmpty(pair.Key))
+                continue;
+            if (pair.Value == null)
+            {
+                problems.Add($"内容 '{pair.Key}' 在{sourceLabel}来源中缺少依赖事实");
+                continue;
+            }
+
+            List<string> normalized = NormalizeDependencies(pair.Key, pair.Value);
+            if (merged.TryGetValue(pair.Key, out List<string> existing))
+            {
+                if (!SequenceEqual(existing, normalized))
+                    problems.Add($"内容 '{pair.Key}' 的两份依赖事实不一致: [{string.Join(", ", existing)}] vs [{string.Join(", ", normalized)}]");
+                continue;
+            }
+
+            merged[pair.Key] = normalized;
+        }
+    }
+
+    private static List<string> NormalizeDependencies(string contentName, IList<string> dependencies)
+    {
+        var result = new List<string>(dependencies.Count);
+        for (int i = 0; i < dependencies.Count; i++)
+        {
+            string dependency = dependencies[i];
+            if (string.IsNullOrEmpty(dependency)
+                || string.Equals(dependency, contentName, StringComparison.OrdinalIgnoreCase)
+                || result.Contains(dependency))
+                continue;
+            result.Add(dependency);
+        }
+        result.Sort(StringComparer.Ordinal);
+        return result;
+    }
+
+    private static bool SequenceEqual(List<string> left, List<string> right)
+    {
+        if (left.Count != right.Count)
+            return false;
+        for (int i = 0; i < left.Count; i++)
+        {
+            if (!string.Equals(left[i], right[i], StringComparison.Ordinal))
+                return false;
+        }
+        return true;
+    }
+
+    private static List<string> DropReuseViolatingDependencyClosure(
+        IReadOnlyDictionary<string, IList<string>> dependenciesByContent,
+        ISet<string> reusableContents,
+        IEnumerable<string> rebuiltContents)
+    {
+        var dropped = new List<string>();
+        if (reusableContents == null || reusableContents.Count == 0 || rebuiltContents == null)
+            return dropped;
+
+        var requiresBuild = new HashSet<string>(StringComparer.Ordinal);
+        var queue = new Queue<string>();
+        foreach (string name in rebuiltContents)
+        {
+            if (!string.IsNullOrEmpty(name) && requiresBuild.Add(name))
+                queue.Enqueue(name);
+        }
+
+        while (queue.Count > 0)
+        {
+            string contentName = queue.Dequeue();
+            if (dependenciesByContent == null
+                || !dependenciesByContent.TryGetValue(contentName, out IList<string> dependencies)
+                || dependencies == null)
+                continue;
+
+            for (int i = 0; i < dependencies.Count; i++)
+            {
+                string dependency = dependencies[i];
+                if (string.IsNullOrEmpty(dependency) || !reusableContents.Remove(dependency))
+                    continue;
+                dropped.Add(dependency);
+                if (requiresBuild.Add(dependency))
+                    queue.Enqueue(dependency);
+            }
+        }
+
+        return dropped;
+    }
+
+    /// <summary>按依赖闭合撤销不安全的复用，返回被撤销的内容数。</summary>
+    private static int DropReuseViolatingDependencyClosure(List<ContentBuildItem> plans, BuildContext ctx, List<string> warnings)
     {
         var reusables = new HashSet<string>(StringComparer.Ordinal);
         var rebuilt = new List<string>();
         for (int i = 0; i < plans.Count; i++)
         {
-            ContentPlan plan = plans[i];
-            if (plan.CacheCandidate)
+            ContentBuildItem plan = plans[i];
+            if (plan.ReusedOutput.HasValue)
                 reusables.Add(plan.ContentName);
             else if (plan.ContentType != AssetContentType.RawFile)
                 rebuilt.Add(plan.ContentName);
@@ -386,9 +518,10 @@ public class BuildABContentTask : IBuildTask
             int disabled = 0;
             for (int i = 0; i < plans.Count; i++)
             {
-                if (!plans[i].CacheCandidate)
+                if (!plans[i].ReusedOutput.HasValue)
                     continue;
-                plans[i].CacheCandidate = false;
+                InvalidateReuse(plans[i], FYAssetPathUtility.JoinFilePath(
+                    ctx.Require<BuildConfig>(BuildContextKeys.BuildConfig).OutputRoot, "_temp"));
                 disabled++;
             }
             return disabled;
@@ -407,7 +540,7 @@ public class BuildABContentTask : IBuildTask
             dependenciesByContent[kv.Key] = list;
         }
 
-        List<string> dropped = ContentDependencyIndexResolver.DropReuseViolatingDependencyClosure(
+        List<string> dropped = DropReuseViolatingDependencyClosure(
             dependenciesByContent, reusables, rebuilt);
 
         for (int i = 0; i < dropped.Count; i++)
@@ -418,42 +551,26 @@ public class BuildABContentTask : IBuildTask
 
         for (int i = 0; i < plans.Count; i++)
         {
-            ContentPlan plan = plans[i];
-            if (plan.CacheCandidate && !reusables.Contains(plan.ContentName))
-                plan.CacheCandidate = false;
+            ContentBuildItem plan = plans[i];
+            if (plan.ReusedOutput.HasValue && !reusables.Contains(plan.ContentName))
+                InvalidateReuse(plan, FYAssetPathUtility.JoinFilePath(
+                    ctx.Require<BuildConfig>(BuildContextKeys.BuildConfig).OutputRoot, "_temp"));
         }
 
         return dropped.Count;
     }
 
     /// <summary>把未复用内容的构建请求追加到 Unity 构建列表；RawFile 与复用内容不进入列表。</summary>
-    private static void AppendUnityBuild(ContentPlan plan, List<AssetBundleBuild> builds)
+    private static void AppendUnityBuild(ContentBuildItem plan, List<AssetBundleBuild> builds)
     {
         if (plan.ReusedOutput.HasValue || plan.ContentType == AssetContentType.RawFile)
             return;
 
-        if (plan.ContentType == AssetContentType.Scene)
+        builds.Add(new AssetBundleBuild
         {
-            // Scene 必须独立打包（Unity 要求单独一个 AB 入口）
-            for (int s = 0; s < plan.ScenePaths.Count; s++)
-            {
-                builds.Add(new AssetBundleBuild
-                {
-                    assetBundleName = plan.OutputNames[s],
-                    assetNames = new[] { plan.ScenePaths[s] }
-                });
-            }
-            return;
-        }
-
-        if (plan.SerializedPaths.Count > 0)
-        {
-            builds.Add(new AssetBundleBuild
-            {
-                assetBundleName = plan.PhysicalName,
-                assetNames = plan.SerializedPaths.ToArray()
-            });
-        }
+            assetBundleName = plan.PhysicalName,
+            assetNames = plan.AssetPaths.ToArray()
+        });
     }
 
     /// <summary>收集本次 Unity 实际产出的文件摘要；无 Unity 构建时返回空集合。</summary>
@@ -504,12 +621,12 @@ public class BuildABContentTask : IBuildTask
         return true;
     }
 
-    private static BundleBuildInfo CreateBuildInfo(ContentPlan plan, in FileHelper.FileDigest digest)
+    private static ContentBuildResult CreateBuildInfo(ContentBuildItem plan, in FileHelper.FileDigest digest)
     {
-        return new BundleBuildInfo
+        return new ContentBuildResult
         {
-            BundleName = plan.ContentName,
-            OutputFileName = digest.Name,
+            ContentName = plan.ContentName,
+            FileName = digest.Name,
             Hash = digest.Hash,
             CRC = digest.CRC,
             Size = digest.Size,
@@ -539,7 +656,7 @@ public class BuildABContentTask : IBuildTask
         {
             var asset = assets[i];
             contentTypes.Add(asset.ContentType);
-            primaryTypes.Add(asset.PrimaryType ?? string.Empty);
+            primaryTypes.Add(asset.AssetType ?? string.Empty);
         }
 
         if (contentTypes.Count != 1)
@@ -554,14 +671,20 @@ public class BuildABContentTask : IBuildTask
             for (int i = 0; i < assets.Count; i++)
             {
                 members.Append("\n  - ").Append(assets[i].AssetPath)
-                    .Append(" [PrimaryType=").Append(assets[i].PrimaryType ?? "")
+                    .Append(" [AssetType=").Append(assets[i].AssetType ?? "")
                     .Append(", Address=").Append(assets[i].Address ?? "").Append(']');
             }
-            return BuildTaskResult.Fail(BuildErrorCodes.MixedPrimaryTypeBundle,
-                $"Bundle '{bundleName}' 混入了多种 PrimaryType。每个物理 Bundle 必须按精确主类型分桶。成员:{members}", true);
+            return BuildTaskResult.Fail(BuildErrorCodes.MixedAssetTypeBundle,
+                $"Bundle '{bundleName}' 混入了多种 AssetType。每个物理 Bundle 必须按精确主类型分桶。成员:{members}", true);
         }
 
         AssetContentType contentType = assets[0].ContentType;
+        if (contentType == AssetContentType.Scene && assets.Count != 1)
+        {
+            return BuildTaskResult.Fail(BuildErrorCodes.MixedPayloadBundle,
+                $"Bundle '{bundleName}' 包含 {assets.Count} 个 Scene；每个 Scene 必须对应一个独立 Content 文件。", true);
+        }
+
         if (contentType == AssetContentType.RawFile && assets.Count != 1)
         {
             return BuildTaskResult.Fail(BuildErrorCodes.RawfileMultiAsset,
@@ -575,17 +698,18 @@ public class BuildABContentTask : IBuildTask
     private static bool TryCreatePlan(
         string contentName,
         List<CollectedAssetInfo> members,
-        out ContentPlan plan,
+        out ContentBuildItem plan,
         out BuildTaskResult error)
     {
         plan = null;
         error = null;
 
-        var created = new ContentPlan
+        var created = new ContentBuildItem
         {
             ContentName = contentName,
-            PhysicalName = BundleNameBuilder.BuildPhysicalName(contentName, ResolveReadableName(members)),
-            Members = members,
+            PhysicalName = members[0].ContentType == AssetContentType.Scene
+                ? BundleNameBuilder.BuildPhysicalName(contentName, ShortAssetName(members[0].AssetPath))
+                : BundleNameBuilder.BuildPhysicalName(contentName, ResolveReadableName(members)),
             ContentType = members[0].ContentType
         };
 
@@ -593,35 +717,16 @@ public class BuildABContentTask : IBuildTask
         {
             CollectedAssetInfo member = members[i];
             created.AssetPaths.Add(member.AssetPath);
-
-            switch (member.ContentType)
+            if (member.ContentType == AssetContentType.SerializedObject)
             {
-                case AssetContentType.RawFile:
-                    created.OutputNames.Add(created.PhysicalName);
-                    break;
-
-                case AssetContentType.Scene:
-                    // Scene 强制独立打包；每个场景一个物理文件，可读段使用场景短名。
-                    created.OutputNames.Add(
-                        BundleNameBuilder.BuildPhysicalName(contentName, ShortAssetName(member.AssetPath)));
-                    created.ScenePaths.Add(member.AssetPath);
-                    break;
-
-                default:
-                    var entryValidation = ValidateSerializedBundleEntry(member.AssetPath);
-                    if (!entryValidation.Success)
-                    {
-                        error = entryValidation;
-                        return false;
-                    }
-
-                    created.SerializedPaths.Add(member.AssetPath);
-                    break;
+                var entryValidation = ValidateSerializedBundleEntry(member.AssetPath);
+                if (!entryValidation.Success)
+                {
+                    error = entryValidation;
+                    return false;
+                }
             }
         }
-
-        if (created.SerializedPaths.Count > 0)
-            created.OutputNames.Insert(0, created.PhysicalName);
 
         plan = created;
         return true;
@@ -641,26 +746,23 @@ public class BuildABContentTask : IBuildTask
     }
 
     /// <summary>物理文件名必须大小写不敏感唯一；冲突时报告两个内容桶的完整身份并阻断。</summary>
-    private static BuildTaskResult ValidatePhysicalNameUniqueness(List<ContentPlan> plans)
+    private static BuildTaskResult ValidatePhysicalNameUniqueness(List<ContentBuildItem> plans)
     {
-        var seen = new Dictionary<string, ContentPlan>(StringComparer.OrdinalIgnoreCase);
+        var seen = new Dictionary<string, ContentBuildItem>(StringComparer.OrdinalIgnoreCase);
         for (int i = 0; i < plans.Count; i++)
         {
-            ContentPlan plan = plans[i];
-            for (int o = 0; o < plan.OutputNames.Count; o++)
+            ContentBuildItem plan = plans[i];
+            string name = plan.PhysicalName;
+            if (string.IsNullOrEmpty(name))
+                continue;
+            if (seen.TryGetValue(name, out ContentBuildItem other))
             {
-                string name = plan.OutputNames[o];
-                if (string.IsNullOrEmpty(name))
-                    continue;
-                if (seen.TryGetValue(name, out ContentPlan other))
-                {
-                    return BuildTaskResult.Fail(BuildErrorCodes.DuplicateBundleName,
-                        $"物理文件名冲突（大小写不敏感）: '{name}' 同时来自 '{other.ContentName}' 与 '{plan.ContentName}'。",
-                        true);
-                }
-
-                seen.Add(name, plan);
+                return BuildTaskResult.Fail(BuildErrorCodes.DuplicateBundleName,
+                    $"物理文件名冲突（大小写不敏感）: '{name}' 同时来自 '{other.ContentName}' 与 '{plan.ContentName}'。",
+                    true);
             }
+
+            seen.Add(name, plan);
         }
 
         return BuildTaskResult.Ok();
@@ -677,49 +779,15 @@ public class BuildABContentTask : IBuildTask
         return BuildTaskResult.Ok();
     }
 
-    /// <summary>单个内容的构建输入、路线和产物事实。</summary>
-    private sealed class ContentPlan
+    /// <summary>单个内容的短生命周期构建工作记录；只保留平坦资产路径和必要处理状态。</summary>
+    private sealed class ContentBuildItem
     {
         public string ContentName;
-        public List<CollectedAssetInfo> Members;
-
-        /// <summary>内容类型；同一内容的成员类型在 ValidateBundleGroup 中已保证一致</summary>
         public AssetContentType ContentType;
-
-        /// <summary>内容包含的全部成员资产路径，供 Manifest 归属使用</summary>
         public List<string> AssetPaths = new List<string>();
-
-        /// <summary>走 Unity 序列化路线的成员路径</summary>
-        public List<string> SerializedPaths = new List<string>();
-
-        /// <summary>Scene 成员路径</summary>
-        public List<string> ScenePaths = new List<string>();
-
-        /// <summary>预期物理输出文件名，按生成顺序</summary>
-        public List<string> OutputNames = new List<string>();
-
-        /// <summary>
-        /// 物理内容文件名（由逻辑内容名派生的短哈希）。
-        /// 逻辑名可能上百字符，部署路径较深时完整路径会超过 Windows MAX_PATH，运行时读不到文件。
-        /// </summary>
         public string PhysicalName;
-
-        /// <summary>输入指纹；null 表示该内容不参与历史制品复用</summary>
         public string InputFingerprint;
-
-        /// <summary>已通过复用判定、制品已复制进本次输出的候选</summary>
-        public bool CacheCandidate;
-
-        /// <summary>复用命中的历史制品摘要（名称与 Hash/CRC/Size 均来自复制后的重新校验）</summary>
         public FileHelper.FileDigest? ReusedOutput;
-
-        /// <summary>Summary 回放的依赖输出文件名；仅复用候选阶段有效</summary>
-        public List<string> CachedDependencyFileNames;
-
-        /// <summary>
-        /// 内容级直接依赖的输出文件名集合（Manifest 依赖下标的事实来源）；
-        /// 复用内容取 Summary 回放，重建内容取 Unity AssetBundleManifest，合并后统一填充。
-        /// </summary>
         public List<string> DependencyFileNames;
     }
 }

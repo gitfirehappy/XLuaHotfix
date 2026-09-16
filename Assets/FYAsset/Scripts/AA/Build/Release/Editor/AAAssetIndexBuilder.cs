@@ -1,89 +1,69 @@
 #if UNITY_EDITOR
+using System;
 using System.Collections.Generic;
-using System.Linq;
+using UnityEditor;
 using UnityEditor.AddressableAssets.Settings;
 
-/// <summary>
-/// AA 资源索引构建器 — 从 AddressableAssetSettings 提取全部 Entry，
-/// 按 Type（首标签）和 Label 分组构建 KeysByType / KeysByLabel 索引。
-///
-/// 用于 AA 构建链路中填充 AAManifest 的索引字段。
-/// </summary>
+/// <summary>AA 资源索引构建器；Type 来源为资产主类型，Labels 只保留业务分类。</summary>
 public static class AAAssetIndexBuilder
 {
-    /// <summary>
-    /// 遍历 AddressableAssetSettings 全部 Group 的 Entry，构建 AAAssetIndexData。
-    /// Type 取自 Entry 的首个 Label，无 Label 时默认为 "Untyped"。
-    /// </summary>
     public static AAAssetIndexData Build(AddressableAssetSettings settings)
     {
         var data = new AAAssetIndexData();
         if (settings == null)
             return data;
 
-        var typeDict = new Dictionary<string, List<string>>();
-        var labelDict = new Dictionary<string, List<string>>();
-
+        var typeDict = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+        var labelDict = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
         foreach (var group in settings.groups)
         {
             if (group == null)
                 continue;
-
             foreach (var entry in group.entries)
             {
-                if (entry.IsFolder || string.IsNullOrEmpty(entry.address))
+                if (entry == null || entry.IsFolder || string.IsNullOrEmpty(entry.address))
                     continue;
 
-                string key = entry.address;
-                List<string> labels = entry.labels.ToList();
-                string entryType = labels.Count > 0 ? labels[0] : "Untyped";
+                string assetPath = AssetDatabase.GUIDToAssetPath(entry.guid);
+                Type mainType = AssetDatabase.GetMainAssetTypeAtPath(assetPath);
+                string assetType = AssetTypeKey.FromType(mainType);
+                if (string.IsNullOrEmpty(assetType))
+                    continue;
 
+                List<string> labels = new List<string>(entry.labels);
                 data.AssetEntries.Add(new PackageEntry
                 {
-                    key = key,
-                    Type = entryType,
+                    key = entry.address,
+                    Type = assetType,
                     Labels = labels
                 });
-
-                AddToDict(typeDict, entryType, key);
-
-                if (labels.Count == 0)
-                {
-                    AddToDict(labelDict, "Untyped", key);
-                }
-                else
-                {
-                    foreach (var label in labels)
-                        AddToDict(labelDict, label, key);
-                }
+                AddToDict(typeDict, assetType, entry.address);
+                for (int i = 0; i < labels.Count; i++)
+                    AddToDict(labelDict, labels[i], entry.address);
             }
         }
 
-        // 字典展平为 List<TypeToKeys> / List<LabelToKeys>，适配序列化
         foreach (var pair in typeDict)
             data.KeysByType.Add(new TypeToKeys { Type = pair.Key, Keys = pair.Value });
-
         foreach (var pair in labelDict)
             data.KeysByLabel.Add(new LabelToKeys { Label = pair.Key, Keys = pair.Value });
-
         return data;
     }
 
-    private static void AddToDict(Dictionary<string, List<string>> dict, string name, string key)
+    private static void AddToDict(Dictionary<string, List<string>> dict, string key, string address)
     {
-        if (!dict.TryGetValue(name, out var keys))
+        if (string.IsNullOrWhiteSpace(key))
+            return;
+        if (!dict.TryGetValue(key, out List<string> addresses))
         {
-            keys = new List<string>();
-            dict[name] = keys;
+            addresses = new List<string>();
+            dict.Add(key, addresses);
         }
-
-        keys.Add(key);
+        if (!addresses.Contains(address))
+            addresses.Add(address);
     }
 }
 
-/// <summary>
-/// AA 资源索引数据，写入 AAManifest.AssetEntries / KeysByType / KeysByLabel。
-/// </summary>
 public class AAAssetIndexData
 {
     public List<PackageEntry> AssetEntries = new();

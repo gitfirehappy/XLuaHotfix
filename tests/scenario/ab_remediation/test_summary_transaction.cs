@@ -23,7 +23,7 @@ internal static class SummaryTransactionTests
 
     private static void VerifyFullAdvancesMajor()
     {
-        BuildVersionPlan plan = BuildVersionPlanner.Plan("1.2.3", BuildType.Full, null, 1);
+        BuildVersionPlan plan = BuildVersionPlanner.Plan("1.2.3", BuildType.Full, null);
         GateAssert.True(plan.Success, $"Full 版本计算必须成功: {plan.Error}");
         GateAssert.Equal("2.0.0", plan.Version.GetReleaseVersionString(), "Full 默认推进 Major 并清零 Minor/Patch");
         GateAssert.True(plan.Version.CompareTo(VersionNumber.Parse("1.2.3")) > 0, "候选版本必须严格更高");
@@ -31,41 +31,40 @@ internal static class SummaryTransactionTests
 
     private static void VerifyHotfixAdvancesPatch()
     {
-        BuildVersionPlan plan = BuildVersionPlanner.Plan("1.2.3", BuildType.Hotfix, null, 2);
+        BuildVersionPlan plan = BuildVersionPlanner.Plan("1.2.3", BuildType.Hotfix, null);
         GateAssert.True(plan.Success, $"Hotfix 版本计算必须成功: {plan.Error}");
         GateAssert.Equal("1.2.4", plan.Version.GetReleaseVersionString(), "Hotfix 默认推进 Patch");
-        GateAssert.Equal(2, plan.Version.Build, "候选版本必须携带当日构建序号");
     }
 
     private static void VerifyChannelInheritance()
     {
-        BuildVersionPlan inherited = BuildVersionPlanner.Plan("1.2.3-beta", BuildType.Hotfix, null, 1);
+        BuildVersionPlan inherited = BuildVersionPlanner.Plan("1.2.3-beta", BuildType.Hotfix, null);
         GateAssert.Equal("1.2.4-beta", inherited.Version.GetReleaseVersionString(), "未提供选择时必须继承当前通道");
 
-        BuildVersionPlan promoted = BuildVersionPlanner.Plan("1.2.3-beta", BuildType.Hotfix, "release", 1);
+        BuildVersionPlan promoted = BuildVersionPlanner.Plan("1.2.3-beta", BuildType.Hotfix, "release");
         GateAssert.True(promoted.Success, $"beta → release 必须允许: {promoted.Error}");
         GateAssert.Equal("1.2.4", promoted.Version.GetReleaseVersionString(), "release 映射为无后缀正式版");
     }
 
     private static void VerifyChannelDowngradeRejected()
     {
-        BuildVersionPlan downgraded = BuildVersionPlanner.Plan("1.2.3", BuildType.Hotfix, "beta", 1);
+        BuildVersionPlan downgraded = BuildVersionPlanner.Plan("1.2.3", BuildType.Hotfix, "beta");
         GateAssert.True(!downgraded.Success, "正式版不得降级到 beta");
         GateAssert.True(!string.IsNullOrEmpty(downgraded.Error), "拒绝必须给出原因");
 
-        BuildVersionPlan invalid = BuildVersionPlanner.Plan("1.2.3", BuildType.Hotfix, "nightly", 1);
+        BuildVersionPlan invalid = BuildVersionPlanner.Plan("1.2.3", BuildType.Hotfix, "nightly");
         GateAssert.True(!invalid.Success, "未知通道必须被拒绝而不是静默清空");
     }
 
     private static void VerifyHotfixRequiresBaseline()
     {
-        BuildVersionPlan hotfix = BuildVersionPlanner.Plan(string.Empty, BuildType.Hotfix, null, 1);
+        BuildVersionPlan hotfix = BuildVersionPlanner.Plan(string.Empty, BuildType.Hotfix, null);
         GateAssert.True(!hotfix.Success, "没有成功 Full 基准时 Hotfix 必须拒绝");
     }
 
     private static void VerifyFirstBuildVersion()
     {
-        BuildVersionPlan full = BuildVersionPlanner.Plan(string.Empty, BuildType.Full, null, 1);
+        BuildVersionPlan full = BuildVersionPlanner.Plan(string.Empty, BuildType.Full, null);
         GateAssert.True(full.Success, $"首个 Full 必须允许: {full.Error}");
         GateAssert.Equal("1.0.0", full.Version.GetReleaseVersionString(), "无历史时从 1.0.0 开始");
     }
@@ -86,7 +85,6 @@ internal static class SummaryTransactionTests
         GateAssert.Equal("Build_20260911130000_1.0.1", ab.LatestSuccessfulSummaryId, "最新成功事实按开始时间选择");
         GateAssert.Equal("Build_20260911120000_1.0.0", ab.LatestFullSummaryId, "LatestFullSummaryId 只指向 Full");
         GateAssert.Equal("1.0.1", index.ProjectVersion.CurrentSuccessfulVersion, "项目版本取全局最高成功版本");
-        GateAssert.Equal("2026-09-11", index.ProjectVersion.LastBuildDate, "最后构建日期取最高版本对应的日期");
     }
 
     private static void VerifyImmutableSummary()

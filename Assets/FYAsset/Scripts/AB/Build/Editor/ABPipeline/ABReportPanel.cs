@@ -416,11 +416,11 @@ public sealed class ABReportPanel : BuildPipelineUIToolkitPanel
                     continue;
 
                 VisualElement assetRow = CreateDataRow();
-                Label assetName = CreateCell("    " + asset.SourcePath, 260f);
+                Label assetName = CreateCell("    " + asset.AssetPath, 260f);
                 assetName.style.color = BuildPipelineUI.SecondaryTextColor;
                 assetRow.Add(assetName);
                 assetRow.Add(CreateCell(asset.Address, 92f));
-                assetRow.Add(CreateCell(asset.PrimaryType, 90f));
+                assetRow.Add(CreateCell(asset.AssetType, 90f));
                 assetRow.Add(CreateCell(string.Empty, 56f));
                 assetRow.Add(CreateCell(string.Empty, 52f));
                 assetRow.Add(CreateCell(string.Empty, 52f));
@@ -439,13 +439,13 @@ public sealed class ABReportPanel : BuildPipelineUIToolkitPanel
         for (int i = 0; i < _report.Assets.Count; i++)
         {
             ABBuildReportAsset asset = _report.Assets[i];
-            if (!MatchesSearch(asset.SourcePath, asset.Address, asset.PrimaryType, asset.Labels, asset.BundleName))
+            if (!MatchesSearch(asset.AssetPath, asset.Address, asset.AssetType, asset.Labels, asset.BundleName))
                 continue;
 
             VisualElement row = CreateDataRow();
-            row.Add(CreateCell(asset.SourcePath, 300f));
+            row.Add(CreateCell(asset.AssetPath, 300f));
             row.Add(CreateCell(asset.Address, 180f));
-            row.Add(CreateCell(asset.PrimaryType, 100f));
+            row.Add(CreateCell(asset.AssetType, 100f));
             row.Add(CreateCell(asset.IsPublic ? "Yes" : "No", 120f));
             row.Add(CreateCell(asset.BundleName, 220f));
             row.Add(CreateCell(asset.Delivered ? "Yes" : "No", 70f, asset.Delivered ? new Color(0.35f, 0.95f, 0.35f) : BuildPipelineUI.SecondaryTextColor));
@@ -523,10 +523,10 @@ public sealed class ABReportPanel : BuildPipelineUIToolkitPanel
     {
         _details.Clear();
         _details.Add(BuildPipelineUI.Header("Asset"));
-        AddKeyValue(_details, "Source", asset.SourcePath);
+        AddKeyValue(_details, "Source", asset.AssetPath);
         AddKeyValue(_details, "EntryId", asset.EntryId);
         AddKeyValue(_details, "Address", asset.Address);
-        AddKeyValue(_details, "Type", asset.PrimaryType);
+        AddKeyValue(_details, "Type", asset.AssetType);
         AddKeyValue(_details, "Public", asset.IsPublic ? "Yes" : "No");
         AddKeyValue(_details, "ContentType", asset.ContentType);
         AddKeyValue(_details, "Labels", asset.Labels);

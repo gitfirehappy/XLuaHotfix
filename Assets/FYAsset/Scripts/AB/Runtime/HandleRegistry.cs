@@ -39,20 +39,17 @@ internal static class HandleRegistry
         /// <summary>句柄类别（Asset / Scene）</summary>
         public HandleKind Kind;
 
-        /// <summary>资源的 EntryId（释放回调参数与泄漏诊断用）</summary>
-        public string EntryId;
-
-        /// <summary>资源所属内容文件名（诊断用）</summary>
-        public string BundleName;
+        /// <summary>资源的公共 Address（释放回调参数与泄漏诊断用）</summary>
+        public string Address;
 
         /// <summary>加载错误信息；有效 token 为 null</summary>
         public RuntimeMessage Error;
 
-        /// <summary>该 EntryId 最后一个 token 释放时的回调；Scene 槽位为 null</summary>
+        /// <summary>该 Address 最后一个 token 释放时的回调；Scene 槽位为 null</summary>
         public Action<string> ReleaseCallback;
     }
 
-    /// <summary>Token 泄漏诊断一次最多打印多少个 EntryId 分组。</summary>
+    /// <summary>Token 泄漏诊断一次最多打印多少个 Address 分组。</summary>
     private const int LeakReportTopCount = 10;
 
     /// <summary>
@@ -70,8 +67,8 @@ internal static class HandleRegistry
     private static int _sceneActiveCount;
 
     /// <summary>
-    /// Per-EntryId 活跃 token 计数。Alloc +1，token 释放 -1，归零触发释放回调。
-    /// 归零时触发回调 —— 确保同一 EntryId 的所有 token 都释放后才卸载内容。
+    /// Per-Address 活跃 token 计数。Alloc +1，token 释放 -1，归零触发释放回调。
+    /// 归零时触发回调 —— 确保同一 Address 的所有 token 都释放后才卸载内容。
     /// </summary>
     private static readonly Dictionary<string, int> _entryActiveCounts = new();
 
@@ -79,9 +76,8 @@ internal static class HandleRegistry
     /// 分配一个新 token 槽位，返回 (tokenId, generation)。优先复用 FreeList。
     /// </summary>
     public static (int tokenId, int generation) Alloc(
-        string entryId,
+        string address,
         HandleKind kind,
-        string bundleName,
         RuntimeMessage error,
         Action<string> releaseCallback)
     {
@@ -103,15 +99,14 @@ internal static class HandleRegistry
         ref var slot = ref _slots[tokenId];
         slot.Alive = true;
         slot.Kind = kind;
-        slot.EntryId = entryId;
-        slot.BundleName = bundleName;
+        slot.Address = address;
         slot.Error = error;
         slot.ReleaseCallback = releaseCallback;
 
-        if (!string.IsNullOrEmpty(entryId))
+        if (!string.IsNullOrEmpty(address))
         {
-            _entryActiveCounts.TryGetValue(entryId, out int activeCount);
-            _entryActiveCounts[entryId] = activeCount + 1;
+            _entryActiveCounts.TryGetValue(address, out int activeCount);
+            _entryActiveCounts[address] = activeCount + 1;
         }
 
         if (kind == HandleKind.Scene)
@@ -142,7 +137,7 @@ internal static class HandleRegistry
     }
 
     /// <summary>
-    /// 为同一个 EntryId 再分配一个独立 token（显式共享所有权）。
+    /// 为同一个 Address 再分配一个独立 token（显式共享所有权）。
     /// 失败表示源 token 已过期或已释放，调用方必须视为获取所有权失败。
     /// </summary>
     public static bool Retain(
@@ -156,61 +151,59 @@ internal static class HandleRegistry
         if (!IsValid(tokenId, generation)) return false;
 
         // 先复制源 token 的归属信息再分配：Alloc 可能扩容槽位数组，不能跨调用持有 ref。
-        string entryId;
+        string address;
         HandleKind kind;
-        string bundleName;
         RuntimeMessage error;
         Action<string> releaseCallback;
         {
             ref var slot = ref _slots[tokenId];
-            entryId = slot.EntryId;
+            address = slot.Address;
             kind = slot.Kind;
-            bundleName = slot.BundleName;
             error = slot.Error;
             releaseCallback = slot.ReleaseCallback;
         }
 
-        (newTokenId, newGeneration) = Alloc(entryId, kind, bundleName, error, releaseCallback);
+        (newTokenId, newGeneration) = Alloc(address, kind, error, releaseCallback);
         return true;
     }
 
     /// <summary>
-    /// 查询一个有效 token 当前所属 EntryId 的活跃所有者数量；无效 token 返回 0。
+    /// 查询一个有效 token 当前所属 Address 的活跃所有者数量；无效 token 返回 0。
     /// </summary>
     public static int GetActiveOwnerCount(int tokenId, int generation)
     {
         if (!IsValid(tokenId, generation)) return 0;
 
-        string entryId;
+        string address;
         {
             ref var slot = ref _slots[tokenId];
-            entryId = slot.EntryId;
+            address = slot.Address;
         }
 
-        if (string.IsNullOrEmpty(entryId))
+        if (string.IsNullOrEmpty(address))
             return 0;
 
-        return _entryActiveCounts.TryGetValue(entryId, out int count) ? count : 0;
+        return _entryActiveCounts.TryGetValue(address, out int count) ? count : 0;
     }
 
-    /// <summary>当前 token 是否是其 EntryId 的唯一所有者；只有最后所有者才能触发物理卸载。</summary>
+    /// <summary>当前 token 是否是其 Address 的唯一所有者；只有最后所有者才能触发物理卸载。</summary>
     public static bool IsLastOwner(int tokenId, int generation) =>
         GetActiveOwnerCount(tokenId, generation) == 1;
 
     /// <summary>
-    /// 强制结算某个 EntryId 下的全部存活 token（外部卸载已经确认时使用）。
+    /// 强制结算某个 Address 下的全部存活 token（外部卸载已经确认时使用）。
     /// 只改变句柄有效性，不触发释放回调：内容引用必须由调用方在物理卸载确认后单独释放。
     /// </summary>
     /// <returns>被结算的 token 数量。</returns>
-    public static int ReleaseAllForEntry(string entryId)
+    public static int ReleaseAllForEntry(string address)
     {
-        if (string.IsNullOrEmpty(entryId)) return 0;
+        if (string.IsNullOrEmpty(address)) return 0;
 
         int released = 0;
         for (int tokenId = 1; tokenId < _slotCount; tokenId++)
         {
             ref var slot = ref _slots[tokenId];
-            if (!slot.Alive || !string.Equals(slot.EntryId, entryId, StringComparison.Ordinal))
+            if (!slot.Alive || !string.Equals(slot.Address, address, StringComparison.Ordinal))
                 continue;
 
             if (slot.Kind == HandleKind.Scene)
@@ -219,8 +212,7 @@ internal static class HandleRegistry
                 _assetActiveCount--;
 
             slot.Alive = false;
-            slot.EntryId = null;
-            slot.BundleName = null;
+            slot.Address = null;
             slot.Error = null;
             slot.ReleaseCallback = null;
             slot.Generation++;
@@ -229,13 +221,13 @@ internal static class HandleRegistry
             released++;
         }
 
-        _entryActiveCounts.Remove(entryId);
+        _entryActiveCounts.Remove(address);
         return released;
     }
 
     /// <summary>
     /// 释放一个 token。重复释放或过期 token 是静默 no-op：
-    /// 不抛异常、不改变任何计数、不会误扣同 EntryId 其他 token 的释放权。
+    /// 不抛异常、不改变任何计数、不会误扣同 Address 其他 token 的释放权。
     /// </summary>
     /// <returns>true 表示本次调用消费了一个有效 token。</returns>
     public static bool Release(int tokenId, int generation)
@@ -243,17 +235,16 @@ internal static class HandleRegistry
         if (!IsValid(tokenId, generation)) return false;
 
         bool isScene;
-        string entryId;
+        string address;
         Action<string> releaseCallback;
         {
             // 槽位写入与释放来源复制放在同一块内，避免跨回调持有数组元素 ref。
             ref var slot = ref _slots[tokenId];
             isScene = slot.Kind == HandleKind.Scene;
-            entryId = slot.EntryId;
+            address = slot.Address;
             releaseCallback = slot.ReleaseCallback;
             slot.Alive = false;
-            slot.EntryId = null;
-            slot.BundleName = null;
+            slot.Address = null;
             slot.Error = null;
             slot.ReleaseCallback = null;
             slot.Generation++;
@@ -264,17 +255,17 @@ internal static class HandleRegistry
         else
             _assetActiveCount--;
 
-        if (!string.IsNullOrEmpty(entryId) && _entryActiveCounts.TryGetValue(entryId, out int activeCount))
+        if (!string.IsNullOrEmpty(address) && _entryActiveCounts.TryGetValue(address, out int activeCount))
         {
             activeCount--;
             if (activeCount <= 0)
             {
-                _entryActiveCounts.Remove(entryId);
-                releaseCallback?.Invoke(entryId);
+                _entryActiveCounts.Remove(address);
+                releaseCallback?.Invoke(address);
             }
             else
             {
-                _entryActiveCounts[entryId] = activeCount;
+                _entryActiveCounts[address] = activeCount;
             }
         }
 
@@ -311,8 +302,7 @@ internal static class HandleRegistry
             slot.Generation++;
             slot.Alive = false;
             slot.Kind = HandleKind.Asset;
-            slot.EntryId = null;
-            slot.BundleName = null;
+            slot.Address = null;
             slot.Error = null;
             slot.ReleaseCallback = null;
             _freeList.Push(tokenId);
@@ -336,7 +326,7 @@ internal static class HandleRegistry
     public static int SceneActiveCount => _sceneActiveCount;
 
     /// <summary>
-    /// 按 EntryId + Kind 汇总活跃 token，打印数量最多的前若干个，用于定位泄漏来源。
+    /// 按 Address + Kind 汇总活跃 token，打印数量最多的前若干个，用于定位泄漏来源。
     /// </summary>
     private static string DescribeActiveTokens()
     {
@@ -349,7 +339,7 @@ internal static class HandleRegistry
             string key = string.Concat(
                 slot.Kind == HandleKind.Scene ? "Scene" : "Asset",
                 " | ",
-                string.IsNullOrEmpty(slot.EntryId) ? "<无 EntryId>" : slot.EntryId);
+                string.IsNullOrEmpty(slot.Address) ? "<无 Address>" : slot.Address);
             groups.TryGetValue(key, out int count);
             groups[key] = count + 1;
         }

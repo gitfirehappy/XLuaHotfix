@@ -19,15 +19,15 @@ public class ManifestContentEntry
 
     /// <summary>文件内容 Hash；本地已有同名同 Hash 的文件即可跳过下载。</summary>
     [BinaryField(1)]
-    public string FileHash;
+    public string Hash;
 
     /// <summary>文件 CRC32，用于下载与复用时的完整性校验。</summary>
     [BinaryField(2)]
-    public uint FileCRC;
+    public uint CRC;
 
     /// <summary>文件字节数。</summary>
     [BinaryField(3)]
-    public long FileSize;
+    public long Size;
 
     /// <summary>内容类型：决定运行时走 Bundle 加载还是物理文件读取。</summary>
     [BinaryField(4)]

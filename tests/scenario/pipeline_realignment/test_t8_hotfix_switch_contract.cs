@@ -7,7 +7,7 @@ using System;
 internal static class HotfixSwitchContractTests
 {
     private const string ABBundleLoaderFile = "Assets/FYAsset/Scripts/AB/Runtime/ABBundleLoader.cs";
-    private const string ABManifestLoaderFile = "Assets/FYAsset/Scripts/AB/Runtime/ABManifestLoader.cs";
+    private const string ABPackageManagerFile = "Assets/FYAsset/Scripts/AB/Runtime/ABPackageManager.cs";
     private const string AAManifestLoaderFile = "Assets/FYAsset/Scripts/AA/Runtime/Backends/AAManifestLoader.cs";
     private const string SharedRuntimeDir = "Assets/FYAsset/Scripts/Shared/Runtime";
     private const string BuildIndexFile = "Assets/FYAsset/Scripts/Shared/Runtime/BuildIndexData.cs";
@@ -32,11 +32,18 @@ internal static class HotfixSwitchContractTests
     /// </summary>
     private static void VerifyLoadersReadSingleActivePackageRoot()
     {
-        string[] loaders = { ABBundleLoaderFile, ABManifestLoaderFile, AAManifestLoaderFile };
+        string[] loaders = { ABBundleLoaderFile, ABPackageManagerFile, AAManifestLoaderFile };
+
+        GateAssert.FileMissing(
+            "Assets/FYAsset/Scripts/AB/Runtime/ABManifestLoader.cs",
+            "AB Manifest 读取职责必须收敛进 ABPackageManager");
+        string manager = RepoSource.ReadCode(ABPackageManagerFile);
+        GateAssert.HasSymbol(manager, "LoadActiveManifestAsync",
+            "ABPackageManager 必须从唯一 ActivePackageRoot 读取 Manifest");
 
         for (int i = 0; i < loaders.Length; i++)
         {
-            GateAssert.FileExists(loaders[i], $"计划 T8 要求保留运行时加载器 {loaders[i]}");
+            GateAssert.FileExists(loaders[i], $"运行时加载器必须存在: {loaders[i]}");
 
             string code = RepoSource.ReadCode(loaders[i]);
             GateAssert.NoSymbol(
@@ -128,20 +135,18 @@ internal static class HotfixSwitchContractTests
         }
     }
 
-    /// <summary>热更状态只表达 BuiltIn / Local / RemoteTarget / Blocked 四种归属。</summary>
+    /// <summary>热更来源不再复制为状态枚举，当前来源由包根事实和动作表达。</summary>
     private static void VerifyHotfixStatesAreBuiltInLocalRemoteBlocked()
     {
-        string[] states = { "BuiltIn", "Local", "RemoteTarget", "Blocked" };
-
-        for (int i = 0; i < states.Length; i++)
-        {
-            GateAssert.TreeHasSymbol(
-                SharedHotfixDir,
-                states[i],
-                "计划 T8 规定热更状态只表达 BuiltIn/Local/RemoteTarget/Blocked 四种内容归属，"
-                + "由状态决策器统一输出、由上下文承载；"
-                + $"{SharedHotfixDir} 树内不存在状态符号 {states[i]}");
-        }
+        GateAssert.TreeHasNoSymbol(
+            SharedHotfixDir,
+            "HotfixContentState",
+            "Hotfix 来源不得由独立状态枚举表达");
+        string flow = RepoSource.ReadCode("Assets/FYAsset/Scripts/Shared/Hotfix/HotfixFlowBase.cs");
+        GateAssert.HasSymbol(flow, "CurrentPackageRoot", "流程必须保留当前包根事实");
+        GateAssert.HasSymbol(flow, "BuiltInPackageRoot", "流程必须保留内置包根事实");
+        GateAssert.HasSymbol(flow, "IsCurrentBuiltIn", "激活/回滚必须根据两个包根判断内置来源");
+        GateAssert.HasSymbol(flow, "HotfixStateAction", "阻断和目标状态由 Action 表达");
     }
 
     /// <summary>运行中热更必须提供 Check / Prepare / Apply 操作。</summary>

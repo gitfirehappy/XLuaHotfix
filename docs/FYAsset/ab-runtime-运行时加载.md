@@ -2,7 +2,7 @@
 
 > **关联代码** | [AB/Runtime](../../Assets/FYAsset/Scripts/AB/Runtime/) · [Compat 资源门面](../../Assets/FYAsset/Scripts/Compat/AssetPackageManager.cs)
 
-`ABPackageManager` 是 AB 的唯一 concrete 入口。Editor PlayMode 通过 `EditorPackageBackend` 走 AssetDatabase；Runtime 使用 `ABManifestLoader`、`ABAssetIndex`、`ABPackageBackend`、`ABBundleLoader` 与 `ABSceneLoader`。Compat 门面启动时绑定一次 AA/AB，不另外持有资源缓存。
+`ABPackageManager` 是 AB 的唯一 concrete 入口。Editor PlayMode 通过 `EditorAssetLoader` 走 AssetDatabase；Runtime 使用 `ABManifestLoader`、`ABAssetIndex`、`ABAssetLoader`、`ABBundleLoader` 与 `ABSceneLoader`。Compat 门面启动时绑定一次 AA/AB，不另外持有资源缓存。
 
 ---
 
@@ -12,7 +12,7 @@
 
 - `ABManifestLoader.LoadAsync` 只读激活包根一个目录，同目录内优先 `ABManifest.bin`，其次 `ABManifest.json`；两者都不可用时返回 null 并输出错误。
 - `ABBundleLoader` 的物理路径同样只相对激活包根解析，**不做逐文件回退 StreamingAssets**。
-- `ABPackageBackend` 读取 RawFile 时也从激活包根推导内容文件路径。
+- `ABAssetLoader` 读取 RawFile 时也从激活包根推导内容文件路径。
 - 激活根由激活流程显式切换：`RuntimePathManager.SwitchToNewBuild(...)`（本地热更包）或 `ActivateBuiltInPackage()`（内置包），两者互斥，后调用者生效。退化到内置包只改写 `ActivePackageRoot`，不改写 `CurrentGUIDRoot` 与 `Mode`。
 
 不存在“Manifest 来自 Local、单个内容文件回退 BuiltIn”的混合读取。
@@ -23,8 +23,8 @@
 
 `ABPackageManager.InitializePackageAsync()`：
 
-1. Editor PlayMode 下走 `InitializeEditorPlayMode()`：`EditorVirtualManifestBuilder` 用 Collector 配置在内存里生成 `ABManifest`，经 `EditorPackageBackend` 用 AssetDatabase 加载（没有 BundleLoader）。
-2. 否则 `ABManifestLoader.LoadAsync()` → `ABBundleLoader` → `ABPackageBackend`。
+1. Editor PlayMode 下走 `InitializeEditorPlayMode()`：`EditorVirtualManifestBuilder` 用 Collector 配置在内存里生成 `ABManifest`，经 `EditorAssetLoader` 用 AssetDatabase 加载（没有 BundleLoader）。
+2. 否则 `ABManifestLoader.LoadAsync()` → `ABBundleLoader` → `ABAssetLoader`。
 3. `InitializeFromManifest` 建立 `ABAssetIndex`；索引不可用（公共 Address 重复）时拒绝初始化。
 4. 场景加载与资源加载共用同一个 `ABBundleLoader`，否则两者会各自持有缓存与引用计数。
 
@@ -32,7 +32,7 @@
 
 ```text
 Address → ManifestAssetEntry（大小写不敏感且唯一）
-PrimaryType → Address[]
+AssetType → Address[]
 Label → Address[]（大小写不敏感）
 EntryId → 条目（含隐式依赖条目，仅供加载与诊断）
 ```
@@ -52,7 +52,7 @@ EntryId → 条目（含隐式依赖条目，仅供加载与诊断）
 | 单资源 | `LoadByAddress<T>(address)`、`LoadByAddressSync<T>(address)` | `AssetHandle<T>`；失败句柄内联错误，不占 Registry 槽位 |
 | 批量 | `LoadByType<T>()`、`LoadByLabels<T>(labels)`、`LoadByTypeAndLabels<T>(labels)` | `IReadOnlyList<AssetHandle<T>>`，**逐项独立成败** |
 | RawFile | `LoadRawBytesAsync(address)`、`LoadRawTextAsync(address, encoding = null)` | `byte[]` / `string`；直接读内容文件，不持有 AssetBundle Handle |
-| Scene | `LoadSceneAsync(address, LoadSceneMode mode, bool activateOnLoad = true)` | `SceneHandle` |
+| Scene | `LoadSceneAsync(address, LoadSceneMode mode, bool  = true)` | `SceneHandle` |
 | 生命周期 | `InitializePackageAsync()`、`Shutdown()` | 见下文 |
 
 解析层 `AssetResolver` 按请求形态校验内容类型：
@@ -99,7 +99,7 @@ Address
 → 公共 Scene 资源条目（`ManifestAssetEntry`，ResolveSceneByAddress）
 → Scene ContentEntry
 → 加载内容依赖与 Scene Bundle
-→ AssetBundle.GetAllScenePaths() 取得完整 ScenePath（与条目 SourcePath 文件名比对校验）
+→ AssetBundle.GetAllScenePaths() 取得完整 ScenePath（与条目 AssetPath 文件名比对校验）
 → SceneManager.LoadSceneAsync(scenePath, mode)
 → SceneHandle
 ```
@@ -110,7 +110,7 @@ Address
 | Scene 槽位不携带 Registry 释放回调 | 释放时机由场景真正卸载完成决定，不能由 token 释放时机决定 |
 | Additive | 调用方通过 `SceneHandle.UnloadAsync()` 卸载；该方法先消费自己的 token，再卸载场景，最后由加载器释放内容引用 |
 | Single | 新 Scene 激活后确认旧 Scene 卸载，再结算旧 `SceneHandle`（确认窗口有帧数上限） |
-| `activateOnLoad = false` | 有界预载窗口（帧数上限）后激活，不无限等待，避免把 AsyncOperation 长期停在队列里 |
+| ` = false` | 有界预载窗口（帧数上限）后激活，不无限等待，避免把 AsyncOperation 长期停在队列里 |
 | `Resources.UnloadUnusedAssets` | 只在场景切换这类安全入口显式调用，不放在每次 Handle 释放里 |
 
 `SceneHandle` 与 `AssetHandle<T>` 的所有权语义一致：一次 LoadScene 或一次 Retain 对应一个独立 token，普通复制不增加所有权，重复 Release 幂等，`default(SceneHandle)` 永远无效。
@@ -135,7 +135,7 @@ Address
 |---|---|
 | `HandleRegistry` 槽位 | 一次 Load 或显式 Retain 的 token |
 | EntryId 活跃 token 集合 | 归零才回调后端卸载内容 |
-| `ABPackageBackend` 资源缓存 | 每 EntryId 缓存一次提取结果 |
+| `ABAssetLoader` 资源缓存 | 每 EntryId 缓存一次提取结果 |
 | `ABBundleLoader` | 直接依赖与结构引用计数；归零才 `AssetBundle.Unload(true)` 并递归释放依赖 |
 
 `ABBundleLoader` 对同名物理请求做 single-flight 合并：leader 负责依赖与物理加载，followers 共享同一请求结果；finalize 先完成缓存或失败补偿，再移除进行中记录，最后唤醒等待者。递归路径集合用于防环，不是整个依赖图永久去重。`UnloadAllBundles` 不等于取消所有进行中的请求。
@@ -146,7 +146,7 @@ Address
 
 ## RawFile
 
-`ABPackageBackend.LoadRawBytesAsync` 直接从激活包根读取内容文件，**不经过 BundleLoader**：RawFile 是普通物理文件，不伪装成 Bundle，也不参与 Bundle 卸载。`LoadRawTextAsync` 在字节结果上按 `encoding`（默认 UTF-8）解码。
+`ABAssetLoader.LoadRawBytesAsync` 直接从激活包根读取内容文件，**不经过 BundleLoader**：RawFile 是普通物理文件，不伪装成 Bundle，也不参与 Bundle 卸载。`LoadRawTextAsync` 在字节结果上按 `encoding`（默认 UTF-8）解码。
 
 ---
 

@@ -4,7 +4,7 @@
 
 > **关联代码**
 >
-> `Assets/FYAsset/Scripts/Shared/Hotfix/`（`HotfixFlowBase`、`HotfixStateDecider`、`HotfixContentState`、`HotfixRuntimeUpdate`、`HotfixContext`、`HotfixPackageInspection`、`HotfixPackageValidator`、`IHotfixPipeline`） · `Assets/FYAsset/Scripts/Shared/Runtime/RuntimePathManager.cs` · `BuildIndexData.cs` · `RuntimeMode.cs` · `Assets/FYAsset/Scripts/AA/Hotfix/` · `Assets/FYAsset/Scripts/AB/Hotfix/` · `Assets/FYAsset/Scripts/Compat/HotfixManager.cs`
+> `Assets/FYAsset/Scripts/Shared/Hotfix/`（`HotfixFlowBase`、`HotfixStateDecider`、`package-root state`、`HotfixRuntimeUpdate`、`HotfixContext`、`HotfixPackageInspection`、`HotfixPackageValidator`、`IHotfixPipeline`） · `Assets/FYAsset/Scripts/Shared/Runtime/RuntimePathManager.cs` · `BuildIndexData.cs` · `RuntimeMode.cs` · `Assets/FYAsset/Scripts/AA/Hotfix/` · `Assets/FYAsset/Scripts/AB/Hotfix/` · `Assets/FYAsset/Scripts/Compat/HotfixManager.cs`
 
 ---
 
@@ -16,7 +16,7 @@
 |---|---|---|
 | 触发 | 构建入口的 `BuildType.Hotfix` | Player 启动或业务调用 `Check/Prepare/Apply` |
 | 产物 | 独立包目录：AB 为完整目标 Manifest + 相对最近成功 Full 的变化内容；AA 为本次构建产出内容 + `AASourceScan.json` | 本地激活包根内的完整包 |
-| 数据模型 | `ABManifest` / `AAManifest`、`FileDigest`、`FileDiff`、`CompleteBuildSummary`（含 `SummaryContentFact` 复用事实） | `BuildIndexData`、`PackageIndex`、`HotfixContentState` |
+| 数据模型 | `ABManifest` / `AAManifest`、`FileDigest`、`FileDiff`、`CompleteBuildSummary`（含 `ContentReuseRecord` 复用事实） | `BuildIndexData`、`PackageIndex`、`package-root state` |
 
 热更系统由 `HotfixFlowBase` 统一编排：Shared 只处理通用状态决策、文件摘要校验、隔离目录、下载和错误分类；后端特定的清单解析、下载项映射、元数据持久化与激活由 `IHotfixPipeline` 实现承担。
 
@@ -25,7 +25,7 @@
 ## 内容来源：只有四种状态
 
 ```csharp
-public enum HotfixContentState
+public enum package-root state
 {
     BuiltIn,       // StreamingAssets 内置完整包（Standalone 时为隔离子目录）
     Local,         // Persistent/Hotfix/Build_xxx 已激活完整包
@@ -54,13 +54,13 @@ public enum RuntimeMode { Online, Standalone }
 | `HotfixManager`（Compat） | 兼容门面，按宿主传入的 `BackendMode` 路由旧调用方 |
 | `HotfixFlowBase` | 12 步确定性状态机 + 运行中 Check/Prepare/Apply |
 | `HotfixStateDecider` | 纯状态决策：不读文件、不联网、不改路径，失败矩阵每行都可脱离 Unity 断言 |
-| `HotfixContentState` / `HotfixRuntimeUpdate` | 内容来源枚举与 Check/Prepare/Apply 阶段与结果类型 |
-| `IHotfixPipeline` | 后端差异接口，共 7 个方法 |
+| `CurrentPackageRoot` / `HotfixRuntimeUpdate` | 当前激活包根与 Check/Prepare/Apply 阶段和结果类型 |
+| `IHotfixPipeline` | 后端差异接口，共 6 个方法 |
 | `HotfixContext` | 流程上下文：BuildIndex、当前/目标包、远端索引、准备状态 |
 | `HotfixVersionInfo` / `BundleDownloadItem` / `HotfixStepResult` | 统一版本视图、下载项最小信息集、步骤结果 |
 | `NetworkDownloader` | 文本/字节/文件下载原语；重试策略由 `HotfixFlowBase` 统一控制 |
 
-`IHotfixPipeline` 只隔离 7 类后端差异：`InitializeBackendAsync`、`InspectPackageAsync`（精确检查指定包根，**不回退到其他目录**）、`FetchRemoteVersionAsync`、`GetBundleDownloadList`、`HasRequiredMetadata`、`PersistRemoteMetadataAsync`、`ActivatePackageAsync`。
+`IHotfixPipeline` 只隔离 6 类后端差异：`InitializeBackendAsync`、`InspectPackageAsync`（精确检查指定包根，**不回退到其他目录**）、`FetchRemoteVersionAsync`、`GetBundleDownloadList`、`PersistRemoteMetadataAsync`、`ActivatePackageAsync`。
 
 ---
 
@@ -107,7 +107,7 @@ flowchart TD
 |---|---|
 | BuildIndex 无效或 BuiltInPackage 不完整 | Error，阻断（`DecideBuiltInUsable`） |
 | `RuntimeMode = Standalone` | 只用内置完整包，不联网、不读远端 PackageIndex |
-| Online 且本地 PackageIndex 可信且非内置包身份 | 当前候选为 `Local`（`DecideCurrentContent`） |
+| Online 且本地 PackageIndex 可信且非内置包身份 | 当前候选为 `Local`（`DecideCurrentPackageRoot/BuiltInPackageRoot`） |
 | 本地指针/目录损坏或 Major 与内置包不一致 | Warning，使用 `BuiltIn` 继续远端检查 |
 | 远端不可用（PackageIndex 下载/校验失败） | 使用当前完整包；退化到内置包时 `DegradedToBuiltIn = true`，调用方必须给出 Warning；RuntimeMode 不变 |
 | 同版本同包且本地完整 | `KeepCurrent` |
@@ -129,8 +129,8 @@ flowchart TD
 
 | 阶段 | API | 行为 |
 |---|---|---|
-| Check | `CheckAsync()` | 只读远端 PackageIndex 并做版本决策；不下载内容、不切换包根。返回 `HotfixCheckResult`（`Action`、`ContentState`、目标包名/版本、`HasUpdate`、`ClientUpdateRequired`） |
-| Prepare | `PrepareAsync()` | 当前包继续运行，只在目标隔离目录内复制同 Hash 内容、下载剩余内容并完整校验；失败时删除目标目录，当前包不受影响；成功后可重复调用（幂等返回 Ok） |
+| Check | `CheckAsync()` | 只读远端 PackageIndex 并做版本决策；不下载内容、不切换包根。返回 `HotfixCheckResult`（`Action`、目标包名/版本、`HasUpdate`、`ClientUpdateRequired`） |
+| Prepare | `PrepareAsync()` | 当前包继续运行，只在目标隔离目录内复制同 Hash 内容、下载剩余内容并完整校验；失败时保留 staging 作为诊断物，当前包不受影响；成功后可重复调用（幂等返回 Ok） |
 | Apply | `ApplyAsync()` | 业务回到安全入口并释放全部 Handle 后：门禁检查 → 关闭旧 Manager → 切换包根 → 激活 → 重新初始化 → 最后写本地 PackageIndex → 清理非活动包 |
 
 框架**不负责**弹窗、UI、场景跳转、停止业务协程或强制释放 Handle：`Apply` 被门禁拒绝时只返回结构化错误，由业务自行释放后重试。

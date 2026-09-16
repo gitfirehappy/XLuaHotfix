@@ -32,7 +32,7 @@ public static class RuntimeErrorCodes
     /// <summary>依赖 Bundle 加载失败（级联失败）</summary>
     public const string DependencyFailed = "DEPENDENCY_FAILED";
 
-    /// <summary>从 Bundle 中提取 Asset 失败（SourcePath 不正确或类型不匹配）</summary>
+    /// <summary>从 Bundle 中提取 Asset 失败（AssetPath 不正确或类型不匹配）</summary>
     public const string AssetExtractionFailed = "ASSET_EXTRACTION_FAILED";
 
     /// <summary>请求的加载 API 与资产内容类型（AssetContentType）不匹配</summary>
@@ -126,7 +126,7 @@ public class RuntimeMessage
 
     public static RuntimeMessage AssetExtractionFailed(string entryId, string sourcePath, string bundleName)
         => Error(RuntimeErrorCodes.AssetExtractionFailed,
-            string.Concat("从 Bundle 提取 Asset 失败: SourcePath=", sourcePath,
+            string.Concat("从 Bundle 提取 Asset 失败: AssetPath=", sourcePath,
                 ", Bundle=", bundleName, ", EntryId=", entryId));
 
     public static RuntimeMessage InvalidPayloadKind(string entryId, string expected, string actual)

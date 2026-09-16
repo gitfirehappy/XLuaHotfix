@@ -37,9 +37,9 @@ internal static class PackagePurityTests
             "GetHotfixOutputDir",
             "任何构建代码都不得再把固定累计目录当作输出根");
         GateAssert.NotContains(
-            RepoSource.ReadCode("Assets/FYAsset/Scripts/Shared/Build/Release/Editor/BuildPackageRequest.cs"),
-            "case BuildType.Hotfix",
-            "Hotfix 不得再拥有独立于 Build_* 的交付出口分支");
+            RepoSource.ReadCode("Assets/FYAsset/Scripts/Shared/Build/Release/Editor/BuildExportWriter.cs"),
+            "GetHotfixOutputDir",
+            "Hotfix 交付不得再解析固定累计目录");
     }
 
     /// <summary>包管理 UI 必须从构建事实（Summary 记录与制品状态）展示历史包，而不是只扫描当前目录。</summary>

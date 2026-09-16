@@ -1,80 +1,53 @@
 #if UNITY_EDITOR
-using System;
 using System.Collections.Generic;
-using UnityEditor;
 using UnityEngine;
 
-/// <summary>
-/// 从 Collector 配置扫出内存 ABManifest，供 Editor PlayMode 使用。
-/// 不跑完整构建管线，不写磁盘。
-/// </summary>
-[InitializeOnLoad]
+/// <summary>Editor 预览用 Manifest：只建立公共 Address 到工程路径的内存映射。</summary>
 public static class EditorVirtualManifestBuilder
 {
-    static EditorVirtualManifestBuilder()
+    public static ABManifest Build(ScanResult scan, string settingPath)
     {
-        ABPackageManager.RegisterEditorManifestBuilder(Build);
-    }
-
-    public static ABManifest Build()
-    {
-        string settingPath = FYAssetABSettings.Instance.AssetCollectionSettingPath;
-        var setting = AssetDatabase.LoadAssetAtPath<AssetCollectionSetting>(settingPath);
-        if (setting == null)
-        {
-            Debug.LogError($"[EditorVirtualManifestBuilder] 未找到 AssetCollectionSetting: {settingPath}");
-            return null;
-        }
-
-        ScanResult scan = CollectionScanner.Scan(setting);
-        if (scan == null || scan.Assets == null || scan.Assets.Count == 0)
-        {
-            Debug.LogWarning("[EditorVirtualManifestBuilder] Collector 扫描结果为空。");
-            return null;
-        }
-
         var manifest = new ABManifest
         {
-            PackageVersion = new VersionNumber { Major = 0, Minor = 0, Patch = 0, Build = 0 },
+            PackageVersion = new VersionNumber { Major = 0, Minor = 0, Patch = 0 },
             AssetEntries = new List<ManifestAssetEntry>(),
             ContentEntries = new List<ManifestContentEntry>()
         };
-
-        // Editor 预览不产出物理文件，用一个占位内容承载全部条目，文件事实留空
-        manifest.ContentEntries.Add(new ManifestContentEntry
-        {
-            FileName = "editor_virtual.bundle",
-            FileHash = string.Empty,
-            FileCRC = 0,
-            FileSize = 0,
-            ContentType = AssetContentType.SerializedObject,
-            DependencyIndices = new int[0]
-        });
+        var contentIndices = new Dictionary<AssetContentType, int>();
 
         for (int i = 0; i < scan.Assets.Count; i++)
         {
             CollectedAssetInfo info = scan.Assets[i];
-            if (info == null || string.IsNullOrEmpty(info.Address) || string.IsNullOrEmpty(info.AssetGUID))
+            if (info == null || !info.IsPublic || string.IsNullOrEmpty(info.Address))
                 continue;
 
-            var entry = new ManifestAssetEntry
+            if (!contentIndices.TryGetValue(info.ContentType, out int contentIndex))
             {
-                EntryId = info.AssetGUID,
+                contentIndex = manifest.ContentEntries.Count;
+                contentIndices.Add(info.ContentType, contentIndex);
+                manifest.ContentEntries.Add(new ManifestContentEntry
+                {
+                    FileName = $"editor_virtual_{info.ContentType}.bundle",
+                    Hash = string.Empty,
+                    CRC = 0,
+                    Size = 0,
+                    ContentType = info.ContentType,
+                    DependencyIndices = System.Array.Empty<int>()
+                });
+            }
+
+            manifest.AssetEntries.Add(new ManifestAssetEntry
+            {
                 Address = info.Address,
-                PrimaryType = string.IsNullOrEmpty(info.PrimaryType) ? "Object" : info.PrimaryType,
+                AssetType = string.IsNullOrEmpty(info.AssetType) ? AssetTypeKey.FromType(typeof(UnityEngine.Object)) : info.AssetType,
                 Labels = info.Labels != null ? new List<string>(info.Labels) : new List<string>(),
-                SourcePath = info.AssetPath,
-                IsPublic = true,
-                ContentType = info.ContentType,
-                ContentIndex = 0
-            };
-            manifest.AssetEntries.Add(entry);
+                AssetPath = info.AssetPath,
+                ContentIndex = contentIndex
+            });
         }
 
         manifest.Initialize();
-        Debug.Log(
-            $"[EditorVirtualManifestBuilder] Editor 索引已构建。Assets={manifest.AssetEntries.Count}, " +
-            $"Setting={settingPath}");
+        Debug.Log($"[EditorVirtualManifestBuilder] Editor 索引已构建。Assets={manifest.AssetEntries.Count}, Setting={settingPath}");
         return manifest;
     }
 }

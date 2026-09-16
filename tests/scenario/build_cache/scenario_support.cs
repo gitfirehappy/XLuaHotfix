@@ -15,9 +15,7 @@ internal static class Program
         {
             ("FingerprintStability", FingerprintStabilityTests.Declare),
             ("ArtifactReuse", ArtifactReuseTests.Declare),
-            ("ReuseClosure", ReuseClosureTests.Declare),
-            ("ContentNameRules", ContentNameRulesTests.Declare),
-            ("DependencyIndexEquivalence", DependencyIndexEquivalenceTests.Declare)
+            ("ContentNameRules", ContentNameRulesTests.Declare)
         };
 
         int failures = 0;
@@ -227,20 +225,20 @@ internal static class ReuseFixture
     }
 
     /// <summary>构造一条内容复用事实；依赖事实按内容级输出文件名给出。</summary>
-    public static SummaryContentFact Content(
-        string contentIdentity,
+    public static ContentReuseRecord Content(
+        string contentName,
         string inputFingerprint,
         in FileHelper.FileDigest digest,
         params string[] dependencyFileNames)
     {
-        return new SummaryContentFact
+        return new ContentReuseRecord
         {
-            ContentIdentity = contentIdentity,
+            ContentName = contentName,
             InputFingerprint = inputFingerprint,
             FileName = digest.Name,
-            FileHash = digest.Hash,
-            FileCRC = digest.CRC,
-            FileSize = digest.Size,
+            Hash = digest.Hash,
+            CRC = digest.CRC,
+            Size = digest.Size,
             DependencyFileNames = new List<string>(dependencyFileNames ?? Array.Empty<string>())
         };
     }
@@ -249,7 +247,7 @@ internal static class ReuseFixture
     public static CompleteBuildSummary Summary(
         string buildId,
         DateTime startedAtUtc,
-        params SummaryContentFact[] contents)
+        params ContentReuseRecord[] contents)
         => Summary(buildId, Platform, Recipe, startedAtUtc, true, contents);
 
     /// <summary>构造一份历史构建摘要骨架。</summary>
@@ -259,7 +257,7 @@ internal static class ReuseFixture
         string buildRecipeFingerprint,
         DateTime startedAtUtc,
         bool success,
-        params SummaryContentFact[] contents)
+        params ContentReuseRecord[] contents)
     {
         var summary = new CompleteBuildSummary
         {
@@ -275,7 +273,7 @@ internal static class ReuseFixture
         };
 
         for (int i = 0; i < contents.Length; i++)
-            summary.Contents.Add(contents[i]);
+            summary.ContentReuseRecords.Add(contents[i]);
 
         return summary;
     }

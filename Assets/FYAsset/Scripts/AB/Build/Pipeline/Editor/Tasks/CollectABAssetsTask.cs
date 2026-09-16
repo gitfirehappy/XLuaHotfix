@@ -107,7 +107,7 @@ public class CollectABAssetsTask : IBuildTask
                     AssetPath = path,
                     AssetGUID = guid,
                     Address = AssetAddressGenerator.GenerateAddress(path, primaryType, AssetAddressStyle.LongAssetPath),
-                    PrimaryType = primaryType,
+                    AssetType = primaryType,
                     Labels = new List<string>(),
                     GroupName = SystemIdentifiers.SharedGroupName,
                     ContentName = BundleNameBuilder.BuildShared(

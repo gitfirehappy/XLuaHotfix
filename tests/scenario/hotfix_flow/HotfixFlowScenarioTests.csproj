@@ -13,7 +13,6 @@
     <Compile Include="HotfixFlowScenarioTests.cs" />
     <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Hotfix/HotfixFlowBase.cs" Link="Production/HotfixFlowBase.cs" />
     <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Hotfix/HotfixContext.cs" Link="Production/HotfixContext.cs" />
-    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Hotfix/HotfixContentState.cs" Link="Production/HotfixContentState.cs" />
     <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Hotfix/HotfixStateDecider.cs" Link="Production/HotfixStateDecider.cs" />
     <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Hotfix/HotfixPackageInspection.cs" Link="Production/HotfixPackageInspection.cs" />
     <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Hotfix/HotfixPackageValidator.cs" Link="Production/HotfixPackageValidator.cs" />
@@ -22,7 +21,6 @@
     <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Hotfix/HotfixVersionInfo.cs" Link="Production/HotfixVersionInfo.cs" />
     <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Hotfix/BundleDownloadItem.cs" Link="Production/BundleDownloadItem.cs" />
     <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Hotfix/IHotfixPipeline.cs" Link="Production/IHotfixPipeline.cs" />
-    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Hotfix/ClientUpdateRequiredInfo.cs" Link="Production/ClientUpdateRequiredInfo.cs" />
     <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Hotfix/HotfixFatalException.cs" Link="Production/HotfixFatalException.cs" />
     <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Runtime/RuntimePathManager.cs" Link="Production/RuntimePathManager.cs" />
     <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Runtime/RuntimeMode.cs" Link="Production/RuntimeMode.cs" />

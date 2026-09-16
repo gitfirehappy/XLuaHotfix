@@ -36,7 +36,7 @@ public static class LocalBuildDataExporter
     /// <remarks>
     /// RuntimeMode 由构建类型推导并写进 BuildIndex，运行时只读该字段判断 Online/Standalone。
     /// </remarks>
-    public static BuildIndexData CreateBuildIndexData(BuildPackageRequest request)
+    public static BuildIndexData CreateBuildIndexData(BuildRequest request)
     {
         string buildTime = request.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss");
         return new BuildIndexData
@@ -90,7 +90,7 @@ public static class LocalBuildDataExporter
     }
 
     /// <summary>导出启动期所需的本地构建数据，并立即结算。</summary>
-    public static void Publish(BuildPackageRequest request, IBuiltInPackageHandler builtInHandler)
+    public static void Publish(BuildRequest request, IBuiltInPackageHandler builtInHandler)
     {
         LocalBuildDataDelivery delivery = BeginDelivery(request, builtInHandler);
         delivery?.Commit();
@@ -100,7 +100,7 @@ public static class LocalBuildDataExporter
     /// 供交付事务使用：导出本地数据但保留备份，直到事务整体 Commit 或 Rollback。
     /// Hotfix / 非 Full·Standalone 请求返回 null；调用方不可省略 Release。
     /// </summary>
-    public static LocalBuildDataDelivery BeginDelivery(BuildPackageRequest request, IBuiltInPackageHandler builtInHandler)
+    public static LocalBuildDataDelivery BeginDelivery(BuildRequest request, IBuiltInPackageHandler builtInHandler)
     {
         if (request == null)
             throw new ArgumentNullException(nameof(request));
@@ -117,7 +117,7 @@ public static class LocalBuildDataExporter
         return ExportData(request, builtInHandler);
     }
 
-    private static LocalBuildDataDelivery ExportData(BuildPackageRequest request, IBuiltInPackageHandler builtInHandler)
+    private static LocalBuildDataDelivery ExportData(BuildRequest request, IBuiltInPackageHandler builtInHandler)
     {
         Debug.Log($"{LogPrefix} 开始导出本地启动数据到 StreamingAssets...");
 
@@ -172,7 +172,7 @@ public static class LocalBuildDataExporter
         }
     }
 
-    private static void LogBuildIndexInfo(BuildIndexData buildIndexData, BuildPackageRequest request)
+    private static void LogBuildIndexInfo(BuildIndexData buildIndexData, BuildRequest request)
     {
         Debug.Log($"{LogPrefix} 信息 - GUID：{buildIndexData.BuildGUID}，Version：{request.Version.GetReleaseVersionString()}，Backend：{buildIndexData.BackendMode}");
     }
@@ -183,7 +183,7 @@ public static class LocalBuildDataExporter
         FileHelper.WriteAllTextAtomic(path, SerializationUtility.SerializeToJson(buildIndexData, true));
     }
 
-    private static void StagePackageBundles(BuildPackageRequest request, string stageRoot)
+    private static void StagePackageBundles(BuildRequest request, string stageRoot)
     {
         if (!FileHelper.DirectoryExists(request.BundlesDir))
             return;

@@ -47,7 +47,7 @@ Task 之间不直接通信，所有数据通过 `BuildContext` 传递。内部�
 
 | Key 常量类 | 键 |
 |---|---|
-| `BuildContextKeys` | `BuildConfig`、`BuildPackageRequest`、`BuildType`、`OutputPath`、`DeferPackagePublication`、`BuildVerificationResult`、`BuildSummary`、`BuildStartedAtUtc` |
+| `BuildContextKeys` | `BuildConfig`、`BuildRequest`、`BuildType`、`OutputPath`、`DeferPackagePublication`、`BuildVerificationResult`、`BuildSummary`、`BuildStartedAtUtc` |
 | `ABBuildContextKeys` | `ABManifest`、`CollectedAssets`、`SharePolicy`、`BundleDependencyGraph`、`BundleBuildResults`、`ABDeliveryContents`、`ABDeliveryPreviewMode`、`BuildRecipeFingerprint` |
 | `AABuildContextKeys` | `AAManifest`、`AASourceScan` |
 
@@ -144,7 +144,7 @@ BuildPipelineConfig
 └─ Tasks[]               (CustomTaskEntry 列表：TaskName + Slot)
 ```
 
-配置只保存构建选项与自定义 Task 的插入位置，**不能增删主干**。后端键由 concrete build manager 的 `BuildPackageRequest` 决定；Shared 不读取项目级后端选择配置。配置升级由 `BuildPipelineConfigUpgrader` 与 AA/AB 各自的 `*PipelineConfigUpgrade` 处理，把旧的“TaskName 列表”数据迁移成带槽位的 `CustomTaskEntry`。
+配置只保存构建选项与自定义 Task 的插入位置，**不能增删主干**。后端键由 concrete build manager 的 `BuildRequest` 决定；Shared 不读取项目级后端选择配置。配置升级由 `BuildPipelineConfigUpgrader` 与 AA/AB 各自的 `*PipelineConfigUpgrade` 处理，把旧的“TaskName 列表”数据迁移成带槽位的 `CustomTaskEntry`。
 
 ### 物理内容文件名
 
@@ -188,13 +188,13 @@ public sealed class CompleteBuildSummary
     public TimeSpan Duration;
     public bool Success;
     public List<FileDigest> Files;
-    public List<SummaryContentFact> Contents;   // 内容复用事实
+    public List<ContentReuseRecord> Contents;   // 内容复用事实
     public List<BuildMessage> Messages;
     public BuildStatistics Statistics;   // AssetCount / ContentCount / FileCount / TotalBytes
 }
 ```
 
-- Export 阶段把它写入 `BuildContextKeys.BuildSummary`，后端通过 `BuildBackendResult.Summary` 返回，`BuildProjectRunner.LastSummary` 供 `PipelinePanel` 结果摘要区读取；每次构建开始时先清空。
+- Export 阶段把它写入 `BuildContextKeys.BuildSummary`，后端通过 `BuildResult.Summary` 返回，`BuildProjectRunner.LastSummary` 供 `PipelinePanel` 结果摘要区读取；每次构建开始时先清空。
 - 详细 Task 日志仍由 Runner 的逐个 Task 结果独立承载。
 - 摘要有两份落盘形式：正式摘要写在 `BuildData/Summaries/{AA|AB}/{BuildId}.json`（不可变，含文件清单与内容复用事实），定位索引是可重建的 `BuildData/Summaries/index.json`；包目录内不再有摘要文件。
 - 摘要与 Index 由交付事务提交，Index 是最后一个可见身份提交点；发布侧的包身份由发布 UI 从正式摘要解析后注入，不再从包目录解析。

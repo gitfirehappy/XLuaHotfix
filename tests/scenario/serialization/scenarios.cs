@@ -27,13 +27,12 @@ internal static class SerializationScenarios
         {
             var original = VersionNumber.Parse("1.2.3-beta");
             var copy = original;
-            copy.Build = 12;
             copy.Patch = 9;
-            Check(original.Patch == 3 && original.Build == 0, "assignment copies the value");
+            Check(original.Patch == 3, "assignment copies the value");
             Console.WriteLine("PASS: VersionNumber assignment copies its value");
             copy = original;
-            copy.Build = 7;
-            Check(copy == original && copy.CompareTo(original) == 0 && copy.GetHashCode() == original.GetHashCode(), "Build excluded from equality/order/hash");
+            copy.Patch = 7;
+            Check(copy != original && copy.CompareTo(original) > 0, "version fields participate in equality and ordering");
             Check(VersionNumber.Parse("1.2.3-alpha") < original && original < VersionNumber.Parse("1.2.3-rc") && VersionNumber.Parse("1.2.3-rc") < VersionNumber.Parse("1.2.3"), "channel ordering");
             Check(!VersionNumber.TryParse("1.2.3+B", out var invalid) && invalid.Equals(default(VersionNumber)), "failed parse returns default");
             Check(!VersionNumber.TryParse("1.2.3-BETA", out _) && VersionNumber.TryParse(" 1.2.3- ", out _), "existing parse syntax");
@@ -52,14 +51,14 @@ internal static class SerializationScenarios
             Check(VersionNumber.JsonHasNestedObjectField("{\"Latest\":{\"Version\":{\"Major\":0,\"Minor\":0,\"Patch\":0}}}", "Latest", "Version"), "nested Version object is present");
             Check(!VersionNumber.JsonHasNestedObjectField("{\"Latest\":{\"PackageName\":\"Build_x\"}}", "Latest", "Version"), "nested Version missing is rejected");
             Check(VersionNumber.TryParse("0.0.0", out var zero) && zero.Major == 0 && zero.Minor == 0 && zero.Patch == 0, "explicit 0.0.0 remains valid");
-            Console.WriteLine("PASS: parsing, default, ordering, equality, Build rules and JSON field presence");
+            Console.WriteLine("PASS: parsing, default, ordering, equality and JSON field presence");
             var reference = new SerializationReferenceFixture {
                 Version = original,
                 Value = new SerializationValueFixture { Version = copy, Reference = new SerializationReferenceFixture { Version = original } },
                 Versions = new List<VersionNumber> { default, original }
             };
             var round = RoundTrip(reference);
-            Check(round.Version == original && round.Value.Version.Build == 7 && round.Value.Reference.Version == original, "class/struct nested fields");
+            Check(round.Version == original && round.Value.Version.Patch == 7 && round.Value.Reference.Version == original, "class/struct nested fields");
             Check(round.Child == null && round.Versions.Count == 2 && round.Versions[0].Equals(default(VersionNumber)), "null reference and struct list");
             Check(RoundTrip<SerializationReferenceFixture>(null) == null, "null class root");
             var empty = RoundTrip(default(SerializationValueFixture));

@@ -59,10 +59,8 @@ internal sealed class FakePipeline : IHotfixPipeline
     public IReadOnlyList<BundleDownloadItem> GetBundleDownloadList(HotfixVersionInfo remoteInfo)
         => remoteInfo?.Bundles ?? Array.Empty<BundleDownloadItem>();
 
-    public bool HasRequiredMetadata(string packageRoot) => true;
-
     public Task<HotfixStepResult> PersistRemoteMetadataAsync(
-        HotfixContext ctx, int timeoutSeconds, int maxRetryCount, float retryBaseDelaySeconds, bool refreshRequiredMetadata)
+        HotfixContext ctx, int timeoutSeconds, int maxRetryCount, float retryBaseDelaySeconds)
     {
         MetadataWriteRoots.Add(ctx.TargetGUIDRoot);
         WriteManifest(ctx.TargetGUIDRoot, RemoteManifest);
@@ -190,7 +188,7 @@ internal static class HotfixFlowScenarioTests
         FakeFlow flow = NewFlow();
         await flow.InitializeAsync();
 
-        Check(flow.CurrentContent == HotfixContentState.Local, "准备失败后当前内容仍是 Local");
+        Check(flow.CurrentPackageRoot != flow.BuiltInPackageRoot, "准备失败后当前内容仍是 Local");
         Check(RuntimePathManager.ActivePackageRoot == HotfixPackageRoot(HotfixName), "读取根仍是原 Local 包根");
         Check(!Directory.Exists(HotfixPackageRoot(NextName)), "正式目标路径未被创建");
         Check(Directory.Exists(StagingRoot(NextName)), "staging 失败产物保留");
@@ -215,7 +213,7 @@ internal static class HotfixFlowScenarioTests
         await flow.InitializeAsync();
 
         Check(ReadPointer() == null, "损坏的指针文件已被移除");
-        Check(flow.CurrentContent == HotfixContentState.BuiltIn, "当前候选内容为 BuiltIn");
+        Check(flow.CurrentPackageRoot == flow.BuiltInPackageRoot, "当前候选内容为 BuiltIn");
         Check(RuntimePathManager.ActivePackageRoot == _streaming, "读取根为内置包根");
     }
 
@@ -230,7 +228,7 @@ internal static class HotfixFlowScenarioTests
 
         FakeFlow flow = NewFlow();
         await flow.InitializeAsync();
-        Check(flow.CurrentContent == HotfixContentState.Local, "启动后使用本地包");
+        Check(flow.CurrentPackageRoot != flow.BuiltInPackageRoot, "启动后使用本地包");
 
         SetRemote(NextName, "1.2.0", OtherContent);
         HotfixCheckResult check = await flow.CheckAsync();
@@ -245,7 +243,7 @@ internal static class HotfixFlowScenarioTests
         flow.Pipeline.ActivationFailureRootName = NextName;
         HotfixStepResult failed = await flow.ApplyAsync();
         Check(!failed.Success, "注入激活失败后 Apply 返回失败");
-        Check(flow.CurrentContent == HotfixContentState.Local, "Apply 失败后当前内容仍是 Local");
+        Check(flow.CurrentPackageRoot != flow.BuiltInPackageRoot, "Apply 失败后当前内容仍是 Local");
         Check(RuntimePathManager.ActivePackageRoot == HotfixPackageRoot(HotfixName), "读取根恢复为原 Local 包根");
         Check(!Directory.Exists(HotfixPackageRoot(NextName)), "失败目标未留在正式路径");
         Check(ReadPointer() != null && ReadPointer().LatestPackage == HotfixName, "失败路径未改写指针");
@@ -422,7 +420,7 @@ internal static class HotfixFlowScenarioTests
         await flow.InitializeAsync();
 
         Check(ReadPointer() == null, "损坏包的本地指针已被移除");
-        Check(flow.CurrentContent == HotfixContentState.BuiltIn, "当前候选内容回退 BuiltIn");
+        Check(flow.CurrentPackageRoot == flow.BuiltInPackageRoot, "当前候选内容回退 BuiltIn");
         Check(RuntimePathManager.ActivePackageRoot == _streaming, "读取根为内置包根");
         Check(Directory.Exists(HotfixPackageRoot(HotfixName)), "损坏目录保留为诊断物");
     }
@@ -441,7 +439,7 @@ internal static class HotfixFlowScenarioTests
         FakeFlow flow = NewFlow();
         await flow.InitializeAsync();
 
-        Check(flow.CurrentContent == HotfixContentState.Local, "修复成功后当前内容为 Local");
+        Check(flow.CurrentPackageRoot != flow.BuiltInPackageRoot, "修复成功后当前内容为 Local");
         Check(RuntimePathManager.ActivePackageRoot == damagedRoot, "读取根为正式包根");
         Check(File.Exists(Path.Combine(damagedRoot, FakePipeline.MANIFEST_FILE_NAME)), "正式包根上是新内容");
         Check(
@@ -469,7 +467,7 @@ internal static class HotfixFlowScenarioTests
         flow.Pipeline.ActivationFailureRootName = NextName;
         await flow.InitializeAsync();
 
-        Check(flow.CurrentContent == HotfixContentState.Local, "失败后当前内容仍是 Local");
+        Check(flow.CurrentPackageRoot != flow.BuiltInPackageRoot, "失败后当前内容仍是 Local");
         Check(RuntimePathManager.ActivePackageRoot == HotfixPackageRoot(HotfixName), "读取根恢复为原 Local 包根");
         Check(!Directory.Exists(HotfixPackageRoot(NextName)), "失败的目标内容未留在正式路径");
         Check(Directory.Exists(StagingRoot(NextName)), "失败产物保留在 staging 供诊断");
@@ -489,7 +487,7 @@ internal static class HotfixFlowScenarioTests
         FakeFlow flow = NewFlow();
         await flow.InitializeAsync();
 
-        Check(flow.CurrentContent == HotfixContentState.Local, "成功后当前内容为 Local");
+        Check(flow.CurrentPackageRoot != flow.BuiltInPackageRoot, "成功后当前内容为 Local");
         Check(RuntimePathManager.ActivePackageRoot == HotfixPackageRoot(NextName), "读取根切到新包根");
         Check(
             File.Exists(Path.Combine(HotfixPackageRoot(NextName), FakePipeline.MANIFEST_FILE_NAME)),
@@ -517,7 +515,7 @@ internal static class HotfixFlowScenarioTests
         flow.Pipeline.ActivationFailureRootName = HotfixName;
         await flow.InitializeAsync();
 
-        Check(flow.CurrentContent == HotfixContentState.BuiltIn, "修复失败后使用 BuiltIn");
+        Check(flow.CurrentPackageRoot == flow.BuiltInPackageRoot, "修复失败后使用 BuiltIn");
         Check(RuntimePathManager.ActivePackageRoot == _streaming, "读取根为内置包根");
         Check(ReadPointer() == null, "修复失败后没有本地指针");
         Check(

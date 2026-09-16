@@ -183,8 +183,8 @@ internal static class BaselineExitContractTests
             "构建摘要应作为构建结果数据源");
         GateAssert.TreeHasSymbol(
             ScriptsDir,
-            "SummaryContentFact",
-            "Summary 应记录内容身份、输入指纹与制品摘要");
+            "ContentReuseRecord",
+            "Summary 应记录单个内容的输入指纹、物理文件事实与依赖事实");
         GateAssert.TreeHasNoSymbol(
             ScriptsDir,
             "BundleBuildCacheEntry",

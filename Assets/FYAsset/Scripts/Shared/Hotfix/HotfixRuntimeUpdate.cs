@@ -27,9 +27,6 @@ public sealed class HotfixCheckResult
     /// <summary>决策动作：PrepareTarget / RepairPackage 表示存在可准备更新。</summary>
     public HotfixStateAction Action { get; }
 
-    /// <summary>检查后当前使用的内容归属。</summary>
-    public HotfixContentState ContentState { get; }
-
     /// <summary>远端目标包名；无可用远端信息时为空。</summary>
     public string TargetPackageName { get; }
 
@@ -48,14 +45,12 @@ public sealed class HotfixCheckResult
 
     public HotfixCheckResult(
         HotfixStateAction action,
-        HotfixContentState contentState,
         string targetPackageName,
         VersionNumber targetVersion,
         string message,
         bool clientUpdateRequired = false)
     {
         Action = action;
-        ContentState = contentState;
         TargetPackageName = targetPackageName ?? string.Empty;
         TargetVersion = targetVersion;
         Message = message ?? string.Empty;

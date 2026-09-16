@@ -1980,7 +1980,7 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
     private static string BuildAssetMetaText(CollectedAssetInfo asset)
     {
         string state = asset.HasError ? "Error" : asset.HasWarning ? "Warning" : "OK";
-        return $"{state}    Group: {asset.GroupName}    Address: {asset.Address}    Type: {asset.PrimaryType}    ContentType: {asset.ContentType}";
+        return $"{state}    Group: {asset.GroupName}    Address: {asset.Address}    Type: {asset.AssetType}    ContentType: {asset.ContentType}";
     }
 
     private static string GetAssetNavName(CollectedAssetInfo asset)
@@ -2076,7 +2076,7 @@ public class AssetsCollectionPanel : IBuildPipelinePanel
     {
         return preview == null
             ? string.Empty
-            : AssetAddressGenerator.GenerateAddress(preview.AssetPath, preview.PrimaryType, style);
+            : AssetAddressGenerator.GenerateAddress(preview.AssetPath, preview.AssetType, style);
     }
 
     private static string JoinLabelList(List<string> labels)

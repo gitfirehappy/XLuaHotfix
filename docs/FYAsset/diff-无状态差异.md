@@ -4,7 +4,7 @@
 
 > **关联代码**
 >
-> `Assets/FYAsset/Scripts/Shared/Build/FileDigest.cs` · `FileDiff.cs` · `Shared/Build/Editor/CompleteBuildSummary.cs`（`SummaryContentFact`） · `Shared/Build/Editor/Summary/BuildSummaryStore.cs` · `Shared/Build/Editor/Summary/BuildArtifactReuseService.cs` · `Shared/Build/Editor/Summary/HotfixBaselineResolver.cs` · `Shared/Build/Publish/PublishCache.cs`
+> `Assets/FYAsset/Scripts/Shared/Build/FileDigest.cs` · `FileDiff.cs` · `Shared/Build/Editor/CompleteBuildSummary.cs`（`ContentReuseRecord`） · `Shared/Build/Editor/Summary/BuildSummaryStore.cs` · `Shared/Build/Editor/Summary/BuildArtifactReuseService.cs` · `Shared/Build/Editor/Summary/HotfixBaselineResolver.cs` · `Shared/Build/Publish/PublishCache.cs`
 
 ---
 
@@ -73,7 +73,7 @@ FileDiff diff = FileDiff.Compute(previous, current);
 | 机制 | 位置 | 写入时机 | 失败后果 |
 |---|---|---|---|
 | 正式构建摘要 | `BuildData/Summaries/{AA\|AB}/{BuildId}.json`（不可变，`index.json` 是可重建的定位索引） | 交付事务中产物提升并应用启动数据之后、Index 之前 | 写入失败则整个交付回滚；历史摘要缺失只损失复用候选与版本定位加速 |
-| 内容复用事实 | 摘要内 `SummaryContentFact`（内容身份 + 输入指纹 + 制品摘要 + 依赖事实）＋历史 `Build_*` 包目录的物理字节 | 交付成功并写出正式摘要之后才可被后续构建读到 | 没有候选或事实不完整 → 该内容重建，只损失优化 |
+| 内容复用事实 | 摘要内 `ContentReuseRecord`（内容身份 + 输入指纹 + 制品摘要 + 依赖事实）＋历史 `Build_*` 包目录的物理字节 | 交付成功并写出正式摘要之后才可被后续构建读到 | 没有候选或事实不完整 → 该内容重建，只损失优化 |
 | 发布缓存 | `BuildData/PublishCache/{AA\|AB}/{TargetId}.json` | 发布成功后写入 | 读取失败按“没有缓存”处理，只提示与服务器事实的漂移，**不改变发布决定** |
 
 复用候选由 `BuildArtifactReuseService` 判定，全部条件同时满足才命中：
@@ -94,7 +94,7 @@ FileDiff diff = FileDiff.Compute(previous, current);
 
 | 用途 | 上一份事实 | 本次事实 | 消费方 |
 |---|---|---|---|
-| AB 内容复用 | 历史正式 Summary 的 `SummaryContentFact`（`InputFingerprint` + `FileHash/CRC/Size`） | 本次输入指纹与产物 | `BuildABContentTask` + `BuildArtifactReuseService` |
+| AB 内容复用 | 历史正式 Summary 的 `ContentReuseRecord`（`InputFingerprint` + `FileHash/CRC/Size`） | 本次输入指纹与产物 | `BuildABContentTask` + `BuildArtifactReuseService` |
 | AB Hotfix 交付差异 | 基准 Full 包内 Manifest 声明的内容 | 本次 `ABManifest` 的内容集合 | `ExportABOutputTask` + `HotfixBaselineResolver` |
 | AA Hotfix 源差异 | 基准 Full 包内 `AASourceScan.json`（GUID → Asset+meta 摘要） | 本次 Addressables source 摘要 | `PrepareAAInputTask` + `HotfixBaselineResolver`（决定哪些 entry 临时移入 `HotfixGroup`） |
 | 发布上传集合 | 服务器 `PackageIndex` → 其指向包的 Manifest | 本地包目录扫描结果 | `PackagePublishTransaction` |

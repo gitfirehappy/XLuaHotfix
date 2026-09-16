@@ -16,7 +16,7 @@ public class CollectedAssetInfo
     public string Address;
 
     /// <summary>资产主类型名称（如 Texture2D / GameObject），来自 AssetDatabase</summary>
-    public string PrimaryType;
+    public string AssetType;
 
     /// <summary>最终标签列表；只来自资产级人工覆盖</summary>
     public List<string> Labels = new();

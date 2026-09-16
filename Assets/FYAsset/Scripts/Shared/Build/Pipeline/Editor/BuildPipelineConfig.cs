@@ -20,7 +20,7 @@ public enum BundleCompression
 /// <summary>
 /// 构建管线配置 ScriptableObject —— 只保存构建选项与自定义 Task 的插入位置。
 /// 主干阶段由各后端 PipelineBackbone 固定定义，配置不能增删主干。
-/// 后端键由 concrete build manager 的 BuildPackageRequest 决定；Shared 不读取项目级后端选择配置。
+/// 后端键由 concrete build manager 的 BuildRequest 决定；Shared 不读取项目级后端选择配置。
 /// 存储路径：Assets/Build/BuildPipelineConfig.asset 与 Assets/Build/AABuildPipelineConfig.asset。
 /// </summary>
 public class BuildPipelineConfig : ScriptableObject

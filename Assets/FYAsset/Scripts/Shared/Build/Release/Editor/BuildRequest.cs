@@ -8,7 +8,7 @@ using System;
 /// Full、Hotfix 和 Standalone 都输出独立包目录；Hotfix 包含完整目标 Manifest 及相对 Full 的变化内容。
 /// PackageIndex 由发布器在发布事务最后生成并上传。
 /// </remarks>
-public sealed class BuildPackageRequest
+public sealed class BuildRequest
 {
     public const string PackageTimestampFormat = "yyyyMMddHHmmss";
 
@@ -40,7 +40,7 @@ public sealed class BuildPackageRequest
     /// <summary>发布源目录：都是本包名的独立包目录。</summary>
     public string PublishSourceDir => DeliveryOutputDir;
 
-    private BuildPackageRequest(
+    private BuildRequest(
         VersionNumber version,
         BuildType buildType,
         string backendKey,
@@ -65,11 +65,11 @@ public sealed class BuildPackageRequest
     /// <summary>
     /// 生成指向最终出口的构建请求，供导出和报表读取。
     /// </summary>
-    public BuildPackageRequest WithPromotedOutput()
+    public BuildRequest WithPromotedOutput()
     {
         if (!IsAttemptLayout)
             return this;
-        return new BuildPackageRequest(
+        return new BuildRequest(
             Version,
             BuildType,
             BackendKey,
@@ -82,7 +82,7 @@ public sealed class BuildPackageRequest
     }
 
     /// <param name="attemptLayout">true 时任务链所有产物只写入 attempt 目录；最终出口由 Runner finalize 决定。</param>
-    public static BuildPackageRequest Create(VersionNumber version, BuildType buildType, string backendKey,
+    public static BuildRequest Create(VersionNumber version, BuildType buildType, string backendKey,
         bool attemptLayout = false)
     {
         var createdAt = DateTime.UtcNow;
@@ -91,7 +91,7 @@ public sealed class BuildPackageRequest
         string outputDir = attemptLayout
             ? BuildPathManager.GetAttemptPackageDir(packageName)
             : deliveryOutputDir;
-        return new BuildPackageRequest(
+        return new BuildRequest(
             version,
             buildType,
             backendKey,

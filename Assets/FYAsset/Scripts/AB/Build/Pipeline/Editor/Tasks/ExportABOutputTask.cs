@@ -22,10 +22,10 @@ public class ExportABOutputTask : IBuildTask
     public BuildTaskResult Execute(BuildContext ctx)
     {
         var cfg = ctx.Require<BuildConfig>(BuildContextKeys.BuildConfig);
-        var request = ctx.Require<BuildPackageRequest>(BuildContextKeys.BuildPackageRequest);
+        var request = ctx.Require<BuildRequest>(BuildContextKeys.BuildRequest);
         var buildType = ctx.Require<BuildType>(BuildContextKeys.BuildType);
         var manifest = ctx.Require<ABManifest>(ABBuildContextKeys.ABManifest);
-        var buildResults = ctx.Require<List<BundleBuildInfo>>(ABBuildContextKeys.BundleBuildResults);
+        var buildResults = ctx.Require<List<ContentBuildResult>>(ABBuildContextKeys.BundleBuildResults);
 
         string outputDir = request.OutputDir;
         string bundleOutputDir = request.BundlesDir;
@@ -124,7 +124,7 @@ public class ExportABOutputTask : IBuildTask
     /// </remarks>
     private static BuildTaskResult ComputeDeliveryContents(
         BuildContext ctx,
-        BuildPackageRequest request,
+        BuildRequest request,
         BuildType buildType,
         ABManifest manifest,
         out List<ManifestContentEntry> deliveryContents)
@@ -252,7 +252,7 @@ public class ExportABOutputTask : IBuildTask
     /// <summary>把交付内容放进 bundle 输出目录：整包模式全量复制，Hotfix 模式按目标集合落地。</summary>
     private static BuildTaskResult CopyDeliveryContents(
         BuildContext ctx,
-        BuildPackageRequest request,
+        BuildRequest request,
         BuildType buildType,
         List<ManifestContentEntry> contentsToCopy,
         string tempDir,
@@ -298,9 +298,9 @@ public class ExportABOutputTask : IBuildTask
 
             result.Add(new FileHelper.FileDigest(
                 ToContentRelativeName(entry.FileName),
-                entry.FileHash,
-                entry.FileCRC,
-                entry.FileSize));
+                entry.Hash,
+                entry.CRC,
+                entry.Size));
         }
 
         return result;
@@ -310,7 +310,7 @@ public class ExportABOutputTask : IBuildTask
     private static void FillSummary(
         CompleteBuildSummary summary,
         ABManifest manifest,
-        List<BundleBuildInfo> buildResults,
+        List<ContentBuildResult> buildResults,
         long totalSize,
         BuildContext ctx)
     {
@@ -320,7 +320,7 @@ public class ExportABOutputTask : IBuildTask
         // 构建配方与复用判定同源：由 BuildABContentTask 计算并写入 Context，缺失时留空（仅损失复用优化）。
         summary.BuildRecipeFingerprint = ctx.Get<string>(ABBuildContextKeys.BuildRecipeFingerprint) ?? string.Empty;
 
-        var facts = new List<BuildExportWriter.SummaryContentFact>();
+        var facts = new List<BuildExportWriter.ContentFileDigest>();
         if (manifest.ContentEntries != null)
         {
             for (int i = 0; i < manifest.ContentEntries.Count; i++)
@@ -329,12 +329,12 @@ public class ExportABOutputTask : IBuildTask
                 if (content == null || string.IsNullOrEmpty(content.FileName))
                     continue;
 
-                facts.Add(new BuildExportWriter.SummaryContentFact
+                facts.Add(new BuildExportWriter.ContentFileDigest
                 {
                     FileName = content.FileName,
-                    FileHash = content.FileHash,
-                    FileCRC = content.FileCRC,
-                    FileSize = content.FileSize
+                    Hash = content.Hash,
+                    CRC = content.CRC,
+                    Size = content.Size
                 });
             }
         }
@@ -343,21 +343,21 @@ public class ExportABOutputTask : IBuildTask
         BuildExportWriter.AddVerificationMessages(summary, ctx);
 
         // 内容复用事实：后续构建靠它按内容身份与输入指纹定位历史制品，并回放依赖输出文件名。
-        summary.Contents = new List<SummaryContentFact>(buildResults.Count);
+        summary.ContentReuseRecords = new List<ContentReuseRecord>(buildResults.Count);
         for (int i = 0; i < buildResults.Count; i++)
         {
-            BundleBuildInfo bundle = buildResults[i];
-            if (bundle == null || string.IsNullOrEmpty(bundle.OutputFileName))
+            ContentBuildResult bundle = buildResults[i];
+            if (bundle == null || string.IsNullOrEmpty(bundle.FileName))
                 continue;
 
-            summary.Contents.Add(new SummaryContentFact
+            summary.ContentReuseRecords.Add(new ContentReuseRecord
             {
-                ContentIdentity = bundle.BundleName ?? string.Empty,
+                ContentName = bundle.ContentName ?? string.Empty,
                 InputFingerprint = bundle.InputFingerprint ?? string.Empty,
-                FileName = bundle.OutputFileName,
-                FileHash = bundle.Hash ?? string.Empty,
-                FileCRC = bundle.CRC,
-                FileSize = bundle.Size,
+                FileName = bundle.FileName,
+                Hash = bundle.Hash ?? string.Empty,
+                CRC = bundle.CRC,
+                Size = bundle.Size,
                 DependencyFileNames = bundle.DependencyFileNames != null
                     ? new List<string>(bundle.DependencyFileNames)
                     : new List<string>()
@@ -380,7 +380,7 @@ public class ExportABOutputTask : IBuildTask
         if (sizeScope != null)
         {
             for (int i = 0; i < sizeScope.Count; i++)
-                packageSize += sizeScope[i] != null ? sizeScope[i].FileSize : 0;
+                packageSize += sizeScope[i] != null ? sizeScope[i].Size : 0;
         }
 
         if (!FileHelper.IsWithinSizeLimit(packageSize, FYAssetABSettings.Instance.MaxHotfixSizeBytes))
@@ -465,7 +465,7 @@ public class ExportABOutputTask : IBuildTask
         if (contents == null)
             return total;
         for (int i = 0; i < contents.Count; i++)
-            total += contents[i] != null ? contents[i].FileSize : 0;
+            total += contents[i] != null ? contents[i].Size : 0;
         return total;
     }
 }

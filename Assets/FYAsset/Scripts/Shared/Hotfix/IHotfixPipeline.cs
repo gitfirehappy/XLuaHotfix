@@ -37,19 +37,13 @@ public interface IHotfixPipeline
     IReadOnlyList<BundleDownloadItem> GetBundleDownloadList(HotfixVersionInfo remoteInfo);
 
     /// <summary>
-    /// 检查后端特定的非 manifest 元数据是否已存在。
-    /// </summary>
-    bool HasRequiredMetadata(string packageRoot);
-
-    /// <summary>
-    /// 持久化缓存的远端 manifest，并按需持久化后端特定元数据。
+    /// 持久化缓存的远端 manifest。后端自行决定其额外元数据是否需要下载。
     /// </summary>
     Task<HotfixStepResult> PersistRemoteMetadataAsync(
         HotfixContext ctx,
         int timeoutSeconds,
         int maxRetryCount,
-        float retryBaseDelaySeconds,
-        bool refreshRequiredMetadata);
+        float retryBaseDelaySeconds);
 
     /// <summary>
     /// 从本地文件激活已验证的包。

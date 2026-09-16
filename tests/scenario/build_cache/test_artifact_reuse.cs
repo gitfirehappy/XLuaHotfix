@@ -15,7 +15,7 @@ internal static class ArtifactReuseTests
         run.Check("NewestMatchingSummaryWins", NewestMatchingSummaryWins);
         run.Check("FallsBackToOlderSummaryWhenNewestArtifactMissing", FallsBackToOlderSummaryWhenNewestArtifactMissing);
         run.Check("CopiedArtifactSummaryIsReVerified", CopiedArtifactSummaryIsReVerified);
-        run.Check("ContentIdentityMismatchIsRejected", ContentIdentityMismatchIsRejected);
+        run.Check("ContentNameMismatchIsRejected", ContentNameMismatchIsRejected);
         run.Check("InputFingerprintMismatchIsRejected", InputFingerprintMismatchIsRejected);
         run.Check("RecipeMismatchIsRejected", RecipeMismatchIsRejected);
         run.Check("PlatformMismatchIsRejected", PlatformMismatchIsRejected);
@@ -94,14 +94,14 @@ internal static class ArtifactReuseTests
         FileHelper.FileDigest older = ReuseFixture.WriteArtifact(workspace, "older.bundle", ReuseFixture.Bytes(14, 128));
 
         // 最新的 Summary 指向并不存在的制品；复用的失败只损失优化，应继续尝试更早的候选。
-        var missing = new SummaryContentFact
+        var missing = new ContentReuseRecord
         {
-            ContentIdentity = ReuseFixture.ContentName,
+            ContentName = ReuseFixture.ContentName,
             InputFingerprint = ReuseFixture.Fingerprint,
             FileName = "gone.bundle",
-            FileHash = "0123456789abcdef0123456789abcdef",
-            FileCRC = 1,
-            FileSize = 8
+            Hash = "0123456789abcdef0123456789abcdef",
+            CRC = 1,
+            Size = 8
         };
         ReuseFixture.Publish(store, ReuseFixture.Summary(
             "build-newest-broken", new DateTime(2026, 3, 1, 0, 0, 0, DateTimeKind.Utc), missing));
@@ -140,7 +140,7 @@ internal static class ArtifactReuseTests
         Check.True(dependencies != null, "依赖事实不得为 null，否则依赖下标合并会缺条目");
     }
 
-    private static void ContentIdentityMismatchIsRejected()
+    private static void ContentNameMismatchIsRejected()
     {
         using var workspace = new TempWorkspace("reuse-identity");
         BuildSummaryStore store = ReuseFixture.CreateStore(workspace);
@@ -314,7 +314,7 @@ internal static class ArtifactReuseTests
         BuildSummaryStore store = ReuseFixture.CreateStore(workspace);
         FileHelper.FileDigest digest = ReuseFixture.WriteArtifact(workspace, "ui.bundle", ReuseFixture.Bytes(31, 256));
 
-        SummaryContentFact fact = ReuseFixture.Content(
+        ContentReuseRecord fact = ReuseFixture.Content(
             ReuseFixture.ContentName, ReuseFixture.Fingerprint, digest, "dep.bundle");
         fact.DependencyFileNames = null;
         ReuseFixture.Publish(store, ReuseFixture.Summary("build-1", DateTime.UtcNow, fact));
@@ -467,146 +467,5 @@ internal static class ArtifactReuseTests
         {
             BuildPathManager.ProjectRoot = projectRoot;
         }
-    }
-}
-
-/// <summary>
-/// 复用安全性：被重建内容依赖到的复用内容必须一起重建。
-/// Unity 只把显式列入本次构建的资产写入内容，未被显式分配的依赖资产会被复制进引用它的每个内容
-/// （Unity 手册 Asset Duplication）；否则重建产物与全量构建不一致。
-/// </summary>
-internal static class ReuseClosureTests
-{
-    public static void Declare(GateRun run)
-    {
-        run.Check("DirectDependencyOfRebuiltContentIsNotReused", DirectDependencyOfRebuiltContentIsNotReused);
-        run.Check("ClosureIsTransitive", ClosureIsTransitive);
-        run.Check("IndependentContentStaysReusable", IndependentContentStaysReusable);
-        run.Check("DependencyDirectionIsRespected", DependencyDirectionIsRespected);
-        run.Check("ReuseIsKeptWhenNothingIsRebuilt", ReuseIsKeptWhenNothingIsRebuilt);
-        run.Check("MissingDependencyEntryIsNoOp", MissingDependencyEntryIsNoOp);
-        run.Check("CycleDoesNotHang", CycleDoesNotHang);
-        run.Check("ReverseDependencyDoesNotDropReuse", ReverseDependencyDoesNotDropReuse);
-    }
-
-    private static void DirectDependencyOfRebuiltContentIsNotReused()
-    {
-        var reusables = Set("shared_texture");
-        List<string> dropped = ContentDependencyIndexResolver.DropReuseViolatingDependencyClosure(
-            Dependencies(("rebuild_me", "shared_texture")),
-            reusables,
-            new[] { "rebuild_me" });
-
-        Check.Equal(1, dropped.Count, "被重建内容直接依赖的复用内容必须被撤销复用");
-        Check.Equal("shared_texture", dropped[0], "撤销的必须是被依赖的那个内容");
-        Check.False(reusables.Contains("shared_texture"), "撤销后该内容不得再标记为可复用");
-    }
-
-    private static void ClosureIsTransitive()
-    {
-        // 依赖链：a（重建）→ b（复用）→ c（复用）→ d（复用）
-        var reusables = Set("b", "c", "d");
-        List<string> dropped = ContentDependencyIndexResolver.DropReuseViolatingDependencyClosure(
-            Dependencies(("a", "b"), ("b", "c"), ("c", "d")),
-            reusables,
-            new[] { "a" });
-
-        Check.Equal(3, dropped.Count, "依赖闭合必须传递到整条依赖链");
-        Check.False(reusables.Contains("b"), "直接依赖必须被撤销");
-        Check.False(reusables.Contains("c"), "二阶依赖必须被撤销");
-        Check.False(reusables.Contains("d"), "三阶依赖必须被撤销");
-    }
-
-    private static void IndependentContentStaysReusable()
-    {
-        var reusables = Set("sfx_content", "shared_atlas");
-        List<string> dropped = ContentDependencyIndexResolver.DropReuseViolatingDependencyClosure(
-            Dependencies(("ui_content", "shared_atlas"), ("sfx_content", "sfx_own_atlas")),
-            reusables,
-            new[] { "ui_content" });
-
-        Check.Equal(1, dropped.Count, "只应撤销被重建内容依赖到的那一个内容");
-        Check.False(reusables.Contains("shared_atlas"), "被重建内容依赖的内容必须撤销复用");
-        Check.True(reusables.Contains("sfx_content"), "与重建内容无依赖关系的复用内容必须保持可复用");
-    }
-
-    private static void DependencyDirectionIsRespected()
-    {
-        var reusables = Set("shared_atlas", "rebuilt");
-        List<string> dropped = ContentDependencyIndexResolver.DropReuseViolatingDependencyClosure(
-            Dependencies(("shared_atlas", "rebuilt")),
-            reusables,
-            new[] { "rebuilt" });
-
-        Check.Equal(0, dropped.Count, "复用内容依赖重建内容时应保持复用，撤销只看重建内容依赖了谁");
-        Check.True(reusables.Contains("shared_atlas"), "方向相反时不得撤销复用");
-    }
-
-    private static void ReuseIsKeptWhenNothingIsRebuilt()
-    {
-        var reusables = Set("a", "b");
-        List<string> dropped = ContentDependencyIndexResolver.DropReuseViolatingDependencyClosure(
-            Dependencies(("a", "b")),
-            reusables,
-            new string[0]);
-
-        Check.Equal(0, dropped.Count, "没有重建内容时不应撤销任何复用");
-        Check.Equal(2, reusables.Count, "没有重建内容时可复用集合保持完整");
-    }
-
-    private static void MissingDependencyEntryIsNoOp()
-    {
-        var reusables = Set("a", "b");
-        List<string> dropped = ContentDependencyIndexResolver.DropReuseViolatingDependencyClosure(
-            Dependencies(),
-            reusables,
-            new[] { "a" });
-
-        Check.Equal(0, dropped.Count, "依赖图缺少条目时不得误撤销");
-        Check.Equal(2, reusables.Count, "依赖图缺少条目时可复用集合保持完整");
-    }
-
-    private static void CycleDoesNotHang()
-    {
-        // 循环链：a（重建）→ b（复用）→ c（复用）→ a
-        var reusables = Set("b", "c");
-        List<string> dropped = ContentDependencyIndexResolver.DropReuseViolatingDependencyClosure(
-            Dependencies(("a", "b"), ("b", "c"), ("c", "a")),
-            reusables,
-            new[] { "a" });
-
-        Check.Equal(2, dropped.Count, "循环依赖必须终止，且链上每个内容只撤销一次");
-        Check.Equal(0, reusables.Count, "循环链上的内容都必须撤销复用");
-    }
-
-    private static void ReverseDependencyDoesNotDropReuse()
-    {
-        var reusables = Set("shared_a", "shared_b", "rebuilt");
-        List<string> dropped = ContentDependencyIndexResolver.DropReuseViolatingDependencyClosure(
-            Dependencies(("rebuilt", "shared_a"), ("shared_b", "shared_a")),
-            reusables,
-            new[] { "rebuilt" });
-
-        Check.Equal(1, dropped.Count, "只有 rebuilt 的直接依赖需要撤销");
-        Check.True(reusables.Contains("shared_b"), "复用内容之间的依赖不应导致额外撤销");
-    }
-
-    private static HashSet<string> Set(params string[] names)
-        => new HashSet<string>(names, StringComparer.Ordinal);
-
-    private static Dictionary<string, IList<string>> Dependencies(params (string From, string To)[] edges)
-    {
-        var map = new Dictionary<string, IList<string>>(StringComparer.Ordinal);
-        for (int i = 0; i < edges.Length; i++)
-        {
-            if (!map.TryGetValue(edges[i].From, out IList<string> list))
-            {
-                list = new List<string>();
-                map[edges[i].From] = list;
-            }
-            list.Add(edges[i].To);
-        }
-
-        return map;
     }
 }

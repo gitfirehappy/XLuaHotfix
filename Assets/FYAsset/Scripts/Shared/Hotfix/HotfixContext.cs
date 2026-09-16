@@ -23,9 +23,6 @@ public class HotfixContext
     /// <summary>内置完整包的严格检查结果；不完整时启动阻断。</summary>
     public HotfixPackageInspection BuiltInPackageInspection;
 
-    /// <summary>当前候选内容归属：BuiltIn 或 Local。</summary>
-    public HotfixContentState CurrentContent;
-
     /// <summary>当前候选内容的包根。</summary>
     public string CurrentPackageRoot;
 

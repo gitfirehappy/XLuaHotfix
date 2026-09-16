@@ -26,14 +26,14 @@ public sealed class BuildStatistics
 /// </summary>
 /// <remarks>
 /// 该记录是 Summary 作为复用索引的最小事实单元：历史包目录只是字节来源，
-/// 复用方按 ContentIdentity + InputFingerprint 定位条目，再用 FileName/FileHash/FileCRC/FileSize 校验制品。
+/// 复用方按 ContentName + InputFingerprint 定位条目，再用 FileName/Hash/CRC/Size 校验制品。
 /// 字段全部落在 Unity 序列化范围内。
 /// </remarks>
 [Serializable]
-public sealed class SummaryContentFact
+public sealed class ContentReuseRecord
 {
     /// <summary>内容逻辑名（与 CollectedAssetInfo.ContentName 同一套规则）</summary>
-    public string ContentIdentity;
+    public string ContentName;
 
     /// <summary>该内容的构建输入指纹；为空表示该内容不参与复用</summary>
     public string InputFingerprint;
@@ -42,13 +42,13 @@ public sealed class SummaryContentFact
     public string FileName;
 
     /// <summary>制品内容 MD5</summary>
-    public string FileHash;
+    public string Hash;
 
     /// <summary>制品内容 CRC32</summary>
-    public uint FileCRC;
+    public uint CRC;
 
     /// <summary>制品字节数</summary>
-    public long FileSize;
+    public long Size;
 
     /// <summary>该内容在 Unity 侧的内容级直接依赖输出文件名；复用时必须原样回放。null 表示该记录缺少依赖事实，不得复用。</summary>
     public List<string> DependencyFileNames = new();
@@ -71,7 +71,7 @@ public sealed class CompleteBuildSummary
 
     public int SummarySchemaVersion = CurrentSchemaVersion;
 
-    /// <summary>构建标识（当前为包名，与 BuildPackageRequest.PackageName 一致）</summary>
+    /// <summary>构建标识（当前为包名，与 BuildRequest.PackageName 一致）</summary>
     public string BuildId;
 
     /// <summary>制品相对路径（项目根下）；只描述位置，不复制内容。删除包目录后该路径失效，但摘要仍保留。</summary>
@@ -82,9 +82,6 @@ public sealed class CompleteBuildSummary
 
     /// <summary>构建配方指纹；用于判断历史制品是否可复用。</summary>
     public string BuildRecipeFingerprint;
-
-    /// <summary>采集事实指纹；用于判断历史制品是否可复用。</summary>
-    public string CollectionFingerprint;
 
     /// <summary>后端标识（AA/AB）</summary>
     public string BackendId;
@@ -117,7 +114,7 @@ public sealed class CompleteBuildSummary
     public List<FileHelper.FileDigest> Files = new();
 
     /// <summary>本次构建产出的内容复用事实；按制品逐条记录，供后续构建按内容身份与输入指纹复用历史包</summary>
-    public List<SummaryContentFact> Contents = new();
+    public List<ContentReuseRecord> ContentReuseRecords = new();
 
     /// <summary>构建消息（错误与警告）</summary>
     public List<BuildMessage> Messages = new();
@@ -159,7 +156,6 @@ public sealed class CompleteBuildSummary
             ArtifactRelativePath = ArtifactRelativePath ?? string.Empty,
             BaseFullSummaryId = BaseFullSummaryId ?? string.Empty,
             BuildRecipeFingerprint = BuildRecipeFingerprint ?? string.Empty,
-            CollectionFingerprint = CollectionFingerprint ?? string.Empty,
             BackendId = BackendId ?? string.Empty,
             BuildType = BuildType.ToString(),
             RuntimeMode = RuntimeMode.ToString(),
@@ -171,24 +167,24 @@ public sealed class CompleteBuildSummary
             Success = Success,
             Statistics = Statistics,
             Files = new List<SummaryFile>(Files.Count),
-            Contents = new List<SummaryContentFact>(Contents.Count),
+            ContentReuseRecords = new List<ContentReuseRecord>(ContentReuseRecords.Count),
             Messages = new List<SummaryMessage>(Messages.Count)
         };
 
-        for (int i = 0; i < Contents.Count; i++)
+        for (int i = 0; i < ContentReuseRecords.Count; i++)
         {
-            SummaryContentFact content = Contents[i];
+            ContentReuseRecord content = ContentReuseRecords[i];
             if (content == null)
                 continue;
 
-            document.Contents.Add(new SummaryContentFact
+            document.ContentReuseRecords.Add(new ContentReuseRecord
             {
-                ContentIdentity = content.ContentIdentity ?? string.Empty,
+                ContentName = content.ContentName ?? string.Empty,
                 InputFingerprint = content.InputFingerprint ?? string.Empty,
                 FileName = content.FileName ?? string.Empty,
-                FileHash = content.FileHash ?? string.Empty,
-                FileCRC = content.FileCRC,
-                FileSize = content.FileSize,
+                Hash = content.Hash ?? string.Empty,
+                CRC = content.CRC,
+                Size = content.Size,
                 // null 与空集合语义不同：前者表示该记录缺少依赖事实（不得复用），后者表示叶子内容。
                 DependencyFileNames = content.DependencyFileNames != null
                     ? new List<string>(content.DependencyFileNames)
@@ -239,7 +235,7 @@ public sealed class CompleteBuildSummary
         builder.AppendLine($"Duration: {Duration.TotalSeconds:F2}s");
         builder.AppendLine($"Success: {Success}");
         builder.AppendLine($"Assets: {Statistics.AssetCount}");
-        builder.AppendLine($"Contents: {Statistics.ContentCount}");
+        builder.AppendLine($"ContentReuseRecords: {Statistics.ContentCount}");
         builder.AppendLine($"Files: {Statistics.FileCount}");
         builder.AppendLine($"TotalBytes: {Statistics.TotalBytes}");
         for (int i = 0; i < Messages.Count; i++)
@@ -261,7 +257,6 @@ public sealed class CompleteBuildSummary
         public string ArtifactRelativePath;
         public string BaseFullSummaryId;
         public string BuildRecipeFingerprint;
-        public string CollectionFingerprint;
         public string BackendId;
         public string BuildType;
         public string RuntimeMode;
@@ -275,7 +270,7 @@ public sealed class CompleteBuildSummary
         public List<SummaryFile> Files;
 
         /// <summary>内容复用事实；缺失或为空只损失复用优化，不影响构建</summary>
-        public List<SummaryContentFact> Contents;
+        public List<ContentReuseRecord> ContentReuseRecords;
 
         public List<SummaryMessage> Messages;
     }

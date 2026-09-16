@@ -92,7 +92,7 @@ Manifest：ManifestContentEntry.DependencyIndices（指向同一 ABManifest.Cont
 ```
 
 - `GenerateABManifestTask` 读取 Unity `AssetBundleManifest` 的实际依赖写入 `ManifestContentEntry.DependencyIndices`；计划图只作为预期诊断，两者不一致时以 Unity 结果为准。
-- 被复用的历史制品不会出现在本轮 Unity `AssetBundleManifest` 中，因此复用事实必须带回内容级依赖输出文件名才能回放依赖下标。事实记录在正式 Summary 的 `SummaryContentFact.DependencyFileNames`：null 表示该记录缺少依赖事实，`BuildArtifactReuseService.TryReuse` 会拒绝复用；空集合是合法事实（叶子内容）。
+- 被复用的历史制品不会出现在本轮 Unity `AssetBundleManifest` 中，因此复用事实必须带回内容级依赖输出文件名才能回放依赖下标。事实记录在正式 Summary 的 `ContentReuseRecord.DependencyFileNames`：null 表示该记录缺少依赖事实，`BuildArtifactReuseService.TryReuse` 会拒绝复用；空集合是合法事实（叶子内容）。
 - `AssetDependencyOrigin` 只服务构建诊断，**不进入运行时 Manifest**。
 
 ---

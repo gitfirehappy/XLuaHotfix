@@ -16,7 +16,7 @@ public interface IBuiltInPackageHandler
     IReadOnlyList<string> RequiredManifestFileNames { get; }
 
     /// <summary>把后端 manifest 文件从构建输出暂存到 stageRoot（bundles 由共享流程负责）。</summary>
-    void StageBuiltInFiles(BuildPackageRequest request, string stageRoot);
+    void StageBuiltInFiles(BuildRequest request, string stageRoot);
 
     /// <summary>校验 stageRoot 中后端 manifest 齐全可解析，返回待校验 Bundle 清单；失败抛异常。</summary>
     IReadOnlyList<BundleDownloadItem> LoadStagedBundles(string stageRoot);

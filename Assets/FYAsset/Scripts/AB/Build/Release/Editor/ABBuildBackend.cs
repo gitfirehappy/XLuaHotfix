@@ -15,7 +15,7 @@ public class ABBuildBackend : IBuildBackend, IBuiltInPackageHandler
 {
     public IBuiltInPackageHandler BuiltInPackageHandler => this;
 
-    public Task<BuildBackendResult> BuildAsync(BuildPackageRequest request, BuildExecutionOptions options)
+    public Task<BuildResult> BuildAsync(BuildRequest request, BuildExecutionOptions options)
     {
         var stopwatch = Stopwatch.StartNew();
         BuildRunResult result = null;
@@ -26,7 +26,7 @@ public class ABBuildBackend : IBuildBackend, IBuiltInPackageHandler
         {
             var error = BuildMessage.Error(BuildErrorCodes.SettingNull, "未找到 BuildPipelineConfig。", nameof(ABBuildBackend));
             string reportPath = TryWriteReport(request, result, null, stopwatch, error);
-            return Task.FromResult(BuildBackendResult.Fail(error, result, request, reportPath));
+            return Task.FromResult(BuildResult.Fail(error, result, request, reportPath));
         }
 
         try
@@ -39,7 +39,7 @@ public class ABBuildBackend : IBuildBackend, IBuiltInPackageHandler
             // 主干由 ABPipelineBackbone 固定定义，自定义 Task 只能插入合法槽位。
             IReadOnlyList<IBuildTask> tasks = ABPipelineBackbone.ComposeTasks(config);
 
-            var runRequest = new BuildRequest(request, options, new EditorBuildRunEnvironment());
+            var runRequest = new BuildPipelineRequest(request, options, new EditorBuildRunEnvironment());
             Debug.Log($"[{nameof(ABBuildBackend)}] 启动 AB Pipeline。BuildType={request.BuildType}, Package={request.PackageName}, Tasks={tasks.Count}");
             result = BuildPipelineRunner.Run(runRequest, tasks);
             if (!result.Success)
@@ -47,12 +47,12 @@ public class ABBuildBackend : IBuildBackend, IBuiltInPackageHandler
                 LogBuildResultErrors(result);
                 var error = BuildMessage.Error(BuildErrorCodes.BuildFailed, FirstFailureMessage(result), nameof(ABBuildBackend));
                 string reportPath = TryWriteReport(request, result, result.Context, stopwatch, error);
-                return Task.FromResult(BuildBackendResult.Fail(error, result, request, reportPath));
+                return Task.FromResult(BuildResult.Fail(error, result, request, reportPath));
             }
 
             Debug.Log($"[{nameof(ABBuildBackend)}] AB Pipeline 完成。Completed={result.CompletedTasks}/{result.TotalTasks}");
             string successReportPath = TryWriteReport(request, result, result.Context, stopwatch, null);
-            return Task.FromResult(BuildBackendResult.Ok(
+            return Task.FromResult(BuildResult.Ok(
                 result, request, successReportPath,
                 result.Context.Get<CompleteBuildSummary>(BuildContextKeys.BuildSummary)));
         }
@@ -61,7 +61,7 @@ public class ABBuildBackend : IBuildBackend, IBuiltInPackageHandler
             Debug.LogError($"[{nameof(ABBuildBackend)}] AB Pipeline 异常: {ex}");
             var error = BuildMessage.Error(BuildErrorCodes.BuildFailed, $"AB 管线异常: {ex.Message}", nameof(ABBuildBackend));
             string reportPath = TryWriteReport(request, result, result?.Context, stopwatch, error);
-            return Task.FromResult(BuildBackendResult.Fail(error, result, request, reportPath));
+            return Task.FromResult(BuildResult.Fail(error, result, request, reportPath));
         }
     }
 
@@ -108,7 +108,7 @@ public class ABBuildBackend : IBuildBackend, IBuiltInPackageHandler
     /// Best-effort 写入 AB 构建报告。报告失败不能覆盖原始构建结果。
     /// </summary>
     private static string TryWriteReport(
-        BuildPackageRequest request,
+        BuildRequest request,
         BuildRunResult result,
         BuildContext context,
         Stopwatch stopwatch,
@@ -136,7 +136,7 @@ public class ABBuildBackend : IBuildBackend, IBuiltInPackageHandler
     /// <summary>包根必须存在的 AB 清单文件；解析规则由 ABPackageManifestReader 统一持有。</summary>
     public IReadOnlyList<string> RequiredManifestFileNames => ABPackageManifestReader.ResolveRequiredFileNames();
 
-    public void StageBuiltInFiles(BuildPackageRequest request, string stageRoot)
+    public void StageBuiltInFiles(BuildRequest request, string stageRoot)
     {
         Debug.Log("[ABBuildBackend] 正在暂存 AB 内置包清单...");
         StageFileIfExists(request.OutputDir, stageRoot, FYAssetSettings.MANIFEST_FILE_NAME);
@@ -198,9 +198,9 @@ public class ABBuildBackend : IBuildBackend, IBuiltInPackageHandler
             result.Add(content == null ? default : new BundleDownloadItem
             {
                 BundleName = content.FileName,
-                FileHash = content.FileHash,
-                FileCRC = content.FileCRC,
-                FileSize = content.FileSize
+                FileHash = content.Hash,
+                FileCRC = content.CRC,
+                FileSize = content.Size
             });
         }
         return result;

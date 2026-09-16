@@ -20,7 +20,7 @@ public class VerifyAAContentTask : IBuildTask
 
     public BuildTaskResult Execute(BuildContext ctx)
     {
-        var request = ctx.Require<BuildPackageRequest>(BuildContextKeys.BuildPackageRequest);
+        var request = ctx.Require<BuildRequest>(BuildContextKeys.BuildRequest);
         var manifest = ctx.Get<AAManifest>(AABuildContextKeys.AAManifest);
 
         var issues = new List<VerificationIssue>();
@@ -53,7 +53,7 @@ public class VerifyAAContentTask : IBuildTask
 
     /// <summary>catalog.json 必须存在且非空：没有 catalog 的包在运行时无法定位任何内容。</summary>
     private static void VerifyCatalog(
-        BuildPackageRequest request,
+        BuildRequest request,
         List<VerificationIssue> issues,
         ref int errorCount,
         ref int warningCount)
@@ -77,7 +77,7 @@ public class VerifyAAContentTask : IBuildTask
 
     /// <summary>按 ManifestOutputFormat 校验清单文件存在性；未选中的格式不得残留旧文件。</summary>
     private static void VerifyManifestFiles(
-        BuildPackageRequest request,
+        BuildRequest request,
         List<VerificationIssue> issues,
         ref int errorCount,
         ref int warningCount)
@@ -101,7 +101,7 @@ public class VerifyAAContentTask : IBuildTask
 
     /// <summary>清单条目与实际 bundle 文件双向对齐，并逐项复核 Hash / CRC / 大小。</summary>
     private static void VerifyBundles(
-        BuildPackageRequest request,
+        BuildRequest request,
         AAManifest manifest,
         List<VerificationIssue> issues,
         ref int errorCount,

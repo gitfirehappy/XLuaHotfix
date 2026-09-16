@@ -22,7 +22,7 @@ public class VerifyABContentTask : IBuildTask
     {
         var cfg = ctx.Require<BuildConfig>(BuildContextKeys.BuildConfig);
         var manifest = ctx.Require<ABManifest>(ABBuildContextKeys.ABManifest);
-        var buildResults = ctx.Require<List<BundleBuildInfo>>(ABBuildContextKeys.BundleBuildResults);
+        var buildResults = ctx.Require<List<ContentBuildResult>>(ABBuildContextKeys.BundleBuildResults);
         string tempDir = FYAssetPathUtility.JoinFilePath(cfg.OutputRoot, "_temp");
 
         var issues = new List<VerificationIssue>();
@@ -57,10 +57,7 @@ public class VerifyABContentTask : IBuildTask
         });
     }
 
-    /// <summary>
-    /// 公共 Address 校验：大小写不敏感唯一，显式采集条目必须带 Address，隐式依赖条目必须不带 Address。
-    /// 冲突消息带文件路径与冲突 Address，便于直接定位到清单条目。
-    /// </summary>
+    /// <summary>校验公共 Address 非空且大小写不敏感唯一。</summary>
     private static void VerifyAddressAndPublicBoundary(
         ABManifest manifest,
         List<VerificationIssue> issues,
@@ -77,45 +74,30 @@ public class VerifyABContentTask : IBuildTask
             if (entry == null)
                 continue;
 
-            string sourcePath = string.IsNullOrEmpty(entry.SourcePath) ? entry.EntryId : entry.SourcePath;
-            if (entry.IsPublic)
+            string assetPath = string.IsNullOrEmpty(entry.AssetPath) ? entry.Address : entry.AssetPath;
+            if (string.IsNullOrWhiteSpace(entry.Address))
             {
-                if (string.IsNullOrEmpty(entry.Address))
-                {
-                    AddIssue(issues, BuildVerificationIssueCodes.PublicBoundary, IssueLevel.Error, sourcePath,
-                        $"公共条目缺少 Address: EntryId={entry.EntryId}, SourcePath={entry.SourcePath}",
-                        ref errorCount, ref warningCount);
-                    continue;
-                }
-
-                if (seen.TryGetValue(entry.Address, out string owner))
-                {
-                    AddIssue(issues, BuildVerificationIssueCodes.AddressUniqueness, IssueLevel.Error, sourcePath,
-                        $"公共 Address 冲突：'{entry.Address}' 同时被 '{owner}' 与 '{entry.SourcePath}' 使用（大小写不敏感唯一）。",
-                        ref errorCount, ref warningCount);
-                    continue;
-                }
-
-                seen[entry.Address] = sourcePath;
+                AddIssue(issues, BuildVerificationIssueCodes.PublicBoundary, IssueLevel.Error, assetPath,
+                    $"公共条目缺少 Address: AssetPath={entry.AssetPath}", ref errorCount, ref warningCount);
                 continue;
             }
 
-            if (!string.IsNullOrEmpty(entry.Address))
+            if (seen.TryGetValue(entry.Address, out string owner))
             {
-                AddIssue(issues, BuildVerificationIssueCodes.PublicBoundary, IssueLevel.Error, sourcePath,
-                    $"隐式依赖条目不得带 Address：EntryId={entry.EntryId}, Address='{entry.Address}'。",
+                AddIssue(issues, BuildVerificationIssueCodes.AddressUniqueness, IssueLevel.Error, assetPath,
+                    $"公共 Address 冲突：'{entry.Address}' 同时被 '{owner}' 与 '{assetPath}' 使用（大小写不敏感唯一）。",
                     ref errorCount, ref warningCount);
+                continue;
             }
+
+            seen[entry.Address] = assetPath;
         }
     }
 
-    /// <summary>
-    /// 成员关系校验：ContentIndex 有效，内容确实包含该资产，内容类型与采集类型一致，
-    /// 且同一资产不会在两个内容里重复出现。
-    /// </summary>
+    /// <summary>校验公共资源的 ContentIndex 和实际 Content 成员关系。</summary>
     private static void VerifyAssetContentMembership(
         ABManifest manifest,
-        List<BundleBuildInfo> buildResults,
+        List<ContentBuildResult> buildResults,
         List<VerificationIssue> issues,
         ref int errorCount,
         ref int warningCount)
@@ -132,7 +114,7 @@ public class VerifyABContentTask : IBuildTask
             if (entry == null)
                 continue;
 
-            string sourcePath = string.IsNullOrEmpty(entry.SourcePath) ? entry.EntryId : entry.SourcePath;
+            string sourcePath = string.IsNullOrEmpty(entry.AssetPath) ? entry.Address : entry.AssetPath;
             int contentIndex = entry.ContentIndex;
             if (contentIndex < 0 || contentIndex >= contentCount)
             {
@@ -142,37 +124,31 @@ public class VerifyABContentTask : IBuildTask
                 continue;
             }
 
-            if (!string.IsNullOrEmpty(entry.SourcePath))
+            if (!string.IsNullOrEmpty(entry.AssetPath))
             {
-                if (assetOwners.TryGetValue(entry.SourcePath, out string ownerContent))
+                if (assetOwners.TryGetValue(entry.AssetPath, out string ownerContent))
                 {
                     AddIssue(issues, BuildVerificationIssueCodes.AssetContentMembership, IssueLevel.Error, sourcePath,
-                        $"资产同时归属多个内容：'{entry.SourcePath}' 已在 '{ownerContent}'，又出现在 '{manifest.ContentEntries[contentIndex].FileName}'。",
+                        $"资产同时归属多个内容：'{entry.AssetPath}' 已在 '{ownerContent}'，又出现在 '{manifest.ContentEntries[contentIndex].FileName}'。",
                         ref errorCount, ref warningCount);
                 }
                 else
                 {
-                    assetOwners[entry.SourcePath] = manifest.ContentEntries[contentIndex].FileName;
+                    assetOwners[entry.AssetPath] = manifest.ContentEntries[contentIndex].FileName;
                 }
             }
 
-            if (!AssetBelongsToBuildResult(buildResults, contentIndex, entry.SourcePath))
+            if (!AssetBelongsToBuildResult(buildResults, contentIndex, entry.AssetPath))
             {
                 AddIssue(issues, BuildVerificationIssueCodes.AssetContentMembership, IssueLevel.Error, sourcePath,
-                    $"资产不在其所属内容的实际构建成员中：Content='{manifest.ContentEntries[contentIndex].FileName}', SourcePath='{entry.SourcePath}'。",
+                    $"资产不在其所属内容的实际构建成员中：Content='{manifest.ContentEntries[contentIndex].FileName}', AssetPath='{entry.AssetPath}'。",
                     ref errorCount, ref warningCount);
             }
 
-            if (entry.ContentType != manifest.ContentEntries[contentIndex].ContentType)
-            {
-                AddIssue(issues, BuildVerificationIssueCodes.ContentTypeCheck, IssueLevel.Error, sourcePath,
-                    $"资产与内容的内容类型不一致：Asset.ContentType={entry.ContentType}, Content.ContentType={manifest.ContentEntries[contentIndex].ContentType}。",
-                    ref errorCount, ref warningCount);
-            }
         }
     }
 
-    private static bool AssetBelongsToBuildResult(List<BundleBuildInfo> buildResults, int contentIndex, string sourcePath)
+    private static bool AssetBelongsToBuildResult(List<ContentBuildResult> buildResults, int contentIndex, string sourcePath)
     {
         if (contentIndex < 0 || contentIndex >= buildResults.Count)
             return false;
@@ -195,7 +171,7 @@ public class VerifyABContentTask : IBuildTask
     /// </summary>
     private static void VerifyDependencyIndices(
         ABManifest manifest,
-        List<BundleBuildInfo> buildResults,
+        List<ContentBuildResult> buildResults,
         List<VerificationIssue> issues,
         ref int errorCount,
         ref int warningCount)
@@ -319,22 +295,22 @@ public class VerifyABContentTask : IBuildTask
                 continue;
             }
 
-            if (!string.Equals(recomputedHash, content.FileHash, StringComparison.Ordinal))
+            if (!string.Equals(recomputedHash, content.Hash, StringComparison.Ordinal))
             {
                 AddIssue(issues, BuildVerificationIssueCodes.HashReVerify, IssueLevel.Error, content.FileName,
-                    $"Hash 不一致: manifest={content.FileHash}, actual={recomputedHash}", ref errorCount, ref warningCount);
+                    $"Hash 不一致: manifest={content.Hash}, actual={recomputedHash}", ref errorCount, ref warningCount);
             }
 
-            if (recomputedCRC != content.FileCRC)
+            if (recomputedCRC != content.CRC)
             {
                 AddIssue(issues, BuildVerificationIssueCodes.CrcVerify, IssueLevel.Error, content.FileName,
-                    $"CRC 不一致: manifest={content.FileCRC}, actual={recomputedCRC}", ref errorCount, ref warningCount);
+                    $"CRC 不一致: manifest={content.CRC}, actual={recomputedCRC}", ref errorCount, ref warningCount);
             }
 
-            if (fileInfo.Length != content.FileSize)
+            if (fileInfo.Length != content.Size)
             {
                 AddIssue(issues, BuildVerificationIssueCodes.SizeVerify, IssueLevel.Error, content.FileName,
-                    $"文件大小不一致: manifest={content.FileSize}, actual={fileInfo.Length}", ref errorCount, ref warningCount);
+                    $"文件大小不一致: manifest={content.Size}, actual={fileInfo.Length}", ref errorCount, ref warningCount);
             }
 
             if (fileInfo.Length < MinSizeBytes)
@@ -393,7 +369,7 @@ public class VerifyABContentTask : IBuildTask
         ABManifest manifest,
         string tempDir,
         HashSet<string> knownFiles,
-        List<BundleBuildInfo> buildResults,
+        List<ContentBuildResult> buildResults,
         List<VerificationIssue> issues,
         ref int errorCount,
         ref int warningCount)

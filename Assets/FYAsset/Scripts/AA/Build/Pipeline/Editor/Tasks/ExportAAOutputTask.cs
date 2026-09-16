@@ -17,12 +17,12 @@ public class ExportAAOutputTask : IBuildTask
 
     public BuildTaskResult Execute(BuildContext ctx)
     {
-        var request = ctx.Require<BuildPackageRequest>(BuildContextKeys.BuildPackageRequest);
+        var request = ctx.Require<BuildRequest>(BuildContextKeys.BuildRequest);
         var buildType = ctx.Require<BuildType>(BuildContextKeys.BuildType);
         string outputPath = ctx.Require<string>(BuildContextKeys.OutputPath);
         if (!string.Equals(outputPath, request.OutputDir, StringComparison.Ordinal))
             return BuildTaskResult.Fail(BuildErrorCodes.BuildFailed,
-                $"AA 导出目录必须来自 BuildPackageRequest。Expected: {request.OutputDir}, Actual: {outputPath}", true);
+                $"AA 导出目录必须来自 BuildRequest。Expected: {request.OutputDir}, Actual: {outputPath}", true);
 
         var manifest = ctx.Get<AAManifest>(AABuildContextKeys.AAManifest);
         DateTime startedAt = ctx.Get<DateTime>(BuildContextKeys.BuildStartedAtUtc);
@@ -100,7 +100,7 @@ public class ExportAAOutputTask : IBuildTask
             summary.Statistics.AssetCount = manifest.AssetEntries != null ? manifest.AssetEntries.Count : 0;
             summary.Statistics.ContentCount = manifest.Bundles != null ? manifest.Bundles.Count : 0;
 
-            var facts = new List<BuildExportWriter.SummaryContentFact>();
+            var facts = new List<BuildExportWriter.ContentFileDigest>();
             if (manifest.Bundles != null)
             {
                 for (int i = 0; i < manifest.Bundles.Count; i++)
@@ -109,12 +109,12 @@ public class ExportAAOutputTask : IBuildTask
                     if (bundle == null || string.IsNullOrEmpty(bundle.BundleName))
                         continue;
 
-                    facts.Add(new BuildExportWriter.SummaryContentFact
+                    facts.Add(new BuildExportWriter.ContentFileDigest
                     {
                         FileName = bundle.BundleName,
-                        FileHash = bundle.FileHash,
-                        FileCRC = bundle.FileCRC,
-                        FileSize = bundle.FileSize
+                        Hash = bundle.FileHash,
+                        CRC = bundle.FileCRC,
+                        Size = bundle.FileSize
                     });
                 }
             }

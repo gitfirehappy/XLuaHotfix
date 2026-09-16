@@ -52,7 +52,7 @@ public class ABBundleLoader
     /// <summary>
     /// 创建 ABBundleLoader 实例。
     /// </summary>
-    /// <param name="manifest">已初始化的 ABManifest（由 ABManifestLoader 加载）</param>
+    /// <param name="manifest">已初始化的 ABManifest</param>
     public ABBundleLoader(ABManifest manifest)
     {
         _manifest = manifest ?? throw new ArgumentNullException(nameof(manifest));

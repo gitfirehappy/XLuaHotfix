@@ -68,22 +68,19 @@ internal static class ManifestContractTests
     private static void VerifyManifestAssetEntryDeclaresTargetFields()
     {
         string code = RepoSource.ReadCode(ManifestAssetEntryPath);
-        GateAssert.HasSymbol(code, "EntryId",
-            "ManifestAssetEntry 必须保留 EntryId：它是句柄身份与缓存键的权威标识");
         GateAssert.HasSymbol(code, "Address",
-            "ManifestAssetEntry 必须保留 Address：非加载查询只返回 Address");
-        GateAssert.HasSymbol(code, "PrimaryType",
-            "ManifestAssetEntry 必须保留 PrimaryType：运行时按类型查询需要主类型名");
+            "ManifestAssetEntry 必须保留 Address：公共运行时资源以 Address 为唯一身份");
+        GateAssert.HasSymbol(code, "AssetType",
+            "ManifestAssetEntry 必须保留 AssetType：运行时按精确类型键查询");
         GateAssert.HasSymbol(code, "Labels",
-            "ManifestAssetEntry 必须保留 Labels：按标签查询需要条目自带标签");
-        GateAssert.HasSymbol(code, "SourcePath",
-            "ManifestAssetEntry 必须保留 SourcePath：加载时仍需工程路径作为回退来源");
-        GateAssert.HasSymbol(code, "IsPublic",
-            "ManifestAssetEntry 必须含 IsPublic：显式收集的资源是公共资源，隐式依赖不得进入公共查询索引");
-        GateAssert.HasSymbol(code, "ContentType",
-            "ManifestAssetEntry 必须含 ContentType：运行时据此选择 SerializedObject/Scene/RawFile 的加载路径");
+            "ManifestAssetEntry 必须保留 Labels：按业务分类查询需要条目标签");
+        GateAssert.HasSymbol(code, "AssetPath",
+            "ManifestAssetEntry 必须保留 AssetPath：从 Content 提取 Unity 对象时需要内部路径");
         GateAssert.HasSymbol(code, "ContentIndex",
-            "ManifestAssetEntry 必须含 ContentIndex：资产条目通过下标指向 Content 条目，形成一对多映射");
+            "ManifestAssetEntry 必须含 ContentIndex：资产条目通过 Manifest-local 下标指向 Content 条目");
+        GateAssert.NoSymbol(code, "EntryId", "运行时身份不得保留 EntryId");
+        GateAssert.NoSymbol(code, "IsPublic", "ManifestAssetEntry 只导出公共资源，不再存 IsPublic");
+        GateAssert.NoSymbol(code, "ContentType", "内容类型只属于 ManifestContentEntry");
     }
 
     /// <summary>资产条目的旧字段必须删除。</summary>
@@ -108,12 +105,12 @@ internal static class ManifestContractTests
         string code = RepoSource.ReadCode(ManifestContentEntryPath);
         GateAssert.HasSymbol(code, "FileName",
             "ManifestContentEntry 必须含 FileName：下载与本地查重以文件名为键");
-        GateAssert.HasSymbol(code, "FileHash",
-            "ManifestContentEntry 必须含 FileHash：Hash 相同即可复用本地文件，是下载优化的依据");
-        GateAssert.HasSymbol(code, "FileCRC",
-            "ManifestContentEntry 必须含 FileCRC：下载与复用文件需要 CRC 校验");
-        GateAssert.HasSymbol(code, "FileSize",
-            "ManifestContentEntry 必须含 FileSize：下载与交付需要文件长度");
+        GateAssert.HasSymbol(code, "Hash",
+            "ManifestContentEntry 必须含 Hash：复用和下载按物理文件摘要校验");
+        GateAssert.HasSymbol(code, "CRC",
+            "ManifestContentEntry 必须含 CRC：下载与复用文件需要 CRC 校验");
+        GateAssert.HasSymbol(code, "Size",
+            "ManifestContentEntry 必须含 Size：下载与交付需要文件长度");
         GateAssert.HasSymbol(code, "ContentType",
             "ManifestContentEntry 必须含 ContentType：Bundle 与 RawFile 的加载和交付方式不同，必须可区分");
         GateAssert.HasSymbol(code, "DependencyIndices",

@@ -32,7 +32,7 @@ public static class AAHotfixManager
         remove => Flow.OnWarning -= value;
     }
 
-    public static event Action<ClientUpdateRequiredInfo> OnClientUpdateRequired
+    public static event Action<(VersionNumber ClientVersion, VersionNumber RemoteVersion, string TargetPackageName)> OnClientUpdateRequired
     {
         add => Flow.OnClientUpdateRequired += value;
         remove => Flow.OnClientUpdateRequired -= value;
@@ -46,9 +46,6 @@ public static class AAHotfixManager
 
     public static string CurrentStepName => Flow.CurrentStepName;
     public static float CurrentProgressValue => Flow.CurrentProgressValue;
-
-    /// <summary>当前使用的内容归属：内置包或本地热更包。</summary>
-    public static HotfixContentState CurrentContent => Flow.CurrentContent;
 
     /// <summary>已准备且校验通过、等待 Apply 的目标包名；没有待应用目标时为空字符串。</summary>
     public static string PreparedTargetName => Flow.PreparedTargetName;

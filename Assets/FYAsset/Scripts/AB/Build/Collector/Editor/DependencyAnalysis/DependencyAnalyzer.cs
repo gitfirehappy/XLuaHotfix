@@ -187,7 +187,7 @@ public static class DependencyAnalyzer
                         candidate = new ImplicitCandidate
                         {
                             AssetPath = dep,
-                            PrimaryType = primaryType
+                            AssetType = primaryType
                         };
                         implicitCandidates[depGuid] = candidate;
                     }
@@ -319,9 +319,9 @@ public static class DependencyAnalyzer
 
             AssetContentType contentType = AssetClassifier.ClassifyContentType(candidate.AssetPath, rawFileRules);
             string contentName = BundleNameBuilder.BuildShared(
-                candidate.PrimaryType,
+                candidate.AssetType,
                 contentType,
-                candidate.PrimaryType);
+                candidate.AssetType);
 
             result.Add(CreateImplicitEntry(candidate, depGuid, contentName, contentType));
 
@@ -345,8 +345,8 @@ public static class DependencyAnalyzer
         {
             AssetPath = candidate.AssetPath,
             AssetGUID = guid,
-            Address = AssetAddressGenerator.GenerateAddress(candidate.AssetPath, candidate.PrimaryType, AssetAddressStyle.ShortName),
-            PrimaryType = candidate.PrimaryType,
+            Address = AssetAddressGenerator.GenerateAddress(candidate.AssetPath, candidate.AssetType, AssetAddressStyle.ShortName),
+            AssetType = candidate.AssetType,
             Labels = new List<string>(),
             // 提取为共享内容时归入系统保留 Group；隐式依赖不是公共资源，只作为内容依赖存在。
             GroupName = SystemIdentifiers.SharedGroupName,
@@ -417,7 +417,7 @@ public static class DependencyAnalyzer
     private class ImplicitCandidate
     {
         public string AssetPath;
-        public string PrimaryType;
+        public string AssetType;
 
         /// <summary>引用该隐式依赖的显式内容名称集合，决定随行打包还是提取共享内容。</summary>
         public readonly List<string> ReferencingContents = new();

@@ -67,12 +67,10 @@ public static class BuildVersionPlanner
     /// <param name="currentVersionText">项目当前全局成功版本文本；空表示尚无成功构建。</param>
     /// <param name="buildType">本次构建类型。</param>
     /// <param name="requestedChannel">界面显式通道选择；null 表示继承，空字符串表示显式切到正式版。</param>
-    /// <param name="todayBuildCount">当日构建序号（调用方按 LastBuildDate 计算）。</param>
     public static BuildVersionPlan Plan(
         string currentVersionText,
         BuildType buildType,
-        string requestedChannel,
-        int todayBuildCount)
+        string requestedChannel)
     {
         bool hasBaseline = VersionNumber.TryParse(currentVersionText, out VersionNumber baseline);
         if (buildType == BuildType.Hotfix && !hasBaseline)
@@ -117,7 +115,6 @@ public static class BuildVersionPlanner
         }
 
         next.Channel = targetChannel;
-        next.Build = todayBuildCount < 1 ? 1 : todayBuildCount;
 
         if (hasBaseline && next.CompareTo(baseline) <= 0)
             return BuildVersionPlan.Fail("目标版本必须严格高于当前全局成功版本。");

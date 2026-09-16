@@ -4,13 +4,13 @@ using System.Collections.Generic;
 /// BuildABContentTask 的输出 —— 描述单个构建产物的元数据。
 /// 后续由 ABManifest 生成 Task 消费，映射为 ManifestContentEntry。
 /// </summary>
-public class BundleBuildInfo
+public class ContentBuildResult
 {
     /// <summary>逻辑内容名，不含 hash 后缀；同一名称的成员物理上属于同一内容</summary>
-    public string BundleName;
+    public string ContentName;
 
     /// <summary>实际输出文件名：BundleNameBuilder 生成的物理名（含 hash 与可读段）</summary>
-    public string OutputFileName;
+    public string FileName;
 
     /// <summary>Unity BuildPipeline 产出的内容哈希</summary>
     public string Hash;

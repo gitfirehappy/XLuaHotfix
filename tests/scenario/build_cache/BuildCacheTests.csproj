@@ -13,7 +13,6 @@
     <Compile Include="test_fingerprint_stability.cs" />
     <Compile Include="test_artifact_reuse.cs" />
     <Compile Include="test_content_name_rules.cs" />
-    <Compile Include="test_dependency_index_equivalence.cs" />
     <Compile Include="stubs/reuse_stubs.cs" />
     <!-- 生产源码：内容指纹与依赖事实换算均为纯 .NET，不含 UnityEngine/UnityEditor 依赖 -->
 
@@ -24,7 +23,6 @@
     <Compile Include="../../../Assets/Tools/Scripts/FileHelper.cs" Link="Production/FileHelper.cs" />
     <Compile Include="../../../Assets/Tools/Scripts/Serialization/BinarySerializableAttribute.cs" Link="Production/BinarySerializableAttribute.cs" />
     <Compile Include="../../../Assets/FYAsset/Scripts/AB/Build/Cache/Editor/BundleBuildInputFingerprint.cs" Link="Production/BundleBuildInputFingerprint.cs" />
-    <Compile Include="../../../Assets/FYAsset/Scripts/AB/Build/Cache/Editor/ContentDependencyIndexResolver.cs" Link="Production/ContentDependencyIndexResolver.cs" />
     <!-- T4 生产源码：Summary 复用索引、摘要存储与历史制品复用不依赖 UnityEngine/UnityEditor 具体实现 -->
     <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Editor/CompleteBuildSummary.cs" Link="Production/CompleteBuildSummary.cs" />
     <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Editor/Common/BuildMessage.cs" Link="Production/BuildMessage.cs" />

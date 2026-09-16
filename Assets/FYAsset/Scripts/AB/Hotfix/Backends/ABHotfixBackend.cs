@@ -87,17 +87,11 @@ public sealed class ABHotfixBackend : IHotfixPipeline
         return remoteInfo?.Bundles ?? Array.Empty<BundleDownloadItem>();
     }
 
-    public bool HasRequiredMetadata(string packageRoot)
-    {
-        return true;
-    }
-
     public Task<HotfixStepResult> PersistRemoteMetadataAsync(
         HotfixContext ctx,
         int timeoutSeconds,
         int maxRetryCount,
-        float retryBaseDelaySeconds,
-        bool refreshRequiredMetadata)
+        float retryBaseDelaySeconds)
     {
         if (_remoteManifestData == null || _remoteManifestData.Length == 0 || _remoteManifest == null)
         {
@@ -144,17 +138,17 @@ public sealed class ABHotfixBackend : IHotfixPipeline
             packageRoot,
             FYAssetSettings.MANIFEST_FILE_NAME_BIN);
         if (FileHelper.Exists(binaryPath))
-            return (ABManifest.DeserializeFromFile(binaryPath), ComputeFileHash(binaryPath));
+            return (ABManifest.DeserializeFromFile(binaryPath), ComputeHash(binaryPath));
 
         string jsonPath = FYAssetPathUtility.JoinFilePath(
             packageRoot,
             FYAssetSettings.MANIFEST_FILE_NAME);
         return FileHelper.Exists(jsonPath)
-            ? (ABManifest.DeserializeFromFile(jsonPath), ComputeFileHash(jsonPath))
+            ? (ABManifest.DeserializeFromFile(jsonPath), ComputeHash(jsonPath))
             : (null, string.Empty);
     }
 
-    private static string ComputeFileHash(string path)
+    private static string ComputeHash(string path)
     {
         try
         {
@@ -183,11 +177,11 @@ public sealed class ABHotfixBackend : IHotfixPipeline
             bundles.Add(new BundleDownloadItem
             {
                 BundleName = entry.FileName,
-                FileHash = entry.FileHash,
-                FileCRC = entry.FileCRC,
-                FileSize = entry.FileSize
+                FileHash = entry.Hash,
+                FileCRC = entry.CRC,
+                FileSize = entry.Size
             });
-            totalSize += entry.FileSize;
+            totalSize += entry.Size;
         }
 
         return new HotfixVersionInfo

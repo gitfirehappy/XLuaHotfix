@@ -16,14 +16,14 @@ internal static class SceneOwnershipTests
                 var sink = new FakeSceneUnloadSink { FailNext = true };
                 SceneHandle handle = CreateHandle(sink, out _);
 
-                SceneUnloadResult first = await handle.UnloadAsync();
+                SceneUnloadResult first = await handle.ReleaseAsync();
                 ScenarioAssert.False(first.Success, "第一次卸载失败必须返回失败结果");
                 ScenarioAssert.True(first.Error != null, "失败结果必须携带原因");
                 ScenarioAssert.True(handle.IsValid, "卸载失败后 token 必须保留，调用方可以重试");
                 ScenarioAssert.Equal(1, sink.UnloadCalls, "失败尝试必须调用过物理卸载");
 
                 sink.FailNext = false;
-                SceneUnloadResult retry = await handle.UnloadAsync();
+                SceneUnloadResult retry = await handle.ReleaseAsync();
                 ScenarioAssert.True(retry.Success, "重试必须能够完成卸载");
                 ScenarioAssert.False(handle.IsValid, "卸载成功后 token 必须结算");
             }
@@ -45,17 +45,16 @@ internal static class SceneOwnershipTests
                 SceneHandle original = CreateHandle(sink, out _);
                 SceneHandle retained = original.Retain();
 
-                SceneUnloadResult rejected = await retained.UnloadAsync();
-                ScenarioAssert.False(rejected.Success, "仍有其它所有者时不得物理卸载");
-                ScenarioAssert.Equal(2, rejected.ActiveOwners, "拒绝结果必须给出活跃所有者数量");
-                ScenarioAssert.Equal(0, sink.UnloadCalls, "不得调用物理卸载");
-                ScenarioAssert.True(original.IsValid, "一个所有者不得使其它 token 失效");
-                ScenarioAssert.True(retained.IsValid, "被拒绝的卸载不得消费当前 token");
+                SceneUnloadResult released = await retained.ReleaseAsync();
+                ScenarioAssert.False(released.Success, "a non-last owner does not complete physical unload");
+                ScenarioAssert.Equal(2, released.ActiveOwners, "busy result reports the owners before releasing this token");
+                ScenarioAssert.False(retained.IsValid, "the released non-last token must be invalid");
+                ScenarioAssert.Equal(0, sink.UnloadCalls, "a non-last owner must not trigger physical unload");
+                ScenarioAssert.True(original.IsValid, "one owner must not invalidate the other token");
 
-                original.Release();
-                SceneUnloadResult lastOwnerUnloads = await retained.UnloadAsync();
-                ScenarioAssert.True(lastOwnerUnloads.Success, "最后一个所有者必须能够完成卸载");
-                ScenarioAssert.Equal(1, sink.UnloadCalls, "最后一个所有者只触发一次物理卸载");
+                SceneUnloadResult lastOwnerUnloads = await original.ReleaseAsync();
+                ScenarioAssert.True(lastOwnerUnloads.Success, "the last owner must complete the physical unload");
+                ScenarioAssert.Equal(1, sink.UnloadCalls, "the last owner triggers one physical unload");
             }
             finally
             {
@@ -67,7 +66,7 @@ internal static class SceneOwnershipTests
     private static SceneHandle CreateHandle(IABSceneUnloadSink sink, out Scene scene)
     {
         (int token, int generation) = HandleRegistry.Alloc(
-            "scene.entry", HandleKind.Scene, "battle.content", null, null);
+            "scene.address", HandleKind.Scene, null, null);
         scene = new Scene { path = "Assets/Scenes/Battle.unity", isLoaded = true };
         return new SceneHandle(token, generation, "Battle", scene.path, scene, sink);
     }

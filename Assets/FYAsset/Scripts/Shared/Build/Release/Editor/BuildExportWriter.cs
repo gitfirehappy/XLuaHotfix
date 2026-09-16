@@ -17,7 +17,7 @@ public static class BuildExportWriter
     /// <summary>按 Context 建立摘要骨架：身份、类型、模式、版本、平台与开始时间。</summary>
     public static CompleteBuildSummary CreateSummary(BuildContext context, DateTime startedAtUtc)
     {
-        var request = context.Require<BuildPackageRequest>(BuildContextKeys.BuildPackageRequest);
+        var request = context.Require<BuildRequest>(BuildContextKeys.BuildRequest);
         BuildConfig config = context.Require<BuildConfig>(BuildContextKeys.BuildConfig);
 
         return new CompleteBuildSummary
@@ -60,7 +60,7 @@ public static class BuildExportWriter
     /// </summary>
     public static string WritePackageBuildIndex(BuildContext context, string outputDir)
     {
-        var request = context.Require<BuildPackageRequest>(BuildContextKeys.BuildPackageRequest);
+        var request = context.Require<BuildRequest>(BuildContextKeys.BuildRequest);
         if (request.BuildType == BuildType.Hotfix)
         {
             Debug.Log($"[{nameof(BuildExportWriter)}] Hotfix 构建不写包内 BuildIndex，安装包标记保持不变。");
@@ -74,28 +74,28 @@ public static class BuildExportWriter
     }
 
     /// <summary>把内容条目（文件名/Hash/CRC/大小）追加进摘要文件清单。</summary>
-    public static void AddContentFileDigests(CompleteBuildSummary summary, IReadOnlyList<SummaryContentFact> contents)
+    public static void AddContentFileDigests(CompleteBuildSummary summary, IReadOnlyList<ContentFileDigest> contents)
     {
         if (contents == null)
             return;
 
         for (int i = 0; i < contents.Count; i++)
         {
-            SummaryContentFact content = contents[i];
+            ContentFileDigest content = contents[i];
             if (content == null || string.IsNullOrEmpty(content.FileName))
                 continue;
 
-            summary.AddFile(new FileHelper.FileDigest(content.FileName, content.FileHash, content.FileCRC, content.FileSize));
+            summary.AddFile(new FileHelper.FileDigest(content.FileName, content.Hash, content.CRC, content.Size));
         }
     }
 
     /// <summary>摘要文件清单的最小事实来源；AA/AB 各自的清单条目都能映射到它。</summary>
-    public sealed class SummaryContentFact
+    public sealed class ContentFileDigest
     {
         public string FileName;
-        public string FileHash;
-        public uint FileCRC;
-        public long FileSize;
+        public string Hash;
+        public uint CRC;
+        public long Size;
     }
 }
 #endif

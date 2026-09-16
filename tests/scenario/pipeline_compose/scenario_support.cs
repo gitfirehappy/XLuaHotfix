@@ -108,10 +108,9 @@ internal static class Check
 }
 
 /// <summary>
-/// BuildPackageRequest 的最小替身：Runner 不解释包结构，只把它透传给运行环境，
-/// 因此场景只需提供一个可构造的占位类型。
+/// BuildRequest 的最小替身：Runner 不解释包结构，只把它透传给运行环境。
 /// </summary>
-public sealed class BuildPackageRequest
+public sealed class BuildRequest
 {
     public bool IsAttemptLayout;
     public string OutputDir = string.Empty;
@@ -128,7 +127,7 @@ internal sealed class FakeRunEnvironment : IBuildRunEnvironment
     public Exception PrepareException;
     public Exception BeginException;
 
-    public void PrepareContext(BuildContext context, BuildRequest request)
+    public void PrepareContext(BuildContext context, BuildPipelineRequest request)
     {
         PrepareCalls++;
         if (PrepareException != null)
@@ -137,7 +136,7 @@ internal sealed class FakeRunEnvironment : IBuildRunEnvironment
         context.Set("prepared", true);
     }
 
-    public IBuildAttempt BeginAttempt(BuildContext context, BuildRequest request)
+    public IBuildAttempt BeginAttempt(BuildContext context, BuildPipelineRequest request)
     {
         BeginCalls++;
         if (BeginException != null)

@@ -1,8 +1,9 @@
 # Plan: FYAsset AB Build Chain Simplification
 
 > **Date**: 2026-09-12
-> **Status**: Approved / Pending execution
+> **Status**: Partially completed — execution deviations require remediation; archived on 2026-09-16
 > **Approval**: Developer approved 2026-09-12
+> **Remediation**: `requirements/plan/plan-fyasset-ab-remediation-20260916.md`
 > **Scope**: AB construction and delivery, Summary reuse, AB runtime loading, Shared hotfix/build contracts, and affected behavior verification
 
 ## Purpose
@@ -327,7 +328,8 @@ On failure it restores local startup data, Summary, Summary Index, and the promo
 
 ## Execution Status
 
-This plan is approved and pending implementation. Execute the numbered tasks above in order, record fresh behavior evidence in this plan, and do not promote or commit an unverified task.
+Implementation, documentation alignment, and the confirmed production cleanup are complete within the approved scope. Fresh pure .NET verification passed for all 11 scenario projects: `ab_remediation` 6/6, `hotfix_flow` 8 scenarios/55 assertions, `pipeline_compose` 29/29, `pipeline_realignment` 8/8, `serialization` PASS, `publish_diff` 8/8, `s3_resource_boundary` PASS, `runtime_resource` PASS, `build_cache` 43 assertions across 3 groups, `HotfixRuntimeStateMachine` PASS, and `S2RuntimeBoundary` PASS. The build-cache count is intentionally reduced because redundant direct resolver/source-shape tests were removed after their owning Task implementations became the source of truth. Solution compilation passes with 0 errors and only the existing assembly-conflict warnings. `HotfixContentState`, its `CurrentContent`/`ContentState` chain, `ClientUpdateRequiredInfo`, and `ContentDependencyIndexResolver` are removed; remaining verification checks use the reduced behavior-focused categories. Unity/Player E2E, real AB build matrices, and real publish matrices were not run, per the approved verification boundary.
+
 
 ## Evidence Read During Discussion
 

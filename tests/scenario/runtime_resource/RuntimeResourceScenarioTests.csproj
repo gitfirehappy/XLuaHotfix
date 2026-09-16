@@ -17,12 +17,11 @@
     <Compile Include="test_dialogue_facade_loading.cs" />
     <Compile Include="stubs/*.cs" />
     <Compile Include="../../../Assets/FYAsset/Scripts/AB/Runtime/ABBundleLoader.cs" Link="Production/ABBundleLoader.cs" />
-    <Compile Include="../../../Assets/FYAsset/Scripts/AB/Runtime/ABPackageBackend.cs" Link="Production/ABPackageBackend.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/AB/Runtime/ABAssetLoader.cs" Link="Production/ABAssetLoader.cs" />
     <Compile Include="../../../Assets/FYAsset/Scripts/AB/Runtime/ABAssetIndex.cs" Link="Production/ABAssetIndex.cs" />
     <Compile Include="../../../Assets/FYAsset/Scripts/AB/Runtime/AssetHandle.cs" Link="Production/AssetHandle.cs" />
     <Compile Include="../../../Assets/FYAsset/Scripts/AB/Runtime/SceneHandle.cs" Link="Production/SceneHandle.cs" />
     <Compile Include="../../../Assets/FYAsset/Scripts/AB/Runtime/HandleRegistry.cs" Link="Production/HandleRegistry.cs" />
-    <Compile Include="../../../Assets/FYAsset/Scripts/AB/Runtime/RuntimeAssetEntry.cs" Link="Production/RuntimeAssetEntry.cs" />
     <Compile Include="../../../Assets/FYAsset/Scripts/AB/Runtime/Manifests/ManifestAssetEntry.cs" Link="Production/ManifestAssetEntry.cs" />
     <Compile Include="../../../Assets/FYAsset/Scripts/AB/Build/Collector/CollectorEnums.cs" Link="Production/CollectorEnums.cs" />
     <Compile Include="../../../Assets/Tools/Scripts/Serialization/BinarySerializableAttribute.cs" Link="Production/BinarySerializableAttribute.cs" />

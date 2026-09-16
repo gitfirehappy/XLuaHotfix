@@ -9,7 +9,7 @@
 public static class BuildContextKeys
 {
     public const string BuildConfig = "BuildConfig";
-    public const string BuildPackageRequest = "BuildPackageRequest";
+    public const string BuildRequest = "BuildRequest";
     public const string BuildType = "BuildType";
     public const string OutputPath = "OutputPath";
     public const string DeferPackagePublication = "DeferPackagePublication";

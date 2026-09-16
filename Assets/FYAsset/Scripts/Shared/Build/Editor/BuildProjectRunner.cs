@@ -65,34 +65,6 @@ public static class BuildProjectRunner
         return store.RebuildIndex();
     }
 
-    /// <summary>按索引的 LastBuildDate 计算当日构建序号。</summary>
-    private static int ResolveTodayBuildCount(BuildSummaryIndex index)
-    {
-        string today = DateTime.Now.ToString("yyyy-MM-dd");
-        BuildSummaryProjectVersion projectVersion = index.ProjectVersion ?? new BuildSummaryProjectVersion();
-        return string.Equals(projectVersion.LastBuildDate, today, StringComparison.Ordinal)
-            ? projectVersion.DailyBuildCount + 1
-            : 1;
-    }
-
-    /// <summary>Hotfix 的粗校验：该后端至少存在一个成功 Full 事实。</summary>
-    private static bool HasFullBaseline(BuildSummaryIndex index, string backendKey)
-    {
-        if (index.Scopes == null)
-            return false;
-
-        for (int i = 0; i < index.Scopes.Count; i++)
-        {
-            BuildSummaryScope scope = index.Scopes[i];
-            if (scope == null || string.IsNullOrEmpty(scope.LatestFullSummaryId))
-                continue;
-            if (string.Equals(scope.Backend, backendKey, StringComparison.OrdinalIgnoreCase))
-                return true;
-        }
-
-        return false;
-    }
-
     private static bool RunPlannedBuild(
         BuildType buildType,
         string backendKey,
@@ -106,17 +78,10 @@ public static class BuildProjectRunner
         BuildVersionPlan plan = BuildVersionPlanner.Plan(
             index.ProjectVersion?.CurrentSuccessfulVersion,
             buildType,
-            options?.RequestedChannel,
-            ResolveTodayBuildCount(index));
+            options?.RequestedChannel);
         if (!plan.Success)
         {
             Debug.LogError($"[{nameof(BuildProjectRunner)}] 无法确定构建版本: {plan.Error}");
-            return false;
-        }
-
-        if (buildType == BuildType.Hotfix && !HasFullBaseline(index, backendKey))
-        {
-            Debug.LogError($"[{nameof(BuildProjectRunner)}] Hotfix 缺少同作用域的成功 Full 基准，拒绝构建。");
             return false;
         }
 
@@ -133,16 +98,16 @@ public static class BuildProjectRunner
         BuildSummaryStore store,
         BuildSummaryIndex index)
     {
-        Debug.Log($"[{nameof(BuildProjectRunner)}] 开始 {buildType} build。Backend={backendKey}, Version={version.GetReleaseVersionString()}, Build={version.Build}");
+        Debug.Log($"[{nameof(BuildProjectRunner)}] 开始 {buildType} build。Backend={backendKey}, Version={version.GetReleaseVersionString()}");
 
         LastSummary = null;
-        BuildPackageRequest request = null;
-        BuildBackendResult buildResult = null;
+        BuildRequest request = null;
+        BuildResult buildResult = null;
 
         try
         {
-            request = BuildPackageRequest.Create(version, buildType, backendKey, attemptDelivery);
-            Debug.Log($"[{nameof(BuildProjectRunner)}] 已创建 BuildPackageRequest: Package={request.PackageName}, Backend={backendKey}, Output={request.OutputDir}");
+            request = BuildRequest.Create(version, buildType, backendKey, attemptDelivery);
+            Debug.Log($"[{nameof(BuildProjectRunner)}] 已创建 BuildRequest: Package={request.PackageName}, Backend={backendKey}, Output={request.OutputDir}");
 
             IBuildBackend backend = backendFactory != null
                 ? backendFactory()
@@ -202,8 +167,8 @@ public static class BuildProjectRunner
     /// 非 attempt 布局的构建事实提交：写正式 Summary 与 Index；失败时删除本次 Summary 并恢复旧 Index。
     /// </summary>
     private static void CommitBuildFactsOrFail(
-        BuildPackageRequest request,
-        BuildBackendResult buildResult,
+        BuildRequest request,
+        BuildResult buildResult,
         BuildSummaryStore store,
         BuildSummaryIndex index)
     {
@@ -219,9 +184,9 @@ public static class BuildProjectRunner
     /// 任一步骤失败按逆序补偿，live 状态回到事务开始前的值。
     /// </summary>
     private static bool DeliverAttemptBuild(
-        BuildPackageRequest request,
+        BuildRequest request,
         IBuildBackend backend,
-        BuildBackendResult buildResult,
+        BuildResult buildResult,
         BuildSummaryStore store,
         BuildSummaryIndex index)
     {
@@ -232,7 +197,7 @@ public static class BuildProjectRunner
             if (request.IsAttemptLayout && compensation.PromoteToken == null)
                 throw new InvalidOperationException("attempt 布局下 Runner 未返回交付 token，产物提升状态未知。");
 
-            BuildPackageRequest delivered = request.WithPromotedOutput();
+            BuildRequest delivered = request.WithPromotedOutput();
 
             compensation.LocalData = LocalBuildDataExporter.BeginDelivery(delivered, backend?.BuiltInPackageHandler);
             compensation.Facts = CommitBuildFacts(store, index, delivered, buildResult.Summary);
@@ -257,7 +222,7 @@ public static class BuildProjectRunner
     private static BuildFactsCommit CommitBuildFacts(
         BuildSummaryStore store,
         BuildSummaryIndex index,
-        BuildPackageRequest request,
+        BuildRequest request,
         CompleteBuildSummary summary)
     {
         if (summary == null || string.IsNullOrEmpty(summary.BuildId))
@@ -293,8 +258,6 @@ public static class BuildProjectRunner
 
             index.ProjectVersion ??= new BuildSummaryProjectVersion();
             index.ProjectVersion.CurrentSuccessfulVersion = summary.Version.GetReleaseVersionString();
-            index.ProjectVersion.LastBuildDate = DateTime.Now.ToString("yyyy-MM-dd");
-            index.ProjectVersion.DailyBuildCount = summary.Version.Build;
 
             scope.LatestSuccessfulSummaryId = summary.BuildId;
             if (request.BuildType == BuildType.Full)
@@ -444,12 +407,12 @@ public static class BuildProjectRunner
     /// 非 attempt 布局的交付后处理：只导出本地启动数据。
     /// PackageIndex 是发布事务的产物，由 BuildPublisher 在内容就位并校验后最后生成上传，构建不写它。
     /// </summary>
-    private static void PublishBuildArtifacts(BuildPackageRequest request, IBuildBackend backend)
+    private static void PublishBuildArtifacts(BuildRequest request, IBuildBackend backend)
     {
         LocalBuildDataExporter.Publish(request, backend?.BuiltInPackageHandler);
     }
 
-    private static void HandleFailedPackage(BuildPackageRequest request, string reason)
+    private static void HandleFailedPackage(BuildRequest request, string reason)
     {
         if (request == null)
             return;
@@ -471,7 +434,7 @@ public static class BuildProjectRunner
         TryWriteFailedPackageMarker(request, reason);
     }
 
-    private static bool IsSafePackageOutputDir(BuildPackageRequest request, out string reason)
+    private static bool IsSafePackageOutputDir(BuildRequest request, out string reason)
     {
         reason = string.Empty;
         string outputDir = FYAssetPathUtility.NormalizePath(request.OutputDir);
@@ -533,7 +496,7 @@ public static class BuildProjectRunner
         return true;
     }
 
-    private static void TryWriteFailedPackageMarker(BuildPackageRequest request, string reason)
+    private static void TryWriteFailedPackageMarker(BuildRequest request, string reason)
     {
         try
         {
@@ -542,7 +505,6 @@ public static class BuildProjectRunner
             {
                 PackageName = request.PackageName,
                 Version = request.Version.GetReleaseVersionString(),
-                Build = request.Version.Build,
                 BuildType = request.BuildType.ToString(),
                 BackendMode = request.BackendKey,
                 FailedAtUtc = DateTime.UtcNow.ToString("o"),

@@ -9,38 +9,29 @@ internal static class HotfixCandidateTests
     public static void Run()
     {
         GateChecks.RunAll(
-            ("DecideCurrentContentConsidersPackageCompleteness", VerifyCompletenessInput),
+            ("ShouldUseLocalPackageConsidersPackageCompleteness", VerifyCompletenessInput),
             ("DamagedLocalResetsCandidateToBuiltIn", VerifyDamagedLocalResetsCandidate),
             ("RepairNeverSkipsIsolationInPlace", VerifyRepairNeverSkipsIsolationInPlace),
             ("RepairTargetUsesIndependentStaging", VerifyRepairTargetUsesIndependentStaging));
     }
 
     /// <summary>
-    /// 参数契约：<c>DecideCurrentContent(localPointerTrusted, localIsBuiltInIdentity, localPackageComplete)</c>。
+    /// 参数契约：<c>ShouldUseLocalPackage(localPointerTrusted, localIsBuiltInIdentity, localPackageComplete)</c>。
     /// 指针可信但包损坏时必须返回 BuiltIn；当前签名只有两个 bool，无法表达完整性。
     /// </summary>
     private static void VerifyCompletenessInput()
     {
         MethodInfo method = typeof(HotfixStateDecider).GetMethod(
-            "DecideCurrentContent", BindingFlags.Public | BindingFlags.Static);
-        GateAssert.True(method != null, "HotfixStateDecider.DecideCurrentContent 必须存在");
+            "ShouldUseLocalPackage", BindingFlags.Public | BindingFlags.Static);
+        GateAssert.True(method != null, "HotfixStateDecider.ShouldUseLocalPackage 必须存在");
 
         ParameterInfo[] parameters = method.GetParameters();
-        GateAssert.True(
-            parameters.Length >= 3,
-            "DecideCurrentContent 必须接收本地包完整性输入（当前签名无法表达“指针可信但包损坏”）");
+        GateAssert.Equal(3, parameters.Length, "ShouldUseLocalPackage 必须接收指针、内置身份和包完整性");
 
-        object damaged = method.Invoke(null, new object[] { true, false, false });
-        GateAssert.Equal(
-            HotfixContentState.BuiltIn,
-            (HotfixContentState)damaged,
-            "指针可信但本地包损坏时必须回退 BuiltIn 候选");
-
-        object healthy = method.Invoke(null, new object[] { true, false, true });
-        GateAssert.Equal(
-            HotfixContentState.Local,
-            (HotfixContentState)healthy,
-            "指针可信且本地包完整时必须使用 Local 候选");
+        GateAssert.Equal(false, (bool)method.Invoke(null, new object[] { true, false, false }),
+            "指针可信但本地包损坏时不得使用本地包");
+        GateAssert.Equal(true, (bool)method.Invoke(null, new object[] { true, false, true }),
+            "指针可信且本地包完整时才使用本地包");
     }
 
     /// <summary>本地包检查失败时必须重置候选为 BuiltIn，再继续远端检查。</summary>
@@ -57,8 +48,9 @@ internal static class HotfixCandidateTests
 
         GateAssert.Contains(
             body,
-            "ctx.CurrentContent = HotfixContentState.BuiltIn",
-            "本地包损坏时必须把候选重置为 BuiltIn 并继续远端检查");
+            "ctx.CurrentPackageRoot = ctx.BuiltInPackageRoot",
+            "本地包损坏时必须把当前包根重置为内置包根并继续远端检查");
+        GateAssert.NotContains(body, "HotfixContentState", "候选来源不得由冗余状态枚举表达");
     }
 
     /// <summary>同包修复不得以“目标根等于当前根”为前提跳过隔离目录。</summary>

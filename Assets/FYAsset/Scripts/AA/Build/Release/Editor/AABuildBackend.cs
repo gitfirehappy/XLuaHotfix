@@ -14,12 +14,12 @@ public class AABuildBackend : IBuildBackend, IBuiltInPackageHandler
 {
     public IBuiltInPackageHandler BuiltInPackageHandler => this;
 
-    public Task<BuildBackendResult> BuildAsync(BuildPackageRequest request, BuildExecutionOptions options)
+    public Task<BuildResult> BuildAsync(BuildRequest request, BuildExecutionOptions options)
     {
         var config = AssetDatabase.LoadAssetAtPath<BuildPipelineConfig>(
             FYAssetAASettings.Instance.BuildPipelineConfigPath);
         if (config == null)
-            return Task.FromResult(BuildBackendResult.Fail(
+            return Task.FromResult(BuildResult.Fail(
                 BuildMessage.Error(BuildErrorCodes.SettingNull, "未找到 AA BuildPipelineConfig。", nameof(AABuildBackend))));
 
         try
@@ -32,27 +32,27 @@ public class AABuildBackend : IBuildBackend, IBuiltInPackageHandler
             // 主干固定 5 段，自定义 Task 只能插入到合法槽位；组装失败一律致命。
             IReadOnlyList<IBuildTask> tasks = AAPipelineBackbone.ComposeTasks(config);
 
-            var runRequest = new BuildRequest(request, options, new EditorBuildRunEnvironment());
+            var runRequest = new BuildPipelineRequest(request, options, new EditorBuildRunEnvironment());
             Debug.Log($"[{nameof(AABuildBackend)}] 启动 AA Pipeline。BuildType={request.BuildType}, Package={request.PackageName}, Tasks={tasks.Count}");
             BuildRunResult result = BuildPipelineRunner.Run(runRequest, tasks);
             if (!result.Success)
             {
                 LogBuildResultErrors(result);
-                return Task.FromResult(BuildBackendResult.Fail(
+                return Task.FromResult(BuildResult.Fail(
                     BuildMessage.Error(BuildErrorCodes.BuildFailed,
                         FirstFailureMessage(result), nameof(AABuildBackend)),
                     result, request, string.Empty));
             }
 
             Debug.Log($"[{nameof(AABuildBackend)}] AA Pipeline 完成。Completed={result.CompletedTasks}/{result.TotalTasks}");
-            return Task.FromResult(BuildBackendResult.Ok(
+            return Task.FromResult(BuildResult.Ok(
                 result, request, string.Empty,
                 result.Context.Get<CompleteBuildSummary>(BuildContextKeys.BuildSummary)));
         }
         catch (Exception ex)
         {
             Debug.LogError($"[{nameof(AABuildBackend)}] AA Pipeline 异常: {ex}");
-            return Task.FromResult(BuildBackendResult.Fail(
+            return Task.FromResult(BuildResult.Fail(
                 BuildMessage.Error(BuildErrorCodes.BuildFailed, ex.Message, nameof(AABuildBackend))));
         }
     }
@@ -60,7 +60,7 @@ public class AABuildBackend : IBuildBackend, IBuiltInPackageHandler
     /// <summary>包根必须存在的 AA 清单与 catalog 文件；解析规则由 AAPackageManifestReader 统一持有。</summary>
     public IReadOnlyList<string> RequiredManifestFileNames => AAPackageManifestReader.ResolveRequiredFileNames();
 
-    public void StageBuiltInFiles(BuildPackageRequest request, string stageRoot)
+    public void StageBuiltInFiles(BuildRequest request, string stageRoot)
     {
         Debug.Log("[AABuildBackend] 正在暂存 AA 内置包清单...");
         StageFileIfExists(request.OutputDir, stageRoot, FYAssetSettings.AA_MANIFEST_FILE_NAME);

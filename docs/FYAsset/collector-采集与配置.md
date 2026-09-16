@@ -35,7 +35,7 @@ AssetCollectionSetting
 | `RawFileRules` | 单一 `Patterns` 列表；命中后按 RawFile 构建和加载 |
 | `SharePolicyConfig` | 依赖共享策略，由 `DependencyAnalyzer` 在构建期执行 |
 
-`CollectedAssetInfo` 是扫描产出的中间记录（不序列化）：`AssetPath`、`AssetGUID`、`Address`、`PrimaryType`、`Labels`、`GroupName`、`SourceGroupName`、`SourceCollectorPath`、`ContentName`、`BundlePackingMode`、`ContentType`、`DependencyOrigin`、`IsPublic`。
+`CollectedAssetInfo` 是扫描产出的中间记录（不序列化）：`AssetPath`、`AssetGUID`、`Address`、`AssetType`、`Labels`、`GroupName`、`SourceGroupName`、`SourceCollectorPath`、`ContentName`、`BundlePackingMode`、`ContentType`、`DependencyOrigin`、`IsPublic`。
 
 ## 分类与内容类型
 

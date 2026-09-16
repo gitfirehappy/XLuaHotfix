@@ -22,7 +22,6 @@
     <Compile Include="../../../Assets/FYAsset/Scripts/AB/Build/Collector/Editor/BundleNameBuilder.cs" Link="Production/BundleNameBuilder.cs" />
     <Compile Include="../../../Assets/Tools/Scripts/HashGenerator.cs" Link="Production/HashGenerator.cs" />
     <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Hotfix/HotfixStateDecider.cs" Link="Production/HotfixStateDecider.cs" />
-    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Hotfix/HotfixContentState.cs" Link="Production/HotfixContentState.cs" />
     <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Runtime/RuntimeMode.cs" Link="Production/RuntimeMode.cs" />
     <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Versioning/VersionNumber.cs" Link="Production/VersionNumber.cs" />
     <Compile Include="../../../Assets/Tools/Scripts/Serialization/BinarySerializableAttribute.cs" Link="Production/BinarySerializableAttribute.cs" />

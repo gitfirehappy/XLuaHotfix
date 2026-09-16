@@ -12,13 +12,13 @@ using System;
 public interface IBuildRunEnvironment
 {
     /// <summary>在任务执行前建立 Context 标准键；实现方是唯一知道后端请求结构的角色。</summary>
-    void PrepareContext(BuildContext context, BuildRequest request);
+    void PrepareContext(BuildContext context, BuildPipelineRequest request);
 
     /// <summary>
     /// 建立本次运行的产物事务。返回 null 表示本次运行不需要 attempt 中间目录
     /// （产物直接写在正式输出位置，失败清理由调用方负责）。
     /// </summary>
-    IBuildAttempt BeginAttempt(BuildContext context, BuildRequest request);
+    IBuildAttempt BeginAttempt(BuildContext context, BuildPipelineRequest request);
 }
 
 /// <summary>

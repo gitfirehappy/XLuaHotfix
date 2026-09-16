@@ -131,7 +131,6 @@ internal static class HandleTokenBehaviorTests
         (int tokenId, int generation) = HandleRegistry.Alloc(
             entryId,
             HandleKind.Asset,
-            "bundle.test",
             null,
             OnReleased);
         var handle = new AssetHandle<UObject>(tokenId, generation, new UObject { name = entryId });

@@ -22,7 +22,7 @@ internal static class BackendLabelPanelTests
         RepoAssert.Contains(source, "DrawAssetEditor", "Asset Details owns Address and Labels editing");
         RepoAssert.Contains(source, "UpdateAssetAddressEntry", "Details writes candidate metadata");
         RepoAssert.Contains(source, "AssetAddressEntries", "Save uses the new address entry collection");
-        RepoAssert.Contains(source, "RegisterAddressContextMenu", "Address has a context menu for short and long names");
+        RepoAssert.Contains(source, "RegisterAssetContextMenu", "Asset rows expose short and long address actions");
         RepoAssert.Contains(source, "RegisterGroupContextMenu", "Group has a context menu for short and long names");
         RepoAssert.NotContains(source, "DrawAssetOverridesEditor", "Standalone Asset Overrides view is removed");
         RepoAssert.NotContains(source, "AddAddressOperationButtons", "Inline Apply Address buttons are removed");
@@ -37,7 +37,8 @@ internal static class BackendLabelPanelTests
         RepoAssert.Contains(save, "CloneAssetAddressEntries(_curateSetting.AssetAddressEntries)", "Save copies candidate entries");
         RepoAssert.Contains(save, "AssetDatabase.SaveAssets()", "Save owns persistence");
         string cancel = Between(source, "private void CancelCurate()", "private void RenderPreviewTree(");
-        RepoAssert.Contains(cancel, "CloneSetting(_setting)", "Cancel reloads saved state");
+        RepoAssert.Contains(cancel, "LoadSetting(true)", "Cancel reloads saved state");
+        RepoAssert.NotContains(cancel, "CloneSetting(_setting)", "Cancel must use the saved-setting reload path");
         RepoAssert.NotContains(cancel, "SaveAssets", "Cancel must not persist candidate edits");
     }
 

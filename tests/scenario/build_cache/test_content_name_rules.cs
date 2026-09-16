@@ -10,7 +10,7 @@ internal static class ContentNameRulesTests
 {
     private const string BuilderPath = "Assets/FYAsset/Scripts/AB/Build/Collector/Editor/BundleNameBuilder.cs";
     private const string BuildBundlesTaskPath = "Assets/FYAsset/Scripts/AB/Build/Pipeline/Editor/Tasks/BuildABContentTask.cs";
-    private const string BundleBuildInfoPath = "Assets/FYAsset/Scripts/AB/Build/Pipeline/Editor/BundleBuildInfo.cs";
+    private const string ContentBuildResultPath = "Assets/FYAsset/Scripts/AB/Build/Pipeline/Editor/ContentBuildResult.cs";
 
     /// <summary>32 位及以上连续十六进制串视为内容 hash 形态。</summary>
     private const string HashLikePattern = "[0-9a-f]{32,}";
@@ -99,12 +99,12 @@ internal static class ContentNameRulesTests
     {
         string code = RepoSource.Read(BuildBundlesTaskPath);
         Check.Contains(code, "assetBundleName = plan.PhysicalName",
-            "Serialized 内容的 Unity Bundle 名必须使用物理文件名");
-        Check.Contains(code, "assetBundleName = plan.OutputNames[s]",
-            "Scene 内容的 Unity Bundle 名必须使用计划内的物理文件名");
+            "每个 Content 的 Unity Bundle 名必须使用唯一物理文件名");
+        Check.Contains(code, "assetBundleName = plan.PhysicalName",
+            "Scene 内容的 Unity Bundle 名必须使用其物理文件名");
         Check.Contains(code, "BundleNameBuilder.BuildPhysicalName(contentName, ResolveReadableName(members))",
             "内容计划必须由逻辑名与可读段派生物理名");
-        Check.Contains(code, "OutputFileName = digest.Name",
+        Check.Contains(code, "FileName = digest.Name",
             "物理输出文件名必须来自实际产物摘要，不得另行拼接 hash");
         Check.NotContains(code, "SceneBundleSuffix", "Scene 不得再拼接旧后缀段");
     }
@@ -161,8 +161,8 @@ internal static class ContentNameRulesTests
 
     private static void BundleBuildInfoDocumentsOutputFileName()
     {
-        string code = RepoSource.Read(BundleBuildInfoPath);
-        Check.Contains(code, "OutputFileName", "BundleBuildInfo 必须继续区分逻辑内容名与物理输出文件名");
-        Check.NotContains(code, "md5hash", "BundleBuildInfo 不得再声明 hash 后缀文件名示例");
+        string code = RepoSource.Read(ContentBuildResultPath);
+        Check.Contains(code, "FileName", "ContentBuildResult 必须继续区分逻辑内容名与物理输出文件名");
+        Check.NotContains(code, "md5hash", "ContentBuildResult 不得再声明 hash 后缀文件名示例");
     }
 }

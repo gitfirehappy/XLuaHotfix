@@ -17,22 +17,22 @@ internal static class EntrySingleFlightTests
                 .AddContent("content.x", AssetContentType.SerializedObject)
                 .AddAsset(new ManifestAssetEntry
                 {
-                    EntryId = "entry.x",
                     Address = "address.x",
-                    SourcePath = "Assets/Test/Prefab.prefab",
-                    ContentType = AssetContentType.SerializedObject
+                    AssetType = "UnityEngine.Object",
+                    AssetPath = "Assets/Test/Prefab.prefab",
+                    ContentIndex = 0
                 });
 
-            var backend = new ABPackageBackend(manifest, new ABBundleLoader(manifest));
+            var backend = new ABAssetLoader(new ABBundleLoader(manifest));
 
             (int leaderToken, int leaderGeneration) = HandleRegistry.Alloc(
-                "entry.x", HandleKind.Asset, "content.x", null, backend.UnloadByEntryId);
+                "address.x", HandleKind.Asset, null, backend.UnloadByAddress);
             (int followerToken, int followerGeneration) = HandleRegistry.Alloc(
-                "entry.x", HandleKind.Asset, "content.x", null, backend.UnloadByEntryId);
+                "address.x", HandleKind.Asset, null, backend.UnloadByAddress);
 
             Task<(Object asset, string content, RuntimeMessage error)> leader =
-                backend.LoadAssetTupleAsync<Object>("address.x", "entry.x");
-            var follower = backend.LoadAssetTupleSync<Object>("address.x", "entry.x");
+                backend.LoadAssetTupleAsync<Object>(manifest.AssetEntries[0], manifest.GetContentForAsset(manifest.AssetEntries[0]));
+            var follower = backend.LoadAssetTupleSync<Object>(manifest.AssetEntries[0], manifest.GetContentForAsset(manifest.AssetEntries[0]));
 
             ScenarioAssert.True(
                 follower.error != null && follower.error.Code == RuntimeErrorCodes.LoadInProgress,
