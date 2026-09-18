@@ -15,7 +15,7 @@ using UnityEngine;
 public static class BuildExportWriter
 {
     /// <summary>按 Context 建立摘要骨架：身份、类型、模式、版本、平台与开始时间。</summary>
-    public static CompleteBuildSummary CreateSummary(BuildContext context, DateTime startedAtUtc)
+    public static CompleteBuildSummary CreateSummary(BuildRunContext context, DateTime startedAtUtc)
     {
         var request = context.Require<BuildRequest>(BuildContextKeys.BuildRequest);
         BuildConfig config = context.Require<BuildConfig>(BuildContextKeys.BuildConfig);
@@ -36,7 +36,7 @@ public static class BuildExportWriter
     }
 
     /// <summary>把校验结果转成摘要消息：Error/Warning 都保留，Success 由调用方按最终状态覆盖。</summary>
-    public static void AddVerificationMessages(CompleteBuildSummary summary, BuildContext context)
+    public static void AddVerificationMessages(CompleteBuildSummary summary, BuildRunContext context)
     {
         BuildVerificationResult verification = context.Get<BuildVerificationResult>(BuildContextKeys.BuildVerificationResult);
         if (verification?.Issues == null)
@@ -58,7 +58,7 @@ public static class BuildExportWriter
     /// 模式输出：Full/Standalone 在包目录写入 BuildIndex，Hotfix 跳过。
     /// 返回写入路径；跳过时返回 null。
     /// </summary>
-    public static string WritePackageBuildIndex(BuildContext context, string outputDir)
+    public static string WritePackageBuildIndex(BuildRunContext context, string outputDir)
     {
         var request = context.Require<BuildRequest>(BuildContextKeys.BuildRequest);
         if (request.BuildType == BuildType.Hotfix)

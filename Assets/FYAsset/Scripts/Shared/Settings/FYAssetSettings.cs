@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -19,9 +20,68 @@ public class FYAssetSettings : ScriptableObject
     [Header("Version")]
     public string BuildIndexJsonPath = "Assets/Build/Bootstrap/BuildIndex.json";
 
-    [Header("Push")]
-    public List<PushTargetConfig> PushTargets = new();
+    [Header("Publish")]
+    public List<PublishTargetConfig> PublishTargets = new();
     public string CurrentABTargetId = string.Empty;
+
+    /// <summary>依据稳定 TargetId 校验并解析发布目标；目标列表归设置对象所有。</summary>
+    public bool TryResolvePublishTarget(
+        string targetId,
+        out PublishTargetConfig target,
+        out string error)
+    {
+        target = null;
+        error = string.Empty;
+        if (string.IsNullOrWhiteSpace(targetId))
+        {
+            error = "当前发布目标未选择。";
+            return false;
+        }
+        if (PublishTargets == null || PublishTargets.Count == 0)
+        {
+            error = "发布目标列表为空。";
+            return false;
+        }
+
+        var targetIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        for (int i = 0; i < PublishTargets.Count; i++)
+        {
+            PublishTargetConfig candidate = PublishTargets[i];
+            if (candidate == null)
+            {
+                error = $"发布目标列表包含空项（索引 {i}）。";
+                return false;
+            }
+            if (string.IsNullOrWhiteSpace(candidate.TargetId)
+                || !Guid.TryParse(candidate.TargetId, out _)
+                || !targetIds.Add(candidate.TargetId))
+            {
+                error = $"发布目标 TargetId 必须是非重复 GUID：{candidate.TargetId}";
+                return false;
+            }
+            if (string.IsNullOrWhiteSpace(candidate.Name) || !names.Add(candidate.Name))
+            {
+                error = $"发布目标名称为空或重复：{candidate.Name}";
+                return false;
+            }
+            if (string.Equals(candidate.TargetId, targetId, StringComparison.OrdinalIgnoreCase))
+                target = candidate;
+        }
+
+        if (target == null)
+        {
+            error = $"当前发布目标不存在：{targetId}";
+            return false;
+        }
+        if (!target.TryNormalizePublicBaseUrl(out _, out string urlError))
+        {
+            error = $"当前发布目标 '{target.Name}' 的公开地址无效：{urlError}";
+            target = null;
+            return false;
+        }
+        return true;
+    }
 
     // ═══ 纯编译期常量（static const） ═══
 
@@ -36,9 +96,9 @@ public class FYAssetSettings : ScriptableObject
     public const string MANIFEST_FILE_NAME_BIN = "ABManifest.bin";
     public const string AA_MANIFEST_FILE_NAME = "AAManifest.json";
     public const string AA_MANIFEST_FILE_NAME_BIN = "AAManifest.bin";
+    public const string ADDRESSABLES_CATALOG_FILE_NAME = "catalog.json";
     public const string BUNDLES_DIRECTORY_NAME = "bundles";
     public const string STANDALONE_DIRECTORY_NAME = "Standalone";
-    public const string ADDRESSABLES_CATALOG_FILE_NAME = "catalog.json";
 
     // ═══ Singleton ═══
 

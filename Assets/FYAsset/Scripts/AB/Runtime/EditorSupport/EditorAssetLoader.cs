@@ -1,7 +1,6 @@
 #if UNITY_EDITOR
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;
@@ -39,25 +38,6 @@ internal sealed class EditorAssetLoader : IABAssetLoader
                 $"AssetDatabase 未找到: {entry.AssetPath}"));
         _assetCache[entry.Address] = asset;
         return (asset, EditorContentName, null);
-    }
-
-    public async Task<(byte[] data, RuntimeMessage error)> LoadRawBytesAsync(
-        ManifestAssetEntry entry, ManifestContentEntry content)
-    {
-        await Task.Yield();
-        if (entry == null || content == null || content.ContentType != AssetContentType.RawFile)
-            return (null, RuntimeMessage.InvalidPayloadKind(entry?.Address,
-                AssetContentType.RawFile.ToString(), content?.ContentType.ToString()));
-        if (string.IsNullOrEmpty(entry.AssetPath) || !File.Exists(entry.AssetPath))
-            return (null, RuntimeMessage.LoadFailed(entry.Address, $"Raw 文件不存在: {entry.AssetPath}"));
-        try
-        {
-            return (File.ReadAllBytes(entry.AssetPath), null);
-        }
-        catch (Exception ex)
-        {
-            return (null, RuntimeMessage.LoadFailed(entry.Address, ex.Message));
-        }
     }
 
     public void UnloadByAddress(string address)

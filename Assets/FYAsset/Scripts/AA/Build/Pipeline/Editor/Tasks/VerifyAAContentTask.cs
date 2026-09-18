@@ -18,7 +18,7 @@ public class VerifyAAContentTask : IBuildTask
     private const long MinSizeBytes = 1024L;
     private const long MaxSizeBytes = 500_000_000L;
 
-    public BuildTaskResult Execute(BuildContext ctx)
+    public BuildTaskResult Execute(BuildRunContext ctx)
     {
         var request = ctx.Require<BuildRequest>(BuildContextKeys.BuildRequest);
         var manifest = ctx.Get<AAManifest>(AABuildContextKeys.AAManifest);
@@ -58,7 +58,7 @@ public class VerifyAAContentTask : IBuildTask
         ref int errorCount,
         ref int warningCount)
     {
-        string catalogPath = FYAssetPathUtility.JoinFilePath(request.OutputDir, FYAssetSettings.ADDRESSABLES_CATALOG_FILE_NAME);
+        string catalogPath = FYAssetPathUtility.JoinFilePath(request.TemporaryOutputDir, FYAssetSettings.ADDRESSABLES_CATALOG_FILE_NAME);
         if (!FileHelper.Exists(catalogPath))
         {
             AddIssue(issues, BuildVerificationIssueCodes.FileExistence, IssueLevel.Error,
@@ -83,8 +83,8 @@ public class VerifyAAContentTask : IBuildTask
         ref int warningCount)
     {
         ManifestOutputFormat outputFormat = FYAssetAASettings.Instance.ManifestOutputFormat;
-        string jsonPath = FYAssetPathUtility.JoinFilePath(request.OutputDir, FYAssetSettings.AA_MANIFEST_FILE_NAME);
-        string binPath = FYAssetPathUtility.JoinFilePath(request.OutputDir, FYAssetSettings.AA_MANIFEST_FILE_NAME_BIN);
+        string jsonPath = FYAssetPathUtility.JoinFilePath(request.TemporaryOutputDir, FYAssetSettings.AA_MANIFEST_FILE_NAME);
+        string binPath = FYAssetPathUtility.JoinFilePath(request.TemporaryOutputDir, FYAssetSettings.AA_MANIFEST_FILE_NAME_BIN);
 
         if (outputFormat != ManifestOutputFormat.BinaryOnly)
             RequireNonEmptyFile(jsonPath, FYAssetSettings.AA_MANIFEST_FILE_NAME, issues, ref errorCount, ref warningCount);

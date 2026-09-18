@@ -31,6 +31,15 @@ public static class AAAssetIndexBuilder
                     continue;
 
                 List<string> labels = new List<string>(entry.labels);
+                if (!AssetLabelValidator.TryValidate(labels, out string invalidLabel, out string duplicateLabel))
+                {
+                    string reason = duplicateLabel != null
+                        ? $"大小写不敏感重复 Label '{duplicateLabel}'"
+                        : $"Label 为空或含首尾空白 '{invalidLabel ?? string.Empty}'";
+                    throw new InvalidOperationException(
+                        $"AA Addressable entry '{entry.address}' 的 Labels 不合法: {reason}。");
+                }
+
                 data.AssetEntries.Add(new PackageEntry
                 {
                     key = entry.address,

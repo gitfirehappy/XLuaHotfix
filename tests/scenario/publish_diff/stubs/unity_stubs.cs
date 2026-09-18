@@ -22,6 +22,11 @@ namespace UnityEngine.Networking
 // HashGenerator 的 Asset 依赖分支在 UNITY_EDITOR 下引用 AssetDatabase；场景不使用该分支，只提供最小替身。
 namespace UnityEditor
 {
+    [AttributeUsage(AttributeTargets.Class)]
+    public sealed class InitializeOnLoadAttribute : Attribute
+    {
+    }
+
     public static class AssetDatabase
     {
         public static string[] GetDependencies(string path, bool recursive) => new string[0];
@@ -30,7 +35,7 @@ namespace UnityEditor
 
 /// <summary>
 /// FYAssetSettings 的最小替身：发布事务只读取固定文件名常量，
-/// Cloudflare 目标额外读取 ProjectName 与 PushTargets。
+/// Cloudflare 目标额外读取 ProjectName 与 PublishTargets。
 /// </summary>
 public class FYAssetSettings
 {
@@ -38,8 +43,50 @@ public class FYAssetSettings
 
     public string ProjectName = "PublishDiffTestProject";
 
-    public List<PushTargetConfig> PushTargets = new List<PushTargetConfig>();
+    public List<PublishTargetConfig> PublishTargets = new List<PublishTargetConfig>();
     public string CurrentABTargetId = string.Empty;
+
+    public bool TryResolvePublishTarget(string targetId, out PublishTargetConfig target, out string error)
+    {
+        target = null;
+        error = string.Empty;
+        if (string.IsNullOrWhiteSpace(targetId))
+        {
+            error = "当前发布目标未选择。";
+            return false;
+        }
+        if (PublishTargets == null || PublishTargets.Count == 0)
+        {
+            error = "发布目标列表为空。";
+            return false;
+        }
+
+        var ids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        for (int i = 0; i < PublishTargets.Count; i++)
+        {
+            PublishTargetConfig candidate = PublishTargets[i];
+            if (candidate == null || string.IsNullOrWhiteSpace(candidate.TargetId) || !ids.Add(candidate.TargetId))
+            {
+                error = "发布目标 TargetId 必须非空且唯一。";
+                return false;
+            }
+            if (string.IsNullOrWhiteSpace(candidate.Name) || !names.Add(candidate.Name))
+            {
+                error = "发布目标名称必须非空且唯一。";
+                return false;
+            }
+            if (string.Equals(candidate.TargetId, targetId, StringComparison.OrdinalIgnoreCase))
+                target = candidate;
+        }
+
+        if (target == null)
+        {
+            error = $"当前发布目标不存在：{targetId}";
+            return false;
+        }
+        return target.TryNormalizePublicBaseUrl(out _, out error);
+    }
 
     private static FYAssetSettings _instance;
 

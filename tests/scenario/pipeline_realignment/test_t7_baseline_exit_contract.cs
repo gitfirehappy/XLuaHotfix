@@ -15,7 +15,7 @@ internal static class BaselineExitContractTests
         "Assets/FYAsset/Scripts/Shared/Build/Release/Editor/IBaselinePackageHandler.cs";
     private const string ABRepositoryPreviewFile = "Assets/FYAsset/Scripts/AB/Build/Editor/ABRepositoryPreview.cs";
     private const string AARepositoryPreviewFile = "Assets/FYAsset/Scripts/AA/Build/Editor/AARepositoryPreview.cs";
-    private const string PublisherFile = "Assets/FYAsset/Scripts/Shared/Build/Publish/BuildPublisher.cs";
+    private const string PublisherFile = "Assets/FYAsset/Scripts/Shared/Build/Publish/PackageUploader.cs";
     private const string RunnerFile = "Assets/FYAsset/Scripts/Shared/Build/Pipeline/Editor/BuildPipelineRunner.cs";
 
     public static void Run()
@@ -189,10 +189,10 @@ internal static class BaselineExitContractTests
             ScriptsDir,
             "BundleBuildCacheEntry",
             "独立制品缓存条目类型不得再出现");
-        GateAssert.TreeHasSymbol(
+        GateAssert.TreeHasNoSymbol(
             ScriptsDir,
             "PublishCache",
-            "发布缓存应独立存储，只作服务器事实的辅助");
+            "发布缓存类型已删除，服务器事实由 RemoteReader 直接读取");
     }
 
     /// <summary>Publisher 负责组装新隔离目录并在最后生成上传 PackageIndex。</summary>

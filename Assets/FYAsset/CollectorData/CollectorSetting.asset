@@ -67,12 +67,12 @@ MonoBehaviour:
     Collectors:
     - CollectPath: Assets/Prefab
       CollectPathType: 0
-  - GroupName: Resources
+  - GroupName: Build
     Enabled: 1
-    BundlePackingMode: 2
+    BundlePackingMode: 1
     Collectors:
-    - CollectPath: Assets/Resources
-      CollectPathType: 0
+    - CollectPath: Assets/Build/LuaScriptsIndex.asset
+      CollectPathType: 1
   - GroupName: SO
     Enabled: 1
     BundlePackingMode: 2
@@ -198,13 +198,13 @@ MonoBehaviour:
     - FYAssetPipelineTest
   - AssetGUID: 9d0f5ca6a2a07324a99b7ce4690f8b54
     Address: LuaScriptsIndex
-    Labels: []
+    Labels:
+    - LuaScriptsIndex
   - AssetGUID: 170f3ccdb3bee544095a2f2b92d47c18
     Address: Assets/AddressableAssetsData/AddressableAssetSettings.asset
     Labels: []
   IgnorePatterns:
   - Assets/FYAsset/**
-  - Assets/Build/**
   - Assets/StreamingAssets/**
   - Assets/AddressableAssetsData/**
   - Assets/XLua/**

@@ -142,16 +142,19 @@ public static class AssetCollectionSettingValidator
         if (labels == null)
             return;
 
+        if (!AssetLabelValidator.TryValidate(labels, out string invalidLabel, out string duplicateLabel))
+        {
+            if (duplicateLabel != null)
+                messages.Add(BuildMessage.Error(BuildErrorCodes.DuplicateLabel,
+                    $"Labels 包含大小写不敏感重复值: '{duplicateLabel}'。", source));
+            else
+                messages.Add(BuildMessage.BlankConfigEntry("Labels", invalidLabel, source));
+            return;
+        }
+
         for (int i = 0; i < labels.Count; i++)
         {
-            string label = labels[i];
-            if (string.IsNullOrEmpty(label) || !string.Equals(label, label.Trim(), StringComparison.Ordinal))
-            {
-                messages.Add(BuildMessage.BlankConfigEntry("Labels", label, source));
-                continue;
-            }
-
-            string error = BundleNameBuilder.ValidateSegment(label);
+            string error = BundleNameBuilder.ValidateSegment(labels[i]);
             if (error != null)
                 messages.Add(BuildMessage.InvalidLabel(error, source));
         }

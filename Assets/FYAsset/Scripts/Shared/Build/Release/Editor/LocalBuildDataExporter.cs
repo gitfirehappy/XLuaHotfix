@@ -111,8 +111,8 @@ public static class LocalBuildDataExporter
         }
         if (request.BuildType == BuildType.Full && builtInHandler == null)
             throw new ArgumentNullException(nameof(builtInHandler), "Full 构建导出本地启动数据需要后端注入 IBuiltInPackageHandler。");
-        if (!FileHelper.DirectoryExists(request.OutputDir))
-            throw new DirectoryNotFoundException($"本地构建数据导出前最终输出目录不存在: {request.OutputDir}");
+        if (!FileHelper.DirectoryExists(request.TemporaryOutputDir))
+            throw new DirectoryNotFoundException($"本地构建数据导出前最终输出目录不存在: {request.TemporaryOutputDir}");
 
         return ExportData(request, builtInHandler);
     }

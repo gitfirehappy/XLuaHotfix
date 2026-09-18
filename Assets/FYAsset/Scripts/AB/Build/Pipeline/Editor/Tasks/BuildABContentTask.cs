@@ -21,10 +21,11 @@ public class BuildABContentTask : IBuildTask
 
     public string TaskName => "BuildABContent";
 
-    public BuildTaskResult Execute(BuildContext ctx)
+    public BuildTaskResult Execute(BuildRunContext ctx)
     {
         var cfg = ctx.Require<BuildConfig>(BuildContextKeys.BuildConfig);
-        var assets = ctx.Require<List<CollectedAssetInfo>>(ABBuildContextKeys.CollectedAssets);
+        ABDependencyAnalysisResult analysis = ctx.Require<ABDependencyAnalysisResult>(ABBuildContextKeys.DependencyAnalysisResult);
+        List<CollectedAssetInfo> assets = analysis.Assets;
         string outputRoot = cfg.OutputRoot;
         var platform = cfg.TargetPlatform;
 
@@ -57,30 +58,27 @@ public class BuildABContentTask : IBuildTask
         }
 
         var plans = new List<ContentBuildItem>(groups.Count);
-        foreach (var kv in groups)
-        {
-            var validation = ValidateBundleGroup(kv.Key, kv.Value);
-            if (!validation.Success)
-                return validation;
+        foreach (KeyValuePair<string, List<CollectedAssetInfo>> group in groups)
+            plans.Add(CreatePlan(group.Key, group.Value));
 
-            if (!TryCreatePlan(kv.Key, kv.Value, out ContentBuildItem plan, out BuildTaskResult planError))
-                return planError;
-
-            plans.Add(plan);
-        }
-
-        BuildTaskResult uniqueness = ValidatePhysicalNameUniqueness(plans);
+        BuildTaskResult uniqueness = ValidateFileNameUniqueness(plans);
         if (!uniqueness.Success)
             return uniqueness;
 
         string tempDir = FYAssetPathUtility.JoinFilePath(outputRoot, "_temp");
+        // _temp 只承载本次 Unity BuildAssetBundles 的中间输出，绝不能作为跨构建复用来源。
+        if (!FileHelper.TryDeleteDirectory(tempDir))
+        {
+            return BuildTaskResult.Fail(BuildErrorCodes.BuildFailed,
+                $"无法清理 AB 临时输出目录: '{tempDir}'。", true);
+        }
         FileHelper.EnsureDirectory(tempDir);
 
         var warnings = new List<string>();
 
         var plannedFileNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         for (int i = 0; i < plans.Count; i++)
-            plannedFileNames.Add(plans[i].PhysicalName);
+            plannedFileNames.Add(plans[i].FileName);
 
         // 复用来源只有两处事实：正式 Summary（复用索引）与历史 Build_* 包（唯一物理字节来源）。
         // 存储不可用只损失优化，不得阻断构建。
@@ -194,6 +192,10 @@ public class BuildABContentTask : IBuildTask
 
             if (plan.ReusedOutput.HasValue)
             {
+                BuildTaskResult reusedFileNameValidation = ValidateProducedFileName(plan, plan.ReusedOutput.Value.Name);
+                if (!reusedFileNameValidation.Success)
+                    return reusedFileNameValidation;
+
                 results.Add(CreateBuildInfo(plan, plan.ReusedOutput.Value));
                 processedOutputs.Add(plan.ReusedOutput.Value.Name);
                 continue;
@@ -202,14 +204,14 @@ public class BuildABContentTask : IBuildTask
             if (plan.ContentType == AssetContentType.RawFile)
             {
                 string rawAssetPath = plan.AssetPaths[0];
-                if (unityOutputs.ContainsKey(plan.PhysicalName) || processedOutputs.Contains(plan.PhysicalName))
+                if (unityOutputs.ContainsKey(plan.FileName) || processedOutputs.Contains(plan.FileName))
                 {
                     return BuildTaskResult.Fail(BuildErrorCodes.RawfilePayloadConflict,
                         $"Bundle '{plan.ContentName}' 同时包含 RawFile 与 Serialized/Scene 输出路线。RawFile Asset '{rawAssetPath}' " +
                         "不会被 Unity AssetBundle 构建流程写入已存在的同名输出；请调整分组、BundlePackingMode 或内容类型配置。", true);
                 }
 
-                string destPath = FYAssetPathUtility.JoinFilePath(tempDir, plan.PhysicalName);
+                string destPath = FYAssetPathUtility.JoinFilePath(tempDir, plan.FileName);
                 try
                 {
                     FileHelper.CopyFile(rawAssetPath, destPath, true);
@@ -220,31 +222,41 @@ public class BuildABContentTask : IBuildTask
                         $"文件拷贝失败 '{rawAssetPath}' -> '{destPath}': {ex.Message}", true);
                 }
 
-                if (!FileHelper.TryCreateDigest(destPath, plan.PhysicalName, out FileHelper.FileDigest rawDigest))
+                if (!FileHelper.TryCreateDigest(destPath, plan.FileName, out FileHelper.FileDigest rawDigest))
                 {
                     return BuildTaskResult.Fail(BuildErrorCodes.RawfileCopyFailed,
                         $"RawFile 产物不可读: '{destPath}'。", true);
                 }
 
+                BuildTaskResult rawFileNameValidation = ValidateProducedFileName(plan, rawDigest.Name);
+                if (!rawFileNameValidation.Success)
+                    return rawFileNameValidation;
+
                 results.Add(CreateBuildInfo(plan, rawDigest));
-                processedOutputs.Add(plan.PhysicalName);
+                processedOutputs.Add(plan.FileName);
                 builtCount++;
                 continue;
             }
 
-            var produced = new List<FileHelper.FileDigest>(1);
-            string outputName = plan.PhysicalName;
+            string outputName = plan.FileName;
             if (!TryTakeUnityOutput(unityOutputs, outputName, processedOutputs, out FileHelper.FileDigest digest))
             {
                 return BuildTaskResult.Fail(BuildErrorCodes.BundleFileNotFound,
                     $"内容 '{plan.ContentName}' 的 Unity 构建产物缺失: 期望 '{outputName}'，实际产出 '{string.Join(", ", unityOutputs.Keys)}'。", true);
             }
 
-            produced.Add(digest);
+            BuildTaskResult fileNameValidation = ValidateProducedFileName(plan, digest.Name);
+            if (!fileNameValidation.Success)
+                return fileNameValidation;
+
             results.Add(CreateBuildInfo(plan, digest));
             processedOutputs.Add(digest.Name);
             builtCount++;
         }
+
+        BuildTaskResult resultFileNames = ValidateResultFileNameUniqueness(results);
+        if (!resultFileNames.Success)
+            return resultFileNames;
 
         ctx.Set(ABBuildContextKeys.BundleBuildResults, results);
 
@@ -260,7 +272,7 @@ public class BuildABContentTask : IBuildTask
     {
         if (plan == null || plan.ReusedOutput.HasValue)
             return;
-        FileHelper.TryDelete(FYAssetPathUtility.JoinFilePath(tempDir, plan.PhysicalName));
+        FileHelper.TryDelete(FYAssetPathUtility.JoinFilePath(tempDir, plan.FileName));
     }
 
     private static void InvalidateReuse(ContentBuildItem plan, string tempDir)
@@ -311,7 +323,7 @@ public class BuildABContentTask : IBuildTask
 
             var dependencies = new List<string>();
             string[] direct = unityManifest != null
-                ? unityManifest.GetDirectDependencies(plan.PhysicalName)
+                ? unityManifest.GetDirectDependencies(plan.FileName)
                 : null;
             if (direct != null)
             {
@@ -494,7 +506,7 @@ public class BuildABContentTask : IBuildTask
     }
 
     /// <summary>按依赖闭合撤销不安全的复用，返回被撤销的内容数。</summary>
-    private static int DropReuseViolatingDependencyClosure(List<ContentBuildItem> plans, BuildContext ctx, List<string> warnings)
+    private static int DropReuseViolatingDependencyClosure(List<ContentBuildItem> plans, BuildRunContext ctx, List<string> warnings)
     {
         var reusables = new HashSet<string>(StringComparer.Ordinal);
         var rebuilt = new List<string>();
@@ -510,7 +522,7 @@ public class BuildABContentTask : IBuildTask
         if (reusables.Count == 0 || rebuilt.Count == 0)
             return 0;
 
-        BundleDependencyGraph graph = ctx.Get<BundleDependencyGraph>(ABBuildContextKeys.BundleDependencyGraph);
+        BundleDependencyGraph graph = ctx.Get<ABDependencyAnalysisResult>(ABBuildContextKeys.DependencyAnalysisResult)?.DependencyGraph;
         if (graph == null)
         {
             // 没有依赖图就无法判断安全性，宁可不复用。
@@ -568,7 +580,7 @@ public class BuildABContentTask : IBuildTask
 
         builds.Add(new AssetBundleBuild
         {
-            assetBundleName = plan.PhysicalName,
+            assetBundleName = plan.FileName,
             assetNames = plan.AssetPaths.ToArray()
         });
     }
@@ -645,91 +657,22 @@ public class BuildABContentTask : IBuildTask
         Debug.LogWarning($"[{nameof(BuildABContentTask)}] {text}");
     }
 
-    private static BuildTaskResult ValidateBundleGroup(string bundleName, List<CollectedAssetInfo> assets)
+    /// <summary>归类内容成员并得出预期物理输出名。</summary>
+    private static ContentBuildItem CreatePlan(string contentName, List<CollectedAssetInfo> members)
     {
-        if (assets == null || assets.Count == 0)
-            return BuildTaskResult.Ok();
-
-        var contentTypes = new HashSet<AssetContentType>();
-        var primaryTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        for (int i = 0; i < assets.Count; i++)
-        {
-            var asset = assets[i];
-            contentTypes.Add(asset.ContentType);
-            primaryTypes.Add(asset.AssetType ?? string.Empty);
-        }
-
-        if (contentTypes.Count != 1)
-        {
-            return BuildTaskResult.Fail(BuildErrorCodes.MixedPayloadBundle,
-                $"Bundle '{bundleName}' 混入了多种内容类型（AssetContentType）。每个物理 Bundle 只能有一种构建路线。", true);
-        }
-
-        if (primaryTypes.Count != 1)
-        {
-            var members = new System.Text.StringBuilder();
-            for (int i = 0; i < assets.Count; i++)
-            {
-                members.Append("\n  - ").Append(assets[i].AssetPath)
-                    .Append(" [AssetType=").Append(assets[i].AssetType ?? "")
-                    .Append(", Address=").Append(assets[i].Address ?? "").Append(']');
-            }
-            return BuildTaskResult.Fail(BuildErrorCodes.MixedAssetTypeBundle,
-                $"Bundle '{bundleName}' 混入了多种 AssetType。每个物理 Bundle 必须按精确主类型分桶。成员:{members}", true);
-        }
-
-        AssetContentType contentType = assets[0].ContentType;
-        if (contentType == AssetContentType.Scene && assets.Count != 1)
-        {
-            return BuildTaskResult.Fail(BuildErrorCodes.MixedPayloadBundle,
-                $"Bundle '{bundleName}' 包含 {assets.Count} 个 Scene；每个 Scene 必须对应一个独立 Content 文件。", true);
-        }
-
-        if (contentType == AssetContentType.RawFile && assets.Count != 1)
-        {
-            return BuildTaskResult.Fail(BuildErrorCodes.RawfileMultiAsset,
-                $"Bundle '{bundleName}' 包含 {assets.Count} 个 RawFile，每个 RawFile 必须独立输出。示例 Asset: '{assets[0].AssetPath}'。", true);
-        }
-
-        return BuildTaskResult.Ok();
-    }
-
-    /// <summary>归类内容成员并得出预期物理输出名；Serialized 入口资产在此校验。</summary>
-    private static bool TryCreatePlan(
-        string contentName,
-        List<CollectedAssetInfo> members,
-        out ContentBuildItem plan,
-        out BuildTaskResult error)
-    {
-        plan = null;
-        error = null;
-
         var created = new ContentBuildItem
         {
             ContentName = contentName,
-            PhysicalName = members[0].ContentType == AssetContentType.Scene
+            // Unity 将 AssetBundleBuild.assetBundleName 的实际输出规范化为小写；计划名必须与产物一致。
+            FileName = (members[0].ContentType == AssetContentType.Scene
                 ? BundleNameBuilder.BuildPhysicalName(contentName, ShortAssetName(members[0].AssetPath))
-                : BundleNameBuilder.BuildPhysicalName(contentName, ResolveReadableName(members)),
+                : BundleNameBuilder.BuildPhysicalName(contentName, ResolveReadableName(members))).ToLowerInvariant(),
             ContentType = members[0].ContentType
         };
 
         for (int i = 0; i < members.Count; i++)
-        {
-            CollectedAssetInfo member = members[i];
-            created.AssetPaths.Add(member.AssetPath);
-            if (member.ContentType == AssetContentType.SerializedObject)
-            {
-                var entryValidation = ValidateSerializedBundleEntry(member.AssetPath);
-                if (!entryValidation.Success)
-                {
-                    error = entryValidation;
-                    return false;
-                }
-            }
-        }
-
-        plan = created;
-        return true;
+            created.AssetPaths.Add(members[i].AssetPath);
+        return created;
     }
 
     /// <summary>取成员资源的短名作为物理名可读段；组/标签模式由打包模式段决定，不使用它。</summary>
@@ -746,13 +689,13 @@ public class BuildABContentTask : IBuildTask
     }
 
     /// <summary>物理文件名必须大小写不敏感唯一；冲突时报告两个内容桶的完整身份并阻断。</summary>
-    private static BuildTaskResult ValidatePhysicalNameUniqueness(List<ContentBuildItem> plans)
+    private static BuildTaskResult ValidateFileNameUniqueness(List<ContentBuildItem> plans)
     {
         var seen = new Dictionary<string, ContentBuildItem>(StringComparer.OrdinalIgnoreCase);
         for (int i = 0; i < plans.Count; i++)
         {
             ContentBuildItem plan = plans[i];
-            string name = plan.PhysicalName;
+            string name = plan.FileName;
             if (string.IsNullOrEmpty(name))
                 continue;
             if (seen.TryGetValue(name, out ContentBuildItem other))
@@ -768,14 +711,29 @@ public class BuildABContentTask : IBuildTask
         return BuildTaskResult.Ok();
     }
 
-    private static BuildTaskResult ValidateSerializedBundleEntry(string assetPath)
+    private static BuildTaskResult ValidateProducedFileName(ContentBuildItem plan, string actualFileName)
     {
-        if (!AssetClassifier.CanUseAsSerializedBundleEntry(assetPath, out string reason))
-        {
-            return BuildTaskResult.Fail(BuildErrorCodes.InvalidBundleEntryAsset,
-                $"Asset '{assetPath}' 不能作为 AssetBundle Serialized 入口资产: {reason}", true);
-        }
+        if (string.Equals(plan.FileName, actualFileName, StringComparison.Ordinal))
+            return BuildTaskResult.Ok();
 
+        return BuildTaskResult.Fail(BuildErrorCodes.BundleFileNotFound,
+            $"Content '{plan.ContentName}' 的实际输出名 '{actualFileName}' 与计划文件名 '{plan.FileName}' 不一致。", true);
+    }
+
+    private static BuildTaskResult ValidateResultFileNameUniqueness(List<ContentBuildResult> results)
+    {
+        var seen = new Dictionary<string, ContentBuildResult>(StringComparer.OrdinalIgnoreCase);
+        for (int i = 0; i < results.Count; i++)
+        {
+            ContentBuildResult result = results[i];
+            if (seen.TryGetValue(result.FileName, out ContentBuildResult other))
+            {
+                return BuildTaskResult.Fail(BuildErrorCodes.DuplicateBundleName,
+                    $"实际输出文件名冲突（大小写不敏感）: '{result.FileName}' 同时来自 '{other.ContentName}' 与 '{result.ContentName}'。",
+                    true);
+            }
+            seen.Add(result.FileName, result);
+        }
         return BuildTaskResult.Ok();
     }
 
@@ -785,7 +743,7 @@ public class BuildABContentTask : IBuildTask
         public string ContentName;
         public AssetContentType ContentType;
         public List<string> AssetPaths = new List<string>();
-        public string PhysicalName;
+        public string FileName;
         public string InputFingerprint;
         public FileHelper.FileDigest? ReusedOutput;
         public List<string> DependencyFileNames;

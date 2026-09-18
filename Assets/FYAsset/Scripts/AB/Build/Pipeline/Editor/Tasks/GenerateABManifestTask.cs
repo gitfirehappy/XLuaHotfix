@@ -1,35 +1,30 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
-using UnityEngine;
 
 /// <summary>
-/// ABManifest 生成 Task —— 消费 CollectedAssets + BundleBuildResults，
+/// ABManifest 生成 Task —— 消费依赖分析结果与 ContentBuildResults，
 /// 产出完整的 ABManifest（资产索引 + 内容文件事实 + 内容级依赖下标）。
 /// 在 BuildABContent 之后、VerifyABContent 之前执行。
 /// </summary>
 /// <remarks>
-/// 构建输出的文件事实来自磁盘；依赖下标来自 Unity 构建报告或复用摘要回放，预期依赖图只用于诊断。
+/// 内容文件事实只从 ContentBuildResult 投影；依赖下标来自 Unity 构建报告或复用摘要回放，预期依赖图只用于诊断。
 /// </remarks>
 public class GenerateABManifestTask : IBuildTask
 {
     public string TaskName => "GenerateABManifest";
-    public BuildTaskResult Execute(BuildContext ctx)
+    public BuildTaskResult Execute(BuildRunContext ctx)
     {
         var cfg = ctx.Require<BuildConfig>(BuildContextKeys.BuildConfig);
-        var collected = ctx.Require<List<CollectedAssetInfo>>(ABBuildContextKeys.CollectedAssets);
+        ABDependencyAnalysisResult analysis = ctx.Require<ABDependencyAnalysisResult>(ABBuildContextKeys.DependencyAnalysisResult);
+        List<CollectedAssetInfo> collected = analysis.Assets;
         var buildResults = ctx.Require<List<ContentBuildResult>>(ABBuildContextKeys.BundleBuildResults);
-        var depGraph = ctx.Get<BundleDependencyGraph>(ABBuildContextKeys.BundleDependencyGraph);
+        BundleDependencyGraph depGraph = analysis.DependencyGraph;
 
         var validation = ValidateContentIdentity(buildResults);
         if (!validation.Success)
             return validation;
 
-        string tempDir = FYAssetPathUtility.JoinFilePath(cfg.OutputRoot, "_temp");
-
-        var contentEntries = BuildContentEntries(buildResults, tempDir, out BuildTaskResult contentError);
-        if (contentError != null)
-            return contentError;
+        var contentEntries = BuildContentEntries(buildResults);
 
         var dependencyError = ApplyDependencyIndices(buildResults, contentEntries);
         if (dependencyError != null)
@@ -67,53 +62,23 @@ public class GenerateABManifestTask : IBuildTask
         return BuildTaskResult.Ok(messages);
     }
 
-    /// <summary>按实际输出文件生成内容条目；文件缺失即阻断，Hash/CRC/大小取磁盘事实。</summary>
-    private static List<ManifestContentEntry> BuildContentEntries(
-        List<ContentBuildResult> buildResults,
-        string tempDir,
-        out BuildTaskResult error)
+    /// <summary>把 Build 阶段已经确认的物理文件事实投影为 Manifest 内容条目。</summary>
+    private static List<ManifestContentEntry> BuildContentEntries(List<ContentBuildResult> buildResults)
     {
-        error = null;
         var contentEntries = new List<ManifestContentEntry>(buildResults.Count);
-
         for (int i = 0; i < buildResults.Count; i++)
         {
             ContentBuildResult build = buildResults[i];
-            string fileName = build.FileName ?? build.ContentName;
-            string filePath = FYAssetPathUtility.JoinFilePath(tempDir, fileName);
-            if (!FileHelper.Exists(filePath))
-            {
-                error = BuildTaskResult.Fail(BuildErrorCodes.BundleFileNotFound,
-                    $"内容输出文件不存在: '{filePath}'（内容 '{build.ContentName}'）。", true);
-                return null;
-            }
-
-            string fileHash;
-            uint fileCRC;
-            long fileSize;
-            try
-            {
-                HashGenerator.ComputeFileHashAndCRC(filePath, out fileHash, out fileCRC);
-                fileSize = new FileInfo(filePath).Length;
-            }
-            catch (Exception ex)
-            {
-                error = BuildTaskResult.Fail(BuildErrorCodes.BundleFileNotFound,
-                    $"内容输出文件不可读: '{filePath}'（内容 '{build.ContentName}'）: {ex.Message}", true);
-                return null;
-            }
-
             contentEntries.Add(new ManifestContentEntry
             {
-                FileName = fileName,
-                Hash = fileHash,
-                CRC = fileCRC,
-                Size = fileSize,
+                FileName = build.FileName,
+                Hash = build.Hash,
+                CRC = build.CRC,
+                Size = build.Size,
                 ContentType = build.ContentType,
                 DependencyIndices = Array.Empty<int>()
             });
         }
-
         return contentEntries;
     }
 

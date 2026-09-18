@@ -35,7 +35,7 @@ AssetCollectionSetting
 | `RawFileRules` | 单一 `Patterns` 列表；命中后按 RawFile 构建和加载 |
 | `SharePolicyConfig` | 依赖共享策略，由 `DependencyAnalyzer` 在构建期执行 |
 
-`CollectedAssetInfo` 是扫描产出的中间记录（不序列化）：`AssetPath`、`AssetGUID`、`Address`、`AssetType`、`Labels`、`GroupName`、`SourceGroupName`、`SourceCollectorPath`、`ContentName`、`BundlePackingMode`、`ContentType`、`DependencyOrigin`、`IsPublic`。
+`CollectedAssetInfo` 是扫描产出的中间记录（不序列化）：`AssetPath`、`AssetGUID`、`Address`、`AssetType`、`Labels`、`GroupName`、`SourceGroupName`、`SourceCollectorPath`、`ContentName`、`BundlePackingMode`、`ContentType`、`DependencyOrigin`、`IsPublic`。`ScanResult.SystemSources` 另固定记录唯一只读的 `Assets/Resources` 系统来源；它不生成 `CollectedAssetInfo`，不进入 snapshot、Content、Manifest、Summary 或交付。
 
 ## 分类与内容类型
 
@@ -77,7 +77,9 @@ Address 默认生成完整 `Assets/.../file.ext` 路径，保留扩展名。Deta
 
 ## Labels
 
-最终 Labels 只来自 `AssetAddressEntry.Labels`，Group 不提供 Labels。未收集资产不会因为修改 Labels 自动创建采集器；Collection 面板中的修改写入工作副本，只有 Save 才持久化，Cancel 丢弃工作副本。Label 不得包含 `BundleNameBuilder.ValidateSegment` 禁止的保留字符。
+最终 Labels 只来自 `AssetAddressEntry.Labels`，Group 不提供 Labels。Labels 可缺省；存在时必须非空、无首尾空白、大小写不敏感唯一，且保留第一次填写的拼写用于序列化。
+
+未收集资产不会因为修改 Labels 自动创建采集器；Collection 面板中的修改写入工作副本，只有 Save 才持久化，Cancel 丢弃工作副本。Label 不得包含 `BundleNameBuilder.ValidateSegment` 禁止的保留字符。
 
 ## 扫描流程
 
@@ -122,7 +124,7 @@ Collection 左侧树显示资源当前 Address，支持普通点击、`Ctrl/Cmd`
 | 同深度同路径冲突 | `SAME_PATH_CONFLICT` |
 | AssetAddressEntry GUID 无效 / 重复 | `INVALID_ASSET_ADDRESS_ENTRY_GUID` / `DUPLICATE_GUID` |
 | Ignore、RawFile 或 SharePolicy 列表空项 | `BLANK_CONFIG_ENTRY` |
-| Label 空项或含保留字符 | `BLANK_CONFIG_ENTRY` / `INVALID_LABEL` |
+| Label 空项、首尾空白、大小写不敏感重复或含保留字符 | `BLANK_CONFIG_ENTRY` / `DUPLICATE_LABEL` / `INVALID_LABEL` |
 
 构建期还会独立校验公共 Address 唯一、Public 边界、成员关系与文件集合。
 

@@ -15,7 +15,7 @@ public class BuildAAContentTask : IBuildTask
 
     public string TaskName => "BuildAAContent";
 
-    public BuildTaskResult Execute(BuildContext ctx)
+    public BuildTaskResult Execute(BuildRunContext ctx)
     {
         var request = ctx.Require<BuildRequest>(BuildContextKeys.BuildRequest);
 
@@ -37,7 +37,7 @@ public class BuildAAContentTask : IBuildTask
 
             return BuildTaskResult.Ok(new System.Collections.Generic.List<string>
             {
-                $"[AA BUILD] Catalog: {request.OutputDir}",
+                $"[AA BUILD] Catalog: {request.TemporaryOutputDir}",
                 $"[AA BUILD] Remote bundles: {request.BundlesDir}"
             });
         }
@@ -54,7 +54,7 @@ public class BuildAAContentTask : IBuildTask
         settings.OverridePlayerVersion = "addressables_content_state";
         ProjectConfigData.GenerateBuildLayout = true;
 
-        string catalogBuildPath = FYAssetPathUtility.NormalizePath(request.OutputDir);
+        string catalogBuildPath = FYAssetPathUtility.NormalizePath(request.TemporaryOutputDir);
         string remoteBuildPath = FYAssetPathUtility.NormalizePath(request.BundlesDir);
         settings.profileSettings.CreateValue(CatalogBuildPathVariable, catalogBuildPath);
         settings.profileSettings.SetValue(settings.activeProfileId, CatalogBuildPathVariable, catalogBuildPath);

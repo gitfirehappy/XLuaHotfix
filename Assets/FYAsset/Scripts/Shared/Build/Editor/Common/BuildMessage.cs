@@ -51,6 +51,9 @@ public static class BuildErrorCodes
     /// <summary>Label 包含非法字符</summary>
     public const string InvalidLabel = "INVALID_LABEL";
 
+    /// <summary>同一资产的 Labels 大小写不敏感重复</summary>
+    public const string DuplicateLabel = "DUPLICATE_LABEL";
+
     /// <summary>Collector 扫描后采集到零个资源（Warning，可能是配置错误）</summary>
     public const string EmptyCollector = "EMPTY_COLLECTOR";
 
@@ -62,9 +65,6 @@ public static class BuildErrorCodes
 
     /// <summary>Collector 采集阶段失败</summary>
     public const string CollectAssetsFailed = "COLLECT_ASSETS_FAILED";
-
-    /// <summary>Lua 索引生成、采集或启动地址校验失败</summary>
-    public const string LuaIndexInvalid = "LUA_INDEX_INVALID";
 
     /// <summary>目标平台不支持或未识别</summary>
     public const string InvalidPlatform = "INVALID_PLATFORM";
@@ -114,6 +114,9 @@ public static class BuildErrorCodes
     /// <summary>构建结果校验失败</summary>
     public const string VerificationFailed = "VERIFICATION_FAILED";
 
+    /// <summary>AB 依赖闭包触达 Shader，需要项目显式确认 Player 保留策略</summary>
+    public const string ShaderPlayerRetentionRequired = "SHADER_PLAYER_RETENTION_REQUIRED";
+
     /// <summary>依赖图中发现循环依赖</summary>
     public const string CycleDependency = "CYCLE_DEPENDENCY";
 
@@ -128,6 +131,14 @@ public static class BuildErrorCodes
 
     /// <summary>SharePolicy 需要文件大小但无法读取</summary>
     public const string SharePolicySizeUnknown = "SHAREPOLICY_SIZE_UNKNOWN";
+
+    /// <summary>采集结果为空，后续 Task 无法继续</summary>
+    public const string NoCollectedAssets = "NO_COLLECTED_ASSETS";
+
+    /// <summary>依赖分析阶段失败</summary>
+    public const string DependencyAnalysisFailed = "DEPENDENCY_ANALYSIS_FAILED";
+
+    #region Task配置问题
 
     /// <summary>管线配置中没有 Task</summary>
     public const string NoPipelineTasks = "NO_PIPELINE_TASKS";
@@ -168,11 +179,7 @@ public static class BuildErrorCodes
     /// <summary>Task 执行异常</summary>
     public const string TaskExecutionError = "TASK_EXECUTION_ERROR";
 
-    /// <summary>采集结果为空，后续 Task 无法继续</summary>
-    public const string NoCollectedAssets = "NO_COLLECTED_ASSETS";
-
-    /// <summary>依赖分析阶段失败</summary>
-    public const string DependencyAnalysisFailed = "DEPENDENCY_ANALYSIS_FAILED";
+    #endregion
 }
 
 /// <summary>

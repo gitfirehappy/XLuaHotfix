@@ -33,8 +33,15 @@ public sealed class PackageBuildIdentity
     public const string PackageNamePrefix = "Build_";
     public const string PackageTimestampFormat = "yyyyMMddHHmmss";
 
+    /// <summary>按版本和创建时间生成生产包名。</summary>
+    public static string CreatePackageName(VersionNumber version, DateTime createdAt)
+    {
+        return $"{PackageNamePrefix}{createdAt.ToString(PackageTimestampFormat)}_{version.GetReleaseVersionString()}";
+    }
+
     /// <summary>包名是否是合法的目录名单段：拒绝点段、Windows 设备名与保留字符。</summary>
     public bool IsSafePackageName() => IsSafeSegment(PackageName);
+
 
     /// <summary>单段目录名校验；包名与包集合名共用同一规则。</summary>
     public static bool IsSafeSegment(string value) => PublishPathGuard.IsSafeSegment(value);

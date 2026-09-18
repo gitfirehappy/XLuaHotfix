@@ -185,9 +185,10 @@ internal static class PipelineComposeTests
         {
             BuildPipelineComposer.Compose(core, custom);
         }
-        catch (BuildPipelineException ex)
+        catch (InvalidOperationException ex)
         {
-            Check.Equal(expectedCode, ex.Code, "组装失败错误码");
+            string prefix = "[" + expectedCode + "]";
+            Check.True(ex.Message.StartsWith(prefix, StringComparison.Ordinal), "组装失败错误码");
             return;
         }
 
@@ -199,56 +200,56 @@ internal static class PipelineComposeTests
 internal sealed class ComposeTestAlphaTask : IBuildTask
 {
     public string TaskName => "ComposeTestAlpha";
-    public BuildTaskResult Execute(BuildContext ctx) => BuildTaskResult.Ok();
+    public BuildTaskResult Execute(BuildRunContext ctx) => BuildTaskResult.Ok();
 }
 
 /// <summary>供反射解析的测试 Task。</summary>
 internal sealed class ComposeTestInputTask : IBuildTask
 {
     public string TaskName => "ComposeTestInput";
-    public BuildTaskResult Execute(BuildContext ctx) => BuildTaskResult.Ok();
+    public BuildTaskResult Execute(BuildRunContext ctx) => BuildTaskResult.Ok();
 }
 
 /// <summary>供反射解析的测试 Task。</summary>
 internal sealed class ComposeTestBeforeATask : IBuildTask
 {
     public string TaskName => "ComposeTestBeforeA";
-    public BuildTaskResult Execute(BuildContext ctx) => BuildTaskResult.Ok();
+    public BuildTaskResult Execute(BuildRunContext ctx) => BuildTaskResult.Ok();
 }
 
 /// <summary>供反射解析的测试 Task。</summary>
 internal sealed class ComposeTestBeforeBTask : IBuildTask
 {
     public string TaskName => "ComposeTestBeforeB";
-    public BuildTaskResult Execute(BuildContext ctx) => BuildTaskResult.Ok();
+    public BuildTaskResult Execute(BuildRunContext ctx) => BuildTaskResult.Ok();
 }
 
 /// <summary>供反射解析的测试 Task。</summary>
 internal sealed class ComposeTestOutputTask : IBuildTask
 {
     public string TaskName => "ComposeTestOutput";
-    public BuildTaskResult Execute(BuildContext ctx) => BuildTaskResult.Ok();
+    public BuildTaskResult Execute(BuildRunContext ctx) => BuildTaskResult.Ok();
 }
 
 /// <summary>供反射解析的测试 Task。</summary>
 internal sealed class ComposeTestFirstTask : IBuildTask
 {
     public string TaskName => "ComposeTestFirst";
-    public BuildTaskResult Execute(BuildContext ctx) => BuildTaskResult.Ok();
+    public BuildTaskResult Execute(BuildRunContext ctx) => BuildTaskResult.Ok();
 }
 
 /// <summary>供反射解析的测试 Task。</summary>
 internal sealed class ComposeTestSecondTask : IBuildTask
 {
     public string TaskName => "ComposeTestSecond";
-    public BuildTaskResult Execute(BuildContext ctx) => BuildTaskResult.Ok();
+    public BuildTaskResult Execute(BuildRunContext ctx) => BuildTaskResult.Ok();
 }
 
 /// <summary>供反射解析的测试 Task。</summary>
 internal sealed class ComposeTestThirdTask : IBuildTask
 {
     public string TaskName => "ComposeTestThird";
-    public BuildTaskResult Execute(BuildContext ctx) => BuildTaskResult.Ok();
+    public BuildTaskResult Execute(BuildRunContext ctx) => BuildTaskResult.Ok();
 }
 
 /// <summary>构造即失败的 Task：反射解析应给出 TASK_RESOLUTION_FAILED 而不是 TASK_NOT_FOUND。</summary>
@@ -260,5 +261,5 @@ internal sealed class ComposeTestBrokenCtor : IBuildTask
     }
 
     public string TaskName => "ComposeTestBrokenCtor";
-    public BuildTaskResult Execute(BuildContext ctx) => BuildTaskResult.Ok();
+    public BuildTaskResult Execute(BuildRunContext ctx) => BuildTaskResult.Ok();
 }

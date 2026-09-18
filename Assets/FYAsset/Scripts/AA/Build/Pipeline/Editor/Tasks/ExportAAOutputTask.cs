@@ -15,17 +15,17 @@ public class ExportAAOutputTask : IBuildTask
 {
     public string TaskName => "ExportAAOutput";
 
-    public BuildTaskResult Execute(BuildContext ctx)
+    public BuildTaskResult Execute(BuildRunContext ctx)
     {
         var request = ctx.Require<BuildRequest>(BuildContextKeys.BuildRequest);
-        var buildType = ctx.Require<BuildType>(BuildContextKeys.BuildType);
-        string outputPath = ctx.Require<string>(BuildContextKeys.OutputPath);
-        if (!string.Equals(outputPath, request.OutputDir, StringComparison.Ordinal))
+        var buildType = request.BuildType;
+        string outputPath = request.TemporaryOutputDir;
+        if (!string.Equals(outputPath, request.TemporaryOutputDir, StringComparison.Ordinal))
             return BuildTaskResult.Fail(BuildErrorCodes.BuildFailed,
-                $"AA 导出目录必须来自 BuildRequest。Expected: {request.OutputDir}, Actual: {outputPath}", true);
+                $"AA 导出目录必须来自 BuildRequest。Expected: {request.TemporaryOutputDir}, Actual: {outputPath}", true);
 
         var manifest = ctx.Get<AAManifest>(AABuildContextKeys.AAManifest);
-        DateTime startedAt = ctx.Get<DateTime>(BuildContextKeys.BuildStartedAtUtc);
+        DateTime startedAt = ctx.Get<DateTime>(BuildContextKeys.PipelineStartedAtUtc);
         if (startedAt == default)
             startedAt = DateTime.UtcNow;
 
@@ -33,14 +33,14 @@ public class ExportAAOutputTask : IBuildTask
         try
         {
             // 源快照随包交付：它是下一次 Hotfix 计算变化资源的“上次成功构建事实”。
-            WriteSourceScan(ctx, request.OutputDir);
+            WriteSourceScan(ctx, request.TemporaryOutputDir);
             messages.Add($"[AA EXPORT] SourceScan: {AASourceScanFile.FileName}");
 
 
             CompleteBuildSummary summary = BuildExportWriter.CreateSummary(ctx, startedAt);
             FillSummary(summary, manifest, ctx);
 
-            string buildIndexPath = BuildExportWriter.WritePackageBuildIndex(ctx, request.OutputDir);
+            string buildIndexPath = BuildExportWriter.WritePackageBuildIndex(ctx, request.TemporaryOutputDir);
             if (!string.IsNullOrEmpty(buildIndexPath))
                 messages.Add($"[AA EXPORT] BuildIndex: {buildIndexPath}");
             messages.Add($"[AA EXPORT] Mode: {summary.BuildType}/{summary.RuntimeMode}");
@@ -60,7 +60,7 @@ public class ExportAAOutputTask : IBuildTask
     }
 
     /// <summary>写出本次构建的 Addressables 源快照（来自 PrepareAAInput 阶段的扫描结果）。</summary>
-    private static void WriteSourceScan(BuildContext ctx, string outputDir)
+    private static void WriteSourceScan(BuildRunContext ctx, string outputDir)
     {
         List<FileHelper.FileDigest> scan = ctx.Get<List<FileHelper.FileDigest>>(AABuildContextKeys.AASourceScan);
         if (scan == null)
@@ -93,7 +93,7 @@ public class ExportAAOutputTask : IBuildTask
     }
 
     /// <summary>摘要事实只来自清单与实际输出，不重新计算内容文件摘要。</summary>
-    private static void FillSummary(CompleteBuildSummary summary, AAManifest manifest, BuildContext ctx)
+    private static void FillSummary(CompleteBuildSummary summary, AAManifest manifest, BuildRunContext ctx)
     {
         if (manifest != null)
         {

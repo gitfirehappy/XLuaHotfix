@@ -341,10 +341,10 @@ public static class BuildTestEngine
                 string publishPath = FYAssetPathUtility.JoinFilePath(
                     targetDir,
                     isHotfix ? "publish-hotfix.json" : "publish.json");
-                PushReceipt receipt = BuildTestState.PublishDeliveryToTarget(
+                PublishResult publishResult = BuildTestState.PublishDeliveryToTarget(
                     request.Backend, target, sourceDir, publishPath);
-                // Full 首次发布允许退化；Hotfix 发布时目标已有可读的 Full 事实，退化说明服务器事实不可用。
-                if (isHotfix && receipt.DegradedToFullUpload)
+                // Full 首次发布允许完整传输；Hotfix 发布时目标已有可读的 Full 事实，退化说明服务器事实不可用。
+                if (isHotfix && publishResult.TransferMode == "Full")
                     throw new InvalidOperationException(
                         "Hotfix 发布退化为完整上传，目标缺少可用的服务器事实: " + target.TargetId);
                 outcome.PublishSuccess = true;
@@ -499,30 +499,19 @@ public static class BuildTestEngine
 
     private static void InvokeBuild(BuildTestBackend backend, bool hotfix, BuildTestResult result)
     {
-        // 直接调用具体 manager；本测试不经过宿主选择路由。
+        BuildResult build;
         if (backend == BuildTestBackend.AA)
         {
-            if (hotfix)
-                AABuildProjectManager.BuildHotfix();
-            else
-                AABuildProjectManager.BuildFullPackage();
-            if (!AABuildProjectManager.LastBuildSuccess)
-            {
-                result.ExitCode = BuildTestExitCodes.BuildFailed;
-                throw new InvalidOperationException("AA build reported failure.");
-            }
+            build = hotfix ? AABuildProjectManager.BuildHotfix() : AABuildProjectManager.BuildFullPackage();
         }
         else
         {
-            if (hotfix)
-                ABBuildProjectManager.BuildHotfix();
-            else
-                ABBuildProjectManager.BuildFullPackage();
-            if (!ABBuildProjectManager.LastBuildSuccess)
-            {
-                result.ExitCode = BuildTestExitCodes.BuildFailed;
-                throw new InvalidOperationException("AB build reported failure.");
-            }
+            build = hotfix ? ABBuildProjectManager.BuildHotfix() : ABBuildProjectManager.BuildFullPackage();
+        }
+        if (build == null || !build.Success)
+        {
+            result.ExitCode = BuildTestExitCodes.BuildFailed;
+            throw new InvalidOperationException($"{backend} build reported failure.");
         }
     }
 

@@ -277,8 +277,18 @@ public static class LocalAAHotfixSmokeTest
         }
         else
         {
-            PushTargetConfig config = PushTargetConfig.FindByName(targetId)
-                                      ?? throw new InvalidOperationException($"Push target is missing: {targetId}");
+            PublishTargetConfig config = null;
+            for (int i = 0; FYAssetSettings.Instance.PublishTargets != null && i < FYAssetSettings.Instance.PublishTargets.Count; i++)
+            {
+                PublishTargetConfig candidate = FYAssetSettings.Instance.PublishTargets[i];
+                if (candidate != null && string.Equals(candidate.TargetId, targetId, StringComparison.OrdinalIgnoreCase))
+                {
+                    config = candidate;
+                    break;
+                }
+            }
+            if (config == null)
+                throw new InvalidOperationException($"Push target is missing: {targetId}");
             backendRoot = FYAssetPathUtility.JoinFilePath(
                 config.ResolveServiceRoot(),
                 BackendModeNames.AA);

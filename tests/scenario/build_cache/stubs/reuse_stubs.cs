@@ -28,6 +28,16 @@ namespace UnityEngine.Networking
 {
 }
 
+public static class AssetClassifier
+{
+    public static bool CanUseAsSerializedBundleEntry(string assetPath, out string reason)
+    {
+        bool valid = !string.Equals(assetPath, "Assets/Invalid.asset", StringComparison.Ordinal);
+        reason = valid ? string.Empty : "test fixture rejects this entry";
+        return valid;
+    }
+}
+
 /// <summary>BuildType 替身：测试不链接 IBuildBackend.cs，保持与生产枚举相同的取值顺序。</summary>
 public enum BuildType
 {
@@ -67,4 +77,52 @@ public static class SerializationUtility
     public static T DeserializeJson<T>(string json) => JsonSerializer.Deserialize<T>(json, Options);
 
     public static T ReadFromFile<T>(string path) => DeserializeJson<T>(File.ReadAllText(path));
+}
+
+public interface IBuildTask
+{
+    string TaskName { get; }
+    BuildTaskResult Execute(BuildRunContext ctx);
+}
+
+public sealed class BuildRunContext
+{
+    public T Require<T>(string key) => throw new NotSupportedException();
+    public void Set<T>(string key, T value) => throw new NotSupportedException();
+}
+
+public static class ABBuildContextKeys
+{
+    public const string ABManifest = "ABManifest";
+    public const string BundleBuildResults = "BundleBuildResults";
+}
+
+public static class BuildContextKeys
+{
+    public const string BuildVerificationResult = "BuildVerificationResult";
+}
+
+public sealed class ABManifest
+{
+    public System.Collections.Generic.List<ManifestAssetEntry> AssetEntries = new();
+    public System.Collections.Generic.List<ManifestContentEntry> ContentEntries = new();
+}
+
+public sealed class ManifestAssetEntry
+{
+    public string Address;
+    public string AssetType;
+    public System.Collections.Generic.List<string> Labels = new();
+    public string AssetPath;
+    public int ContentIndex;
+}
+
+public sealed class ManifestContentEntry
+{
+    public string FileName;
+    public string Hash;
+    public uint CRC;
+    public long Size;
+    public AssetContentType ContentType;
+    public int[] DependencyIndices = Array.Empty<int>();
 }

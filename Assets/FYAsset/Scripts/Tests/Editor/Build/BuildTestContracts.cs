@@ -57,7 +57,7 @@ public enum BuildTestStage
 public sealed class BuildTestTargetSnapshot
 {
     public string TargetId;
-    public PushTargetType TargetType;
+    public bool IsExternal;
     public string ServiceRoot;
     public string BackendPublishRoot;
     public string PublicBaseUrl;

@@ -15,4 +15,4 @@ MonoBehaviour:
   BundleCompression: 0
   Tasks:
   - TaskName: LuaScriptsIndexBuildTask
-    Slot: BuildABContent
+    Slot: AnalyzeABDependencies

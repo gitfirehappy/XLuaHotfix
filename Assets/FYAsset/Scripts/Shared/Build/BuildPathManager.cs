@@ -14,11 +14,8 @@ public static class BuildPathManager
 
     public static string PackagesDir => FYAssetPathUtility.JoinFilePath(OutputRoot, FYAssetSettings.Instance.BuildPackagesFolderName);
 
-    /// <summary>
-    /// attempt 布局的构建根：任务链只允许写这里，Runner finalize 成功后才 promote 到最终出口。
-    /// 与 HotfixOutput / StreamingAssets 同属项目目录，两个 live 根都在同卷上，可用目录 move 原子 promote。
-    /// </summary>
-    public static string AttemptPackagesRoot => FYAssetPathUtility.JoinFilePath(OutputRoot, "_attempt");
+    /// <summary>构建包临时根：任务链只允许写这里，交付成功后移动到最终出口。</summary>
+    public static string TemporaryPackagesRoot => FYAssetPathUtility.JoinFilePath(OutputRoot, "_temp");
 
     public static string StandalonePackageDir => FYAssetPathUtility.JoinFilePath(
         Application.streamingAssetsPath,
@@ -29,9 +26,9 @@ public static class BuildPathManager
         return FYAssetPathUtility.JoinFilePath(PackagesDir, packageName);
     }
 
-    public static string GetAttemptPackageDir(string packageName)
+    public static string GetTemporaryPackageDir(string packageName)
     {
-        return FYAssetPathUtility.JoinFilePath(AttemptPackagesRoot, packageName);
+        return FYAssetPathUtility.JoinFilePath(TemporaryPackagesRoot, packageName);
     }
 
     public static string GetBundlesDir(string packageDir)

@@ -23,7 +23,7 @@ public static class ABPipelineConfigUpgrade
             DefaultSlot = BuildPipelineComposer.InputSlot,
             KnownCustomTaskSlots = new Dictionary<string, string>(StringComparer.Ordinal)
             {
-                { ProjectBuildIndexTaskName, nameof(ABPipelineSlot.BuildABContent) }
+                { ProjectBuildIndexTaskName, nameof(ABPipelineSlot.AnalyzeABDependencies) }
             }
         };
 

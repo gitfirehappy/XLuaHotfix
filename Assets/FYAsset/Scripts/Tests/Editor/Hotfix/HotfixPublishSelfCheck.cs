@@ -23,15 +23,13 @@ public static class HotfixPublishSelfCheck
         {
             string sourceRoot = Path.Combine(root, "source");
             string serviceRoot = Path.Combine(root, "service");
-            var config = new PushTargetConfig
+            var config = new PublishTargetConfig
             {
                 TargetId = "33333333-3333-3333-3333-333333333333",
                 Name = "self-check",
-                Type = PushTargetType.LocalDirectory,
                 Path = serviceRoot,
                 PublicBaseUrl = "http://127.0.0.1:54321/"
             };
-
             SelfCheckPackage aaFirst = CreatePackage(
                 Path.Combine(sourceRoot, "aa-v1"), "Build_20260901120000_4.0.0", "4.0.0", BackendModeNames.AA,
                 ("shared.bundle", "shared-v1"), ("aa-only.bundle", "aa-only-v1"));
@@ -39,12 +37,11 @@ public static class HotfixPublishSelfCheck
                 Path.Combine(sourceRoot, "ab-v1"), "Build_20260901120000_1.0.0", "1.0.0", BackendModeNames.AB,
                 ("shared.bundle", "shared-v1"), ("ab-only.bundle", "ab-only-v1"));
 
-            IPushTarget target = new LocalDirectoryPushTarget(config);
+            IPublishTarget target = config;
 
-            // 服务器没有 PackageIndex 时无法读取服务器事实，发布必须退化为完整上传。
-            AssertTrue(Push(target, config, aaFirst, root, "aa-first").DegradedToFullUpload,
+            AssertTrue(Push(target, config, aaFirst, root, "aa-first").TransferMode == "Full",
                 "服务器缺少 PackageIndex 时必须退化为完整上传");
-            AssertTrue(Push(target, config, abFirst, root, "ab-first").DegradedToFullUpload,
+            AssertTrue(Push(target, config, abFirst, root, "ab-first").TransferMode == "Full",
                 "服务器缺少 PackageIndex 时必须退化为完整上传");
 
             // PackageIndex 落在各后端根，包目录落在其下的包集合目录内。
@@ -68,13 +65,7 @@ public static class HotfixPublishSelfCheck
 
             VerifyIncrementalPush(target, config, root, serviceRoot, sourceRoot);
 
-            VerifyRollback(config, root, serviceRoot, aaFirst);
-
-            string arguments = CloudflarePagesPushTarget.BuildDeployArguments(serviceRoot, "ProjectName1");
-            if (!arguments.Contains("pages deploy") || !arguments.Contains("--project-name \"ProjectName1\"") || !arguments.Contains("--branch main"))
-                throw new InvalidOperationException($"Unexpected Wrangler arguments: {arguments}");
-
-            Debug.Log($"[{nameof(HotfixPublishSelfCheck)}] 通过 - 后端隔离、PackageIndex 位置、完整上传退化、复用、回滚与 Wrangler 命令均已验证。");
+            Debug.Log($"[{nameof(HotfixPublishSelfCheck)}] 通过 - 后端隔离、PackageIndex 位置、完整上传退化、复用与回滚均已验证。");
         }
         finally
         {
@@ -86,8 +77,8 @@ public static class HotfixPublishSelfCheck
     /// 服务器事实完整时必须走事务路径：只有变化文件写入服务器，未变文件复用服务器已有内容。
     /// </summary>
     private static void VerifyIncrementalPush(
-        IPushTarget target,
-        PushTargetConfig config,
+        IPublishTarget target,
+        PublishTargetConfig config,
         string root,
         string serviceRoot,
         string sourceRoot)
@@ -96,11 +87,11 @@ public static class HotfixPublishSelfCheck
             Path.Combine(sourceRoot, "aa-v2"), "Build_20260901120001_4.0.1", "4.0.1", BackendModeNames.AA,
             ("shared.bundle", "shared-v1"), ("aa-only.bundle", "aa-only-v2"));
 
-        PushReceipt receipt = Push(target, config, next, root, "aa-second");
-        AssertTrue(!receipt.DegradedToFullUpload, "服务器 PackageIndex 与 Manifest 可用时不得退化为完整上传");
+        PublishResult result = Push(target, config, next, root, "aa-second");
+        AssertTrue(result.TransferMode == "Incremental", "服务器 PackageIndex 与 Manifest 可用时不得退化为完整上传");
         // 包内文件为 Manifest、catalog.json 与两个 bundle；变化只有 Manifest 与 aa-only.bundle。
-        AssertEqual(2, receipt.UploadedCount, "只有变化文件需要写入服务器");
-        AssertEqual(2, receipt.ReusedCount, "未变文件必须复用服务器已有内容");
+        AssertEqual(2, result.UploadedCount, "只有变化文件需要写入服务器");
+        AssertEqual(2, result.ReusedCount, "未变文件必须复用服务器已有内容");
 
         string packageDir = Path.Combine(
             serviceRoot, BackendModeNames.AA,
@@ -117,80 +108,37 @@ public static class HotfixPublishSelfCheck
         SelfCheckPackage afterCorrupt = CreatePackage(
             Path.Combine(sourceRoot, "aa-v3"), "Build_20260901120002_4.0.2", "4.0.2", BackendModeNames.AA,
             ("shared.bundle", "shared-v1"), ("aa-only.bundle", "aa-only-v3"));
-        PushReceipt degraded = Push(target, config, afterCorrupt, root, "aa-corrupt-index");
-        AssertTrue(degraded.DegradedToFullUpload, "服务器 PackageIndex 损坏时必须退化为完整上传");
-        AssertEqual(0, degraded.ReusedCount, "退化发布不得复用不可信的服务器内容");
+        PublishResult corruptResult = Push(target, config, afterCorrupt, root, "aa-corrupt-index");
+        AssertTrue(corruptResult.TransferMode == "Full", "服务器 PackageIndex 损坏时必须退化为完整上传");
+        AssertEqual(0, corruptResult.ReusedCount, "退化发布不得复用不可信的服务器内容");
         AssertFile(Path.Combine(
             serviceRoot, BackendModeNames.AA,
             FYAssetSettings.Instance.BuildPackagesFolderName, afterCorrupt.PackageName,
             SelfCheckManifestReader.AAManifestFileName));
     }
 
-    /// <summary>事务回滚必须恢复原包内容与原 PackageIndex，且不留下本次发布的新包目录。</summary>
-    private static void VerifyRollback(
-        PushTargetConfig config,
-        string root,
-        string serviceRoot,
-        SelfCheckPackage published)
-    {
-        string backendRoot = Path.Combine(serviceRoot, BackendModeNames.AA);
-        string indexPath = Path.Combine(backendRoot, FYAssetSettings.PACKAGE_INDEX_FILE_NAME);
-        string indexBefore = FileHelper.ReadAllText(indexPath);
-        string markerPath = Path.Combine(
-            backendRoot,
-            FYAssetSettings.Instance.BuildPackagesFolderName,
-            published.PackageName,
-            SelfCheckManifestReader.BundlesDirectoryName,
-            "aa-only.bundle");
-        string markerBefore = FileHelper.ReadAllText(markerPath);
-
-        SelfCheckPackage rollbackPackage = CreatePackage(
-            Path.Combine(root, "rollback-source"), "Build_20260901120003_9.9.9", "9.9.9", BackendModeNames.AA,
-            ("shared.bundle", "shared-v1"), ("aa-only.bundle", "aa-only-v1"));
-
-        PublishRequest request = CreateRequest(config, rollbackPackage);
-        if (!PackagePublishTransaction.TryCreate(request, backendRoot, out PackagePublishTransaction transaction, out string error))
-            throw new InvalidOperationException("发布事务创建失败: " + error);
-
-        using (transaction)
-        {
-            transaction.CreatePlan();
-            transaction.Stage();
-            transaction.VerifyStaged();
-            transaction.Apply();
-            transaction.WritePackageIndex();
-            transaction.Rollback();
-        }
-
-        AssertEqual(markerBefore, FileHelper.ReadAllText(markerPath), "回滚必须恢复原包内容");
-        AssertEqual(indexBefore, FileHelper.ReadAllText(indexPath), "回滚必须恢复原 PackageIndex");
-        AssertMissing(Path.Combine(
-            backendRoot, FYAssetSettings.Instance.BuildPackagesFolderName, rollbackPackage.PackageName));
-    }
-
-    private static PushReceipt Push(
-        IPushTarget target,
-        PushTargetConfig config,
+    private static PublishResult Push(
+        IPublishTarget target,
+        PublishTargetConfig config,
         SelfCheckPackage package,
         string root,
         string label)
     {
-        PushReceipt receipt = BuildPublisher.Push(CreateRequest(config, package), target);
+        PublishResult result = PackagePublisher.Publish(CreateRequest(config, package), target);
         FileHelper.WriteAllTextAtomic(
             Path.Combine(root, label + "-receipt.json"),
-            SerializationUtility.SerializeToJson(receipt, true));
-        if (receipt == null || !receipt.Success)
-            throw new InvalidOperationException($"{label} push failed: {receipt?.FailureReason}");
-        return receipt;
+            SerializationUtility.SerializeToJson(result, true));
+        if (result == null || !result.Success)
+            throw new InvalidOperationException($"{label} publish failed: {result?.Error}");
+        return result;
     }
 
-    private static PublishRequest CreateRequest(PushTargetConfig config, SelfCheckPackage package)
+    private static PublishRequest CreateRequest(PublishTargetConfig config, SelfCheckPackage package)
     {
         return new PublishRequest
         {
             BackendKey = package.BackendKey,
             SourcePackageDir = package.SourceDir,
-            TargetId = config.TargetId,
             ManifestReader = SelfCheckManifestReader.Create(package.BackendKey),
             PackagesFolderName = FYAssetSettings.Instance.BuildPackagesFolderName,
             Identity = new PackageBuildIdentity

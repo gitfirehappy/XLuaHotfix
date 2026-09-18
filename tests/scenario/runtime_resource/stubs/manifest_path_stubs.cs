@@ -129,9 +129,14 @@ public static class FileHelper
 {
     public static bool Exists(string path) => FakeAssetBundleIO.Exists(path);
 
-    /// <summary>RawFile 读取入口；场景中未准备真实文件，保持结构化失败。</summary>
-    public static Task<byte[]> ReadAllBytesAsync(string path) =>
-        Task.FromException<byte[]>(new System.IO.FileNotFoundException(path));
+    public static string LastReadPath;
+    public static byte[] RawFileBytes = Array.Empty<byte>();
+
+    public static Task<byte[]> ReadAllBytesAsync(string path)
+    {
+        LastReadPath = path;
+        return Task.FromResult(RawFileBytes);
+    }
 }
 
 public sealed class PackageEntry

@@ -15,7 +15,8 @@ internal static class Program
         {
             ("FingerprintStability", FingerprintStabilityTests.Declare),
             ("ArtifactReuse", ArtifactReuseTests.Declare),
-            ("ContentNameRules", ContentNameRulesTests.Declare)
+            ("ContentNameRules", ContentNameRulesTests.Declare),
+            ("ABRemediationContracts", ContentAnalysisValidationTests.Declare)
         };
 
         int failures = 0;

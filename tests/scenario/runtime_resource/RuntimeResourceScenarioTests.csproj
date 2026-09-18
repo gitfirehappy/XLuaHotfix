@@ -13,11 +13,13 @@
     <Compile Include="test_ab_public_index_and_handle_lifetime.cs" />
     <Compile Include="test_scene_ownership.cs" />
     <Compile Include="test_entry_single_flight.cs" />
+    <Compile Include="test_rawfile_reader.cs" />
     <Compile Include="test_aa_handle_ticket_lifetime.cs" />
     <Compile Include="test_dialogue_facade_loading.cs" />
     <Compile Include="stubs/*.cs" />
     <Compile Include="../../../Assets/FYAsset/Scripts/AB/Runtime/ABBundleLoader.cs" Link="Production/ABBundleLoader.cs" />
     <Compile Include="../../../Assets/FYAsset/Scripts/AB/Runtime/ABAssetLoader.cs" Link="Production/ABAssetLoader.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/AB/Runtime/ABRawFileReader.cs" Link="Production/ABRawFileReader.cs" />
     <Compile Include="../../../Assets/FYAsset/Scripts/AB/Runtime/ABAssetIndex.cs" Link="Production/ABAssetIndex.cs" />
     <Compile Include="../../../Assets/FYAsset/Scripts/AB/Runtime/AssetHandle.cs" Link="Production/AssetHandle.cs" />
     <Compile Include="../../../Assets/FYAsset/Scripts/AB/Runtime/SceneHandle.cs" Link="Production/SceneHandle.cs" />

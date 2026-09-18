@@ -2,7 +2,7 @@
 
 > **关联代码** | [AB/Runtime](../../Assets/FYAsset/Scripts/AB/Runtime/) · [Compat 资源门面](../../Assets/FYAsset/Scripts/Compat/AssetPackageManager.cs)
 
-`ABPackageManager` 是 AB 的唯一 concrete 入口。Editor PlayMode 通过 `EditorAssetLoader` 走 AssetDatabase；Runtime 使用 `ABManifestLoader`、`ABAssetIndex`、`ABAssetLoader`、`ABBundleLoader` 与 `ABSceneLoader`。Compat 门面启动时绑定一次 AA/AB，不另外持有资源缓存。
+`ABPackageManager` 是 AB 的唯一 concrete 入口。Editor PlayMode 通过 `EditorAssetLoader` 走 AssetDatabase；Runtime 由它私有读取激活包根的 Manifest，再组合 `ABAssetIndex`、`ABAssetLoader`、`ABBundleLoader`、`ABSceneLoader` 与 `ABRawFileReader`。Compat 门面启动时绑定一次 AA/AB，不另外持有资源缓存。
 
 ---
 
@@ -10,9 +10,9 @@
 
 所有运行时读取都相对 `RuntimePathManager.ActivePackageRoot`：
 
-- `ABManifestLoader.LoadAsync` 只读激活包根一个目录，同目录内优先 `ABManifest.bin`，其次 `ABManifest.json`；两者都不可用时返回 null 并输出错误。
+- `ABPackageManager` 私有读取激活包根的 Manifest：优先 `ABManifest.bin`，其次 `ABManifest.json`；两者都不可用时初始化失败。
 - `ABBundleLoader` 的物理路径同样只相对激活包根解析，**不做逐文件回退 StreamingAssets**。
-- `ABAssetLoader` 读取 RawFile 时也从激活包根推导内容文件路径。
+- `ABPackageManager` 解析 RawFile Address 并选择 Editor 资产路径或激活包根下的内容路径；`ABRawFileReader` 只读取已解析物理路径。
 - 激活根由激活流程显式切换：`RuntimePathManager.SwitchToNewBuild(...)`（本地热更包）或 `ActivateBuiltInPackage()`（内置包），两者互斥，后调用者生效。退化到内置包只改写 `ActivePackageRoot`，不改写 `CurrentGUIDRoot` 与 `Mode`。
 
 不存在“Manifest 来自 Local、单个内容文件回退 BuiltIn”的混合读取。
@@ -24,7 +24,7 @@
 `ABPackageManager.InitializePackageAsync()`：
 
 1. Editor PlayMode 下走 `InitializeEditorPlayMode()`：`EditorVirtualManifestBuilder` 用 Collector 配置在内存里生成 `ABManifest`，经 `EditorAssetLoader` 用 AssetDatabase 加载（没有 BundleLoader）。
-2. 否则 `ABManifestLoader.LoadAsync()` → `ABBundleLoader` → `ABAssetLoader`。
+2. 否则由 `ABPackageManager` 读取 Manifest、建立 `ABBundleLoader` 与 `ABAssetLoader`。
 3. `InitializeFromManifest` 建立 `ABAssetIndex`；索引不可用（公共 Address 重复）时拒绝初始化。
 4. 场景加载与资源加载共用同一个 `ABBundleLoader`，否则两者会各自持有缓存与引用计数。
 
@@ -146,7 +146,7 @@ Address
 
 ## RawFile
 
-`ABAssetLoader.LoadRawBytesAsync` 直接从激活包根读取内容文件，**不经过 BundleLoader**：RawFile 是普通物理文件，不伪装成 Bundle，也不参与 Bundle 卸载。`LoadRawTextAsync` 在字节结果上按 `encoding`（默认 UTF-8）解码。
+`ABPackageManager` 先按 Address 解析 `ManifestAssetEntry` 与 RawFile `ManifestContentEntry`，再选择物理路径并调用 `ABRawFileReader.ReadBytesAsync(path)`。读取器不解析 Address、不选择包根、不缓存，也不经过 `BundleLoader`；RawFile 是普通物理文件，不参与 Bundle 卸载。`LoadRawTextAsync` 在字节结果上按 `encoding`（默认 UTF-8）解码。
 
 ---
 

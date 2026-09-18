@@ -28,8 +28,7 @@ public static class BuildCommandLine
             switch (buildType.ToLowerInvariant())
             {
                 case "full":
-                    BuildProjectManager.BuildFullPackage();
-                    if (!BuildProjectManager.LastBuildSuccess)
+                    if (!BuildProjectManager.BuildFullPackage().Success)
                     {
                         Debug.LogError("[BuildCommandLine] Full 构建返回失败状态");
                         EditorApplication.Exit(1);
@@ -37,8 +36,7 @@ public static class BuildCommandLine
                     }
                     break;
                 case "hotfix":
-                    BuildProjectManager.BuildHotfix();
-                    if (!BuildProjectManager.LastBuildSuccess)
+                    if (!BuildProjectManager.BuildHotfix().Success)
                     {
                         Debug.LogError("[BuildCommandLine] Hotfix 构建返回失败状态");
                         EditorApplication.Exit(1);
@@ -46,8 +44,7 @@ public static class BuildCommandLine
                     }
                     break;
                 case "standalone":
-                    BuildProjectManager.BuildStandalonePackage();
-                    if (!BuildProjectManager.LastBuildSuccess)
+                    if (!BuildProjectManager.BuildStandalonePackage().Success)
                     {
                         Debug.LogError("[BuildCommandLine] Standalone 构建返回失败状态");
                         EditorApplication.Exit(1);

@@ -107,7 +107,7 @@ public static class PublishSourceCatalog
             return Invalid(candidate, "包清单不可用：" + manifestError);
 
         string contentDir = FYAssetPathUtility.JoinFilePath(sourceDir, manifestReader.ContentDirectoryName);
-        if (!PackageFileScanner.TryScanContentDirectory(sourceDir, contentDir, out List<FileHelper.FileDigest> physical, out string scanError))
+        if (!TryScanContentDirectory(sourceDir, contentDir, out List<FileHelper.FileDigest> physical, out string scanError))
             return Invalid(candidate, "包内容扫描失败：" + scanError);
 
         Dictionary<string, FileHelper.FileDigest> declaredByName = FileHelper.IndexByName(declared);
@@ -123,6 +123,26 @@ public static class PublishSourceCatalog
 
         candidate.IsValid = true;
         return candidate;
+    }
+
+    private static bool TryScanContentDirectory(
+        string packageRoot,
+        string contentDirectory,
+        out List<FileHelper.FileDigest> files,
+        out string error)
+    {
+        if (string.IsNullOrEmpty(contentDirectory) || !FileHelper.DirectoryExists(contentDirectory))
+        {
+            files = new List<FileHelper.FileDigest>();
+            error = string.Empty;
+            return true;
+        }
+
+        return FileHelper.TryScanFiles(
+            contentDirectory,
+            path => FYAssetPathUtility.GetRelativeFilePath(packageRoot, path).Replace('\\', '/'),
+            out files,
+            out error);
     }
 
     private static PublishSourceCandidate Invalid(PublishSourceCandidate candidate, string reason)

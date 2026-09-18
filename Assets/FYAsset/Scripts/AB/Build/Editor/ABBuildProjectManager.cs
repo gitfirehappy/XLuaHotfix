@@ -5,34 +5,14 @@
 /// </summary>
 public static class ABBuildProjectManager
 {
-    public static bool LastBuildSuccess { get; private set; } = true;
+    public static BuildResult BuildFullPackage(BuildExecutionOptions options = null)
+        => BuildProjectRunner.BuildFullPackage("AB", () => new ABBuildBackend(), options);
 
-    public static void BuildFullPackage(BuildExecutionOptions options = null)
-    {
-        LastBuildSuccess = BuildProjectRunner.BuildFullPackage(
-            "AB",
-            () => new ABBuildBackend(),
-            options,
-            attemptDelivery: true);
-    }
+    public static BuildResult BuildHotfix(BuildExecutionOptions options = null)
+        => BuildProjectRunner.BuildHotfix("AB", () => new ABBuildBackend(), options);
 
-    public static void BuildHotfix(BuildExecutionOptions options = null)
-    {
-        LastBuildSuccess = BuildProjectRunner.BuildHotfix(
-            "AB",
-            () => new ABBuildBackend(),
-            options,
-            attemptDelivery: true);
-    }
-
-    public static void BuildStandalonePackage(BuildExecutionOptions options = null)
-    {
-        LastBuildSuccess = BuildProjectRunner.BuildStandalone(
-            "AB",
-            () => new ABBuildBackend(),
-            options,
-            attemptDelivery: true);
-    }
+    public static BuildResult BuildStandalonePackage(BuildExecutionOptions options = null)
+        => BuildProjectRunner.BuildStandalone("AB", () => new ABBuildBackend(), options);
 
     public static void ResetGroupsToOriginal()
     {

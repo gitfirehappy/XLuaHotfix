@@ -67,13 +67,9 @@ public static class RuntimeErrorCodes
 [Serializable]
 public class RuntimeMessage
 {
-    #region 字段
-
     public readonly RuntimeSeverity Severity;
     public readonly string Code;
     public readonly string Message;
-
-    #endregion
 
     #region 构造（私有 — 只能通过工厂方法创建）
 

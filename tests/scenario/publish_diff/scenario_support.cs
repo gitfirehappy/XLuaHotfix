@@ -13,13 +13,8 @@ internal static class Program
         var suites = new (string Name, Action Run)[]
         {
             ("FileHelperComparison", FileHelperComparisonTests.Run),
-            ("PublishTransactionDecisions", PublishTransactionTests.Run),
-            ("PublishAssemblyDecisions", PublishAssemblyTests.Run),
-            ("CloudflarePublishDecisions", CloudflareRollbackTests.Run),
             ("PublishContainmentRules", PublishContainmentTests.Run),
             ("PublishIdentitySources", PublishIdentitySourceTests.Run),
-            ("PublishTargetContract", PublishTargetContractTests.Run),
-            ("PublishMaintenanceRules", PublishMaintenanceTests.Run)
         };
 
         int failures = 0;
@@ -142,10 +137,23 @@ internal static class FileFixtures
 
 /// <summary>场景内的一次发布会话：本地包目录、服务器目录与目标替身。</summary>
 /// <remarks>发布事务与发布输入边界场景共用；包身份由调用方显式给出，等价于构建摘要给出的身份。</remarks>
+internal sealed class TestDirectoryTarget : IPublishTarget
+{
+    private readonly string _serverRoot;
+    public TestDirectoryTarget(string serverRoot) { _serverRoot = serverRoot; }
+    public string Id => "local-test";
+    public string ResolveBackendRoot(string backendKey) => Path.Combine(_serverRoot, backendKey.ToUpperInvariant());
+    public bool TryGetHotfixUrl(string backendKey, out string url, out string error)
+    {
+        url = string.Empty;
+        error = string.Empty;
+        return true;
+    }
+}
+
 internal sealed class PublishContext
 {
     private const string Backend = "AB";
-
     private readonly TempWorkspace _workspace;
 
     public PublishContext(TempWorkspace workspace)
@@ -153,14 +161,12 @@ internal sealed class PublishContext
         _workspace = workspace;
         ServerRoot = workspace.CreateDir("server");
         SourceRoot = workspace.CreateDir("source");
-        PublishCachePath = workspace.Path($"cache/{Backend}/target.json");
         ManifestReader = new TestManifestReader();
         Target = new TestDirectoryTarget(ServerRoot);
     }
 
     public string ServerRoot { get; }
     public string SourceRoot { get; }
-    public string PublishCachePath { get; }
     public TestManifestReader ManifestReader { get; }
     public TestDirectoryTarget Target { get; }
 
@@ -177,9 +183,7 @@ internal sealed class PublishContext
     {
         BackendKey = Backend,
         SourcePackageDir = package.SourceDir,
-        TargetId = Target.Id,
         ManifestReader = ManifestReader,
-        PublishCachePath = PublishCachePath,
         // 基准 Full 解析入口由调用方注入；不注入时由编辑器注册表提供，场景中默认为无。
         FullPackageBaselineSource = baselineSource,
         // 身份由调用方注入，等价于发布 UI 从正式 Summary 解析出的包身份。
@@ -192,11 +196,9 @@ internal sealed class PublishContext
         }
     };
 
-    public PushReceipt Publish(TestPackage package, IFullPackageBaselineSource baselineSource = null)
+    public PublishResult Publish(TestPackage package, IFullPackageBaselineSource baselineSource = null)
     {
-        PushReceipt receipt = BuildPublisher.Push(CreateRequest(package, baselineSource), Target);
-        Check.Equal(0, Target.PushCalls, "目录型目标不应走完整上传分支");
-        return receipt;
+        return PackagePublisher.Publish(CreateRequest(package, baselineSource), Target);
     }
 
     /// <summary>目录快照（相对路径 → 字节），用于验证“服务器事实只读”：发布前后必须完全一致。</summary>

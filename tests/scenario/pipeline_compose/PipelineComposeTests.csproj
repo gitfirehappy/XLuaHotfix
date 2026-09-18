@@ -15,13 +15,12 @@
     <!-- 生产源码：Runner/Composer 与 Context/结果类型不依赖 UnityEngine/UnityEditor，可被场景真实链接执行 -->
     <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Pipeline/Editor/BuildPipelineRunner.cs" Link="Production/BuildPipelineRunner.cs" />
     <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Pipeline/Editor/BuildPipelineComposer.cs" Link="Production/BuildPipelineComposer.cs" />
-    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Pipeline/Editor/BuildPipelineException.cs" Link="Production/BuildPipelineException.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Pipeline/Editor/BuildPipelineResult.cs" Link="Production/BuildPipelineResult.cs" />
     <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Pipeline/Editor/Tasks/CoreTaskSlot.cs" Link="Production/CoreTaskSlot.cs" />
     <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Pipeline/Editor/Tasks/CustomTaskEntry.cs" Link="Production/CustomTaskEntry.cs" />
-    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Pipeline/Editor/BuildPipelineRequest.cs" Link="Production/BuildPipelineRequest.cs" />
-    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Pipeline/Editor/BuildRunResult.cs" Link="Production/BuildRunResult.cs" />
+
     <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Pipeline/Editor/IBuildRunEnvironment.cs" Link="Production/IBuildRunEnvironment.cs" />
-    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Pipeline/Editor/BuildContext.cs" Link="Production/BuildContext.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Pipeline/Editor/BuildRunContext.cs" Link="Production/BuildRunContext.cs" />
     <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Pipeline/Editor/Tasks/IBuildTask.cs" Link="Production/IBuildTask.cs" />
     <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Pipeline/Editor/Tasks/BuildTaskResult.cs" Link="Production/BuildTaskResult.cs" />
     <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Pipeline/Editor/Tasks/BuildTaskResolver.cs" Link="Production/BuildTaskResolver.cs" />

@@ -14,12 +14,12 @@ public class AABuildBackend : IBuildBackend, IBuiltInPackageHandler
 {
     public IBuiltInPackageHandler BuiltInPackageHandler => this;
 
-    public Task<BuildResult> BuildAsync(BuildRequest request, BuildExecutionOptions options)
+    public Task<BuildBackendResult> BuildAsync(BuildRequest request, BuildExecutionOptions options)
     {
         var config = AssetDatabase.LoadAssetAtPath<BuildPipelineConfig>(
             FYAssetAASettings.Instance.BuildPipelineConfigPath);
         if (config == null)
-            return Task.FromResult(BuildResult.Fail(
+            return Task.FromResult(BuildBackendResult.Fail(
                 BuildMessage.Error(BuildErrorCodes.SettingNull, "未找到 AA BuildPipelineConfig。", nameof(AABuildBackend))));
 
         try
@@ -32,27 +32,28 @@ public class AABuildBackend : IBuildBackend, IBuiltInPackageHandler
             // 主干固定 5 段，自定义 Task 只能插入到合法槽位；组装失败一律致命。
             IReadOnlyList<IBuildTask> tasks = AAPipelineBackbone.ComposeTasks(config);
 
-            var runRequest = new BuildPipelineRequest(request, options, new EditorBuildRunEnvironment());
             Debug.Log($"[{nameof(AABuildBackend)}] 启动 AA Pipeline。BuildType={request.BuildType}, Package={request.PackageName}, Tasks={tasks.Count}");
-            BuildRunResult result = BuildPipelineRunner.Run(runRequest, tasks);
+            BuildPipelineResult result = BuildPipelineRunner.Run(
+                request, options, new EditorBuildRunEnvironment(), tasks);
             if (!result.Success)
             {
                 LogBuildResultErrors(result);
-                return Task.FromResult(BuildResult.Fail(
+                return Task.FromResult(BuildBackendResult.Fail(
                     BuildMessage.Error(BuildErrorCodes.BuildFailed,
                         FirstFailureMessage(result), nameof(AABuildBackend)),
-                    result, request, string.Empty));
+                    result));
             }
 
             Debug.Log($"[{nameof(AABuildBackend)}] AA Pipeline 完成。Completed={result.CompletedTasks}/{result.TotalTasks}");
-            return Task.FromResult(BuildResult.Ok(
-                result, request, string.Empty,
-                result.Context.Get<CompleteBuildSummary>(BuildContextKeys.BuildSummary)));
+            return Task.FromResult(BuildBackendResult.Ok(
+                result,
+                result.Context.Get<CompleteBuildSummary>(BuildContextKeys.BuildSummary),
+                string.Empty));
         }
         catch (Exception ex)
         {
             Debug.LogError($"[{nameof(AABuildBackend)}] AA Pipeline 异常: {ex}");
-            return Task.FromResult(BuildResult.Fail(
+            return Task.FromResult(BuildBackendResult.Fail(
                 BuildMessage.Error(BuildErrorCodes.BuildFailed, ex.Message, nameof(AABuildBackend))));
         }
     }
@@ -63,9 +64,9 @@ public class AABuildBackend : IBuildBackend, IBuiltInPackageHandler
     public void StageBuiltInFiles(BuildRequest request, string stageRoot)
     {
         Debug.Log("[AABuildBackend] 正在暂存 AA 内置包清单...");
-        StageFileIfExists(request.OutputDir, stageRoot, FYAssetSettings.AA_MANIFEST_FILE_NAME);
-        StageFileIfExists(request.OutputDir, stageRoot, FYAssetSettings.AA_MANIFEST_FILE_NAME_BIN);
-        StageFileIfExists(request.OutputDir, stageRoot, FYAssetSettings.ADDRESSABLES_CATALOG_FILE_NAME);
+        StageFileIfExists(request.TemporaryOutputDir, stageRoot, FYAssetSettings.AA_MANIFEST_FILE_NAME);
+        StageFileIfExists(request.TemporaryOutputDir, stageRoot, FYAssetSettings.AA_MANIFEST_FILE_NAME_BIN);
+        StageFileIfExists(request.TemporaryOutputDir, stageRoot, FYAssetSettings.ADDRESSABLES_CATALOG_FILE_NAME);
     }
 
     public IReadOnlyList<BundleDownloadItem> LoadStagedBundles(string stageRoot)
@@ -136,7 +137,7 @@ public class AABuildBackend : IBuildBackend, IBuiltInPackageHandler
     /// <summary>
     /// 把失败 Task 结果写成 Warning。
     /// </summary>
-    private static void LogBuildResultErrors(BuildRunResult result)
+    private static void LogBuildResultErrors(BuildPipelineResult result)
     {
         if (result?.TaskResults == null)
             return;
@@ -154,7 +155,7 @@ public class AABuildBackend : IBuildBackend, IBuiltInPackageHandler
     /// 首个失败 Task 的错误码与消息。Runner 首个失败即停，因此它就是本次构建的根因；
     /// 后端只做展示，不做裁剪或重试。
     /// </summary>
-    private static string FirstFailureMessage(BuildRunResult result)
+    private static string FirstFailureMessage(BuildPipelineResult result)
     {
         if (result?.TaskResults != null)
         {

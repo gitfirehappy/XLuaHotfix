@@ -392,22 +392,23 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
 
         try
         {
+            BuildResult result;
             switch (_buildMode)
             {
                 case BuildType.Full:
-                    BuildFullPackage(options);
+                    result = _actions.BuildFull(options);
                     break;
                 case BuildType.Hotfix:
-                    BuildHotfix(options);
+                    result = _actions.BuildHotfix(options);
                     break;
                 case BuildType.Standalone when _actions.BuildStandalone != null:
-                    _actions.BuildStandalone(options);
+                    result = _actions.BuildStandalone(options);
                     break;
                 default:
                     throw new InvalidOperationException($"{_panelName} 不支持 {_buildMode} 构建。");
             }
 
-            bool success = LastBuildSuccess();
+            bool success = result != null && result.Success;
             SetBuildStatus(success ? "构建完成" : "构建失败",
                 success ? new Color(0.3f, 1f, 0.3f) : Color.red);
         }
@@ -427,8 +428,6 @@ public class PipelinePanel : IBuildPipelinePanel, IBuildPipelinePanelVisibility
     private void BuildFullPackage(BuildExecutionOptions options) => _actions.BuildFull(options);
 
     private void BuildHotfix(BuildExecutionOptions options) => _actions.BuildHotfix(options);
-
-    private bool LastBuildSuccess() => _actions.LastBuildSuccess();
 
     /// <summary>将构建过程中的单任务执行状态同步到顺序列表行。</summary>
     private void OnTaskStatusChanged(BuildTaskExecutionEvent evt)

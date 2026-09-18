@@ -7,7 +7,7 @@
 /// </remarks>
 public static class ABHotfixTargetResolver
 {
-    public static bool TryResolve(out PushTargetConfig target, out string error)
+    public static bool TryResolve(out PublishTargetConfig target, out string error)
     {
         FYAssetSettings settings = FYAssetSettings.Instance;
         if (settings == null)
@@ -17,8 +17,7 @@ public static class ABHotfixTargetResolver
             return false;
         }
 
-        return PushTargetConfig.TryResolveById(
-            settings.PushTargets,
+        return settings.TryResolvePublishTarget(
             settings.CurrentABTargetId,
             out target,
             out error);
@@ -27,7 +26,7 @@ public static class ABHotfixTargetResolver
     public static bool TryResolveUrl(out string url, out string error)
     {
         url = string.Empty;
-        if (!TryResolve(out PushTargetConfig target, out error))
+        if (!TryResolve(out PublishTargetConfig target, out error))
             return false;
 
         return target.TryGetHotfixUrl("AB", out url, out error);

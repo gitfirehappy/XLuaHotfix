@@ -20,21 +20,19 @@ public class GenerateAAManifestTask : IBuildTask
 {
     public string TaskName => "GenerateAAManifest";
 
-    public BuildTaskResult Execute(BuildContext ctx)
+    public BuildTaskResult Execute(BuildRunContext ctx)
     {
         var request = ctx.Require<BuildRequest>(BuildContextKeys.BuildRequest);
 
         try
         {
-            AABuildOutputOrganizer.NormalizeBuildOutput(request.OutputDir);
+            AABuildOutputOrganizer.NormalizeBuildOutput(request.TemporaryOutputDir);
         }
         catch (Exception ex)
         {
             return BuildTaskResult.Fail(BuildErrorCodes.BundleFileNotFound,
                 $"AA catalog 规范化失败: {ex.Message}", true);
         }
-
-        ctx.Set(BuildContextKeys.OutputPath, request.OutputDir);
 
         var settings = AddressableAssetSettingsDefaultObject.Settings;
         if (settings == null)
@@ -88,8 +86,8 @@ public class GenerateAAManifestTask : IBuildTask
                 "AA 热更包大小超过阈值，Manifest 发布已中止。", true);
         }
 
-        string jsonSavePath = FYAssetPathUtility.JoinFilePath(request.OutputDir, FYAssetSettings.AA_MANIFEST_FILE_NAME);
-        string binSavePath = FYAssetPathUtility.JoinFilePath(request.OutputDir, FYAssetSettings.AA_MANIFEST_FILE_NAME_BIN);
+        string jsonSavePath = FYAssetPathUtility.JoinFilePath(request.TemporaryOutputDir, FYAssetSettings.AA_MANIFEST_FILE_NAME);
+        string binSavePath = FYAssetPathUtility.JoinFilePath(request.TemporaryOutputDir, FYAssetSettings.AA_MANIFEST_FILE_NAME_BIN);
         string tempManifestPath = jsonSavePath + ".tmp";
 
         FileHelper.TryDelete(tempManifestPath);
@@ -109,12 +107,12 @@ public class GenerateAAManifestTask : IBuildTask
             FileHelper.TryDelete(binSavePath);
 
         ctx.Set(AABuildContextKeys.AAManifest, manifest);
-        Debug.Log($"[{nameof(GenerateAAManifestTask)}] AAManifest 已生成: {request.OutputDir}, Bundles: {manifest.Bundles.Count}");
+        Debug.Log($"[{nameof(GenerateAAManifestTask)}] AAManifest 已生成: {request.TemporaryOutputDir}, Bundles: {manifest.Bundles.Count}");
 
         return BuildTaskResult.Ok(new List<string>
         {
             $"[AA MANIFEST] Bundles: {manifest.Bundles.Count}, TotalSize: {manifest.TotalSize}",
-            $"[AA MANIFEST] Catalog normalized in {request.OutputDir}"
+            $"[AA MANIFEST] Catalog normalized in {request.TemporaryOutputDir}"
         });
     }
 }

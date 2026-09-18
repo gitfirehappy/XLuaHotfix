@@ -81,9 +81,12 @@ public static class DependencyAnalyzer
 
         var implicitCandidates = new Dictionary<string, ImplicitCandidate>();
         var cycleEntries = new List<(string fromPath, string toPath)>();
-        BfsTraverseAll(assets, ownedGUIDs, filterExtensions, graph, implicitCandidates, cycleEntries);
+        var shaderDependencies = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        BfsTraverseAll(
+            assets, ownedGUIDs, filterExtensions, graph, implicitCandidates, cycleEntries, shaderDependencies);
 
         ReportDependencyCycles(cycleEntries, messages);
+        ReportShaderRetentionRequirements(shaderDependencies, messages);
 
         // 忽略路径隐式化：只允许随引用方物理带入，不产生 manifest 条目、不建立 Bundle 边。
         if (ignorePatterns != null && implicitCandidates.Count > 0)
@@ -117,7 +120,8 @@ public static class DependencyAnalyzer
         HashSet<string> filterExtensions,
         BundleDependencyGraph graph,
         Dictionary<string, ImplicitCandidate> implicitCandidates,
-        List<(string fromPath, string toPath)> cycleEntries)
+        List<(string fromPath, string toPath)> cycleEntries,
+        HashSet<string> shaderDependencies)
     {
         var dependencyCache = new Dictionary<string, string[]>(StringComparer.Ordinal);
 
@@ -154,6 +158,9 @@ public static class DependencyAnalyzer
                 {
                     if (ShouldSkip(dep, filterExtensions))
                         continue;
+
+                    if (IsShaderDependency(dep))
+                        shaderDependencies.Add(dep);
 
                     string depGuid = AssetDatabase.AssetPathToGUID(dep);
                     if (string.IsNullOrEmpty(depGuid))
@@ -235,6 +242,41 @@ public static class DependencyAnalyzer
         if (bfsStack.Count > 0)
             bfsStack.RemoveAt(bfsStack.Count - 1);
         bfsGuidSet.Remove(guid);
+    }
+
+    private static void ReportShaderRetentionRequirements(
+        HashSet<string> shaderDependencies,
+        List<BuildMessage> messages)
+    {
+        if (shaderDependencies == null || shaderDependencies.Count == 0)
+            return;
+
+        var ordered = new List<string>(shaderDependencies);
+        ordered.Sort(StringComparer.OrdinalIgnoreCase);
+        for (int i = 0; i < ordered.Count; i++)
+        {
+            string shaderPath = ordered[i];
+            messages.Add(BuildMessage.Warning(
+                BuildErrorCodes.ShaderPlayerRetentionRequired,
+                $"AB 依赖闭包触达 Shader '{shaderPath}'。请通过 Material/Scene、Always Included Shaders、Resources 或 Shader Variant 策略确认 Player 会保留它；构建管线不会修改 GraphicsSettings。",
+                shaderPath));
+        }
+    }
+
+    private static bool IsShaderDependency(string assetPath)
+    {
+        if (string.IsNullOrEmpty(assetPath))
+            return false;
+
+        try
+        {
+            Type mainType = AssetDatabase.GetMainAssetTypeAtPath(assetPath);
+            return mainType != null && typeof(Shader).IsAssignableFrom(mainType);
+        }
+        catch (Exception)
+        {
+            return false;
+        }
     }
 
     /// <summary>报告 BFS 阶段发现的循环依赖（限制前 20 条，避免日志爆炸）</summary>

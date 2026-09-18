@@ -24,7 +24,7 @@ public sealed class AABuildPipelineWindow : BuildPipelineWindowBase
             new AAConfigPanel(),
             new AABuildPanel(),
             new AAReportPanel(),
-            new PublishTargetPanel(BackendModeNames.AA, ApplyHotfixUrl, AAPackageManifestReader.Instance),
+            new PublishTargetPanel(BackendModeNames.AA, ApplyHotfixUrl, AAPackageManifestReader.Instance, () => SummaryFullPackageBaselineSource.Instance),
             new AAHotfixGroupMaintenancePanel()
         };
     }

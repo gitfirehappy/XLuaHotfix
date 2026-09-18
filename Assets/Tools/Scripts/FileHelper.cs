@@ -13,6 +13,8 @@ public static class FileHelper
 {
     private static readonly System.Text.UTF8Encoding Utf8NoBom = new System.Text.UTF8Encoding(false);
 
+    #region Read
+
     /// <summary>
     /// 异步读取文件为字节数组。
     /// Android StreamingAssets 路径 → UnityWebRequest（需主线程）。
@@ -70,6 +72,10 @@ public static class FileHelper
         });
     }
 
+    #endregion
+
+    #region Atomic Write
+
     /// <summary>
     /// 原子写入字节数组。
     /// 先写同目录临时文件，再原子替换到目标路径。
@@ -118,6 +124,10 @@ public static class FileHelper
             TryDelete(tempPath);
         }
     }
+
+    #endregion
+
+    #region File And Directory Operations
 
     /// <summary>
     /// 跨平台文件存在性检查。
@@ -372,6 +382,10 @@ public static class FileHelper
         return maxSizeBytes <= 0 || sizeBytes < maxSizeBytes;
     }
 
+    #endregion
+
+    #region File Digests And Diff
+
     /// <summary>扫描目录并为每个文件创建摘要。nameSelector 为空时使用文件名。</summary>
     public static bool TryScanFiles(
         string rootDir,
@@ -542,6 +556,10 @@ public static class FileHelper
         return false;
     }
 
+    #endregion
+
+    #region Data Types
+
     public readonly struct FileDigest
     {
         public readonly string Name;
@@ -568,4 +586,6 @@ public static class FileHelper
                 && Size == other.Size;
         }
     }
+
+    #endregion
 }

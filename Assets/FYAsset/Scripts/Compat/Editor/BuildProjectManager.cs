@@ -7,40 +7,18 @@ using System;
 /// </summary>
 public static class BuildProjectManager
 {
-    public static bool LastBuildSuccess { get; private set; } = true;
+    public static BuildResult BuildFullPackage(BuildExecutionOptions options = null)
+        => GetSelectedBackend() == BackendMode.ABManifest
+            ? ABBuildProjectManager.BuildFullPackage(options)
+            : AABuildProjectManager.BuildFullPackage(options);
 
-    public static void BuildFullPackage(BuildExecutionOptions options = null)
-    {
-        if (GetSelectedBackend() == BackendMode.ABManifest)
-        {
-            ABBuildProjectManager.BuildFullPackage(options);
-            LastBuildSuccess = ABBuildProjectManager.LastBuildSuccess;
-            return;
-        }
+    public static BuildResult BuildHotfix(BuildExecutionOptions options = null)
+        => GetSelectedBackend() == BackendMode.ABManifest
+            ? ABBuildProjectManager.BuildHotfix(options)
+            : AABuildProjectManager.BuildHotfix(options);
 
-        AABuildProjectManager.BuildFullPackage(options);
-        LastBuildSuccess = AABuildProjectManager.LastBuildSuccess;
-    }
-
-    public static void BuildHotfix(BuildExecutionOptions options = null)
-    {
-        if (GetSelectedBackend() == BackendMode.ABManifest)
-        {
-            ABBuildProjectManager.BuildHotfix(options);
-            LastBuildSuccess = ABBuildProjectManager.LastBuildSuccess;
-            return;
-        }
-
-        AABuildProjectManager.BuildHotfix(options);
-        LastBuildSuccess = AABuildProjectManager.LastBuildSuccess;
-    }
-
-    public static void BuildStandalonePackage(BuildExecutionOptions options = null)
-    {
-        // Standalone 当前仅支持 AB 管线
-        ABBuildProjectManager.BuildStandalonePackage(options);
-        LastBuildSuccess = ABBuildProjectManager.LastBuildSuccess;
-    }
+    public static BuildResult BuildStandalonePackage(BuildExecutionOptions options = null)
+        => ABBuildProjectManager.BuildStandalonePackage(options);
 
     public static void ResetGroupsToOriginal()
     {

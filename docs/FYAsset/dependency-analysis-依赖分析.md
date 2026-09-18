@@ -2,7 +2,7 @@
 
 > **关联代码** | [DependencyAnalysis](../../Assets/FYAsset/Scripts/AB/Build/Collector/Editor/DependencyAnalysis/) · [SharePolicyConfig](../../Assets/FYAsset/Scripts/AB/Build/Collector/SharePolicyConfig.cs) · [ABManifest](../../Assets/FYAsset/Scripts/AB/Runtime/Manifests/ABManifest.cs)
 
-依赖分析在显式采集之后、内容构建之前执行。它发现 Asset 级隐式依赖、建立内容依赖边、决定共享提取，并把新增条目写回构建上下文。它不负责运行时引用计数，也不生成运行时依赖下标。
+依赖分析在显式采集之后、内容构建之前执行。Collect 是唯一的配置读取入口：它冻结 `ABCollectionSnapshot`；Analyze 只消费该快照，发现 Asset 级隐式依赖、建立内容依赖边、决定共享提取，并产出独立的 `ABDependencyAnalysisResult`。它不负责运行时引用计数，也不生成运行时依赖下标。
 
 ---
 
@@ -12,13 +12,14 @@
 
 | 方向 | 内容 |
 |---|---|
-| 读取 | `ABBuildContextKeys.CollectedAssets`（`CollectABAssets` 阶段产出）；`ABBuildContextKeys.SharePolicy`（`SharePolicyConfig`，缺失时回退到 `AssetCollectionSetting.SharePolicy`） |
-| 附加输入 | `AssetCollectionSetting.RawFileRules`（隐式依赖的内容类型判定必须与显式采集同一份规则）、`AssetCollectionSetting.GetEffectiveIgnorePatterns()`、`FYAssetABSettings.DependencyFilterExtensions` |
-| 写入 | 扩展后的 `CollectedAssets`（含提取为共享内容的隐式条目）与 `BundleDependencyGraph` |
-| 失败 | 任一 `BuildMessage.Error`（共享策略冲突、循环诊断升级等）→ Task Fatal，构建阻断；Warning 随结果返回 |
+| 读取 | `ABBuildContextKeys.CollectionSnapshot`：深复制、只读的显式资产、SharePolicy、RawFileRules、有效 IgnorePatterns 与依赖过滤扩展 |
+| 写入 | `ABBuildContextKeys.DependencyAnalysisResult`：分析后的资产与 `BundleDependencyGraph`；不保留 snapshot 引用 |
+| 失败 | 任一 `BuildMessage.Error`、或 Content 成员的类型/入口/Scene/RawFile 约束不合法 → Task Fatal，构建阻断；Warning 随结果返回 |
 
 | 结构 | 职责 |
 |---|---|
+| `ABCollectionSnapshot` | Collect 的唯一冻结输出；持有分析所需配置输入，不允许后续阶段回读 SO 或全局设置 |
+| `ABDependencyAnalysisResult` | Analyze 的唯一输出；持有分析资产与计划依赖图，不持有 snapshot |
 | `CollectedAssetInfo` | 已采集资产及新增隐式资产的构建视图 |
 | `DependencyAnalyzer` | BFS 展开直接依赖、归类归属、收集隐式候选并执行共享决策 |
 | `BundleDependencyGraph` | `FromBundle → ToBundle` 依赖边及触发资产路径（计划图，仅构建期使用） |
@@ -50,6 +51,8 @@ flowchart TD
 ```
 
 过滤不仅看扩展名，也检查路径与 Editor 段；被忽略的编辑器或代码文件不作为运行时资源。精确过滤集合以 `DefaultFilterExtensions`、`ShouldSkip`、`DependencyFilterExtensions` 与 `AssetClassifier` 为准。依赖重复展开与循环诊断属于构建分析，不替代运行时 `ABBundleLoader` 的路径防环检查。
+
+分析闭包实际触达的 Shader 会产生 `SHADER_PLAYER_RETENTION_REQUIRED` Warning，提示通过 Material/Scene、Always Included Shaders、Resources 或 Variant 策略确认 Player 保留；该诊断不自动收集全项目 Shader，也不会修改 `GraphicsSettings`。
 
 ---
 
@@ -91,7 +94,7 @@ Manifest：ManifestContentEntry.DependencyIndices（指向同一 ABManifest.Cont
 运行时：消费 DependencyIndices，不读 Editor 计划图，不自行推导依赖
 ```
 
-- `GenerateABManifestTask` 读取 Unity `AssetBundleManifest` 的实际依赖写入 `ManifestContentEntry.DependencyIndices`；计划图只作为预期诊断，两者不一致时以 Unity 结果为准。
+- `GenerateABManifestTask` 把 `ContentBuildResult.DependencyFileNames` 换算为 `ManifestContentEntry.DependencyIndices`；`ContentBuildResult` 已是 Build 阶段确认的物理事实，Generate 不再读取 `_temp` 或重算摘要。
 - 被复用的历史制品不会出现在本轮 Unity `AssetBundleManifest` 中，因此复用事实必须带回内容级依赖输出文件名才能回放依赖下标。事实记录在正式 Summary 的 `ContentReuseRecord.DependencyFileNames`：null 表示该记录缺少依赖事实，`BuildArtifactReuseService.TryReuse` 会拒绝复用；空集合是合法事实（叶子内容）。
 - `AssetDependencyOrigin` 只服务构建诊断，**不进入运行时 Manifest**。
 

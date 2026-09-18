@@ -10,7 +10,7 @@ public interface IBuildBackend
     /// <summary>内置包（StreamingAssets 启动数据）staging / 校验 / 应用契约；由后端模块提供。</summary>
     IBuiltInPackageHandler BuiltInPackageHandler { get; }
 
-    Task<BuildResult> BuildAsync(BuildRequest request, BuildExecutionOptions options);
+    Task<BuildBackendResult> BuildAsync(BuildRequest request, BuildExecutionOptions options);
 }
 
 public enum BuildType

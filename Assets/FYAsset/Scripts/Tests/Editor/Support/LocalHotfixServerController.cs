@@ -54,7 +54,7 @@ public static class LocalHotfixServerController
         if (!IsPortAvailable(port))
             return LocalHotfixServerStatus.Stopped($"Port {port} is already in use.");
 
-        PushTargetConfig localConfig = FindLocalTarget();
+        PublishTargetConfig localConfig = FindLocalTarget();
         if (localConfig == null)
             return LocalHotfixServerStatus.Stopped("No LocalDirectory push target is configured.");
 
@@ -143,24 +143,20 @@ public static class LocalHotfixServerController
         }
     }
 
-    private static PushTargetConfig FindLocalTarget()
+    private static PublishTargetConfig FindLocalTarget()
     {
-        PushTargetConfig named = PushTargetConfig.FindByName("local");
-        if (named != null && named.Type == PushTargetType.LocalDirectory)
-            return named;
-
         FYAssetSettings settings = FYAssetSettings.Instance;
-        for (int i = 0; settings.PushTargets != null && i < settings.PushTargets.Count; i++)
+        for (int i = 0; settings.PublishTargets != null && i < settings.PublishTargets.Count; i++)
         {
-            PushTargetConfig config = settings.PushTargets[i];
-            if (config != null && config.Type == PushTargetType.LocalDirectory)
+            PublishTargetConfig config = settings.PublishTargets[i];
+            if (config != null)
                 return config;
         }
 
         return null;
     }
 
-    // 与 CloudflarePagesPushTarget 中的 PATH 查找相互独立：这里为本地测试服务私有实现。
+    // 与发布目标配置中的远端路径查找相互独立：这里为本地测试服务私有实现。
     private static string FindPythonExecutable()
     {
         string pathValue = Environment.GetEnvironmentVariable("PATH") ?? string.Empty;

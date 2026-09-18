@@ -17,10 +17,9 @@ public sealed class AABuildPanel : IBuildPipelinePanel, IBuildPipelinePanelVisib
         {
             BuildFull = AABuildProjectManager.BuildFullPackage,
             BuildHotfix = AABuildProjectManager.BuildHotfix,
-            LastBuildSuccess = () => AABuildProjectManager.LastBuildSuccess,
         },
         AAPipelineConfigUpgrade.TryUpgrade,
-        () => BuildProjectRunner.LastSummary);
+        () => null);
 
     public string PanelName => "AA Build";
 

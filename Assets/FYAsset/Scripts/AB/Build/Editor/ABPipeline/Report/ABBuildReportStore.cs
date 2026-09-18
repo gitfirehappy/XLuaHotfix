@@ -23,7 +23,7 @@ public static class ABBuildReportStore
     {
         string packageName = request != null && !string.IsNullOrEmpty(request.PackageName)
             ? request.PackageName
-            : "UnknownPackage_" + DateTime.UtcNow.ToString(BuildRequest.PackageTimestampFormat);
+            : "UnknownPackage_" + DateTime.UtcNow.ToString(PackageBuildIdentity.PackageTimestampFormat);
 
         string fileName = packageName + "_ABBuildReport" + ReportFileExtension;
         return FYAssetPathUtility.JoinFilePath(ReportsDirectory, fileName);

@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Threading.Tasks;
 using UnityEngine;
 
@@ -11,8 +10,6 @@ internal interface IABAssetLoader
         ManifestAssetEntry entry, ManifestContentEntry content) where T : UnityEngine.Object;
     (T asset, string contentFileName, RuntimeMessage error) LoadAssetTupleSync<T>(
         ManifestAssetEntry entry, ManifestContentEntry content) where T : UnityEngine.Object;
-    Task<(byte[] data, RuntimeMessage error)> LoadRawBytesAsync(
-        ManifestAssetEntry entry, ManifestContentEntry content);
     void UnloadByAddress(string address);
     void UnloadAllContent();
 }
@@ -135,25 +132,6 @@ internal sealed class ABAssetLoader : IABAssetLoader
 
         _assetCache[entry.Address] = new AssetCacheEntry { Asset = asset, ContentFileName = content.FileName };
         return (asset, content.FileName, null);
-    }
-
-    public async Task<(byte[] data, RuntimeMessage error)> LoadRawBytesAsync(
-        ManifestAssetEntry entry, ManifestContentEntry content)
-    {
-        if (entry == null || content == null || content.ContentType != AssetContentType.RawFile)
-            return (null, RuntimeMessage.InvalidPayloadKind(entry?.Address, AssetContentType.RawFile.ToString(), content?.ContentType.ToString()));
-        string root = RuntimePathManager.ActivePackageRoot;
-        if (string.IsNullOrEmpty(root))
-            return (null, RuntimeMessage.BundleNotFound(content.FileName));
-        string path = FYAssetPathUtility.JoinFilePath(root, FYAssetSettings.BUNDLES_DIRECTORY_NAME, content.FileName);
-        try
-        {
-            return (await FileHelper.ReadAllBytesAsync(path), null);
-        }
-        catch (Exception ex)
-        {
-            return (null, RuntimeMessage.LoadFailed(entry.Address, ex.Message));
-        }
     }
 
     public void UnloadByAddress(string address)

@@ -27,7 +27,7 @@ Runner **不理解后端**：它只接受已经组装好的 Task 列表，不读
 
 ### IBuildTask — Task 接口
 
-每个 Task 只声明唯一的 `TaskName`，并通过 `Execute(BuildContext)` 完成一个构建步骤。
+每个 Task 只声明唯一的 `TaskName`，并通过 `Execute(BuildRunContext)` 完成一个构建步骤。
 
 实现要求：
 
@@ -35,20 +35,20 @@ Runner **不理解后端**：它只接受已经组装好的 Task 列表，不读
 - `TaskName` 全局唯一，且不得与主干阶段同名
 - `Execute` 同步返回结果（Unity AssetBundle API 本身是同步的）
 
-### BuildContext — 数据总线
+### BuildRunContext — 数据总线
 
-Task 之间不直接通信，所有数据通过 `BuildContext` 传递。内部是 `Dictionary<string, object>`，提供类型安全的 `Set<T>` / `Get<T>` / `Require<T>` / `Has` 方法。
+Task 之间不直接通信，所有数据通过 `BuildRunContext` 传递。内部是 `Dictionary<string, object>`，提供类型安全的 `Set<T>` / `Get<T>` / `Require<T>` / `Has` 方法。
 
 - `Get<T>` — Key 不存在返回 `default(T)`
 - `Require<T>` — Key 不存在抛出异常
 - `Has` — 检查 Key 是否存在
 
-构建只通过 Context 传递构建事实（配置、请求、模式、输出路径、校验结果与摘要）；交付清单与历史差异不进入 Context，由交付事务与发布事务各自持有。中性键名集中在 Shared 的 `BuildContextKeys`，后端私有键放在 `ABBuildContextKeys` / `AABuildContextKeys`：
+构建只通过 `BuildRunContext` 传递本次运行的可变阶段数据；它不负责冻结或深复制领域对象。AB 的冻结输入与分析输出分别由 `ABCollectionSnapshot`、`ABDependencyAnalysisResult` 拥有。中性键名集中在 Shared 的 `BuildContextKeys`，后端私有键放在 `ABBuildContextKeys` / `AABuildContextKeys`：
 
 | Key 常量类 | 键 |
 |---|---|
 | `BuildContextKeys` | `BuildConfig`、`BuildRequest`、`BuildType`、`OutputPath`、`DeferPackagePublication`、`BuildVerificationResult`、`BuildSummary`、`BuildStartedAtUtc` |
-| `ABBuildContextKeys` | `ABManifest`、`CollectedAssets`、`SharePolicy`、`BundleDependencyGraph`、`BundleBuildResults`、`ABDeliveryContents`、`ABDeliveryPreviewMode`、`BuildRecipeFingerprint` |
+| `ABBuildContextKeys` | `CollectionSnapshot`、`DependencyAnalysisResult`、`ABManifest`、`BundleBuildResults`、`ABDeliveryContents`、`ABDeliveryPreviewMode`、`BuildRecipeFingerprint` |
 | `AABuildContextKeys` | `AAManifest`、`AASourceScan` |
 
 ### BuildPipelineRunner — 线性执行器
@@ -61,9 +61,9 @@ Task 之间不直接通信，所有数据通过 `BuildContext` 传递。内部�
 4. 先对全部 Task 报 `Pending`，再逐个报 `Running` 并按 `Success|Failed` 报结果，剩余 Task 报 `Skipped`。
 5. **首个失败即停**：即使 Task 声明 `IsFatal = false`，Runner 同样中止后续 Task，因为后续 Task 会消费不完整的 Context。（`BuildTaskResult.IsFatal` 字段仍存在，但当前不改变 Runner 的调度决策。）
 6. Task 抛出异常或返回 null 时转换为 `TASK_EXECUTION_ERROR` / `NULL_RESULT` 失败结果。
-7. 失败时调用 `IBuildAttempt.Discard()` 回收 attempt，正式输出与构建事实保持运行前状态。
-8. 成功后 `IBuildAttempt.TryPromote(out IBuildDeliveryToken, out string error)` 提升正式输出；提升失败按失败处理。
-9. 把交付 token 交给调用方，由调用方在自己的事务边界 `Commit` / `Rollback`。
+7. 失败时调用 `BuildOutputDelivery.Rollback()` 回收 attempt，正式输出与构建事实保持运行前状态。
+8. 成功后 `BuildOutputDelivery.Deliver(temporaryOutputDir, finalOutputDir)` 提升正式输出；提升失败按失败处理。
+9. 把交付结果 交给调用方，由调用方在自己的事务边界 `Commit` / `Rollback`。
 
 Runner **不提供**：whitelist、stop-after、自由 DAG、可编辑主干、后端工厂、PackageIndex、历史 baseline 语义、发布和版本回滚（逐项现状见文末“已移除的旧管线能力”）。预览功能直接调用无副作用的扫描或 Diff 服务，不通过截断生产管线实现。
 
@@ -84,7 +84,7 @@ Input 槽 → [主干[0] 槽的自定义 Task] → 主干[0] → … → 主干[
 - `CoreTaskSlot(Slot, Task)`：主干阶段名 + 主干 Task 实例。主干 Task 由后端直接 `new`，不经反射。
 - `CustomTaskEntry(TaskName, Slot)`：`Slot` 表示“插入到该槽主干任务之前”，同一槽内多条按配置顺序稳定排列，每槽允许 `0..N` 条。
 - 合法槽位 = `Input` + 全部主干槽位名 + `Output`。
-- 所有校验失败都抛 `BuildPipelineException`，不做静默跳过：空槽位名、重复槽位名、缺主干 Task 实例、空主干、空 TaskName、未知 Slot、重复自定义 TaskName、自定义 Task 与主干同名、TaskName 无法解析。
+- 所有校验失败都抛 `BuildMessage`，不做静默跳过：空槽位名、重复槽位名、缺主干 Task 实例、空主干、空 TaskName、未知 Slot、重复自定义 TaskName、自定义 Task 与主干同名、TaskName 无法解析。
 
 `BuildTaskResolver` 启动时扫描已加载程序集，找出全部 `IBuildTask` 非抽象实现并按 `TaskName` 建索引。**反射只服务自定义 Task，不解析主干。**
 
@@ -125,11 +125,11 @@ CollectABAssets
 
 | 阶段 | 职责 |
 |---|---|
-| `CollectABAssets` | 扫描 Group/Collector，应用排除、RawFile 与 Address/Labels 覆盖，补框架内置内容 |
-| `AnalyzeABDependencies` | 分析 Asset 依赖、显式/隐式来源与共享策略，生成计划图 |
-| `BuildABContent` | 按输入指纹从历史正式 Summary 复用制品；SerializedObject/Scene 走 Unity，RawFile 直接复制 |
-| `GenerateABManifest` | 读取 Unity `AssetBundleManifest` 的实际依赖，生成完整 Asset/Content 映射 |
-| `VerifyABContent` | 校验 Address 唯一、Public 边界、成员关系、Content 类型、依赖、文件集合、Hash/CRC/Size |
+| `CollectABAssets` | 唯一读取 Collection 配置；扫描显式资源并产出深复制、只读的 `ABCollectionSnapshot`。`Assets/Resources/**` 仅作为固定系统来源记录，不进入 AB Content |
+| `AnalyzeABDependencies` | 只消费 snapshot，分析 Asset 依赖、显式/隐式来源与共享策略，产出 `ABDependencyAnalysisResult`；触达 Shader 时只报告 Player 保留诊断 |
+| `BuildABContent` | 只处理已分析的合法 Content：计划文件名、历史制品复用、实际依赖、摘要与最终 `FileName` 冲突校验 |
+| `GenerateABManifest` | 只投影 `ContentBuildResult` 与分析资产，生成完整 Asset/Content 映射及依赖下标，不读 `_temp` |
+| `VerifyABContent` | 只校验 Manifest 到 `ContentBuildResult` 的映射、成员、ContentIndex 与依赖下标，不扫描目录或重算摘要 |
 | `ExportABOutput` | 计算交付内容集合（Hotfix 为相对基准 Full 的新增/修改内容），写 Manifest、包内 BuildIndex 与 `ABDeliveryContents` |
 
 ---
@@ -252,7 +252,7 @@ Build Pipeline 编辑器保留两个独立窗口，菜单入口统一归属 `FYA
 |---|---|
 | 可编辑主干 / DAG / 拓扑排序 | 主干由 AA/AB `PipelineBackbone` 固定定义；Runner 只顺序执行 Composer 结果 |
 | `whitelist` / `stop-after` 预览 | 无该参数；预览改为直接调用无副作用服务 |
-| `TaskEntry.DependsOn` / `BuildTaskListUtility` / `BuildResult` | 已删除；改为 `CustomTaskEntry` + `BuildRunResult` |
+| `TaskEntry.DependsOn` / `BuildTaskListUtility` / `BuildResult` | 已删除；改为 `CustomTaskEntry` + `BuildPipelineResult` |
 | `TaskPrepareContext` / `TaskWritePackageIndex` / `TaskExportLocalBuildData` 等独立 Task | 职责并入 Runner 环境、Export 阶段与 `BuildProjectRunner` 交付事务 |
 | 生产管线截断预览（`BuildPreviewRunner`、`*RepositoryPreview`） | 已删除 |
 | Runner 内的 PackageIndex 写入与 baseline 提交 | 已删除；PackageIndex 由发布事务最后写入 |

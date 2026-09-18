@@ -13,8 +13,7 @@ internal static class Program
         {
             ("ComposeOrder", PipelineComposeTests.DeclareOrder),
             ("ComposeFailures", PipelineComposeTests.DeclareFailures),
-            ("RunExecutionContract", PipelineRunTests.DeclareExecution),
-            ("RunAttemptContract", PipelineRunTests.DeclareAttempt)
+            ("RunExecutionContract", PipelineRunTests.DeclareExecution)
         };
 
         int failures = 0;
@@ -107,79 +106,27 @@ internal static class Check
     public static void Null(object value, string message) => True(value == null, message);
 }
 
-/// <summary>
-/// BuildRequest 的最小替身：Runner 不解释包结构，只把它透传给运行环境。
-/// </summary>
+/// <summary>BuildRequest 的最小替身：Runner 只把请求透传给运行环境。</summary>
 public sealed class BuildRequest
 {
-    public bool IsAttemptLayout;
-    public string OutputDir = string.Empty;
-    public string DeliveryOutputDir = string.Empty;
+    public string TemporaryOutputDir = string.Empty;
+    public string FinalOutputDir = string.Empty;
     public string PackageName = "Build_test";
 }
 
-/// <summary>记录调用顺序的运行环境替身；PrepareContext 与 BeginAttempt 都可记录调用次数。</summary>
+/// <summary>记录 Context 准备调用的运行环境替身。</summary>
 internal sealed class FakeRunEnvironment : IBuildRunEnvironment
 {
     public int PrepareCalls;
-    public int BeginCalls;
-    public FakeAttempt Attempt = new FakeAttempt();
     public Exception PrepareException;
-    public Exception BeginException;
 
-    public void PrepareContext(BuildContext context, BuildPipelineRequest request)
+    public void PrepareContext(BuildRunContext context, BuildRequest request)
     {
         PrepareCalls++;
         if (PrepareException != null)
             throw PrepareException;
-
         context.Set("prepared", true);
     }
-
-    public IBuildAttempt BeginAttempt(BuildContext context, BuildPipelineRequest request)
-    {
-        BeginCalls++;
-        if (BeginException != null)
-            throw BeginException;
-
-        return Attempt;
-    }
-}
-
-/// <summary>记录提升与清理调用的 attempt 替身。</summary>
-internal sealed class FakeAttempt : IBuildAttempt
-{
-    public int PromoteCalls;
-    public int DiscardCalls;
-    public bool PromoteSucceeds = true;
-    public string PromoteError = "promote failed";
-    public FakeDeliveryToken Token = new FakeDeliveryToken();
-
-    public bool TryPromote(out IBuildDeliveryToken token, out string error)
-    {
-        PromoteCalls++;
-        if (!PromoteSucceeds)
-        {
-            token = null;
-            error = PromoteError;
-            return false;
-        }
-
-        token = Token;
-        error = null;
-        return true;
-    }
-
-    public void Discard() => DiscardCalls++;
-}
-
-internal sealed class FakeDeliveryToken : IBuildDeliveryToken
-{
-    public int CommitCalls;
-    public int RollbackCalls;
-
-    public void Commit() => CommitCalls++;
-    public void Rollback() => RollbackCalls++;
 }
 
 /// <summary>记录执行顺序的 Task 替身；返回结果可由测试定制。</summary>
@@ -198,7 +145,7 @@ internal sealed class RecorderTask : IBuildTask
 
     public List<string> Log { get; }
 
-    public BuildTaskResult Execute(BuildContext ctx)
+    public BuildTaskResult Execute(BuildRunContext ctx)
     {
         Log?.Add(TaskName);
         return _execute != null ? _execute() : BuildTaskResult.Ok();

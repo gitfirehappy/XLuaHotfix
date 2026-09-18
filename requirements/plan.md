@@ -2,6 +2,6 @@
 
 | Status | File | Scope |
 |---|---|---|
-| Approved / Pending execution | `plan/plan-fyasset-ab-build-chain-simplification-20260912.md` | FYAsset AB build, runtime, hotfix, Summary, delivery, and affected behavior verification |
+| Approved / Executing | `plan/plan-fyasset-build-publish-release-restructure-20260918.md` | FYAsset Build / Publish / Release / UI responsibility simplification, old compatibility removal, directory normalization, and verified commit cleanup |
 
-All previous active plans, drafts, and reviews were archived on 2026-09-12 during queue reset. Historical records remain in `plan/archive/`, `plan/drafts/archive/`, and `review/archive/`.
+Completed plans and their reviews are retained under `plan/archive/` and `review/archive/` with execution evidence.

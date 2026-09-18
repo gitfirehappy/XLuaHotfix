@@ -4,8 +4,7 @@ using UnityEngine;
 using UnityEngine.UIElements;
 
 /// <summary>
-/// FYAsset 全局设置面板：项目名、构建输出、Standalone 与构建索引路径。
-/// 后端专属字段由 AA/AB Config 面板编辑。
+/// FYAsset 全局设置面板：项目名、构建输出、Standalone 与构建索引路径
 /// </summary>
 public class SettingsPanel : IBuildPipelinePanel
 {

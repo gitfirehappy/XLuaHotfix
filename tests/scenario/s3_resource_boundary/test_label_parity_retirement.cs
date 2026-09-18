@@ -222,9 +222,8 @@ internal static class LabelParityRetirementTests
 
         string luaIndexTask = RepoSource.Read(
             "Assets/FYAsset/Scripts/Compat/Editor/Build/LuaScriptsIndexBuildTask.cs");
-        RepoAssert.Contains(luaIndexTask, "Labels = new List<string> { LuaScriptsIndex.AssetAddress }",
-            "AB LuaScriptsIndex publication must keep the LuaScriptsIndex label");
-        Add(result, "LuaScriptsIndex", "LuaScriptsIndex");
+        RepoAssert.Contains(luaIndexTask, "indexAsset.Address",
+            "AB LuaScriptsIndex 必须验证显式采集的稳定 Address，而不是动态插入 CollectedAssetInfo。 ");
         return result;
     }
 

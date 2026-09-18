@@ -323,20 +323,13 @@ public static class BuildTestState
             if (!seen.Add(id))
                 throw new InvalidOperationException("Duplicate target id: " + id);
 
-            PushTargetConfig config = PushTargetConfig.FindById(id) ?? PushTargetConfig.FindByName(id);
-            if (config == null)
-                throw new InvalidOperationException("Unknown target id or name: " + id);
+            if (!FYAssetSettings.Instance.TryResolvePublishTarget(id, out PublishTargetConfig config, out string targetError))
+                throw new InvalidOperationException(targetError);
             if (string.IsNullOrWhiteSpace(config.Path))
                 throw new InvalidOperationException("Target Path is empty: " + id);
             if (!config.TryNormalizePublicBaseUrl(out _, out string urlError))
                 throw new InvalidOperationException("Target PublicBaseUrl invalid: " + id + " - " + urlError);
-            if (config.Type != PushTargetType.LocalDirectory && config.Type != PushTargetType.CloudflarePages)
-                throw new InvalidOperationException("Unsupported target type: " + id);
-
-            bool external = config.Type != PushTargetType.LocalDirectory;
-            if (external && !confirmSet.Contains(id))
-                throw new InvalidOperationException(
-                    "External target requires --confirm-external-publish " + id);
+            bool external = false;
 
             string serviceRoot = config.ResolveServiceRoot();
             if (!serviceRoots.Add(FYAssetPathUtility.NormalizePath(serviceRoot)))
@@ -346,7 +339,7 @@ public static class BuildTestState
             snapshots.Add(new BuildTestTargetSnapshot
             {
                 TargetId = config.TargetId,
-                TargetType = config.Type,
+                IsExternal = false,
                 ServiceRoot = serviceRoot,
                 BackendPublishRoot = config.ResolveBackendRoot(backendName),
                 PublicBaseUrl = config.PublicBaseUrl,
@@ -375,14 +368,12 @@ public static class BuildTestState
                 {
                     FileHelper.EnsureDirectory(targetBackup);
                     SnapshotDirectory(target.ServiceRoot, targetBackup, "service");
-                    if (target.TargetType == PushTargetType.CloudflarePages)
-                        AssertCloudflareMirrorConsistent(target);
                 });
 
             var meta = new
             {
                 target.TargetId,
-                target.TargetType,
+                target.IsExternal,
                 target.ServiceRoot,
                 target.PackageIndexUrl,
                 SnapshotAtUtc = DateTime.UtcNow.ToString("o")
@@ -413,8 +404,6 @@ public static class BuildTestState
             () =>
             {
                 RestoreDirectory(target.ServiceRoot, targetBackupRoot, "service");
-                if (target.TargetType == PushTargetType.CloudflarePages)
-                    RedeployCloudflareServiceRoot(target);
             },
             () => DeleteExistingPath(target.ServiceRoot),
             errors);
@@ -483,15 +472,23 @@ public static class BuildTestState
         return BuildPathManager.GetPackageDir(packageName);
     }
 
-    /// <summary>把交付目录发布到目标，并把发布回执写入 publishJsonPath；发布失败抛出。</summary>
-    /// <remarks>不写本地发布缓存：缓存只是发布优化，测试不向项目写入额外状态。</remarks>
-    public static PushReceipt PublishDeliveryToTarget(
+    /// <summary>把交付目录发布到目标，并把发布结果写入 publishJsonPath；发布失败抛出。</summary>
+    public static PublishResult PublishDeliveryToTarget(
         BuildTestBackend backend,
         BuildTestTargetSnapshot target,
         string sourcePackageDir,
         string publishJsonPath)
     {
-        PushTargetConfig config = PushTargetConfig.FindById(target.TargetId);
+        PublishTargetConfig config = null;
+        for (int i = 0; FYAssetSettings.Instance.PublishTargets != null && i < FYAssetSettings.Instance.PublishTargets.Count; i++)
+        {
+            PublishTargetConfig candidate = FYAssetSettings.Instance.PublishTargets[i];
+            if (candidate != null && string.Equals(candidate.TargetId, target.TargetId, StringComparison.OrdinalIgnoreCase))
+            {
+                config = candidate;
+                break;
+            }
+        }
         if (config == null)
             throw new InvalidOperationException("Unknown target id: " + target.TargetId);
 
@@ -509,21 +506,20 @@ public static class BuildTestState
         {
             BackendKey = BuildTestPaths.BackendSegment(backend),
             SourcePackageDir = sourcePackageDir,
-            TargetId = config.TargetId,
             ManifestReader = BuildTestAcceptance.ResolveManifestReader(backend),
             PackagesFolderName = FYAssetSettings.Instance.BuildPackagesFolderName,
             Identity = identity,
             BaseFullSummaryId = document?.BaseFullSummaryId
         };
 
-        PushReceipt receipt = BuildPublisher.Push(request, CompatPushTargetFactory.CreateFull(config));
+        PublishResult result = PackagePublisher.Publish(request, config);
         FileHelper.WriteAllTextAtomic(
             publishJsonPath,
-            SerializationUtility.SerializeToJson(receipt, true));
-        if (receipt == null || !receipt.Success)
+            SerializationUtility.SerializeToJson(result, true));
+        if (result == null || !result.Success)
             throw new InvalidOperationException(
-                $"Publish failed for {target.TargetId}: {receipt?.FailureReason}");
-        return receipt;
+                $"Publish failed for {target.TargetId}: {result?.Error}");
+        return result;
     }
 
     public static PackageIndex ReadPackageIndex(BuildTestTargetSnapshot target)
@@ -856,36 +852,7 @@ public static class BuildTestState
 
     private static void RedeployCloudflareServiceRoot(BuildTestTargetSnapshot target)
     {
-        PushTargetConfig config = PushTargetConfig.FindById(target.TargetId);
-        if (config == null)
-            throw new InvalidOperationException("Cloudflare target missing: " + target.TargetId);
-
-        string wrangler = CloudflarePagesPushTarget.FindExecutableOnPath("wrangler");
-        if (string.IsNullOrEmpty(wrangler))
-            throw new InvalidOperationException("wrangler not found for Cloudflare restore.");
-
-        string args = CloudflarePagesPushTarget.BuildDeployArguments(
-            target.ServiceRoot,
-            FYAssetSettings.Instance.ProjectName);
-        var psi = new System.Diagnostics.ProcessStartInfo
-        {
-            FileName = wrangler,
-            Arguments = args,
-            WorkingDirectory = BuildPathManager.ProjectRoot,
-            UseShellExecute = false,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            CreateNoWindow = true
-        };
-        using var process = System.Diagnostics.Process.Start(psi);
-        if (process == null)
-            throw new InvalidOperationException("Failed to start wrangler for restore.");
-        process.WaitForExit();
-        if (process.ExitCode != 0)
-        {
-            string err = process.StandardError.ReadToEnd();
-            throw new InvalidOperationException("Cloudflare restore deploy failed: " + err);
-        }
+        throw new NotSupportedException("目录发布目标不支持 Cloudflare 部署。");
     }
 
     private static string NormalizeJson(string json)

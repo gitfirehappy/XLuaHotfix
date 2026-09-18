@@ -108,34 +108,6 @@ internal sealed class TestManifestReader : IPackageManifestReader
     }
 }
 
-/// <summary>
-/// 测试用目录型发布目标：服务器内容用本地临时目录表达。
-/// </summary>
-/// <remarks>目录型目标由 BuildPublisher 直接执行发布事务，Push 只在完整上传路径被调用。</remarks>
-internal sealed class TestDirectoryTarget : IDirectoryPushTarget
-{
-    private readonly string _serverRoot;
-
-    public TestDirectoryTarget(string serverRoot)
-    {
-        _serverRoot = serverRoot;
-    }
-
-    public string Id => "local-test";
-
-    /// <summary>完整上传路径调用次数，用于验证目录型目标不会走上传分支。</summary>
-    public int PushCalls { get; private set; }
-
-    public string ResolveBackendRoot(string backendKey) =>
-        Path.Combine(_serverRoot, backendKey.ToUpperInvariant());
-
-    public PushReceipt Push(PushPayload payload)
-    {
-        PushCalls++;
-        throw new NotSupportedException("目录型目标由发布事务直接落地，不应走完整上传分支。");
-    }
-}
-
 /// <summary>测试用发布包：在源目录内构造 Manifest 与 bundles 内容，并生成构建摘要（包身份事实）。</summary>
 internal sealed class TestPackage
 {

@@ -19,23 +19,15 @@ public class ExportABOutputTask : IBuildTask
 {
     public string TaskName => "ExportABOutput";
 
-    public BuildTaskResult Execute(BuildContext ctx)
+    public BuildTaskResult Execute(BuildRunContext ctx)
     {
         var cfg = ctx.Require<BuildConfig>(BuildContextKeys.BuildConfig);
         var request = ctx.Require<BuildRequest>(BuildContextKeys.BuildRequest);
-        var buildType = ctx.Require<BuildType>(BuildContextKeys.BuildType);
+        var buildType = request.BuildType;
         var manifest = ctx.Require<ABManifest>(ABBuildContextKeys.ABManifest);
         var buildResults = ctx.Require<List<ContentBuildResult>>(ABBuildContextKeys.BundleBuildResults);
-
-        string outputDir = request.OutputDir;
+        string outputDir = request.TemporaryOutputDir;
         string bundleOutputDir = request.BundlesDir;
-
-        // attempt 布局下只允许写 attempt 根，禁止触碰 live 出口
-        if (request.IsAttemptLayout && !IsUnderAttemptRoot(outputDir))
-        {
-            return BuildTaskResult.Fail(BuildErrorCodes.BuildFailed,
-                $"attempt 布局下 OutputDir 必须位于 AttemptPackagesRoot 之下。Actual: {outputDir}", true);
-        }
 
         BuildTaskResult planResult = ComputeDeliveryContents(ctx, request, buildType, manifest, out List<ManifestContentEntry> contentsToCopy);
         if (!planResult.Success)
@@ -79,7 +71,7 @@ public class ExportABOutputTask : IBuildTask
         for (int i = 0; i < buildResults.Count; i++)
             totalSize += buildResults[i].Size;
 
-        DateTime startedAt = ctx.Get<DateTime>(BuildContextKeys.BuildStartedAtUtc);
+        DateTime startedAt = ctx.Get<DateTime>(BuildContextKeys.PipelineStartedAtUtc);
         if (startedAt == default)
             startedAt = DateTime.UtcNow;
 
@@ -106,9 +98,6 @@ public class ExportABOutputTask : IBuildTask
 
         CleanupTempDirectory(tempDir);
 
-        // attempt 布局下 OutputPath 仍是 attempt 路径，最终出口由 Runner finalize 推导
-        ctx.Set(BuildContextKeys.OutputPath, outputDir);
-
         messages.Add($"[ORGANIZE] {copiedFiles.Count}/{manifest.ContentEntries.Count} contents → {bundleOutputDir}");
         messages.Add($"[AB MANIFEST] {manifestDescription}");
         return BuildTaskResult.Ok(messages);
@@ -123,7 +112,7 @@ public class ExportABOutputTask : IBuildTask
     /// 完整目标 Manifest 始终随包交付，包内只放变化内容，未变化内容由客户端从当前包复用。
     /// </remarks>
     private static BuildTaskResult ComputeDeliveryContents(
-        BuildContext ctx,
+        BuildRunContext ctx,
         BuildRequest request,
         BuildType buildType,
         ABManifest manifest,
@@ -147,7 +136,7 @@ public class ExportABOutputTask : IBuildTask
             string channel = request.Version.Channel ?? string.Empty;
 
             if (!HotfixBaselineResolver.TryResolve(request.BackendKey, platform, channel,
-                    out string baseFullDir, out CompleteBuildSummary.SummaryDocument baseSummary, out string baselineError))
+                    out string baseFullDir, out string baseFullBuildId, out string baselineError))
             {
                 deliveryContents = new List<ManifestContentEntry>();
                 return BuildTaskResult.Fail(BuildErrorCodes.BuildFailed,
@@ -171,12 +160,12 @@ public class ExportABOutputTask : IBuildTask
             deliveryContents = MapChangedContents(manifest, added, modified);
 
             ctx.Set(ABBuildContextKeys.ABDeliveryContents, deliveryContents);
-            UnityEngine.Debug.Log($"[{nameof(ExportABOutputTask)}] AB Hotfix 相对 Full 差异完成: Base={baseSummary.BuildId}, "
+            UnityEngine.Debug.Log($"[{nameof(ExportABOutputTask)}] AB Hotfix 相对 Full 差异完成: Base={baseFullBuildId}, "
                                   + $"Added={added.Count}, Modified={modified.Count}, "
                                   + $"Unchanged={unchanged.Count}, Delivery={deliveryContents.Count}");
             return BuildTaskResult.Ok(new List<string>
             {
-                $"[AB DIFF] base={baseSummary.BuildId} added={added.Count} modified={modified.Count} "
+                $"[AB DIFF] base={baseFullBuildId} added={added.Count} modified={modified.Count} "
                 + $"unchanged={unchanged.Count} removed={removed.Count} delivery={deliveryContents.Count}"
             });
         }
@@ -251,7 +240,7 @@ public class ExportABOutputTask : IBuildTask
 
     /// <summary>把交付内容放进 bundle 输出目录：整包模式全量复制，Hotfix 模式按目标集合落地。</summary>
     private static BuildTaskResult CopyDeliveryContents(
-        BuildContext ctx,
+        BuildRunContext ctx,
         BuildRequest request,
         BuildType buildType,
         List<ManifestContentEntry> contentsToCopy,
@@ -312,7 +301,7 @@ public class ExportABOutputTask : IBuildTask
         ABManifest manifest,
         List<ContentBuildResult> buildResults,
         long totalSize,
-        BuildContext ctx)
+        BuildRunContext ctx)
     {
         summary.Statistics.AssetCount = manifest.AssetEntries != null ? manifest.AssetEntries.Count : 0;
         summary.Statistics.ContentCount = manifest.ContentEntries != null ? manifest.ContentEntries.Count : 0;
@@ -440,23 +429,6 @@ public class ExportABOutputTask : IBuildTask
         {
             // 尽力清理，失败忽略：_temp 不是交付物。
         }
-    }
-
-    private static bool IsUnderAttemptRoot(string dir)
-    {
-        if (string.IsNullOrEmpty(dir))
-            return false;
-
-        string attemptRoot = FYAssetPathUtility.NormalizePath(BuildPathManager.AttemptPackagesRoot);
-        string normalized = FYAssetPathUtility.NormalizePath(dir);
-        StringComparison comparison = Path.DirectorySeparatorChar == '\\'
-            ? StringComparison.OrdinalIgnoreCase
-            : StringComparison.Ordinal;
-        string rootWithSeparator = attemptRoot.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
-            + Path.DirectorySeparatorChar;
-        return !string.IsNullOrEmpty(normalized)
-            && !string.Equals(normalized, attemptRoot, comparison)
-            && normalized.StartsWith(rootWithSeparator, comparison);
     }
 
     private static long SumContentSize(IList<ManifestContentEntry> contents)

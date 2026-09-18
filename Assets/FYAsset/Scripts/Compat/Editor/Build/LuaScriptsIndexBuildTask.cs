@@ -11,14 +11,14 @@ using UnityEngine;
 /// </summary>
 /// <remarks>
 /// AA：重建索引并注册到 Addressables。
-/// AB：按已采集容器重建索引，并把索引资产收编进 CollectedAssets。
-/// 由 BuildPipelineConfig 按名注入到 AA 的 Input 槽与 AB 的 BuildABContent 槽之前。
+/// AB：在 Collect 后读取冻结快照中的容器 Address 重建索引；索引资产必须已由 Collector 显式采集。
+/// 由 BuildPipelineConfig 按名注入到 AA 的 Input 槽与 AB 的 AnalyzeABDependencies 槽之前。
 /// </remarks>
 public sealed class LuaScriptsIndexBuildTask : IBuildTask
 {
     public string TaskName => "LuaScriptsIndexBuildTask";
 
-    public BuildTaskResult Execute(BuildContext ctx)
+    public BuildTaskResult Execute(BuildRunContext ctx)
     {
         var request = ctx.Get<BuildRequest>(BuildContextKeys.BuildRequest);
         if (request == null)
@@ -32,7 +32,7 @@ public sealed class LuaScriptsIndexBuildTask : IBuildTask
         }
         catch (LuaScriptsIndexBuildException ex)
         {
-            return BuildTaskResult.Fail(BuildErrorCodes.LuaIndexInvalid, ex.Message, true);
+            return BuildTaskResult.Fail(BuildErrorCodes.BuildFailed, ex.Message, true);
         }
     }
 
@@ -58,38 +58,49 @@ public sealed class LuaScriptsIndexBuildTask : IBuildTask
         });
     }
 
-    private static BuildTaskResult ExecuteAB(BuildContext ctx)
+    private static BuildTaskResult ExecuteAB(BuildRunContext ctx)
     {
-        var assets = ctx.Get<List<CollectedAssetInfo>>(ABBuildContextKeys.CollectedAssets);
-        if (assets == null || assets.Count == 0)
+        ABCollectionSnapshot snapshot = ctx.Get<ABCollectionSnapshot>(ABBuildContextKeys.CollectionSnapshot);
+        if (snapshot == null || snapshot.CollectedAssets.Count == 0)
         {
             return BuildTaskResult.Fail(BuildErrorCodes.NoCollectedAssets,
-                "CollectABAssets 未产出 Asset。无法构建 LuaScriptsIndex。", true);
+                "CollectABAssets 未产出快照。无法构建 LuaScriptsIndex。", true);
         }
 
+        IReadOnlyList<CollectedAssetInfo> assets = snapshot.CollectedAssets;
         var containerAddresses = new Dictionary<string, string>(StringComparer.Ordinal);
+        CollectedAssetInfo indexAsset = null;
         for (int i = 0; i < assets.Count; i++)
         {
             CollectedAssetInfo asset = assets[i];
-            if (!string.Equals(asset.AssetType, nameof(LuaScriptContainer), StringComparison.Ordinal))
+            if (string.Equals(asset.AssetPath, LuaScriptsIndex.EditorAssetPath, StringComparison.Ordinal))
+                indexAsset = asset;
+            if (!string.Equals(asset.AssetType, AssetTypeKey.FromType(typeof(LuaScriptContainer)), StringComparison.Ordinal))
                 continue;
             containerAddresses[asset.AssetPath] = asset.Address;
         }
 
+        if (indexAsset == null)
+        {
+            return BuildTaskResult.Fail(
+                BuildErrorCodes.BuildFailed,
+                $"LuaScriptsIndex 必须在 Collector 中显式采集: {LuaScriptsIndex.EditorAssetPath}",
+                true);
+        }
+        if (!string.Equals(indexAsset.Address, LuaScriptsIndex.AssetAddress, StringComparison.Ordinal))
+        {
+            return BuildTaskResult.Fail(
+                BuildErrorCodes.BuildFailed,
+                $"LuaScriptsIndex Address 必须为 '{LuaScriptsIndex.AssetAddress}'，实际为 '{indexAsset.Address}'。",
+                true);
+        }
+
         int containerCount = LuaScriptsIndexBuilder.Rebuild(containerAddresses);
-        if (!TryAddLuaScriptsIndex(assets, out bool added, out string error))
-            return BuildTaskResult.Fail(BuildErrorCodes.LuaIndexInvalid, error, true);
-
-        ctx.Set(ABBuildContextKeys.CollectedAssets, assets);
         ValidateABPublishedAssets(assets);
-
-        var warnings = new List<string>
+        return BuildTaskResult.Ok(new List<string>
         {
             $"[LUA INDEX] AB containers={containerCount}"
-        };
-        if (added)
-            warnings.Add("[BOOTSTRAP] LuaScriptsIndex collected.");
-        return BuildTaskResult.Ok(warnings);
+        });
     }
 
     private static AddressableAssetSettings RequireAASettings()
@@ -164,94 +175,39 @@ public sealed class LuaScriptsIndexBuildTask : IBuildTask
 
     private static void ValidateAAPublishedAssets(AddressableAssetSettings settings)
     {
-        AAAssetIndexData indexData = AAAssetIndexBuilder.Build(settings);
-        var publishedAssets = new List<LuaScriptsIndexPublishedAsset>(indexData.AssetEntries.Count);
-        for (int i = 0; i < indexData.AssetEntries.Count; i++)
+        var publishedAssets = new List<LuaScriptsIndexPublishedAsset>();
+        foreach (AddressableAssetGroup group in settings.groups)
         {
-            PackageEntry entry = indexData.AssetEntries[i];
-            publishedAssets.Add(new LuaScriptsIndexPublishedAsset(entry.key, entry.Type));
+            if (group == null)
+                continue;
+
+            foreach (AddressableAssetEntry entry in group.entries)
+            {
+                if (entry == null || entry.IsFolder || string.IsNullOrEmpty(entry.address))
+                    continue;
+
+                string assetPath = AssetDatabase.GUIDToAssetPath(entry.guid);
+                Type mainType = AssetDatabase.GetMainAssetTypeAtPath(assetPath);
+                publishedAssets.Add(new LuaScriptsIndexPublishedAsset(
+                    entry.address,
+                    mainType != null ? mainType.Name : string.Empty,
+                    assetPath));
+            }
         }
 
         LuaScriptsIndexBuilder.ValidatePublishedAssets(publishedAssets);
     }
 
-    private static bool TryAddLuaScriptsIndex(
-        List<CollectedAssetInfo> assets,
-        out bool added,
-        out string error)
-    {
-        added = false;
-        error = null;
-
-        var existingGuids = new HashSet<string>(StringComparer.Ordinal);
-        for (int i = 0; i < assets.Count; i++)
-        {
-            if (!string.IsNullOrEmpty(assets[i].AssetGUID))
-                existingGuids.Add(assets[i].AssetGUID);
-        }
-
-        var index = AssetDatabase.LoadAssetAtPath<LuaScriptsIndex>(LuaScriptsIndex.EditorAssetPath);
-        if (index == null)
-        {
-            error = $"LuaScriptsIndex 不存在: {LuaScriptsIndex.EditorAssetPath}";
-            return false;
-        }
-
-        string guid = AssetDatabase.AssetPathToGUID(LuaScriptsIndex.EditorAssetPath);
-        if (string.IsNullOrEmpty(guid))
-        {
-            error = $"无法取得 LuaScriptsIndex GUID: {LuaScriptsIndex.EditorAssetPath}";
-            return false;
-        }
-
-        if (existingGuids.Contains(guid))
-        {
-            for (int i = 0; i < assets.Count; i++)
-            {
-                if (!string.Equals(assets[i].AssetGUID, guid, StringComparison.Ordinal))
-                    continue;
-                if (!string.Equals(assets[i].Address, LuaScriptsIndex.AssetAddress, StringComparison.Ordinal))
-                {
-                    error = $"LuaScriptsIndex 已被采集但 Address 不正确: {assets[i].Address}";
-                    return false;
-                }
-
-                return true;
-            }
-        }
-
-        string primaryType = nameof(LuaScriptsIndex);
-        assets.Add(new CollectedAssetInfo
-        {
-            AssetPath = LuaScriptsIndex.EditorAssetPath,
-            AssetGUID = guid,
-            Address = LuaScriptsIndex.AssetAddress,
-            AssetType = primaryType,
-            Labels = new List<string> { LuaScriptsIndex.AssetAddress },
-            GroupName = SystemIdentifiers.SharedGroupName,
-            ContentName = BundleNameBuilder.BuildShared(
-                "lua-index",
-                AssetContentType.SerializedObject,
-                primaryType),
-            BundlePackingMode = BundlePackingMode.PackSeparately,
-            ContentType = AssetContentType.SerializedObject,
-            // Lua 索引是运行时按 Address 加载的公共资源，因此保持显式来源与公共标记。
-            DependencyOrigin = AssetDependencyOrigin.Explicit,
-            IsPublic = true
-        });
-        added = true;
-        return true;
-    }
-
-    private static void ValidateABPublishedAssets(List<CollectedAssetInfo> assets)
+    private static void ValidateABPublishedAssets(IReadOnlyList<CollectedAssetInfo> assets)
     {
         var publishedAssets = new List<LuaScriptsIndexPublishedAsset>(assets.Count);
         for (int i = 0; i < assets.Count; i++)
         {
             CollectedAssetInfo asset = assets[i];
+            Type mainType = AssetDatabase.GetMainAssetTypeAtPath(asset.AssetPath);
             publishedAssets.Add(new LuaScriptsIndexPublishedAsset(
                 asset.Address,
-                asset.AssetType,
+                mainType != null ? mainType.Name : string.Empty,
                 asset.AssetPath));
         }
 

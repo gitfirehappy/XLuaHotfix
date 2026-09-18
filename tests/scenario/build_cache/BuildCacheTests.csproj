@@ -13,6 +13,7 @@
     <Compile Include="test_fingerprint_stability.cs" />
     <Compile Include="test_artifact_reuse.cs" />
     <Compile Include="test_content_name_rules.cs" />
+    <Compile Include="test_content_analysis_validation.cs" />
     <Compile Include="stubs/reuse_stubs.cs" />
     <!-- 生产源码：内容指纹与依赖事实换算均为纯 .NET，不含 UnityEngine/UnityEditor 依赖 -->
 
@@ -32,6 +33,15 @@
     <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Editor/Summary/BuildArtifactReuseService.cs" Link="Production/BuildArtifactReuseService.cs" />
     <!-- 内容逻辑名规则：验证 ContentName 不含 Package 前缀与 hash 后缀 -->
     <Compile Include="../../../Assets/FYAsset/Scripts/AB/Build/Collector/CollectorEnums.cs" Link="Production/CollectorEnums.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/AB/Build/Collector/Editor/CollectedAssetInfo.cs" Link="Production/CollectedAssetInfo.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/AB/Build/Collector/Editor/CollectionSystemSource.cs" Link="Production/CollectionSystemSource.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/AB/Build/Collector/Editor/ScanResult.cs" Link="Production/ScanResult.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/AB/Build/Collector/Editor/DependencyAnalysis/ABContentAnalysisValidator.cs" Link="Production/ABContentAnalysisValidator.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Pipeline/Editor/Tasks/BuildTaskResult.cs" Link="Production/BuildTaskResult.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Pipeline/Editor/BuildVerificationResult.cs" Link="Production/BuildVerificationResult.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/AB/Build/Pipeline/Editor/ContentBuildResult.cs" Link="Production/ContentBuildResult.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/AB/Build/Pipeline/Editor/Tasks/VerifyABContentTask.cs" Link="Production/VerifyABContentTask.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Editor/Common/AssetLabelValidator.cs" Link="Production/AssetLabelValidator.cs" />
     <Compile Include="../../../Assets/FYAsset/Scripts/AB/Build/Collector/Editor/SystemIdentifiers.cs" Link="Production/SystemIdentifiers.cs" />
     <Compile Include="../../../Assets/FYAsset/Scripts/AB/Build/Collector/Editor/BundleNameBuilder.cs" Link="Production/BundleNameBuilder.cs" />
   </ItemGroup>

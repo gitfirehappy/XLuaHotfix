@@ -33,11 +33,11 @@
 ### 1.2 差异、缓存与发布
 
 - **FileDigest / FileDiff**: 唯一无状态比较能力。`FileDigest` 是 `Name/Hash/CRC/Size` 纯数据，`FileDiff` 按名称（大小写敏感）分出 Added / Modified / Unchanged / Removed；不读 Git、PackageIndex、缓存或任何历史状态
-- **存储职责分离**: 构建事实（Summary/Index）与历史 `Build_*` 包是制品复用的唯一来源；发布缓存位于 `BuildData/PublishCache/{AA|AB}/{TargetId}.json`（只提示漂移，不改变发布决定）；包目录只含发布内容，不含摘要、报告、日志或失败标记
+- **存储职责分离**: 构建事实（Summary/Index）与历史 `Build_*` 包是制品复用的唯一来源；发布每次读取实时服务器 `PackageIndex`/Manifest，不保存本地发布缓存；包目录只含发布内容，不含摘要、报告、日志或失败标记
 - **构建缓存隔离**: 后端 + 目标平台 + 压缩模式 + Unity/构建格式任一变化都落到不同目录；条目缺少依赖事实时不得复用
-- **BuildPublisher / PackagePublishTransaction**: 读服务器 `PackageIndex` 与其指向的 Manifest → 与本地包做 `FileDiff` → 在服务器隔离目录复用已有 Hash 内容 → 校验新目录 → 就位 → **最后**写 `PackageIndex`；服务器事实不可用时退化为完整上传
-- **PublishMaintenance**: 旧包清理是独立维护入口，只删不被当前 `PackageIndex` 指向的 `Build_*` 目录，索引不可读时拒绝清理；发布本身永不删旧包
-- **PushTarget / CloudflarePagesPushTarget**: `PushTargetConfig` 使用稳定 `TargetId` 和可重命名 `Name`；AB 当前目标由 `CurrentABTargetId` 持久化，AB runtime 与 Publish 共用严格 URL 解析；AA 保留独立 HotfixUrl 语义
+- **PackagePublisher / PackageRemoteReader / PackageContentResolver / PackageUploader**: 读服务器 `PackageIndex` 与其指向的 Manifest → 与本地包做 `FileDiff` → 在服务器隔离目录复用已有 Hash 内容 → 校验新目录 → 就位 → **最后**写 `PackageIndex`；服务器事实不可用时退化为完整上传
+- **PackageRetentionCleaner**: 旧包清理是独立维护入口，只删不被当前 `PackageIndex` 指向的 `Build_*` 目录，索引不可读时拒绝清理；发布本身永不删旧包
+- **PublishTargetConfig**: 目标配置使用稳定 `TargetId` 和可重命名 `Name`；AB 当前目标由 `CurrentABTargetId` 持久化，AB runtime 与 Publish 共用严格 URL 解析；AA 保留独立 HotfixUrl 语义
 
 ### 1.3 构建流程
 

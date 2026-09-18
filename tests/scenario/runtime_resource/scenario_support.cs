@@ -51,6 +51,8 @@ internal static class RuntimeResourceScenarioRunner
             SceneOwnershipTests.OtherOwnersKeepSceneAlive);
         await RunAsync(nameof(EntrySingleFlightTests.SyncFollowerDuringAsyncInflightDoesNotDoubleAcquire),
             EntrySingleFlightTests.SyncFollowerDuringAsyncInflightDoesNotDoubleAcquire);
+        await RunAsync(nameof(RawFileReaderTests.ReadsResolvedPhysicalPathOnly),
+            RawFileReaderTests.ReadsResolvedPhysicalPathOnly);
 
         Console.WriteLine(_failures == 0
             ? "PASS - runtime resource scenarios."

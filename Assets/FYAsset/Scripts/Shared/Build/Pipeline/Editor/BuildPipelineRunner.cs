@@ -2,19 +2,16 @@ using System;
 using System.Collections.Generic;
 
 /// <summary>
-/// 构建管线执行器：顺序执行 Composer 产出的 Task 序列，管理 Context 与 attempt，成功后提升正式输出。
+/// 构建管线执行器：顺序执行调用方提供的 Task 序列。
 /// </summary>
-/// <remarks>
-/// Runner 只执行 Composer 生成的 Task 序列，管理 Context、attempt 和成功后的输出提升；不处理差异、发布或版本回滚。
-/// </remarks>
 public static class BuildPipelineRunner
 {
-    /// <summary>
-    /// 执行一次构建。
-    /// </summary>
-    /// <param name="request">运行请求；Environment 为 null 时只执行任务，不建 Context 标准键、不提升</param>
-    /// <param name="tasks">Composer 产出的 Task 序列，顺序即执行顺序</param>
-    public static BuildRunResult Run(BuildPipelineRequest request, IReadOnlyList<IBuildTask> tasks)
+    /// <summary>准备 Context 后顺序执行 Task；输出交付由 BuildProjectRunner 负责。</summary>
+    public static BuildPipelineResult Run(
+        BuildRequest request,
+        BuildExecutionOptions options,
+        IBuildRunEnvironment environment,
+        IReadOnlyList<IBuildTask> tasks)
     {
         if (request == null)
             throw new ArgumentNullException(nameof(request));
@@ -26,15 +23,10 @@ public static class BuildPipelineRunner
                 "没有可执行的 Task。主干由后端固定定义，请检查 Composer 输入与后端 PipelineBackbone。");
         }
 
-        var context = new BuildContext();
-        IBuildRunEnvironment environment = request.Environment;
+        var context = new BuildRunContext();
         try
         {
             environment?.PrepareContext(context, request);
-        }
-        catch (BuildPipelineException ex)
-        {
-            return SingleErrorResult(ex.Code, ex.Message);
         }
         catch (Exception ex)
         {
@@ -43,45 +35,12 @@ public static class BuildPipelineRunner
                 $"构建环境初始化失败 - {ex.GetType().Name}: {ex.Message}。");
         }
 
-        IBuildAttempt attempt;
-        try
-        {
-            attempt = environment?.BeginAttempt(context, request);
-        }
-        catch (Exception ex)
-        {
-            return SingleErrorResult(
-                BuildErrorCodes.BuildFailed,
-                $"构建 attempt 初始化失败 - {ex.GetType().Name}: {ex.Message}。");
-        }
-
-        BuildRunResult result = ExecuteTasks(context, tasks, request.Options);
-        if (!result.Success)
-        {
-            // 失败不提升：attempt 中间产物直接回收，正式输出与构建缓存保持运行前状态。
-            attempt?.Discard();
-            return result;
-        }
-
-        if (attempt == null)
-            return result;
-
-        if (!attempt.TryPromote(out IBuildDeliveryToken token, out string promoteError))
-        {
-            attempt.Discard();
-            return WithError(
-                result,
-                BuildErrorCodes.BuildFailed,
-                $"构建产物提升失败，正式输出保持原状: {promoteError}");
-        }
-
-        result.DeliveryToken = token;
-        return result;
+        return ExecuteTasks(context, tasks, options);
     }
 
     /// <summary>顺序执行 Task：先全部报 Pending，再逐个执行，首个失败后其余标 Skipped。</summary>
-    private static BuildRunResult ExecuteTasks(
-        BuildContext context,
+    private static BuildPipelineResult ExecuteTasks(
+        BuildRunContext context,
         IReadOnlyList<IBuildTask> tasks,
         BuildExecutionOptions options)
     {
@@ -139,7 +98,7 @@ public static class BuildPipelineRunner
                 completedCount++;
         }
 
-        return new BuildRunResult
+        return new BuildPipelineResult
         {
             Success = !failed && completedCount == tasks.Count,
             TotalTasks = tasks.Count,
@@ -158,9 +117,9 @@ public static class BuildPipelineRunner
         return string.IsNullOrEmpty(task.TaskName) ? task.GetType().Name : task.TaskName;
     }
 
-    private static BuildRunResult SingleErrorResult(string code, string message)
+    private static BuildPipelineResult SingleErrorResult(string code, string message)
     {
-        return new BuildRunResult
+        return new BuildPipelineResult
         {
             Success = false,
             TotalTasks = 0,
@@ -168,12 +127,5 @@ public static class BuildPipelineRunner
             SkippedTasks = 0,
             TaskResults = new List<BuildTaskResult> { BuildTaskResult.Fail(code, message, true) }
         };
-    }
-
-    private static BuildRunResult WithError(BuildRunResult result, string code, string message)
-    {
-        result.Success = false;
-        result.TaskResults.Add(BuildTaskResult.Fail(code, message, true));
-        return result;
     }
 }

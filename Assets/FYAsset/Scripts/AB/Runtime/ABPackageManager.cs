@@ -122,8 +122,20 @@ public sealed class ABPackageManager
     {
         if (!TryResolve(address, AssetContentType.RawFile, out ManifestAssetEntry entry, out ManifestContentEntry content, out RuntimeMessage error))
             return null;
-        var (bytes, loadError) = await _assetLoader.LoadRawBytesAsync(entry, content);
-        return loadError == null ? bytes : null;
+
+        string physicalPath = ResolveRawFilePath(entry, content);
+        if (string.IsNullOrEmpty(physicalPath))
+            return null;
+
+        try
+        {
+            return await ABRawFileReader.ReadBytesAsync(physicalPath);
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"[ABPackageManager] RawFile 读取失败: Address={address}, Path={physicalPath}, Error={ex.Message}");
+            return null;
+        }
     }
 
     public async Task<string> LoadRawTextAsync(string address, Encoding encoding = null)
@@ -137,6 +149,18 @@ public sealed class ABPackageManager
         if (!TryResolve(address, AssetContentType.Scene, out ManifestAssetEntry entry, out ManifestContentEntry content, out RuntimeMessage error))
             return new SceneHandle(error, address, null);
         return await _sceneLoader.LoadSceneAsync(entry, content, mode);
+    }
+
+    private static string ResolveRawFilePath(ManifestAssetEntry entry, ManifestContentEntry content)
+    {
+#if UNITY_EDITOR
+        if (FYAssetABSettings.Instance.PlayMode == EPlayMode.Editor)
+            return entry.AssetPath;
+#endif
+        string root = RuntimePathManager.ActivePackageRoot;
+        return string.IsNullOrEmpty(root)
+            ? null
+            : FYAssetPathUtility.JoinFilePath(root, FYAssetSettings.BUNDLES_DIRECTORY_NAME, content.FileName);
     }
 
     private AssetHandle<T> CreateAssetHandle<T>(ManifestAssetEntry entry, T asset, RuntimeMessage error)

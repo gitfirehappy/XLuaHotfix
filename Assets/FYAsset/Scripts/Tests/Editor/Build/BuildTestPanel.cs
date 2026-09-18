@@ -112,18 +112,18 @@ public sealed class BuildTestPanel : BuildPipelineUIToolkitPanel
         _targetToggles.Clear();
         box.Clear();
         FYAssetSettings settings = FYAssetSettings.Instance;
-        if (settings.PushTargets == null || settings.PushTargets.Count == 0)
+        if (settings.PublishTargets == null || settings.PublishTargets.Count == 0)
         {
-            box.Add(CreateBody("No PushTargets configured."));
+            box.Add(CreateBody("No PublishTargets configured."));
             return;
         }
 
-        for (int i = 0; i < settings.PushTargets.Count; i++)
+        for (int i = 0; i < settings.PublishTargets.Count; i++)
         {
-            PushTargetConfig config = settings.PushTargets[i];
+            PublishTargetConfig config = settings.PublishTargets[i];
             if (config == null || string.IsNullOrEmpty(config.TargetId))
                 continue;
-            var toggle = new Toggle($"{config.Name} ({config.Type})") { value = false };
+            var toggle = new Toggle($"{config.Name}") { value = false };
             toggle.userData = config.TargetId;
             toggle.RegisterValueChangedCallback(_ => RefreshEnabled());
             _targetToggles.Add(toggle);
@@ -207,20 +207,7 @@ public sealed class BuildTestPanel : BuildPipelineUIToolkitPanel
 
     private static List<string> CollectExternalTargets(List<string> targetIds)
     {
-        var selected = new HashSet<string>(targetIds, StringComparer.OrdinalIgnoreCase);
-        var external = new List<string>();
-        List<PushTargetConfig> configs = FYAssetSettings.Instance.PushTargets;
-        for (int i = 0; configs != null && i < configs.Count; i++)
-        {
-            PushTargetConfig config = configs[i];
-            if (config != null
-                && config.Type != PushTargetType.LocalDirectory
-                && selected.Contains(config.TargetId))
-            {
-                external.Add(config.TargetId);
-            }
-        }
-        return external;
+        return new List<string>();
     }
 
     private void RefreshEnabled()

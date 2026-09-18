@@ -20,10 +20,10 @@ public class PrepareAAInputTask : IBuildTask
 {
     public string TaskName => "PrepareAAInput";
 
-    public BuildTaskResult Execute(BuildContext ctx)
+    public BuildTaskResult Execute(BuildRunContext ctx)
     {
         var request = ctx.Require<BuildRequest>(BuildContextKeys.BuildRequest);
-        var buildType = ctx.Require<BuildType>(BuildContextKeys.BuildType);
+        var buildType = request.BuildType;
 
         try
         {

@@ -228,7 +228,7 @@ public static class E2ETestEngine
         public string IsolatedProjectName;
         public string IsolatedPersistentRoot;
         public BuildTestBackend Backend;
-        public PushTargetType TargetType;
+        public bool IsExternal;
         public string PublicBaseUrl;
     }
 
@@ -262,8 +262,8 @@ public static class E2ETestEngine
             BuildTestFixtures.AssertPreflight();
             BuildTestState.SnapshotProject(runRoot, request.Backend);
 
-            ABBuildProjectManager.BuildStandalonePackage();
-            if (!ABBuildProjectManager.LastBuildSuccess)
+            BuildResult build = ABBuildProjectManager.BuildStandalonePackage();
+            if (build == null || !build.Success)
                 throw new InvalidOperationException("Standalone build failed in E2E.");
 
             string buildIndexPath = FYAssetPathUtility.JoinFilePath(
@@ -283,7 +283,7 @@ public static class E2ETestEngine
             var target = new BuildTestTargetSnapshot
             {
                 TargetId = "standalone",
-                TargetType = PushTargetType.LocalDirectory,
+                IsExternal = false,
                 PublicBaseUrl = "http://127.0.0.1:0",
                 RuntimeUrl = "http://127.0.0.1:0"
             };
@@ -765,7 +765,7 @@ public static class E2ETestEngine
             IsolatedProjectName = isolatedProjectName,
             IsolatedPersistentRoot = isolatedPersistentRoot,
             Backend = backend,
-            TargetType = target.TargetType,
+            IsExternal = target.IsExternal,
             PublicBaseUrl = target.PublicBaseUrl
         };
     }
@@ -782,7 +782,7 @@ public static class E2ETestEngine
         if (wipePersistent)
             FileHelper.TryDeleteDirectory(session.IsolatedPersistentRoot, true);
 
-        if (session.TargetType == PushTargetType.LocalDirectory)
+        if (!session.IsExternal)
         {
             if (Uri.TryCreate(session.PublicBaseUrl, UriKind.Absolute, out Uri pub) && pub.Port > 0)
                 LocalHotfixServerController.Port = pub.Port;
@@ -922,20 +922,11 @@ public static class E2ETestEngine
 
     private static void InvokeBuild(BuildTestBackend backend, bool hotfix)
     {
-        if (backend == BuildTestBackend.AA)
-        {
-            if (hotfix) AABuildProjectManager.BuildHotfix();
-            else AABuildProjectManager.BuildFullPackage();
-            if (!AABuildProjectManager.LastBuildSuccess)
-                throw new InvalidOperationException("AA build failed in E2E.");
-        }
-        else
-        {
-            if (hotfix) ABBuildProjectManager.BuildHotfix();
-            else ABBuildProjectManager.BuildFullPackage();
-            if (!ABBuildProjectManager.LastBuildSuccess)
-                throw new InvalidOperationException("AB build failed in E2E.");
-        }
+        BuildResult build = backend == BuildTestBackend.AA
+            ? (hotfix ? AABuildProjectManager.BuildHotfix() : AABuildProjectManager.BuildFullPackage())
+            : (hotfix ? ABBuildProjectManager.BuildHotfix() : ABBuildProjectManager.BuildFullPackage());
+        if (build == null || !build.Success)
+            throw new InvalidOperationException($"{backend} build failed in E2E.");
     }
 
     private static void RetainE2E(BuildTestBackend backend, BuildTestMode mode, int keep)

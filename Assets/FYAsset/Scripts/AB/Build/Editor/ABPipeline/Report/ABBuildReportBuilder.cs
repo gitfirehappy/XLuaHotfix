@@ -11,8 +11,8 @@ public static class ABBuildReportBuilder
 {
     public static ABBuildReport Build(
         BuildRequest request,
-        BuildRunResult runResult,
-        BuildContext context,
+        BuildPipelineResult runResult,
+        BuildRunContext context,
         Stopwatch stopwatch,
         BuildMessage backendError)
     {
@@ -39,7 +39,7 @@ public static class ABBuildReportBuilder
     private static void FillHeader(
         ABBuildReport report,
         BuildRequest request,
-        BuildRunResult runResult,
+        BuildPipelineResult runResult,
         Stopwatch stopwatch,
         BuildMessage backendError)
     {
@@ -52,8 +52,7 @@ public static class ABBuildReportBuilder
         report.Header.BuildTarget = EditorUserBuildSettings.activeBuildTarget.ToString();
         report.Header.Version = request?.Version != null ? request.Version.GetReleaseVersionString() : string.Empty;
         report.Header.PackageName = request?.PackageName ?? string.Empty;
-        // 报表记录最终交付路径（attempt 布局下 OutputDir 是中间状态目录，交付后会被移走）。
-        report.Header.PackagePath = request?.DeliveryOutputDir ?? string.Empty;
+        report.Header.PackagePath = request?.FinalOutputDir ?? string.Empty;
         report.Header.StartedAtUtc = startedAt.ToString("o");
         report.Header.FinishedAtUtc = finishedAt.ToString("o");
         report.Header.DurationSeconds = stopwatch != null ? stopwatch.Elapsed.TotalSeconds : 0d;
@@ -76,7 +75,7 @@ public static class ABBuildReportBuilder
         }
     }
 
-    private static BuildTaskResult FindFirstFailure(BuildRunResult result)
+    private static BuildTaskResult FindFirstFailure(BuildPipelineResult result)
     {
         if (result?.TaskResults == null)
             return null;
@@ -91,7 +90,7 @@ public static class ABBuildReportBuilder
         return null;
     }
 
-    private static void FillTasks(ABBuildReport report, BuildRunResult runResult)
+    private static void FillTasks(ABBuildReport report, BuildPipelineResult runResult)
     {
         if (runResult == null)
             return;

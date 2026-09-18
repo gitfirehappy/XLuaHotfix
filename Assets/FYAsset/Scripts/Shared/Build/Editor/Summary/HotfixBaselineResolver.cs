@@ -16,11 +16,11 @@ public static class HotfixBaselineResolver
         string platform,
         string channel,
         out string packageDir,
-        out CompleteBuildSummary.SummaryDocument fullSummary,
+        out string fullBuildId,
         out string error)
     {
         packageDir = string.Empty;
-        fullSummary = null;
+        fullBuildId = string.Empty;
         error = string.Empty;
 
         BuildSummaryStore store = BuildSummaryStore.CreateDefault();
@@ -41,7 +41,8 @@ public static class HotfixBaselineResolver
             return false;
         }
 
-        if (!store.TryReadSummaryDocument(backendKey, scope.LatestFullSummaryId, out fullSummary, out string readError))
+        if (!store.TryReadSummaryDocument(backendKey, scope.LatestFullSummaryId,
+                out CompleteBuildSummary.SummaryDocument fullSummary, out string readError))
         {
             error = $"基准 Full 摘要不可读: {readError}";
             return false;
@@ -63,6 +64,7 @@ public static class HotfixBaselineResolver
         }
 
         packageDir = candidate;
+        fullBuildId = scope.LatestFullSummaryId;
         return true;
     }
 }

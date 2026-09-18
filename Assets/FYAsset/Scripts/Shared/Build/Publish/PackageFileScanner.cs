@@ -9,7 +9,7 @@ using System.IO;
 /// <remarks>
 /// 文件名统一为包根相对路径，扫描失败时返回原因，由发布流程决定是否中止。
 /// </remarks>
-public static class PackageFileScanner
+internal static class PackageFileScanner
 {
     /// <summary>扫描目录内全部文件，并使用包根相对路径作为名称。</summary>
     public static bool TryScan(string rootDir, out List<FileHelper.FileDigest> files, out string error)

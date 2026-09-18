@@ -9,25 +9,11 @@
 /// </remarks>
 public static class AABuildProjectManager
 {
-    public static bool LastBuildSuccess { get; private set; } = true;
+    public static BuildResult BuildFullPackage(BuildExecutionOptions options = null)
+        => BuildProjectRunner.BuildFullPackage("AA", () => new AABuildBackend(), options);
 
-    public static void BuildFullPackage(BuildExecutionOptions options = null)
-    {
-        LastBuildSuccess = BuildProjectRunner.BuildFullPackage(
-            "AA",
-            () => new AABuildBackend(),
-            options,
-            attemptDelivery: true);
-    }
-
-    public static void BuildHotfix(BuildExecutionOptions options = null)
-    {
-        LastBuildSuccess = BuildProjectRunner.BuildHotfix(
-            "AA",
-            () => new AABuildBackend(),
-            options,
-            attemptDelivery: true);
-    }
+    public static BuildResult BuildHotfix(BuildExecutionOptions options = null)
+        => BuildProjectRunner.BuildHotfix("AA", () => new AABuildBackend(), options);
 
     public static void ResetGroupsToOriginal()
     {

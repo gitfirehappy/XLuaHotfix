@@ -10,7 +10,7 @@ using System.Collections.Generic;
 /// Input 槽 → [主干[0] 槽的自定义 Task] → 主干[0] → [主干[1] 槽的自定义 Task] → 主干[1] → …… → 主干[N-1] → Output 槽。
 /// 自定义条目的 Slot 表示“插入到该槽主干任务之前”，同一槽内的多条按配置顺序稳定排列。
 /// 主干 Task 由后端直接 new，只有自定义 Task 走 BuildTaskResolver 反射解析。
-/// 所有校验失败都抛 <see cref="BuildPipelineException"/>，不做静默跳过。
+/// 所有校验失败都抛 <see cref="InvalidOperationException"/>，不做静默跳过。
 /// </remarks>
 public static class BuildPipelineComposer
 {
@@ -68,21 +68,21 @@ public static class BuildPipelineComposer
             CoreTaskSlot slot = coreTasks[i];
             if (string.IsNullOrWhiteSpace(slot.Slot))
             {
-                throw new BuildPipelineException(
+                throw Failure(
                     BuildErrorCodes.CoreTaskSlotEmpty,
                     $"主干阶段[{i}]没有槽位名。主干槽位名必须是稳定的阶段标识符。");
             }
 
             if (!seenSlots.Add(slot.Slot))
             {
-                throw new BuildPipelineException(
+                throw Failure(
                     BuildErrorCodes.CoreTaskSlotDuplicate,
                     $"主干槽位名重复: '{slot.Slot}'。同一主干内槽位名必须唯一，否则自定义 Task 的插入点有歧义。");
             }
 
             if (slot.Task == null)
             {
-                throw new BuildPipelineException(
+                throw Failure(
                     BuildErrorCodes.CoreTaskSlotMissing,
                     $"主干阶段 '{slot.Slot}' 没有对应的主干 Task 实例。");
             }
@@ -92,7 +92,7 @@ public static class BuildPipelineComposer
 
         if (core.Count == 0)
         {
-            throw new BuildPipelineException(
+            throw Failure(
                 BuildErrorCodes.NoPipelineTasks,
                 "主干阶段定义为空，没有可执行的构建阶段。请检查后端 PipelineBackbone 定义。");
         }
@@ -119,42 +119,42 @@ public static class BuildPipelineComposer
 
             if (string.IsNullOrWhiteSpace(taskName))
             {
-                throw new BuildPipelineException(
+                throw Failure(
                     BuildErrorCodes.CustomTaskNameEmpty,
                     $"管线配置第 {i} 条自定义 Task 的 TaskName 为空。");
             }
 
             if (string.IsNullOrWhiteSpace(entry.Slot))
             {
-                throw new BuildPipelineException(
+                throw Failure(
                     BuildErrorCodes.CustomTaskSlotUnknown,
                     $"自定义 Task '{taskName}' 未声明 Slot，无法确定插入位置。合法槽位: {DescribeLegalSlots(core)}。");
             }
 
             if (!legalSlots.Contains(entry.Slot))
             {
-                throw new BuildPipelineException(
+                throw Failure(
                     BuildErrorCodes.CustomTaskSlotUnknown,
                     $"自定义 Task '{taskName}' 的 Slot '{entry.Slot}' 不是合法槽位。合法槽位: {DescribeLegalSlots(core)}。");
             }
 
             if (!seenTaskNames.Add(taskName))
             {
-                throw new BuildPipelineException(
+                throw Failure(
                     BuildErrorCodes.CustomTaskNameDuplicate,
                     $"管线配置包含重复的自定义 TaskName: '{taskName}'。同一 Task 每次构建只能插入一次。");
             }
 
             if (coreTaskNames.Contains(taskName))
             {
-                throw new BuildPipelineException(
+                throw Failure(
                     BuildErrorCodes.CustomTaskNameConflictsCore,
                     $"自定义 Task 名 '{taskName}' 与主干阶段同名。主干由后端固定定义，不能由配置重复声明。");
             }
 
             if (!BuildTaskResolver.TryCreateTask(taskName, out IBuildTask task, out string error))
             {
-                throw new BuildPipelineException(
+                throw Failure(
                     SelectResolutionErrorCode(taskName),
                     $"自定义 Task 解析失败: {error}");
             }
@@ -186,6 +186,11 @@ public static class BuildPipelineComposer
             names.Add(core[i].Slot);
         names.Add(OutputSlot);
         return string.Join(" / ", names);
+    }
+
+    private static InvalidOperationException Failure(string code, string message)
+    {
+        return new InvalidOperationException($"[{code}] {message}");
     }
 
     /// <summary>配置引用的 TaskName 缺失与“存在但构造失败”用不同错误码，便于区分配置问题与实现问题。</summary>

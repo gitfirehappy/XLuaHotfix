@@ -9,5 +9,5 @@ public interface IBuildTask
     string TaskName { get; }
 
     /// <summary>执行 Task 逻辑，同步返回结果（Unity AB 构建 API 本身同步）</summary>
-    BuildTaskResult Execute(BuildContext ctx);
+    BuildTaskResult Execute(BuildRunContext ctx);
 }

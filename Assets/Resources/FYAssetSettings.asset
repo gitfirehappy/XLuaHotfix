@@ -16,7 +16,7 @@ MonoBehaviour:
   BuildOutputRoot: HotfixOutput
   BuildPackagesFolderName: Packages
   BuildIndexJsonPath: Assets/Build/Bootstrap/BuildIndex.json
-  PushTargets:
+  PublishTargets:
   - TargetId: 6858a0ae-f917-4cde-be71-871a1b2a21f2
     Name: local
     Type: 0
