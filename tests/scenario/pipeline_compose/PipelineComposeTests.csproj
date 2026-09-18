@@ -27,6 +27,6 @@
     <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Pipeline/Editor/Tasks/BuildTaskExecutionStatus.cs" Link="Production/BuildTaskExecutionStatus.cs" />
     <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Pipeline/Editor/Tasks/BuildTaskExecutionEvent.cs" Link="Production/BuildTaskExecutionEvent.cs" />
     <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Pipeline/Editor/BuildExecutionOptions.cs" Link="Production/BuildExecutionOptions.cs" />
-    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Editor/Common/BuildMessage.cs" Link="Production/BuildMessage.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Common/Editor/BuildMessage.cs" Link="Production/BuildMessage.cs" />
   </ItemGroup>
 </Project>

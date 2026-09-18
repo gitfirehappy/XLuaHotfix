@@ -6,10 +6,10 @@
 > `Assets/Build/FYAssetBackendSettings.asset`
 > `Assets/FYAsset/Scripts/AA/Settings/FYAssetAASettings.cs`
 > `Assets/FYAsset/Scripts/AB/Settings/FYAssetABSettings.cs`
-> `Assets/FYAsset/Scripts/Shared/Build/Editor/UI/SettingsPanel.cs`
-> `Assets/FYAsset/Scripts/Shared/Build/Editor/UI/PublishTargetPanel.cs`
+> `Assets/FYAsset/Scripts/Shared/Build/UI/Editor/SettingsPanel.cs`
+> `Assets/FYAsset/Scripts/Shared/Build/UI/Editor/PublishTargetPanel.cs`
 > `Assets/FYAsset/Scripts/AB/Build/Editor/ABPipeline/AssetsCollectionPanel.cs`
-> `Assets/FYAsset/Scripts/Shared/Build/Editor/UI/PipelinePanel.cs`
+> `Assets/FYAsset/Scripts/Shared/Build/UI/Editor/PipelinePanel.cs`
 > `Assets/XLuaFramework/Scripts/Editor/LuaFileCreatorWithName.cs`
 > `Assets/XLuaFramework/Scripts/Editor/LuaDirectoryScanner.cs`
 

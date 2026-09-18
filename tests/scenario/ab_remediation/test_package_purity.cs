@@ -47,7 +47,7 @@ internal static class PackagePurityTests
     {
         // API 契约：构建事实读取入口为 BuildSummaryStore，面板必须经它取得历史包与制品状态。
         GateAssert.Contains(
-            RepoSource.ReadCode("Assets/FYAsset/Scripts/Shared/Build/Editor/Manage/BuildPackageResultsView.cs"),
+            RepoSource.ReadCode("Assets/FYAsset/Scripts/Shared/Build/Manage/Editor/BuildPackageResultsView.cs"),
             "BuildSummaryStore",
             "包管理面板必须从 BuildSummaryStore 读取历史包与制品状态");
     }

@@ -9,7 +9,7 @@ internal static class BackendLabelPanelTests
         {
             "AA/Build/Editor/AAProjectSelectionLabelPanel.cs",
             "AB/Build/Editor/ABPipeline/ABProjectSelectionLabelPanel.cs",
-            "Shared/Build/Editor/Common/ProjectSelectionLabelPanelView.cs"
+            "Shared/Build/Common/Editor/ProjectSelectionLabelPanelView.cs"
         })
             RepoAssert.True(!RepoSource.Exists(root + path), "Independent Labels pages must remain removed: " + path);
 

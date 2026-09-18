@@ -1,6 +1,6 @@
 # 版本号系统
 
-> **关联代码** | [VersionNumber](../../Assets/FYAsset/Scripts/Shared/Build/Versioning/VersionNumber.cs) · [BuildVersionPlanner](../../Assets/FYAsset/Scripts/Shared/Build/Editor/Summary/BuildVersionPlanner.cs) · [BuildSummaryIndex](../../Assets/FYAsset/Scripts/Shared/Build/Editor/Summary/BuildSummaryIndex.cs) · [BuildSummaryStore](../../Assets/FYAsset/Scripts/Shared/Build/Editor/Summary/BuildSummaryStore.cs)
+> **关联代码** | [VersionNumber](../../Assets/FYAsset/Scripts/Shared/Build/Versioning/VersionNumber.cs) · [BuildVersionPlanner](../../Assets/FYAsset/Scripts/Shared/Build/Summary/Editor/BuildVersionPlanner.cs) · [BuildSummaryIndex](../../Assets/FYAsset/Scripts/Shared/Build/Summary/Editor/BuildSummaryIndex.cs) · [BuildSummaryStore](../../Assets/FYAsset/Scripts/Shared/Build/Summary/Editor/BuildSummaryStore.cs)
 
 `VersionNumber` 是含解析与比较逻辑的 struct。发布字符串是 `Major.Minor.Patch[-Channel]`；Build 独立存储，不拼入字符串，也不参与排序和相等性。
 
@@ -25,7 +25,7 @@
 
 没有单独的版本资产：项目版本事实保存在 `BuildData/Summaries/index.json` 的 `BuildSummaryProjectVersion`（`CurrentSuccessfulVersion`、``、``），作用域（后端、平台、通道）记录存在同一个索引的 `Scopes` 里。
 
-候选版本由纯服务 [BuildVersionPlanner](../../Assets/FYAsset/Scripts/Shared/Build/Editor/Summary/BuildVersionPlanner.cs) 计算，它不读写任何存储：
+候选版本由纯服务 [BuildVersionPlanner](../../Assets/FYAsset/Scripts/Shared/Build/Summary/Editor/BuildVersionPlanner.cs) 计算，它不读写任何存储：
 
 - 项目版本全局唯一：Full / Standalone 推进 `Major`（Minor/Patch 清零），Hotfix 推进 `Patch`；无成功基准时 Full/Standalone 从 `1.0.0` 开始，Hotfix 因缺少同作用域基准而直接拒绝。
 - Channel 默认继承当前成功版本，只能在构建确认时显式选择 `alpha` / `beta` / `rc` / `release`（release 映射为无后缀正式版），且禁止通道降级。
@@ -34,7 +34,7 @@
 
 版本提交属于构建事实事务：`BuildProjectRunner` 先提升产物、应用本地启动数据，再写正式 Summary（`BuildData/Summaries/{AA|AB}/{BuildId}.json`，不可变），最后写 Summary Index；任一步失败按逆序回滚，构建失败不推进项目版本。实际事务差异见 [本地交付与发布](./publish-本地交付与发布.md)。
 
-Hotfix 的基准 Full 也从同一份索引定位：按后端、平台、通道取 `LatestFullSummaryId` 后再按摘要的制品路径找到 Full 包目录（[HotfixBaselineResolver](../../Assets/FYAsset/Scripts/Shared/Build/Editor/Summary/HotfixBaselineResolver.cs)）。
+Hotfix 的基准 Full 也从同一份索引定位：按后端、平台、通道取 `LatestFullSummaryId` 后再按摘要的制品路径找到 Full 包目录（[HotfixBaselineResolver](../../Assets/FYAsset/Scripts/Shared/Build/Summary/Editor/HotfixBaselineResolver.cs)）。
 
 ## 热更与数据格式
 

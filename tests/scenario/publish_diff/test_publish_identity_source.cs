@@ -10,7 +10,7 @@ internal static class PublishIdentitySourceTests
     public static void Run()
     {
         string panel = PublishIdentitySourceReader.ReadCode(
-            "Assets/FYAsset/Scripts/Shared/Build/Editor/UI/PublishTargetPanel.cs");
+            "Assets/FYAsset/Scripts/Shared/Build/UI/Editor/PublishTargetPanel.cs");
         Check.Contains(
             panel,
             "PublishSourceCatalog.Read(",
@@ -32,7 +32,7 @@ internal static class PublishIdentitySourceTests
             "发布面板不得扫描裸 Build_* 目录作为发布源");
 
         string catalog = PublishIdentitySourceReader.ReadCode(
-            "Assets/FYAsset/Scripts/Shared/Build/Editor/Summary/PublishSourceCatalog.cs");
+            "Assets/FYAsset/Scripts/Shared/Build/Summary/Editor/PublishSourceCatalog.cs");
         Check.Contains(catalog, "Directory.GetFiles(", "目录器必须枚举正式 Summary 文件");
         Check.Contains(catalog, "ArtifactRelativePath", "目录器必须按 Summary 制品路径定位包");
         Check.Contains(catalog, "TryReadContentDigests(", "目录器必须校验后端清单");

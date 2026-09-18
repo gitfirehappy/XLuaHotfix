@@ -26,11 +26,11 @@
     <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Versioning/VersionNumber.cs" Link="Production/VersionNumber.cs" />
     <Compile Include="../../../Assets/Tools/Scripts/Serialization/BinarySerializableAttribute.cs" Link="Production/BinarySerializableAttribute.cs" />
     <!-- T1 生产源码：版本规划与 Summary 存储不依赖 UnityEngine/UnityEditor 具体实现 -->
-    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Editor/Summary/BuildSummaryIndex.cs" Link="Production/BuildSummaryIndex.cs" />
-    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Editor/Summary/BuildVersionPlanner.cs" Link="Production/BuildVersionPlanner.cs" />
-    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Editor/Summary/BuildSummaryStore.cs" Link="Production/BuildSummaryStore.cs" />
-    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Editor/CompleteBuildSummary.cs" Link="Production/CompleteBuildSummary.cs" />
-    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Editor/Common/BuildMessage.cs" Link="Production/BuildMessage.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Summary/Editor/BuildSummaryIndex.cs" Link="Production/BuildSummaryIndex.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Summary/Editor/BuildVersionPlanner.cs" Link="Production/BuildVersionPlanner.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Summary/Editor/BuildSummaryStore.cs" Link="Production/BuildSummaryStore.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Summary/Editor/CompleteBuildSummary.cs" Link="Production/CompleteBuildSummary.cs" />
+    <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Build/Common/Editor/BuildMessage.cs" Link="Production/BuildMessage.cs" />
     <Compile Include="../../../Assets/Tools/Scripts/FileHelper.cs" Link="Production/FileHelper.cs" />
     <Compile Include="../../../Assets/FYAsset/Scripts/Shared/Helpers/FYAssetPathUtility.cs" Link="Production/FYAssetPathUtility.cs" />
     <Compile Include="stubs/summary_stubs.cs" />

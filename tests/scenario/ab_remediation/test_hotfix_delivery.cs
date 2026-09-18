@@ -51,7 +51,7 @@ internal static class HotfixDeliveryTests
     private static void VerifyBaselineSource()
     {
         string resolver = RepoSource.ReadCode(
-            "Assets/FYAsset/Scripts/Shared/Build/Editor/Summary/HotfixBaselineResolver.cs");
+            "Assets/FYAsset/Scripts/Shared/Build/Summary/Editor/HotfixBaselineResolver.cs");
         GateAssert.Contains(
             resolver, "scope.LatestFullSummaryId",
             "Hotfix 基准必须来自作用域最近成功 Full");

@@ -4,7 +4,7 @@
 
 > **关联代码**
 >
-> `Assets/FYAsset/Scripts/Shared/Build/Editor/CompleteBuildSummary.cs`（`ContentReuseRecord`） · `Shared/Build/Editor/Summary/BuildSummaryStore.cs` · `Shared/Build/Editor/Summary/BuildArtifactReuseService.cs` · `Shared/Build/Editor/Summary/HotfixBaselineResolver.cs`
+> `Assets/FYAsset/Scripts/Shared/Build/Summary/Editor/CompleteBuildSummary.cs`（`ContentReuseRecord`） · `Shared/Build/Summary/Editor/BuildSummaryStore.cs` · `Shared/Build/Summary/Editor/BuildArtifactReuseService.cs` · `Shared/Build/Summary/Editor/HotfixBaselineResolver.cs`
 
 ---
 
